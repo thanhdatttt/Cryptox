@@ -17,39 +17,9 @@
 
 # 📍 Overview
 
-This project builds a platform to **add, combine, backtest, rank, and
-continuously search** crypto trading strategies, with news/sentiment as an
-auxiliary input signal. The grading target is the **software architecture**
-itself - extensibility, decoupling, scalability, and reproducibility - not
-the profitability of any strategy.
+This project builds a platform to **add, combine, backtest, rank, and continuously search** crypto trading strategies, with news/sentiment as an auxiliary input signal. The grading target is the **software architecture** itself - extensibility, decoupling, scalability, and reproducibility - not the profitability of any strategy.
 
-The system consists of the following mandatory components:
-1. **Market Data & Realtime Feed** — an exchange adapter (e.g. Binance) behind
-   a `MarketDataPort`, streaming live candles/prices to the frontend over
-   WebSocket instead of client-side polling.
-2. **Strategy Engine & Plugin Architecture** — a pluggable set of strategies
-   (MA, RSI, Bollinger, Support/Resistance, ...) registered via a
-   `StrategyRegistry`, addable with zero changes to existing engine code.
-3. **Composite Strategy & Search Engine** — rules to combine multiple
-   strategies into one signal, and a swappable search algorithm (random,
-   domain-guided, and optionally genetic/Bayesian) to explore the strategy
-   space.
-4. **Backtesting, Evaluation & Leaderboard** — a worker-based backtest
-   simulator, metrics computed independently of strategy implementation
-   (Return, Win Rate, Max Drawdown, Profit Factor, Sharpe Ratio), and a
-   ranked leaderboard of experiment results.
-5. **Continuous Strategy Loop** — an orchestrated generate → backtest →
-   evaluate → rank pipeline with an explicit, bounded stop condition.
-6. **News & Sentiment (auxiliary)** — a news ingestion module behind a
-   provider abstraction, feeding a separate sentiment analysis service that
-   can fail without affecting realtime market data or charts.
-7. **Dashboard** — a frontend with multi-timeframe charts, strategy builder,
-   leaderboard, and a news/sentiment view, containing no business logic.
-
-A set of Architectural Decision Records (ADRs) documents the reasoning
-behind the key design choices (WebSocket for realtime, Plugin Architecture
-for strategies, Job Queue for backtesting, Sentiment as a separate
-service).
+A set of Architectural Decision Records (ADRs) documents the reasoning behind the key design choices (WebSocket for realtime, Plugin Architecture for strategies, Job Queue for backtesting, Sentiment as a separate service).
 
 ---
 
@@ -57,7 +27,7 @@ service).
 
 | Fullname | Student ID | Role |
 |---|---|---|
-| Pham Thanh Dat | 23127170 | Developer, Leader |
+| Pham Thanh Dat | 23127170 | Developer |
 | Tran Khon Chi | 23127032 | Developer |
 | Mai Xuan Hung | 23127372 | Developer |
 | Nguyen Van Minh | 23127422 | Developer |
@@ -89,7 +59,7 @@ crypto-strategy-lab/                 ← Repository root
 │   └── changes/                        ← Proposed changes (propose → apply → archive)
 │
 ├── docs/
-│   ├── architecture/                   ← C4 diagrams, data-flow docs
+│   ├── design/                          ← C4 diagrams, data-flow docs
 │   └── adr/                             ← Architectural Decision Records
 │       ├── ADR-001-websocket-for-realtime.md
 │       ├── ADR-002-plugin-architecture-for-strategies.md
@@ -110,8 +80,8 @@ crypto-strategy-lab/                 ← Repository root
 │   └── event-bus/                      ← Event definitions + broker adapter
 │
 ├── apps/
-│   ├── backend/                    ← Composes services, exposes REST + WS
-│   └── frontend/                  ← Charts, strategy builder, leaderboard, news tab
+│   ├── backend/                        ← Composes services, exposes REST + WS
+│   └── frontend/                       ← Charts, strategy builder, leaderboard, news tab
 │
 ├── packages/
 │   └── contracts/                      ← Shared DTOs (Signal, Candle, TradeResult, ...)
