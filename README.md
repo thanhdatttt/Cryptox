@@ -38,11 +38,11 @@ A set of Architectural Decision Records (ADRs) documents the reasoning behind th
 # 📁 Project Structure
 
 ```
-crypto-strategy-lab/                 ← Repository root
+cryptox/                               ← Repository root
 ├── README.md
-├── openspec/                          ← Spec-driven dev — source of truth for AI agents
-│   ├── project.md                     ← Constitution: architecture rules, non-negotiables
-│   ├── specs/                          ← Current behavior, one capability = one bounded context
+├── openspec/
+│   ├── project.md
+│   ├── specs/
 │   │   ├── market-data/
 │   │   ├── strategy-engine/
 │   │   ├── strategy-plugins/
@@ -54,37 +54,45 @@ crypto-strategy-lab/                 ← Repository root
 │   │   ├── continuous-loop/
 │   │   ├── news-ingestion/
 │   │   ├── sentiment/
-│   │   ├── event-bus/                  ← Event catalog (topics, payloads, versioning)
+│   │   ├── event-bus/
 │   │   └── dashboard/
-│   └── changes/                        ← Proposed changes (propose → apply → archive)
+│   └── changes/                         ← Proposed changes (propose → apply → archive)
 │
 ├── docs/
-│   ├── design/                          ← C4 diagrams, data-flow docs
+│   ├── design/                          ← Architecture, database design, data-flow docs
+│   │   ├── architecture.md
+│   │   ├── component-contracts.md
+│   │   ├── database-design.md
+│   │   ├── data-flow.md
+│   │   └── project-structure.md
 │   └── adr/                             ← Architectural Decision Records
 │       ├── ADR-001-websocket-for-realtime.md
 │       ├── ADR-002-plugin-architecture-for-strategies.md
 │       ├── ADR-003-job-queue-for-backtesting.md
 │       └── ADR-004-sentiment-as-separate-service.md
 │
-├── services/                           ← One folder per bounded context
-│   ├── market-data/                    ← Exchange adapter + WebSocket fan-out
-│   ├── strategy-engine/                ← Strategy interface, registry, plugins/ (MA, RSI, Bollinger, SR)
-│   ├── combination-engine/             ← Vote/weighted composite strategies
-│   ├── search-engine/                  ← Random / domain-guided generators
-│   ├── backtesting/                    ← Simulator + worker pool
-│   ├── evaluation/                     ← Return, Win Rate, MDD, Sharpe, Profit Factor
-│   ├── leaderboard/                    ← Ranking of experiment results
-│   ├── continuous-loop/                ← generate→backtest→evaluate→rank orchestration
-│   ├── news-ingestion/                 ← Provider abstraction (RSS, NewsAPI, ...)
-│   ├── sentiment/                      ← ML inference, isolated from crawler
-│   └── event-bus/                      ← Event definitions + broker adapter
+├── services/                         ← One folder per bounded context
+│   ├── market-data/                  ← Exchange adapter + WebSocket fan-out
+│   ├── strategy-engine/              ← Strategy interface, registry
+│   │   └── plugins/                  ← MA, RSI, Bollinger, SR
+│   ├── composite-strategy/           ← Vote/weighted composite strategies
+│   ├── search-engine/                ← Random / domain-guided generators
+│   ├── backtesting/                  ← Simulator + worker pool
+│   ├── evaluation/                   ← Return, Win Rate, MDD, Sharpe, Profit Factor
+│   ├── leaderboard/                  ← Ranking of experiment results
+│   ├── continuous-loop/              ← generate→backtest→evaluate→rank orchestration
+│   ├── news-ingestion/               ← Provider abstraction (RSS, NewsAPI, ...)
+│   ├── sentiment/                    ← ML inference, isolated from crawler
+│   └── event-bus/                    ← Event definitions + broker adapter                   
 │
 ├── apps/
 │   ├── backend/                        ← Composes services, exposes REST + WS
+│   ├── backtest-worker/                ← Independently scalable deployable
 │   └── frontend/                       ← Charts, strategy builder, leaderboard, news tab
 │
 ├── packages/
-│   └── contracts/                      ← Shared DTOs (Signal, Candle, TradeResult, ...)
+│   ├── contracts/                      ← Signal, Candle, TradeResult, ...
+│   └── queue-client/                   ← shared BullMQ/Redis adapter
 │
 ├── infra/
 │   ├── docker-compose.yml              ← DB, queue, all services
