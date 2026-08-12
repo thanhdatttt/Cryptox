@@ -1,20 +1,45 @@
 schema: spec-driven
 
-# Project context (optional)
-# This is shown to AI when creating artifacts.
-# Add your tech stack, conventions, style guides, domain knowledge, etc.
-# Example:
-#   context: |
-#     Tech stack: TypeScript, React, Node.js
-#     We use conventional commits
-#     Domain: e-commerce platform
+context: |
+  Product: Crypto Strategy Lab for configuring, searching, backtesting, evaluating,
+  ranking, and visualizing crypto strategies. It is an experiment platform, not a
+  live-money trading system.
 
-# Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
-# Example:
-#   rules:
-#     proposal:
-#       - Keep proposals under 500 words
-#       - Always include a "Non-goals" section
-#     tasks:
-#       - Break tasks into chunks of max 2 hours
+  Architecture: synchronous Modular Monolith for core backend modules, plus a
+  dedicated asynchronous Backtest Worker Pool. Backend modules collaborate through
+  typed in-process interfaces. There is no general Event Bus.
+
+  Transport rules:
+  - Frontend commands and queries use REST.
+  - WebSocket is restricted to realtime market ticks, candles, and exchange status.
+  - BullMQ/Redis is the only asynchronous backend boundary and is restricted to
+    backtest job dispatch plus completion/failure notification.
+  - PostgreSQL is authoritative; queue signals carry only job/status references or failure context, never domain result payloads.
+
+  Domain rules:
+  - Strategies are pure and never access I/O or infrastructure.
+  - Strategy and composite definitions are immutable and versioned.
+  - A non-cancelled candidate whose full pipeline succeeds creates exactly one Experiment; cancelled/failed candidates create none.
+  - Every successful Experiment stores its score and immutable benchmark/formula references.
+  - Benchmark scope also pins simulator/indicator and evaluation runtime hashes; jobs/workers must match them.
+  - Evaluation never emits or stores NaN/Infinity. A zero-trade success is persisted with score 0 but is not rank-eligible.
+  - Backtests read a sealed content-hashed candle snapshot, not mutable live/history candle rows.
+  - A backtest using an INFORMATION strategy also pins a sealed, time-aligned sentiment/model snapshot.
+  - Search Run ranking is session-scoped; persistent Top-10 is partitioned by immutable leaderboard scope.
+  - The MVP persistent leaderboard uses a fixed K of 10.
+  - Evaluation is separate from strategy/backtest implementation.
+  - Search Runs always have an explicit stop condition.
+
+rules:
+  design:
+    - Do not introduce a general Event Bus, domain-event catalog, or non-market WebSocket flow without a new accepted ADR and measurable architectural driver.
+    - Distinguish BullMQ work-queue semantics from broadcast pub/sub.
+    - On normal worker return/throw paths, persist backtest attempt/results before BullMQ completion/failure; repair crash/stall bypasses with the terminal watchdog.
+    - Make completion handling idempotent and reconcile missed success and exhausted-retry notifications from durable pending states.
+    - Reconcile every stale non-terminal candidate against BullMQ terminal state and close abandoned RUNNING attempts before retry allocation.
+    - Treat BullMQ completed and retries-exhausted as distinct wake-ups; ignore generic per-attempt failed unless terminal state/no-runnable-retry is verified.
+    - Fence overlapping worker deliveries with an active attempt generation and never allocate beyond the persisted attempt budget.
+    - Bound completion processing with persisted claim count, lease, backoff, and a terminal failure path.
+  tasks:
+    - Include tests for REST status/cancel, queue retry/idempotency/fencing, missed terminal notifications, and market WebSocket reconnect behavior when relevant.
+    - Include evaluation tests for zero trades, no losses, all break-even, insufficient samples, zero variance, and rejection of non-finite values.
