@@ -5,6 +5,7 @@
 - All timestamps are ISO-8601 strings in UTC (`"2026-08-12T09:10:03.000Z"`), never epoch millis on the wire, to avoid unit-mismatch bugs between services written at different times.
 - All money/price/percentage values are `number` (float), except where noted; the brief does not require fixed-point precision (this is an architecture exercise, not a real trading system — see brief §47).
 - Every contract that can be **generated multiple times with different behavior** (`StrategyDefinition`, `CompositeStrategyDefinition`) carries a `version` field. This is not optional — brief §36 makes versioning + reproducibility a hard requirement: *"Experiment #122 must always know exactly which strategy version it used."*
+- **Identity rule (resolves an ambiguity in brief §36's own example):** `id` on any versioned contract (`StrategyDefinition`, `CompositeStrategyDefinition`) is **unique per version, not per logical strategy**. Editing parameters never updates a row in place — it always inserts a new row with a new `id` and `version = previous + 1`. A separate, optional `familyName` groups versions together for display purposes only (e.g. showing "MA-RSI Strategy v1, v2, v3" as a history in the UI); it is never used as a foreign key. Anything that references a `strategyDefinitionId` or `compositeDefinitionId` is therefore automatically version-pinned — this is what makes brief §40.8 ("how do we check which strategy version produced a given Leaderboard row?") answerable by a single join, with no risk of the referenced row having silently changed underneath it.
 - Enums are written as TypeScript string union types so they serialize identically over REST, WebSocket, and the Event Bus without a mapping layer.
 
 ## 1. Core Enums
@@ -114,7 +115,8 @@ export interface Strategy {
 // A concrete, versioned configuration of a Strategy — what actually gets
 // stored, referenced by an ExperimentResult, and never overwritten (brief §36).
 export interface StrategyDefinition {
-  id: string;
+  id: string;                    // unique per version — see the Identity rule in §0
+  familyName?: string;           // display-only grouping, e.g. "MA-RSI Strategy" across v1/v2/v3 — never a foreign key
   strategyName: string;         // matches Strategy.name, resolved via the Registry
   version: number;               // incremented on any parameter change — never mutate in place
   parameters: Record<string, number | string>;
@@ -220,9 +222,39 @@ export interface StopCondition {
 }
 ```
 
+### 5.1 Search Loop Orchestrator — Observability Contract
+
+Owned by `services/continuous-loop`. This is the direct formalization of brief §32.7 (Observability driver) and §24, which list exactly these five facts as things "the system should know" about the running loop. Without this contract, "observability" stays a slogan with nothing for the Frontend's progress panel (brief §46 demo step 4: *"Candidates tested: 125, Current: MA20 + RSI14 + SR, Backtesting..."*) to actually poll or subscribe to.
+
+```typescript
+// packages/contracts/src/continuous-loop.ts
+
+export interface LoopStatus {
+  state: "RUNNING" | "PAUSED" | "STOPPED";
+  candidatesTested: number;
+  currentCandidate?: CandidateStrategy;        // what's in flight right now, for the demo's "Current: ..." display
+  failedJobCount: number;
+  averageBacktestDurationMs: number;
+  currentTopEntry?: LeaderboardEntry;           // "which strategy is currently #1" — brief §32.7's last bullet
+  startedAt: string;
+  stopCondition: StopCondition;
+}
+
+export interface ContinuousLoopOrchestrator {
+  start(config: { searchSpace: SearchSpaceConfig; stopCondition: StopCondition; generatorType: GeneratorType }): void;
+  pause(): void;
+  resume(): void;
+  status(): LoopStatus;
+}
+```
+
+**Boundary rule:** `LoopStatus` is read-only, derived state — the orchestrator computes it from events it has already consumed (`StrategyGenerated`, `BacktestCompleted`, `StrategyEvaluated`, `LeaderboardUpdated`); it is not a separate source of truth that could drift from what actually happened. The Frontend polls or subscribes to this via WebSocket to drive the progress panel.
+
 ## 6. Backtesting Contracts
 
 Owned by `services/backtesting` (and composed into `apps/backtest-worker`, per `05-project-structure.md` §4). Corresponds to brief §19-20.
+
+**Note on the Job Queue:** the architecture doc lists "Job Queue" as its own component, but it has no separate business contract here — `BacktestRequest` below *is* the job payload. Retry count, attempt number, and backoff are transport metadata owned by `packages/queue-client` (BullMQ), not business data; wrapping `BacktestRequest` in a second "Job" DTO would just duplicate what the queue library already tracks.
 
 ```typescript
 // packages/contracts/src/backtesting.ts
@@ -280,6 +312,28 @@ export interface Evaluator {
 
 **Boundary rule:** `Evaluator.evaluate` takes only a `BacktestResult` (a `Trade[]`) — it never receives the `Strategy` or `CompositeStrategyDefinition` that produced those trades. This is what brief §20 means by evaluation being decoupled from implementation: swapping how a strategy decides to trade never requires touching how performance is measured.
 
+### 7.1 Experiment Result — the Persisted Aggregate
+
+Brief §35 lists **Experiment** as its own top-level data group — *Combination, Dataset, Timeframe, Parameters, Result* — distinct from `Strategy` and separate from whatever the Leaderboard stores. `CandidateStrategy`, `BacktestRequest`, `BacktestResult`, and `EvaluationMetrics` above are the pipeline's working data; `ExperimentResult` is the single row that gets persisted once the pipeline finishes, and it is what brief §36/§40.8 actually mean by *"Experiment #122"*.
+
+```typescript
+// packages/contracts/src/experiment.ts
+
+export interface ExperimentResult {
+  id: string;                              // this is "Experiment #122"
+  candidateId: string;                     // -> CandidateStrategy.id
+  compositeDefinitionId: string;           // -> CompositeStrategyDefinition.id (version-pinned, see §0 Identity rule)
+  pair: Pair;
+  timeframe: Timeframe;
+  dataset: { from: string; to: string };
+  trades: Trade[];
+  metrics: EvaluationMetrics;
+  createdAt: string;
+}
+```
+
+Owned by `services/evaluation` (it is the natural place to assemble this once metrics are computed, right before publishing `StrategyEvaluated`). This is the row `LeaderboardEntry` below actually references, and the row a report answers brief §40.8 from: *"experiment.compositeDefinitionId → CompositeStrategyDefinition.version → each component's strategyDefinitionId → StrategyDefinition.version"* — a fixed, immutable chain, never a mutable pointer.
+
 ## 8. Leaderboard Contracts
 
 Owned by `services/leaderboard`. Corresponds to brief §21-22.
@@ -289,9 +343,7 @@ Owned by `services/leaderboard`. Corresponds to brief §21-22.
 
 export interface LeaderboardEntry {
   rank: number;
-  candidateId: string;
-  compositeDefinitionId: string;   // -> CompositeStrategyDefinition.id, itself versioned
-  metrics: EvaluationMetrics;
+  experimentResultId: string;      \
   score: number;                    // computed by the ScoreFormula below
   addedAt: string;
 }
@@ -397,8 +449,10 @@ Publishers and subscribers are typed against `EventPayloads[K]` for a given even
 | Strategy Registry | `packages/contracts/src/strategy-registry.ts` |
 | Composite Strategy | `packages/contracts/src/composite-strategy.ts` |
 | Search / Generator | `packages/contracts/src/search.ts` |
+| Continuous Loop / Observability | `packages/contracts/src/continuous-loop.ts` |
 | Backtesting | `packages/contracts/src/backtesting.ts` |
 | Evaluation | `packages/contracts/src/evaluation.ts` |
+| Experiment Result | `packages/contracts/src/experiment.ts` |
 | Leaderboard | `packages/contracts/src/leaderboard.ts` |
 | News | `packages/contracts/src/news.ts` |
 | Sentiment | `packages/contracts/src/sentiment.ts` |
