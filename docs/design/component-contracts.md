@@ -314,7 +314,7 @@ export interface Evaluator {
 
 ### 7.1 Experiment Result — the Persisted Aggregate
 
-Brief §35 lists **Experiment** as its own top-level data group — *Combination, Dataset, Timeframe, Parameters, Result* — distinct from `Strategy` and separate from whatever the Leaderboard stores. `CandidateStrategy`, `BacktestRequest`, `BacktestResult`, and `EvaluationMetrics` above are the pipeline's working data; `ExperimentResult` is the single row that gets persisted once the pipeline finishes, and it is what brief §36/§40.8 actually mean by *"Experiment #122"*.
+Brief §35 lists **Experiment** as its own top-level data group — *Combination, Dataset, Timeframe, Parameters, Result* — distinct from `Strategy` and separate from whatever the Leaderboard stores. `CandidateStrategy`, `BacktestRequest`, `BacktestResult`, and `EvaluationMetrics` above are the pipeline's working data; `ExperimentResult` is the single row that gets persisted as the **canonical aggregate** once the pipeline finishes successfully, and it is what brief §36/§40.8 actually mean by *"Experiment #122"*. (`CandidateStrategy` and `BacktestResult` are additionally kept as durable audit rows in the data model — see `data-model.md` — purely so `Trade`/`ExperimentResult` have a real foreign key to reference and so failed attempts stay queryable; this does not change either shape below or make either of them a second source of truth for a completed experiment.)
 
 ```typescript
 // packages/contracts/src/experiment.ts
@@ -343,7 +343,7 @@ Owned by `services/leaderboard`. Corresponds to brief §21-22.
 
 export interface LeaderboardEntry {
   rank: number;
-  experimentResultId: string;      \
+  experimentResultId: string;
   score: number;                    // computed by the ScoreFormula below
   addedAt: string;
 }

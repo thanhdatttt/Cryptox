@@ -67,7 +67,7 @@ cryptox/
 │   ├── design/
 │   │   ├── architecture.md
 │   │   ├── component-contracts.md
-│   │   ├── database-design.md
+│   │   ├── data-model.md
 │   │   ├── data-flow.md
 │   │   └── project-structure.md
 │   └── adr/

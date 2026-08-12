@@ -62,7 +62,7 @@ cryptox/                               ← Repository root
 │   ├── design/                          ← Architecture, database design, data-flow docs
 │   │   ├── architecture.md
 │   │   ├── component-contracts.md
-│   │   ├── database-design.md
+│   │   ├── data-model.md
 │   │   ├── data-flow.md
 │   │   └── project-structure.md
 │   └── adr/                             ← Architectural Decision Records
