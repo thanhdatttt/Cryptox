@@ -10,7 +10,7 @@
 - Frontend needs OHLCV candlestick charts + REST polling, no domain event subscriptions.
 
 ## 2. Chosen Stack
-
+ 
 | Layer | Choice |
 |---|---|
 | Language | TypeScript everywhere (backend, worker, frontend) |
