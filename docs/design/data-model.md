@@ -2,10 +2,14 @@
 
 ## 1. Storage Strategy Recap
 
-| Store | Role | 
+| Store | Role |
 |---|---|
 | **PostgreSQL** | Single source of truth for everything with ACID/versioning/reproducibility needs: candles, strategy & composite definitions, candidates, trades, experiment results, leaderboard, news, sentiment. |
 | **Redis** | (a) BullMQ-backed backtest work queue and completion/failure notifications, (b) latest-candle/latest-tick cache for realtime reads, and (c) ephemeral exchange connection status. Redis is not a general Event Bus and stores no authoritative Experiment or Leaderboard state. |
+
+Schema ownership follows business-module ownership, even though the MVP uses one PostgreSQL database. The owning module defines the aggregate rules and repository ports; its `infrastructure` layer implements persistence. SQL migrations, seeds, and database bootstrap remain under `infra/db/migrations` and `infra/`, while deployable composition remains under `apps/`. This session changes documentation only and applies no migrations or runtime behavior; any newly stated planning invariant (such as version-family allocation) remains pending implementation.
+
+Redis latest-tick/latest-candle keys are cache-only. Chart realtime reads may use a fresh cache entry, but cache miss, stale data, or cache parse failure falls back to PostgreSQL. A candle cache entry is fresh only when its `asOf` is no older than `2 × timeframe interval` and its payload declares the latest closed-candle boundary; a tick entry uses a 5-second freshness threshold. The cache stores only a bounded latest window, never an authoritative historical range. A corrected candle invalidates the affected key before repopulation. All durable/history reads and every lifecycle decision use PostgreSQL; Redis never becomes authoritative for domain state.
 
 ## 2. Entity-Relationship Diagram
 
@@ -36,6 +40,7 @@ erDiagram
 
     STRATEGY_DEFINITIONS {
         uuid id PK
+        text logical_family_key
         text family_name
         text strategy_name
         text implementation_version
@@ -46,6 +51,7 @@ erDiagram
     }
     COMPOSITE_STRATEGY_DEFINITIONS {
         uuid id PK
+        text logical_family_key
         int version
         text method
         jsonb thresholds
@@ -259,7 +265,7 @@ erDiagram
 
 ### 3.1 `candles`
 
-Owned by Market Data Service. Corresponds to brief §4 and `architecture.md` §1.3: the service normalizes and upserts candles, then serves them through REST and the market-only WebSocket boundary.
+Owned by `modules/market-data`. Corresponds to brief §4 and `architecture.md` §1.3: the module normalizes and upserts candles, then serves them through REST and the market-only WebSocket boundary.
 
 | Column | Type | Notes |
 |---|---|---|
@@ -324,7 +330,7 @@ CREATE TABLE dataset_snapshot_candles (
 
 #### 3.1.2 Immutable sentiment dataset snapshots
 
-A live sentiment aggregate changes whenever news or the model changes. To make an `INFORMATION` strategy replayable, the News workflow can seal a time-aligned series before creating a compatible benchmark scope:
+A live sentiment aggregate changes whenever news or the model changes. To make an `INFORMATION` strategy replayable, the Sentiment module seals a time-aligned series before a compatible benchmark scope is created. News supplies source results through the Sentiment API; it does not own the snapshot tables:
 
 ```sql
 CREATE TYPE sentiment_label_enum AS ENUM ('POSITIVE','NEUTRAL','NEGATIVE');
@@ -355,23 +361,27 @@ CREATE TABLE sentiment_snapshot_points (
 
 The snapshot hash covers model identity/hash, aggregation rule, ordered timestamps, labels, and scores. It is sealed under the same `SELECT`/`INSERT`-only role and append-only trigger policy as candle snapshots. A new model or late news creates a new snapshot instead of changing one referenced by an Experiment.
 
+Alignment uses half-open dataset range `[dataset_from, dataset_to)` and aggregation points whose timestamp is the inclusive window end. The Backtesting/Strategy adapter performs an as-of lookup for each candle close within the containing window; it never selects a future point and never carries a value across a missing window. A snapshot is valid for an `INFORMATION` Candidate only when every required candle window has a point. `related_coin` stores the canonical base asset symbol, and `average_score` is normalized to `[-1, 1]` before it is exposed as the Strategy context's `averageScore` projection.
+
 ### 3.2 `strategy_definitions`
 
-Owned by Strategy Engine. Corresponds to `StrategyDefinition` in `component-contracts.md` §3, brief §36 (versioning).
+Owned by `modules/strategy`. Corresponds to `StrategyDefinition` in `component-contracts.md` §3, brief §36 (versioning).
 
 | Column | Type | Notes |
 |---|---|---|
 | `id` | `uuid PK` | Unique **per version** (Identity rule, §0 of the contracts file) — never reused. |
-| `family_name` | `text NULL` | Display-only grouping (e.g. "MA-RSI Strategy" across v1/v2/v3). **Never a FK.** |
+| `logical_family_key` | `text NOT NULL` | Stable family identity used for atomic version allocation; not a display label. |
+| `family_name` | `text NULL` | Display-only label (e.g. "MA-RSI Strategy"); **never a FK.** |
 | `strategy_name` | `text NOT NULL` | Matches `Strategy.name`, resolved via the runtime `StrategyRegistry` — not a FK to a DB table (see §3.2.1). |
 | `implementation_version`, `implementation_sha256` | `text`, `char(64)` | Pins the exact retained plugin build; parameter version alone cannot reproduce behavior after code changes. |
-| `version` | `int NOT NULL` | Incremented on any parameter change; rows are append-only, never updated. |
+| `version` | `int NOT NULL` | Incremented on any parameter or implementation provenance change; rows are append-only, never updated. |
 | `parameters` | `jsonb NOT NULL` | e.g. `{ "fastPeriod": 20, "slowPeriod": 50 }`. |
 | `created_at` | `timestamptz NOT NULL DEFAULT now()` | |
 
 ```sql
 CREATE TABLE strategy_definitions (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  logical_family_key TEXT NOT NULL,
   family_name   TEXT,
   strategy_name TEXT NOT NULL,
   implementation_version TEXT NOT NULL,
@@ -381,9 +391,13 @@ CREATE TABLE strategy_definitions (
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX idx_strategy_defs_name ON strategy_definitions (strategy_name);
+CREATE UNIQUE INDEX uq_strategy_defs_family_version
+  ON strategy_definitions (logical_family_key, version);
 ```
 
-Rows are **immutable**: changing parameters or plugin implementation means a new row/version, never `UPDATE`. Repository roles receive `SELECT`/`INSERT` but not `UPDATE`/`DELETE`, with an append-only trigger as defense in depth. Replay resolves the exact retained plugin artifact by `implementation_sha256`; an unavailable artifact causes an explicit non-replayable response rather than silently using current code. This is what makes brief §40.8 ("which strategy version produced this Leaderboard row?") answerable without behavioral drift.
+Version allocation is an application/repository invariant. `logical_family_key` is stable for the logical strategy family and is not a display label. Before inserting, `modules/strategy` atomically locks or serializes that family, verifies the next version, and guarantees that concurrent callers may never reuse a `(logical_family_key, version)` pair. A new version is required for parameter or implementation provenance changes. The same rule applies to Composite Definitions.
+
+Rows are **immutable**: changing parameters or plugin implementation means a new row/version, never `UPDATE`. Repository roles receive `SELECT`/`INSERT` but not `UPDATE`/`DELETE`, with an append-only trigger as defense in depth. Replay resolves the exact retained plugin artifact by `implementation_sha256`; an unavailable artifact causes an explicit non-replayable response rather than silently using current code. The pinned definition and retained artifact are designed to make the version provenance of a Leaderboard row auditable without behavioral drift.
 
 #### 3.2.1 Why there is no `strategy_catalog` table
 
@@ -391,18 +405,21 @@ I considered adding a table listing the currently-registered strategy *types* (n
 
 ### 3.3 `composite_strategy_definitions` + `composite_strategy_components`
 
-Owned by Composite Strategy service. Corresponds to `CompositeStrategyDefinition` in `component-contracts.md` §4, brief §13-14.
+Owned by `modules/strategy`. Corresponds to `CompositeStrategyDefinition` in `component-contracts.md` §4, brief §13-14.
 
 ```sql
 CREATE TYPE combination_method_enum AS ENUM ('MAJORITY_VOTE','WEIGHTED_SCORE');
 
 CREATE TABLE composite_strategy_definitions (
   id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  logical_family_key TEXT NOT NULL,
   version    INT NOT NULL,
   method     combination_method_enum NOT NULL,
   thresholds JSONB,              -- { buy: 0.3, sell: -0.3 }; only meaningful for WEIGHTED_SCORE
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+CREATE UNIQUE INDEX uq_composite_defs_family_version
+  ON composite_strategy_definitions (logical_family_key, version);
 
 CREATE TABLE composite_strategy_components (
   composite_definition_id UUID NOT NULL REFERENCES composite_strategy_definitions(id),
@@ -412,13 +429,15 @@ CREATE TABLE composite_strategy_components (
 );
 ```
 
+Composite repository validation mirrors the public contract: at least one component is required; `WEIGHTED_SCORE` requires finite weights summing to `1` and thresholds with `buy > sell`; `MAJORITY_VOTE` stores normalized zero weights and documented default thresholds. A changed component set, weight, method, threshold, or referenced Strategy Definition creates the next version under the same logical-family allocation rule.
+
 This is the associative table the contract's inline `components: Array<{ strategyDefinitionId, weight }>` implies but doesn't spell out as a relation — every `strategyDefinitionId` in a composite is version-pinned by FK, so a `CompositeStrategyDefinition` can never silently pick up a newer version of one of its components (same Identity/Reproducibility guarantee as §3.2, one level up — this is exactly the chain brief §40.8 needs: *experiment → composite version → each component's strategy version*).
 
 Composite definitions and their component rows are inserted together, then treated as append-only under the same repository permission/trigger policy as Strategy Definitions. Editing method, threshold, component, or weight creates a new Composite Definition version.
 
 ### 3.4 `score_formulas`
 
-Owned by Leaderboard Service. Formula rows are immutable and versioned so every Experiment keeps the exact scoring rule that produced its score. The default formula uses:
+Owned by `modules/leaderboard`. Formula rows are immutable and versioned so every Experiment keeps the exact scoring rule that produced its score. The default formula uses:
 
 `riskScore = clamp(50 + 10 × sharpeRatio − maxDrawdownPercent, 0, 100)`, where drawdown is stored as a non-negative loss magnitude (`18`, not `-18`)
 
@@ -477,7 +496,7 @@ Both Manual Backtest and Search Run select a scope. A scope combines immutable c
 
 ### 3.6 `search_runs` *(additive)*
 
-Groups candidates by "one press of START SEARCH" (brief §46 step 3) and gives `LoopStatus` (contracts §5.1) a durable backing row instead of pure in-memory state. Owned by Search Loop Orchestrator.
+Groups candidates by "one press of START SEARCH" (brief §46 step 3) and gives `LoopStatus` (contracts §5.1) a durable backing row instead of pure in-memory state. Owned by `modules/search`.
 
 ```sql
 CREATE TYPE loop_state_enum AS ENUM ('CREATED','RUNNING','PAUSED','COMPLETED','CANCELLED','FAILED');
@@ -517,19 +536,21 @@ CREATE TABLE search_runs (
 
 `stop_reason` records `MAX_CANDIDATES`, `MAX_DURATION`, `NO_IMPROVEMENT`, `USER_CANCELLED`, or `ERROR`. `started_at` is set only on `CREATED → RUNNING`, so `maxDurationSeconds` excludes pre-start time. `LoopStatus` is served through `GET /search-runs/{id}` from this row plus candidate/attempt counts.
 
-Counter definitions are exact: `candidates_tested` counts non-cancelled Candidates in terminal `COMPLETED` or `FAILED`; `failed_candidate_count` counts all terminal `FAILED`; `retry_exhausted_candidate_count`, `infrastructure_failure_candidate_count`, and `completion_processing_failure_candidate_count` partition failure cause; `failed_attempt_count` counts failed Attempt rows, including synthetic terminal audit rows; `average_backtest_duration_ms` averages completed Attempts only. They are updated once in the completion transaction and periodically reconciled from PostgreSQL queries.
+`ERROR` is reserved for an unrecoverable Search orchestration/configuration failure. It immediately transitions `RUNNING` or `PAUSED` to terminal `FAILED`, records `last_error` and `ended_at`, and stops generation without rewriting already committed Candidate rows; those Candidates continue through their own Backtesting lifecycle. Completion callbacks may update counters for a failed run but never change it to `COMPLETED`; `resume` rejects it and `cancel` is an idempotent no-op after the error is recorded. `NO_IMPROVEMENT` means the best rank-eligible score has not strictly increased for the configured number of completed non-cancelled Search candidates; before the first rank-eligible score, the baseline is `none`, and equal scores do not reset the counter. Conditions are evaluated at serialized fill boundaries in the order `MAX_DURATION`, `MAX_CANDIDATES`, `NO_IMPROVEMENT`; an accepted user cancellation wins over normal conditions.
+
+Counter definitions are exact: `candidates_tested` counts non-cancelled Candidates in terminal `COMPLETED` or `FAILED`; `failed_candidate_count` counts all terminal `FAILED`; `retry_exhausted_candidate_count`, `infrastructure_failure_candidate_count`, and `completion_processing_failure_candidate_count` partition failure cause; `failed_attempt_count` counts failed Attempt rows attached to non-cancelled Candidates; `average_backtest_duration_ms` averages completed Attempts attached to non-cancelled Candidates only. Audit Attempts/Trades that finish after Candidate cancellation are retained but excluded from Search operational counters, Experiment History, and ranking. Counters are updated once in the completion transaction and periodically reconciled from PostgreSQL queries.
 
 For concurrency accounting, `CREATED`, `QUEUED`, `BACKTESTING`, `RETRY_WAIT`, `PROCESSING_RESULT`, and `TERMINAL_FAILURE_PENDING` are all in-flight. `COMPLETED`, `FAILED`, and `CANCELLED` release a slot.
 
-`fillAvailableSlots` serializes on this Search Run row (or an equivalent per-run advisory lock), then derives in-flight and total-created counts before reserving iterations. It never creates more than `max_in_flight`, never crosses `StopCondition.maxCandidates`, and is safe to invoke concurrently from start/resume/completion/startup reconciliation. Once any stop condition is met it stops reserving; when in-flight count reaches zero it writes `COMPLETED`, `stop_reason`, and `ended_at` in the same locked transaction. The Candidate uniqueness constraints make repeated iteration reservation idempotent.
+`fillAvailableSlots` serializes on this Search Run row (or an equivalent per-run advisory lock), then requests in-flight and total-created counts from Backtesting's public Candidate projection before reserving iterations. It never creates more than `max_in_flight`, never crosses `StopCondition.maxCandidates`, and is safe to invoke concurrently from start/resume/completion/startup reconciliation. Once any normal stop condition is met it stops reserving; when in-flight count reaches zero it writes `COMPLETED`, `stop_reason`, and `ended_at` only if the run is still `RUNNING` and not already `FAILED`/`CANCELLED`. The Candidate uniqueness constraints make repeated iteration reservation idempotent.
 
-`cancel` uses the same run lock. In one idempotent transaction it conditionally writes Search Run `CANCELLED`, `stop_reason = USER_CANCELLED`, `ended_at`, marks every non-terminal Candidate `CANCELLED`, and clears active generations, completion retry schedule/lease/token, pending failure classification, and stale error text (the user's cancellation is the terminal reason). After commit, Search Loop passes those Candidate IDs to `BacktestCoordinator.removePendingJobs`; only the Coordinator owns `queue-client`. Cleanup is best-effort and removes waiting/delayed jobs only. Running jobs are neutralized by fenced Candidate writes. Manual cancellation performs the same Candidate-field cleanup after locking and verifying `origin = MANUAL`.
+`cancel` uses the same run lock. In one process-level application unit of work, Search conditionally writes Search Run `CANCELLED`, `stop_reason = USER_CANCELLED`, and `ended_at`, then calls `BacktestCoordinator.cancelSearchCandidates(searchRunId)` to let Backtesting mark every non-terminal Candidate `CANCELLED` and clear active generations, completion retry schedule/lease/token, pending failure classification, and stale error text. The transaction context is an opaque application port, not a database handle. After commit, Search Loop passes the returned Candidate IDs to `BacktestCoordinator.removePendingJobs`; only `modules/backtesting` owns `infrastructure/queue`. Cleanup is best-effort and removes waiting/delayed jobs only. Running jobs are neutralized by fenced Candidate writes. Manual cancellation performs the same Candidate-field cleanup after locking and verifying `origin = MANUAL`.
 
-All transactions that touch more than one lifecycle aggregate use one lock order: a Search Candidate takes `SearchRun → Candidate → LeaderboardScope`; a Manual Candidate takes `Candidate → LeaderboardScope`. Search cancel/fill already begins with Search Run, worker-only transitions lock Candidate, and Top-10 admission locks Scope last. Bounded retries for PostgreSQL deadlock/serialization codes `40P01`/`40001` repeat the same transaction without consuming a new completion claim.
+All transactions that touch more than one lifecycle aggregate use one lock order: a Search Candidate takes `SearchRun → Candidate → LeaderboardScope`; a Manual Candidate takes `Candidate → LeaderboardScope`. Search cancel/fill begins with Search Run and calls Backtesting application ports for Candidate state; worker-only transitions lock Candidate, and Top-10 admission locks Scope last. Bounded retries for PostgreSQL deadlock/serialization codes `40P01`/`40001` repeat the same transaction without consuming a new completion claim.
 
 ### 3.7 `candidate_strategies` *(additive)*
 
-Owned by Backtest Coordinator. The Search Loop supplies metadata for Search candidates, while Manual candidates use the same lifecycle and queue boundary.
+Owned by `modules/backtesting`. The Search module supplies metadata for Search candidates, while Manual candidates use the same lifecycle and queue boundary.
 
 ```sql
 CREATE TYPE candidate_origin_enum AS ENUM ('MANUAL','SEARCH');
@@ -607,7 +628,7 @@ Completion processing has its own bounded, durable retry state and never consume
 
 ### 3.8 `backtest_attempts`
 
-Owned by Backtest Worker Pool. Mirrors `BacktestResult`/`BacktestRequest` in `component-contracts.md` §6.
+Owned by `modules/backtesting`; executed by the Backtest Worker Pool. Mirrors `BacktestResult`/`BacktestRequest` in `component-contracts.md` §6.
 
 ```sql
 CREATE TYPE backtest_status_enum AS ENUM ('RUNNING','COMPLETED','FAILED');
@@ -645,7 +666,7 @@ BullMQ owns retry timing/backoff. At the start of every delivery, the worker loc
 - Retryable failure: under the same two fencing predicates, set Attempt `FAILED`, conditionally move Candidate to `RETRY_WAIT`, and clear the active generation.
 - Last allowed normal processor failure: under the same predicates, set Attempt `FAILED`, move Candidate to `TERMINAL_FAILURE_PENDING` with `failure_kind = RETRY_EXHAUSTED`/`last_error`, set immediate completion due time, and clear the active generation.
 
-If fencing fails because another delivery superseded this Attempt, the late worker rolls back its final transaction and returns typed `IGNORED/SUPERSEDED`; it cannot reopen a closed Attempt or change the Candidate. Cancellation clears the active generation and is a deliberate special case: under the Candidate lock, a worker may close its own still-`RUNNING` Attempt and store its Trades as audit data, but it performs no Candidate transition. Thus cancellation won during simulation is never overwritten, and no cancelled Candidate can be referenced by an Experiment.
+If fencing fails because another delivery superseded this Attempt, the late worker rolls back its final transaction and returns typed `IGNORED/SUPERSEDED`; it cannot reopen a closed Attempt or change the Candidate. Cancellation clears the active generation and is a deliberate special case: under the Candidate lock, a worker may finish its own still-`RUNNING` simulation as `Attempt = COMPLETED` and store its Trades as audit data, but it performs no Candidate transition. Thus cancellation won during simulation is never overwritten, the completed audit Attempt is not eligible for Experiment creation, and no cancelled Candidate can be referenced by an Experiment.
 
 Before creating an Attempt, every delivery locks/reloads the Candidate. `CANCELLED` returns `IGNORED/CANCELLED`; `COMPLETED`/`FAILED` return `IGNORED/ALREADY_TERMINAL`; `TERMINAL_FAILURE_PENDING` returns `IGNORED/PENDING_COMPLETION`; and `PROCESSING_RESULT` returns the existing successful IDs so completion is woken again. A completed Attempt likewise returns its identifiers instead of rerunning. Only `CREATED`, `QUEUED`, `BACKTESTING` with a stale Attempt, or `RETRY_WAIT` may proceed to a new Attempt. A superseded worker returns `IGNORED/SUPERSEDED`; if its BullMQ lock is already gone, reconciliation—not that return—is the recovery mechanism. This covers a worker crash after the PostgreSQL commit but before BullMQ acknowledged completion.
 
@@ -653,7 +674,7 @@ If the worker dies before creating an Attempt, or before its atomic final write,
 
 ### 3.9 `trades`
 
-Owned by Backtest Worker Pool. Corresponds to `Trade` in `component-contracts.md` §6, brief §19/§26.
+Owned by `modules/backtesting`; produced by the Backtest Worker Pool. Corresponds to `Trade` in `component-contracts.md` §6, brief §19/§26.
 
 ```sql
 CREATE TYPE trade_signal_enum AS ENUM ('LONG','SHORT');
@@ -671,11 +692,11 @@ CREATE TABLE trades (
 CREATE INDEX idx_trades_attempt ON trades (backtest_attempt_id, entry_time);
 ```
 
-Only written for a `backtest_attempts` row that reaches `COMPLETED`; a failed attempt never produces trade rows. Referencing the attempt records exactly which retry produced the trades.
+Only written for a `backtest_attempts` row that reaches `COMPLETED`; a failed attempt never produces trade rows. A Candidate may be `CANCELLED` while its in-flight Attempt completes for audit, but those Trades remain excluded from Experiment creation, scoring, ranking, and Search success counters. Referencing the attempt records exactly which retry produced the trades.
 
 ### 3.10 `experiment_results`
 
-Owned by Evaluation service. The single persisted row per finished pipeline run, exactly as `component-contracts.md` §7.1 describes — this is "Experiment #122."
+Owned by `modules/backtesting` for the MVP Completion Processor. `modules/evaluation` calculates the metrics and `modules/leaderboard` calculates/admits the score. This is the single persisted row per finished pipeline run, exactly as `component-contracts.md` §7.1 describes — this is "Experiment #122." The `experiment_results` row is the persistence record; the `ExperimentResult` API shape is a hydrated read/aggregate view that loads its `Trade[]` from the child `trades` rows. The child rows remain the audit source for trade detail and are not a second Experiment source of truth.
 
 ```sql
 CREATE TABLE experiment_results (
@@ -791,7 +812,7 @@ LIMIT 1;
 
 ### 3.11 `leaderboard_entries`
 
-Owned by Ranking/Leaderboard service. Corresponds to `LeaderboardEntry` in `component-contracts.md` §8 and brief §21-23. PostgreSQL persists Leaderboard membership/history; the REST API queries it directly for the MVP.
+Owned by `modules/leaderboard`. Corresponds to `LeaderboardEntry` in `component-contracts.md` §8 and brief §21-23. PostgreSQL persists Leaderboard membership/history; the REST API queries it directly for the MVP.
 
 ```sql
 CREATE TABLE leaderboard_entries (
@@ -820,7 +841,7 @@ Two read models are intentionally different:
 
 ### 3.12 `news_items` / `sentiment_results`
 
-Owned by `services/news-ingestion` and `services/sentiment` respectively — kept as two tables for the same reason `component-contracts.md` §9 keeps them as two files: so swapping the sentiment model, or adding a `CrawlerProvider`, never touches the other's schema.
+`modules/news` owns `news_items`; `modules/sentiment` owns `sentiment_results` and sentiment snapshot tables. They remain separate so swapping the sentiment model, or adding a `CrawlerProvider`, never touches the other's business ownership or schema.
 
 ```sql
 CREATE TABLE news_items (
@@ -853,7 +874,7 @@ CREATE INDEX idx_sentiment_news ON sentiment_results (news_id, analyzed_at DESC)
 CREATE VIEW latest_sentiment AS
 SELECT DISTINCT ON (news_id) *
 FROM sentiment_results
-ORDER BY news_id, analyzed_at DESC;
+ORDER BY news_id, analyzed_at DESC, id DESC;
 ```
 
 `url UNIQUE` on `news_items` gives the multi-provider de-dup that brief §28 implies (RSS, NewsAPI, and a Crawler could all surface the same story) without any provider needing to know about the others.
@@ -871,7 +892,7 @@ ORDER BY news_id, analyzed_at DESC;
 
 | Key pattern | Type | Written by | Read by | Purpose |
 |---|---|---|---|---|
-| `candles:latest:{pair}:{timeframe}` | List/JSON blob (bounded length) | Market Data Service after normalizing a candle | REST initial chart load, Market WebSocket Gateway | Fast reads without hitting PostgreSQL per chart open (brief §5, §32.3). |
-| `ticks:latest:{pair}` | String (JSON) | Market Data Service on every tick | WebSocket Gateway | The sub-candle price stream (brief §4 example); never persisted, as noted in §4. |
+| `candles:latest:{pair}:{timeframe}` | List/JSON blob (bounded latest window; includes `schemaVersion`, `asOf`, and `completeThrough`) | `modules/market-data` after normalizing a candle | REST initial chart load, Market WebSocket Gateway | Fresh realtime/initial chart optimization; miss/stale/invalid falls back to PostgreSQL. |
+| `ticks:latest:{pair}` | String (JSON; includes `schemaVersion` and `asOf`) | `modules/market-data` on every tick | WebSocket Gateway | The sub-candle price stream (brief §4 example); never persisted, as noted in §4. |
 | `connection:status:{provider}` | String (JSON) | `BinanceAdapter` (and future `OKXAdapter`, etc.) | WebSocket Gateway → Frontend warning banner | Answers brief §40.7 ("if Binance WS disconnects, how does the system recover?") — Frontend shows `RECONNECTING` instead of freezing. |
 | `bullmq:backtest:*` | BullMQ-managed | Backtest Coordinator (enqueue), Backtest Workers (consume/complete/fail) | Backtest Worker Pool and Completion Processor | The only asynchronous messaging boundary. BullMQ owns dispatch, retry/backoff, and terminal notifications; PostgreSQL remains authoritative. |

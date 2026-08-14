@@ -4,6 +4,8 @@
 
 Accepted — 2026-08-13
 
+Boundary clarification: ADR-005 (2026-08-14) amends the project-structure and ownership context referenced here; the BullMQ-only queue decision remains unchanged.
+
 ## Context
 
 Backtesting is compute-heavy and may grow from hundreds to tens of thousands of candidates. It needs horizontal workers, retry/backoff, bounded concurrency, and backpressure. The other backend modules run inside one process and can collaborate more clearly through typed direct calls. Per-run pause/resume is an orchestration concern: Search Loop stops filling that run's slots and never globally pauses the shared BullMQ queue.
@@ -13,9 +15,11 @@ A general Event Bus would add ordering, duplicate-delivery, schema evolution, di
 ## Decision
 
 - Use Redis-backed BullMQ as the only asynchronous backend messaging boundary.
+- Keep the canonical serialized Backtest queue payloads under `packages/contracts/queue`; keep the BullMQ adapter and queue lifecycle ownership under `modules/backtesting/infrastructure/queue`.
+- Version serialized queue payloads with an explicit discriminator; the adapter validates the current schema and rejects unknown/malformed versions for reconciliation. Breaking payload changes require a new version and a producer/worker overlap period.
 - Submit each backtest as a durable work-queue job with deterministic `jobId = candidateId`; one worker normally claims one job, while an active-attempt fence handles brief overlap during stalled recovery. This is competing-consumer queue semantics, not broadcast pub/sub.
 - On normal processor return/throw paths, workers persist the Attempt outcome and Trades before BullMQ completion/failure. Crash, lock-loss, and max-stalled paths that bypass this write are repaired by the terminal watchdog before Candidate finalization.
-- The thin adapter forwards every native `completed(jobId, returnvalue)` (including typed `IGNORED` outcomes) and `retries-exhausted(jobId, attemptsMade)` wake-up. Every native `failed` is untrusted until `queue-client` verifies current terminal `failed` state and no runnable retry. Exhaustion and verified-failure wake-ups may both arrive for one job; the Completion Processor derives `candidateId = jobId`, reloads PostgreSQL, and handles pending/duplicate/terminal state idempotently.
+- The thin adapter under `modules/backtesting/infrastructure/queue` forwards every native `completed(jobId, returnvalue)` (including typed `IGNORED` outcomes) and `retries-exhausted(jobId, attemptsMade)` wake-up. Every native `failed` is untrusted until this adapter verifies current terminal `failed` state and no runnable retry. Exhaustion and verified-failure wake-ups may both arrive for one job; the Completion Processor derives `candidateId = jobId`, reloads PostgreSQL, and handles pending/duplicate/terminal state idempotently.
 - The backend completion handler reloads authoritative state, locks the Candidate, then transactionally evaluates/scores, persists one Experiment, applies scoped Top-10 admission, persists an entry only if admitted, updates counters, and marks completion.
 - Completion processing is idempotent across every postcondition through the Candidate state transition, one transaction, unique constraints, and reconciliation—not merely through a unique Experiment row.
 - Completion processing uses a persisted generation-bound lease token and a separate fixed five-claim retry budget with bounded backoff. Permanent/exhausted processing of `PROCESSING_RESULT` writes `FAILED`/`COMPLETION_PROCESSING` and leaves no partial Experiment; processing a `TERMINAL_FAILURE_PENDING` Candidate preserves its existing `RETRY_EXHAUSTED`/`INFRASTRUCTURE` cause. Both update counters and release the Search slot once.
@@ -23,7 +27,7 @@ A general Event Bus would add ordering, duplicate-delivery, schema evolution, di
 - Intermediate processor failures create attempt history and `RETRY_WAIT`; the last normal processor attempt durably writes `TERMINAL_FAILURE_PENDING` before BullMQ exhausts retries, and only the Completion Processor writes Candidate `FAILED`.
 - A watchdog compares all stale non-terminal Candidates (`CREATED`, `QUEUED`, `BACKTESTING`, `RETRY_WAIT`) with BullMQ terminal job state. For a crash/stall before a pending-state write, it closes a stale `RUNNING` Attempt or creates a synthetic failed Attempt if none exists, then invokes the same idempotent terminal-failure path under the Candidate lock. Retry delivery closes any abandoned `RUNNING` Attempt before allocating another.
 - Every delivery establishes an active-attempt fencing generation under the Candidate lock. A late/stalled worker may not close a superseded Attempt or move the Candidate; allocation stops at the persisted `maxAttempts` budget.
-- Search Loop owns the Search Run cancellation decision and atomically cancels its Candidates in PostgreSQL. After commit it calls the Coordinator to best-effort remove waiting/delayed jobs. Manual cancellation calls the Coordinator directly. Active jobs are not force-killed and remain harmless because workers re-check/fence Candidate state.
+- Search Loop owns the Search Run cancellation decision and calls the Backtesting public cancellation facade within the same process-level application unit of work; Search never writes Candidate tables or imports queue infrastructure. After commit it calls the Coordinator to best-effort remove waiting/delayed jobs. Manual cancellation calls the Coordinator directly. Active jobs are not force-killed and remain harmless because workers re-check/fence Candidate state.
 - Do not introduce a general `EventEnvelope`, Event Bus service, Kafka, RabbitMQ, or Redis Pub/Sub for other domain flows without a new accepted ADR and measurable driver.
 
 ## Alternatives Considered

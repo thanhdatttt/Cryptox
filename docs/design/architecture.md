@@ -45,19 +45,40 @@ This is the most important extensibility decision in the system:
 
 3. **Backend Application - internal modules**
 
+   The rows below describe logical components, but their ownership is by business module:
+
+   - Strategy Engine, Strategy Registry, and Composite Strategy belong to `modules/strategy`.
+   - Strategy Generator and Search Loop Orchestrator belong to `modules/search`.
+   - Backtest Coordinator, Completion Processor, and the MVP `ExperimentResult` aggregate belong to `modules/backtesting`.
+   - Evaluator, Ranking/Leaderboard, Market Data, News, and Sentiment belong to their corresponding modules under `modules/`.
+   - `apps/backend` and `apps/backtest-worker` compose these modules; they do not own their use cases or domain rules.
+
 | Module | Responsibility | Collaboration rule |
 |---|---|---|
-| Market Data Service | Normalizes Binance historical/realtime data, persists closed candles, updates the latest-value cache, and passes normalized market messages to the WebSocket Gateway | Raw Binance payloads never leave the adapter boundary |
-| Strategy Engine | Runs registered strategies against a supplied context and returns BUY/SELL/HOLD | Pure domain logic; no I/O |
-| Strategy Registry | Registers and discovers MA, RSI, Bollinger, SR, MACD, and future plugins | No branching on strategy identity |
-| Composite Strategy | Combines normalized signals using Majority Vote or Weighted Score | Never inspects an individual strategy's internal logic |
-| Strategy Generator | Generates candidate definitions using Random, Domain-guided, or future algorithms | Replaceable behind `StrategyGenerator` |
-| Search Loop Orchestrator | Generates search candidates and serializes `fillAvailableSlots` from persisted state to enforce per-run stop/pause/cancel, `maxInFlight`, and `maxCandidates` | Does not consume BullMQ events or own manual backtests; callbacks only trigger a recoverable fill use case |
-| Backtest Coordinator / Completion Processor | Accepts Manual/Search candidates, performs idempotent enqueue/cancel cleanup, adapts terminal BullMQ notifications, owns enqueue/completion reconciliation and the terminal-job watchdog, and coordinates completion | The only backend module that touches `queue-client`; owns the async boundary for both modes |
-| Evaluator | Computes Return, Win Rate, Max Drawdown, Profit Factor, and Sharpe from a completed `BacktestResult` | Pure calculation called directly by the Completion Processor |
-| Ranking / Leaderboard Service | Scores every successful non-cancelled completion, determines rank eligibility, and maintains a persistent Top-10 inside each immutable benchmark scope; also exposes a read-only ranking for one Search Run | Called directly by the Completion Processor; never called by a worker |
-| News Collector | Fetches and normalizes items through `NewsProvider` adapters | Stores news before invoking Sentiment; a sentiment failure does not discard the news item |
-| Sentiment Analysis Service | Classifies normalized news as POSITIVE/NEUTRAL/NEGATIVE | Called through an explicit interface with timeout/error isolation |
+| Market Data module | Normalizes Binance historical/realtime data, persists closed candles, updates the latest-value cache, and passes normalized market messages to the WebSocket Gateway | Raw Binance payloads never leave the adapter boundary |
+| Strategy module / Engine | Runs registered strategies against a supplied context and returns BUY/SELL/HOLD | Pure domain logic; no I/O |
+| Strategy module / Registry | Registers and discovers MA, RSI, Bollinger, SR, MACD, and future plugins | No branching on strategy identity |
+| Strategy module / Composite | Combines normalized signals using Majority Vote or Weighted Score | Never inspects an individual strategy's internal logic |
+| Search module / Generator | Generates candidate definitions using Random, Domain-guided, or future algorithms | Replaceable behind `StrategyGenerator` |
+| Search module / Loop Orchestrator | Generates search candidates and serializes `fillAvailableSlots` from persisted state to enforce per-run stop/pause/cancel, `maxInFlight`, and `maxCandidates` | Does not consume BullMQ events or own manual backtests; callbacks only trigger a recoverable fill use case |
+| Backtesting module / Coordinator + Completion Processor | Accepts Manual/Search candidates, performs idempotent enqueue/cancel cleanup, adapts terminal BullMQ notifications, owns enqueue/completion reconciliation and the terminal-job watchdog, and coordinates completion | The only backend module that touches the Backtest queue adapter; owns the async boundary for both modes |
+| Evaluation module / Evaluator | Computes Return, Win Rate, Max Drawdown, Profit Factor, and Sharpe from a completed `BacktestResult` | Pure calculation called directly by the Completion Processor |
+| Leaderboard module | Scores every successful non-cancelled completion, determines rank eligibility, and maintains a persistent Top-10 inside each immutable benchmark scope; also exposes a read-only ranking for one Search Run | Called directly by the Completion Processor; never called by a worker |
+| News module / Collector | Fetches and normalizes items through `NewsProvider` adapters | Stores news before invoking Sentiment; a sentiment failure does not discard the news item |
+| Sentiment module / Analysis Service | Classifies normalized news as POSITIVE/NEUTRAL/NEGATIVE | Called through an explicit interface with timeout/error isolation |
+
+### 1.3.1 Module-to-layer placement
+
+Each business module may use the following logical layers:
+
+| Layer | Responsibility in this architecture |
+|---|---|
+| `api` | Thin REST/WebSocket adapters and public in-process module facades/contracts. |
+| `application` | Use cases, transactions, orchestration, and inbound/outbound ports. |
+| `domain` | Entities, value objects, policies, invariants, strategy plugins, and pure calculations. |
+| `infrastructure` | PostgreSQL repositories, exchange/model adapters, Redis/BullMQ adapters, and runtime artifact resolution. |
+
+The dependency direction is `api → application → domain`; `infrastructure` implements application ports. A module may consume another module only through its public API. It must not import another module's `domain` or `infrastructure` internals. Not every module needs all four folders, and empty layers are not required.
 
 4. **Asynchronous Backtesting Boundary**
 
@@ -65,8 +86,8 @@ This is the most important extensibility decision in the system:
    - BullMQ is a **work queue**, not broadcast pub/sub: one available worker normally claims each job; fencing handles brief overlap during stalled-job recovery.
    - Each time BullMQ executes or retries a job, the worker locks the Candidate, closes an abandoned Attempt, checks the persisted attempt budget, and establishes a new active-attempt fencing generation. It verifies its local runtime against the immutable scope/job, loads content-hashed candle/sentiment inputs, and runs the simulation. Its normal final PostgreSQL transaction succeeds only for the still-active generation and atomically stores Attempt outcome, Trades if successful, and a Candidate pending-state transition.
    - On success the worker stores `PROCESSING_RESULT` and returns a small durable-reference payload. On a normal processor failure it persists the failure, writes `RETRY_WAIT` if another attempt remains or `TERMINAL_FAILURE_PENDING` plus `RETRY_EXHAUSTED`/error on the last allowed attempt, then throws so BullMQ records/retries the job. Crash/stall watchdog failures use `INFRASTRUCTURE`. The Completion Processor alone writes terminal Candidate `FAILED`.
-   - Every worker Candidate update is fenced under a row lock. A superseded stalled delivery cannot overwrite the active delivery; a job cancelled before simulation is acknowledged as ignored, while one cancelled during simulation may close its still-running audit Attempt but cannot change Candidate state or create an Experiment/rank.
-   - A thin queue adapter forwards every `completed(jobId, returnvalue)` (including typed `IGNORED` outcomes) and `retries-exhausted(jobId, attemptsMade)` without reading domain tables. Every `failed` is untrusted until `queue-client` confirms current terminal `failed` state with no runnable retry. Exhaustion and verified-failure wake-ups may duplicate; the Completion Processor derives `candidateId = jobId`, reloads PostgreSQL, and either processes durable pending state or idempotently no-ops. Queue facts are wake-ups, not the source of truth.
+   - Every worker Candidate update is fenced under a row lock. A superseded stalled delivery cannot overwrite the active delivery; a job cancelled before simulation is acknowledged as ignored, while one cancelled during simulation may finish its Attempt as a completed audit Attempt with Trades but cannot change Candidate state or create an Experiment/rank.
+   - A thin queue adapter under `modules/backtesting/infrastructure/queue` forwards every `completed(jobId, returnvalue)` (including typed `IGNORED` outcomes) and `retries-exhausted(jobId, attemptsMade)` without reading domain tables. Every `failed` is untrusted until that adapter confirms current terminal `failed` state with no runnable retry. Exhaustion and verified-failure wake-ups may duplicate; the Completion Processor derives `candidateId = jobId`, reloads PostgreSQL, and either processes durable pending state or idempotently no-ops. Queue facts are wake-ups, not the source of truth.
    - On successful result completion, one PostgreSQL transaction follows the global lock order (`SearchRun → Candidate → LeaderboardScope` for Search; `Candidate → LeaderboardScope` for Manual), ensures the finite score/Experiment, applies rank eligibility/Top-10 admission, updates counters, and writes terminal Candidate state. Conditional transitions plus unique constraints make redelivery idempotent; bounded deadlock/serialization retries repeat the same claim.
    - Intermediate failed attempts remain attempt history and are retried by BullMQ. Completion processing has a separate persisted five-claim budget, generation-bound lease token, and backoff. For a success pending evaluation, permanent/exhausted processing failure becomes `COMPLETION_PROCESSING` and creates no partial Experiment; for a pending simulation failure, processing exhaustion preserves its original `RETRY_EXHAUSTED`/`INFRASTRUCTURE` cause. Both paths release the Search slot exactly once. Startup/periodic reconciliation claims due work, so losing a terminal notification only delays the transition.
    - The Coordinator-owned terminal-job watchdog covers worker crashes/stalls before the worker can write a pending state: it compares every stale non-terminal Candidate (`CREATED`, `QUEUED`, `BACKTESTING`, `RETRY_WAIT`) with BullMQ terminal state/no-runnable-retry, then closes a stale `RUNNING` Attempt or creates a synthetic failure Attempt under the Candidate lock before invoking the same failure completion path. Every redelivery closes any stale `RUNNING` Attempt, checks the attempt limit, and checks all terminal/pending Candidate states before allocating a fenced generation.
@@ -99,6 +120,8 @@ This is the most important extensibility decision in the system:
 
 # 2. Architecture Diagram
 
+The following is a process-level composition view, not a dependency graph. REST arrows represent calls into the module public facades; the layer rule `api → application → domain` still applies inside each module, and module infrastructure is reached only through its allowlisted bootstrap facade.
+
 ```mermaid
 flowchart TB
     subgraph Client["Client Layer"]
@@ -111,25 +134,25 @@ flowchart TB
     end
 
     subgraph Backend["Backend Application - Modular Monolith"]
-        subgraph MarketCtx["Market Data"]
-            MDS["Market Data Service"]
+        subgraph MarketCtx["modules/market-data"]
+            MDS["Market Data module"]
             BA["Binance Adapter"]
         end
 
-        subgraph StrategyCtx["Strategy and Experimentation"]
-            SR["Strategy Registry"]
-            SE["Strategy Engine"]
-            CE["Composite Strategy"]
-            SG["Strategy Generator"]
-            ORC["Search Loop Orchestrator"]
-            BC["Backtest Coordinator<br/>+ Completion Processor"]
-            EVAL["Evaluator"]
-            LB["Leaderboard Service"]
+        subgraph StrategyCtx["Strategy, Search, Backtesting, Evaluation, Leaderboard modules"]
+            SR["Strategy module<br/>Registry"]
+            SE["Strategy module<br/>Engine"]
+            CE["Strategy module<br/>Composite"]
+            SG["Search module<br/>Generator"]
+            ORC["Search module<br/>Loop Orchestrator"]
+            BC["Backtesting module<br/>Coordinator + Completion"]
+            EVAL["Evaluation module<br/>Evaluator"]
+            LB["Leaderboard module"]
         end
 
-        subgraph NewsCtx["News and Sentiment"]
-            NC["News Collector"]
-            SS["Sentiment Service"]
+        subgraph NewsCtx["modules/news + modules/sentiment"]
+            NC["News module<br/>Collector"]
+            SS["Sentiment module<br/>Analysis"]
         end
     end
 
@@ -218,7 +241,7 @@ flowchart TB
 
 ## 3.2 Continuous Search
 
-The Search Loop repeats Generate → Submit to Backtest Coordinator → Backtest → Evaluate → Score with bounded in-flight concurrency and an explicit stop condition. `fillAvailableSlots` locks/leases one Search Run, derives counts from PostgreSQL, and creates no more than its missing slots or remaining candidate limit. When a stop condition is met it creates nothing new and marks the run `COMPLETED` after in-flight work drains. It is invoked on start, resume, post-completion callback, and startup/periodically; callbacks improve latency but are not required for progress. `cancel` uses the same lock to atomically mark the Search Run and every non-terminal Candidate `CANCELLED`, with `USER_CANCELLED` and `endedAt`; after commit Search Loop calls the Coordinator to best-effort remove waiting/delayed jobs. Search Loop never reads or mutates BullMQ directly. REST polling only renders persisted status and does not drive the workflow. Per-run pause belongs to Search Loop and never globally pauses BullMQ jobs belonging to other runs/users.
+The Search Loop repeats Generate → Submit to Backtest Coordinator → Backtest → Evaluate → Score with bounded in-flight concurrency and an explicit stop condition. `fillAvailableSlots` locks/leases one Search Run, obtains Candidate counts through the Backtesting public projection API, and creates no more than its missing slots or remaining candidate limit. When a normal stop condition is met it creates nothing new and marks the run `COMPLETED` after in-flight work drains. An unrecoverable orchestration/configuration error immediately marks the run `FAILED`/`ERROR` with `lastError` and `endedAt`; callbacks may update counters but never change `FAILED` to `COMPLETED`. It is invoked on start, resume, post-completion callback, and startup/periodically; callbacks improve latency but are not required for progress. `cancel` uses the same lock and a process-level application unit of work to mark the Search Run and ask the Backtesting facade to mark every non-terminal Candidate `CANCELLED`, with `USER_CANCELLED` and `endedAt`; after commit Search Loop calls the Coordinator to best-effort remove waiting/delayed jobs. Search Loop never reads or mutates BullMQ or Candidate persistence directly. REST polling only renders persisted status and does not drive the workflow. Per-run pause belongs to Search Loop and never globally pauses BullMQ jobs belonging to other runs/users.
 
 ## 3.3 Leaderboard Lifetime and Scope
 
@@ -231,8 +254,8 @@ The assignment requires Top-K ranking but does not define its lifetime, so the a
 
 ## 3.4 News and Sentiment
 
-The News Collector stores each normalized item, then calls the Sentiment interface directly. A timeout or inference failure is caught and reported through logs/metrics; the item remains readable with sentiment missing. It never interrupts Market Data, Search, Backtesting, or chart delivery. No `NewsCollected` or `SentimentAnalyzed` event is published.
+The News module stores each normalized item, then calls the Sentiment interface with a neutral `SentimentInput`. Sentiment owns persistence of `SentimentResult` and sealed snapshots. A timeout or inference failure is caught and reported through logs/metrics; the item remains readable with sentiment missing. It never interrupts Market Data, Search, Backtesting, or chart delivery. No `NewsCollected` or `SentimentAnalyzed` event is published.
 
 ## 3.5 Realtime Market Data
 
-The Binance Adapter supplies normalized ticks/candles directly to Market Data Service. The service persists closed candles, updates the latest-value cache, and hands the normalized message to the WebSocket Gateway. No `MarketPriceUpdated` or `CandleClosed` domain event is required.
+The Binance Adapter supplies normalized ticks/candles directly to the Market Data module. The module persists closed candles, updates the latest-value cache, and hands the normalized message to the WebSocket Gateway. No `MarketPriceUpdated` or `CandleClosed` domain event is required.

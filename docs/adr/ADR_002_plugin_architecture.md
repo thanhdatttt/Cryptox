@@ -4,6 +4,8 @@
 
 Accepted — 2026-08-13
 
+Boundary clarification: ADR-005 (2026-08-14) records the stable logical-family allocation and Composite validation invariants; the plugin/registry decision remains unchanged.
+
 ## Context
 
 The assignment explicitly tests whether a new strategy such as MACD can be added without changing the Backtester, Evaluator, Leaderboard, frontend core, or a chain of identity-based conditionals. Strategy algorithms and parameter schemas are expected to evolve more frequently than the experiment pipeline.
@@ -14,6 +16,8 @@ The assignment explicitly tests whether a new strategy such as MACD can be added
 - A `StrategyFactory` declares its stable name, category, serializable parameter schema, immutable implementation version/hash, and creation behavior.
 - Factories register with `StrategyRegistry` during application/worker bootstrap.
 - Strategy and composite configurations are immutable versioned definitions; an edit creates a new ID/version. Every Strategy Definition copies the exact plugin implementation hash.
+- Each definition carries a stable logical-family key. `modules/strategy` allocates the next version atomically per family; parameter, implementation provenance, component, weight, threshold, or method changes never reuse a version.
+- Composite validation requires at least one component; weighted definitions require finite weights summing to `1` and ordered finite thresholds, while majority-vote definitions normalize unused weights/thresholds.
 - Registry/artifact resolution uses `(strategyName, implementationSha256)` and never silently substitutes the latest build; unavailable retained code yields an explicit replay error.
 - The same registry and pure strategy runtime are composed into the backend and Backtest Worker.
 - Strategies never call PostgreSQL, Redis, Binance, HTTP, or UI code.

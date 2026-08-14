@@ -21,7 +21,7 @@ This project builds a platform to **add, combine, backtest, rank, and continuous
 
 The chosen style is a **synchronous Modular Monolith with an asynchronous Backtest Worker Pool**. The frontend uses REST for commands and queries, a dedicated WebSocket only for realtime market data, and BullMQ only for dispatching/completing backtest work. There is no general domain Event Bus.
 
-Architectural Decision Records (ADRs) capture the reasoning behind the key design choices: a market-only WebSocket, Plugin Architecture for strategies, a Job Queue as the only asynchronous backend boundary, and an isolated Sentiment module.
+Architectural Decision Records (ADRs) capture the reasoning behind the key design choices: a module-first layered structure, a market-only WebSocket, Plugin Architecture for strategies, a Job Queue as the only asynchronous backend boundary, and an isolated Sentiment module.
 
 ---
 
@@ -48,15 +48,12 @@ cryptox/                               ← Repository root
 │   ├── config.yaml
 │   ├── specs/
 │   │   ├── market-data/
-│   │   ├── strategy-engine/
-│   │   ├── strategy-plugins/
-│   │   ├── composite-strategy/
-│   │   ├── search-engine/
+│   │   ├── strategy/
+│   │   ├── search/
 │   │   ├── backtesting/
 │   │   ├── evaluation/
 │   │   ├── leaderboard/
-│   │   ├── continuous-loop/
-│   │   ├── news-ingestion/
+│   │   ├── news/
 │   │   ├── sentiment/
 │   │   └── dashboard/
 │   └── changes/                         ← Proposed changes (propose → apply → archive)
@@ -73,19 +70,17 @@ cryptox/                               ← Repository root
 │       ├── ADR_001_websocket.md
 │       ├── ADR_002_plugin_architecture.md
 │       ├── ADR_003_jobqueue.md
-│       └── ADR_004_sentiment_isolated_module.md
+│       ├── ADR_004_sentiment_isolated_module.md
+│       └── ADR_005_module_first_structure.md
 │
-├── services/                         ← One folder per bounded context
-│   ├── market-data/                  ← Exchange adapter + WebSocket fan-out
-│   ├── strategy-engine/              ← Strategy interface, registry
-│   │   └── plugins/                  ← MA, RSI, Bollinger, SR
-│   ├── composite-strategy/           ← Vote/weighted composite strategies
-│   ├── search-engine/                ← Random / domain-guided generators
-│   ├── backtesting/                  ← Coordinator contracts + pure simulator code
+├── modules/                          ← Business modules; not deployable processes
+│   ├── market-data/                  ← Exchange adapter + market WebSocket boundary
+│   ├── strategy/                     ← Strategy, registry, plugins, composites
+│   ├── search/                       ← Generators + bounded search orchestration
+│   ├── backtesting/                  ← Coordinator, worker runtime, completion
 │   ├── evaluation/                   ← Return, Win Rate, MDD, Sharpe, Profit Factor
 │   ├── leaderboard/                  ← Ranking of experiment results
-│   ├── continuous-loop/              ← generate→backtest→evaluate→rank orchestration
-│   ├── news-ingestion/               ← Provider abstraction (RSS, NewsAPI, ...)
+│   ├── news/                         ← Provider abstraction (RSS, NewsAPI, ...)
 │   └── sentiment/                    ← ML inference behind an explicit interface
 │
 ├── apps/
@@ -94,11 +89,10 @@ cryptox/                               ← Repository root
 │   └── frontend/                       ← Charts, strategy builder, leaderboard, news tab
 │
 ├── packages/
-│   ├── contracts/                      ← Signal, Candle, Trade, BacktestResult, ...
-│   └── queue-client/                   ← shared BullMQ/Redis adapter
+│   └── contracts/                      ← REST, WebSocket, and queue protocol contracts
 │
 ├── infra/
-│   ├── docker-compose.yml              ← DB, queue, all services
+│   ├── docker-compose.yml              ← DB, queue, and deployable apps
 │   └── db/migrations/
 │
 └── .github/workflows/                  ← CI: lint, test, openspec validate
@@ -135,6 +129,13 @@ this codebase:
 7. Search/backtesting at scale uses workers with bounded stop conditions.
 8. Evaluation is separate from strategy and backtester implementation.
 9. A failing auxiliary module (e.g. sentiment) must not take down core flows.
+10. Inside each module, dependencies point `api → application → domain`; infrastructure implements application ports.
+11. Modules collaborate through public APIs only; no deep imports into another module's domain or infrastructure.
+12. `apps/` composes deployable processes, `packages/` contains reusable protocol/technical code, and `infra/` contains operational setup.
+13. `backtesting` owns Candidate lifecycle/persistence; `search` owns Search Run orchestration only.
+14. `news` owns News items, `sentiment` owns sentiment results/snapshots, and cross-module inputs use neutral contracts.
+15. `packages/contracts/queue` is the canonical serialized Backtest wire schema; the BullMQ adapter remains inside Backtesting infrastructure.
+16. Search consumes Backtesting Candidate projections and cancellation/submission facades; it never owns or writes Candidate persistence directly.
 
 ---
 
