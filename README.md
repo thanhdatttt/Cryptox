@@ -67,6 +67,7 @@ cryptox/                               ← Repository root
 │   │   ├── component-contracts.md
 │   │   ├── data-model.md
 │   │   ├── data-flow.md
+│   │   └── tech-stack.md
 │   │   └── project-structure.md
 │   └── adr/                             ← Architectural Decision Records
 │       ├── ADR_001_websocket.md
