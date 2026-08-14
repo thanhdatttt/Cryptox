@@ -61,7 +61,22 @@ Out of scope (owned by other modules, consumed through their public APIs only):
 - **Purity:** `Strategy.analyze()` and `CombinationEngine.combine()` must not perform I/O. They read only what `StrategyContext` (or the signal list) supplies.
 - **Composite blindness:** the `CombinationEngine` sees only `{ strategyDefinitionId, signal }` pairs plus the composite's own `method`/`weight`/`thresholds`. It must never branch on which strategy produced a signal, and must never read another strategy's internal state or indicators.
 - **`WEIGHTED_SCORE` validation:** at least one component; all weights finite; weights sum to `1`; `thresholds.buy > thresholds.sell`.
+- **`WEIGHTED_SCORE` formula:** each component signal is encoded as `BUY = +1`, `HOLD = 0`, `SELL = -1`. The composite score is the weighted sum:
+
+  ```
+  score = Σ (encode(signal_i) × weight_i)   for i in components
+  ```
+
+  The `CombinationEngine` then maps `score` to a `Signal`:
+  - `score > thresholds.buy` → `BUY`
+  - `score < thresholds.sell` → `SELL`
+  - otherwise → `HOLD`
+
+  Encoding and thresholding happen entirely inside `CombinationEngine.combine()`; no component strategy is aware of this mapping.
 - **`MAJORITY_VOTE` validation:** at least one component; weights are ignored and normalized to `0`; thresholds are normalized to the documented defaults (`buy: 0.3, sell: -0.3`) even though unused, so the row is always fully populated.
+- **`MAJORITY_VOTE` formula and tie-break rule:** count `signal_i` occurrences across all components into `buyCount`, `sellCount`, `holdCount`. The result is whichever of the three has the strictly highest count.
+  - **Tie-break rule:** if two or more counts are tied for the highest value, the result is `HOLD`. This applies uniformly regardless of which signals are tied (e.g. `BUY == SELL`, `BUY == HOLD`, or all three equal) — `HOLD` is the deterministic, conservative default whenever the vote is inconclusive.
+  - Example: `{BUY, BUY, HOLD}` → `buyCount=2` → `BUY`. `{BUY, SELL, HOLD}` → all counts `=1` → tie → `HOLD`. `{BUY, SELL}` → `buyCount=1, sellCount=1` → tie → `HOLD`.
 - **Artifact fidelity:** replay must use the exact retained build (`implementationSha256`) that produced a definition. If that artifact is unavailable, the module must fail explicitly (`IMPLEMENTATION_ARTIFACT_UNAVAILABLE`) rather than silently substitute the currently deployed plugin code.
 - **Sentiment is read-only input:** an `INFORMATION`-category strategy reads `context.sentiment`; it never calls Sentiment's API itself. Ensuring that sentiment is present for a given candle window is the caller's contract (Backtesting verifies the pinned `LeaderboardScope` has a snapshot before submission), not something Strategy fetches or defends against at runtime beyond typing `sentiment` as optional.
 
@@ -475,8 +490,8 @@ flowchart LR
 
 - [ ] `resolveStrategy` for a definition whose `implementationSha256` is retained returns a `Strategy` whose `analyze()` is callable and pure (no network/DB calls observed during the call).
 - [ ] `resolveStrategy` for a definition whose `implementationSha256` is **not** retained rejects with `IMPLEMENTATION_ARTIFACT_UNAVAILABLE` and never substitutes the currently deployed plugin version.
-- [ ] `combineSignals` given N component signals and a `MAJORITY_VOTE` composite returns the majority `Signal`; a tie resolves per the documented default rule.
-- [ ] `combineSignals` given a `WEIGHTED_SCORE` composite returns `BUY` when the weighted sum exceeds `thresholds.buy`, `SELL` when it is below `thresholds.sell`, and `HOLD` otherwise.
+- [ ] `combineSignals` given N component signals and a `MAJORITY_VOTE` composite returns the signal with the strictly highest count (per §2.2); any tie among the counts (2-way or 3-way) returns `HOLD`.
+- [ ] `combineSignals` given a `WEIGHTED_SCORE` composite computes `score = Σ(encode(signal_i) × weight_i)` with `BUY=+1/HOLD=0/SELL=-1` (per §2.2) and returns `BUY` when `score > thresholds.buy`, `SELL` when `score < thresholds.sell`, and `HOLD` otherwise.
 - [ ] The `CombinationEngine` implementation contains no conditional logic keyed on `strategyName` or `category` — verified by code review / architecture test, not just unit test.
 
 ### Reproducibility
