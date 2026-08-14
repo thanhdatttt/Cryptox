@@ -1,20 +1,103 @@
 schema: spec-driven
 
-# Project context (optional)
-# This is shown to AI when creating artifacts.
-# Add your tech stack, conventions, style guides, domain knowledge, etc.
-# Example:
-#   context: |
-#     Tech stack: TypeScript, React, Node.js
-#     We use conventional commits
-#     Domain: e-commerce platform
+context: |
+  Product: Crypto Strategy Lab for configuring, searching, backtesting, evaluating,
+  ranking, and visualizing crypto strategies. It is an experiment platform, not a
+  live-money trading system.
 
-# Per-artifact rules (optional)
-# Add custom rules for specific artifacts.
-# Example:
-#   rules:
-#     proposal:
-#       - Keep proposals under 500 words
-#       - Always include a "Non-goals" section
-#     tasks:
-#       - Break tasks into chunks of max 2 hours
+  Architecture: synchronous Modular Monolith for core backend modules, plus a
+  dedicated asynchronous Backtest Worker Pool. Backend modules collaborate through
+  typed in-process interfaces. There is no general Event Bus.
+
+  Repository structure:
+  - Business modules live under modules/ and are composed into deployable processes;
+    modules are not microservices and the modules/ folder is an organizational
+    namespace, not an additional runtime boundary.
+  - Each module uses api, application, domain, and infrastructure as logical layers
+    when those layers are needed. The dependency direction is api -> application ->
+    domain; infrastructure implements application ports.
+  - apps/ contains deployable composition roots, packages/ contains reusable
+    transport/protocol or technical libraries, infra/ contains operational setup and
+    migrations, and docs/ contains architecture/decision records.
+  - Modules expose public API entrypoints. Consumers may not import another module's
+    domain or infrastructure internals. Domain entities stay with their owning module.
+  - packages/contracts is intentionally narrow: REST, market WebSocket, and queue
+    protocol contracts only. The Backtest queue adapter belongs to
+    modules/backtesting/infrastructure/queue unless later evidence proves it reusable.
+  - The MVP ExperimentResult aggregate and Completion Processor remain in
+    modules/backtesting; Evaluation and Leaderboard provide the policies/services they own.
+  - modules/backtesting owns Candidate lifecycle, Candidate persistence, and CandidateProgress;
+    modules/search owns Search Runs/generation/slot orchestration only.
+  - Search never queries or mutates Candidate persistence directly; cancellation and
+    progress summaries go through Backtesting application facades.
+  - modules/news owns NewsItem persistence; modules/sentiment owns SentimentResult,
+    sentiment snapshot persistence, and neutral SentimentInput/Result contracts.
+  - packages/contracts/queue is the canonical serialized Backtest wire schema;
+    modules/backtesting/infrastructure/queue is the BullMQ adapter.
+  - Queue wire payloads use an explicit schemaVersion and remain independent of
+    Backtesting in-process API types.
+  - apps may compose modules only through allowlisted api/index and api/bootstrap
+    facades; they must not import module infrastructure or domain internals directly.
+  - A cancelled Candidate may have a completed audit Attempt and Trades, but it can
+    never create an Experiment or ranking entry.
+
+  Transport rules:
+  - Frontend commands and queries use REST.
+  - WebSocket is restricted to realtime market ticks, candles, and exchange status.
+  - BullMQ/Redis is the only asynchronous backend boundary and is restricted to
+    backtest job dispatch plus completion/failure notification.
+  - PostgreSQL is authoritative; queue signals carry only job/status references or failure context, never domain result payloads.
+
+  Domain rules:
+  - Strategies are pure and never access I/O or infrastructure.
+  - Strategy and composite definitions are immutable and versioned.
+  - A non-cancelled candidate whose full pipeline succeeds creates exactly one Experiment; cancelled/failed candidates create none.
+  - Every successful Experiment stores its score and immutable benchmark/formula references.
+  - Benchmark scope also pins simulator/indicator and evaluation runtime hashes; jobs/workers must match them.
+  - Evaluation never emits or stores NaN/Infinity. A zero-trade success is persisted with score 0 but is not rank-eligible.
+  - Backtests read a sealed content-hashed candle snapshot, not mutable live/history candle rows.
+  - A backtest using an INFORMATION strategy also pins a sealed, time-aligned sentiment/model snapshot.
+  - Search Run ranking is session-scoped; persistent Top-10 is partitioned by immutable leaderboard scope.
+  - The MVP persistent leaderboard uses a fixed K of 10.
+  - Evaluation is separate from strategy/backtest implementation.
+  - Search Runs always have an explicit stop condition.
+  - Strategy and Composite Definitions require a stable logicalFamilyKey and atomic
+    per-family version allocation; any immutable content/provenance change creates a new version.
+  - Sentiment snapshot alignment uses half-open ranges, window-end points, no future lookup,
+    no carry-forward over missing windows, canonical base-asset symbols, and [-1, 1] scores.
+  - Search ERROR is terminal FAILED with lastError/endedAt; completion callbacks never
+    convert FAILED to COMPLETED.
+
+rules:
+  design:
+    - Keep the module-first layout: modules/<name>/{api,application,domain,infrastructure}; do not create technical-layer-first top-level folders.
+    - Keep api -> application -> domain dependency direction; infrastructure implements ports and is never imported by another module.
+    - Require cross-module calls to use a public module API; forbid deep imports into another module's domain or infrastructure.
+    - Keep domain entities and business contracts in their owning module; put only transport/shared protocol contracts in packages/contracts.
+    - Keep apps as composition roots without business use cases, and keep migrations/operational setup under infra.
+    - Keep the Backtest queue adapter under modules/backtesting/infrastructure/queue unless a later ADR establishes genuine reuse.
+    - Keep serialized queue messages canonical under packages/contracts/queue and map them through the Backtesting queue adapter.
+    - Keep Candidate lifecycle and CandidateProgress owned by modules/backtesting; Search consumes the public projection.
+    - Keep News and Sentiment persistence separate: News owns news_items; Sentiment owns sentiment_results and sentiment snapshots.
+    - Require neutral StrategyCandle and SentimentInput contracts at module boundaries; do not pass NewsItem or Market Data domain entities directly into another module's domain.
+    - Require Search to use Backtesting public facades for Candidate summaries, submissions, and cancellation; no direct Candidate table/repository access.
+    - Require queue wire contracts to be self-contained under packages/contracts/queue and versioned with schemaVersion.
+    - Require deterministic sentiment snapshot as-of alignment and explicit missing-window behavior.
+    - Require Search ERROR to transition immediately to terminal FAILED with lastError and endedAt.
+    - Define cancelled-audit behavior explicitly: Candidate remains CANCELLED, an in-flight Attempt may complete for audit, Trades are excluded from Experiment/ranking.
+    - Keep ExperimentResult and Completion Processor in modules/backtesting for the MVP unless a later change explicitly extracts an experiment module.
+    - A structure-only change must update the project-structure, architecture, component-contracts, data-model/data-flow, README, and ADR documentation together.
+    - A documentation-only structure change must not modify runtime code, migrations, build configuration, or transport semantics.
+    - Do not introduce a general Event Bus, domain-event catalog, or non-market WebSocket flow without a new accepted ADR and measurable architectural driver.
+    - Distinguish BullMQ work-queue semantics from broadcast pub/sub.
+    - On normal worker return/throw paths, persist backtest attempt/results before BullMQ completion/failure; repair crash/stall bypasses with the terminal watchdog.
+    - Make completion handling idempotent and reconcile missed success and exhausted-retry notifications from durable pending states.
+    - Reconcile every stale non-terminal candidate against BullMQ terminal state and close abandoned RUNNING attempts before retry allocation.
+    - Treat BullMQ completed and retries-exhausted as distinct wake-ups; ignore generic per-attempt failed unless terminal state/no-runnable-retry is verified.
+    - Fence overlapping worker deliveries with an active attempt generation and never allocate beyond the persisted attempt budget.
+    - Bound completion processing with persisted claim count, lease, backoff, and a terminal failure path.
+  tasks:
+    - Keep documentation and ownership matrices synchronized before beginning implementation migration.
+    - Do not create empty layer folders solely for symmetry; add a layer when the module has a responsibility for it.
+    - Include tests for REST status/cancel, queue retry/idempotency/fencing, missed terminal notifications, and market WebSocket reconnect behavior when relevant.
+    - Include evaluation tests for zero trades, no losses, all break-even, insufficient samples, zero variance, and rejection of non-finite values.
