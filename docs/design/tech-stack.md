@@ -26,6 +26,6 @@
 | Data fetching | TanStack Query (React Query) for REST polling |
 | Validation | Zod (REST payloads + BullMQ `returnvalue`/`attemptsMade` parsing) |
 | Monorepo tooling | pnpm workspaces + Turborepo |
-| Testing | Vitest + Testcontainers (real Postgres/Redis in CI) |
+| Testing(optional) | Vitest + Testcontainers (real Postgres/Redis in CI) |
 | Local infra | Docker Compose (Postgres, Redis, backend, backtest-worker, frontend) |
 | Migrations | node-pg-migrate
