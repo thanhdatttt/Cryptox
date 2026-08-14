@@ -47,15 +47,6 @@ cryptox/                               ← Repository root
 ├── openspec/
 │   ├── config.yaml
 │   ├── specs/
-│   │   ├── market-data/
-│   │   ├── strategy/
-│   │   ├── search/
-│   │   ├── backtesting/
-│   │   ├── evaluation/
-│   │   ├── leaderboard/
-│   │   ├── news/
-│   │   ├── sentiment/
-│   │   └── dashboard/
 │   └── changes/                         ← Proposed changes (propose → apply → archive)
 │
 ├── docs/
