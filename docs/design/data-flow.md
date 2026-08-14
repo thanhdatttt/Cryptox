@@ -10,6 +10,8 @@ Cryptox does not use a general Event Bus. Data crosses boundaries in three ways:
 
 Backend modules otherwise call explicit application-service interfaces in process. PostgreSQL is the source of truth; Redis queue notifications never replace persisted state.
 
+These flows are process-level views. The implementation is organized by business module under `modules/`, with `api → application → domain` inside each module and infrastructure adapters implementing application ports. `apps/backend` is the backend composition root; `apps/backtest-worker` composes the worker side of `modules/backtesting`. This structure change does not alter the REST, market-only WebSocket, BullMQ, PostgreSQL, retry, fencing, reconciliation, or idempotency semantics described below.
+
 ## 2. Normal REST Query
 
 Used for strategy catalog/configuration, Search Run status, candidate status, experiments, Leaderboard, and News/Sentiment.
@@ -19,7 +21,7 @@ sequenceDiagram
     actor U as User
     participant FE as Frontend
     participant API as REST API
-    participant S as Application Service
+    participant S as Module Application Service
     participant PG as PostgreSQL
 
     U->>FE: Open page / request data
@@ -42,7 +44,7 @@ Historical chart data is loaded with REST. Only subsequent realtime market updat
 sequenceDiagram
     participant B as Binance
     participant A as BinanceAdapter
-    participant M as MarketDataService
+    participant M as Market Data module
     participant PG as PostgreSQL
     participant R as Redis latest-value cache
     participant WS as Market WebSocket Gateway
@@ -67,7 +69,7 @@ sequenceDiagram
     actor U as User
     participant FE as Frontend
     participant API as REST API
-    participant BC as Backtest Coordinator
+    participant BC as Backtesting module / Coordinator
     participant PG as PostgreSQL
     participant Q as BullMQ
     participant W as Backtest Worker
@@ -101,7 +103,7 @@ sequenceDiagram
     end
 ```
 
-Before Candidate commit, the Coordinator validates plugin parameters from registry descriptors and verifies all definition FKs. A composite containing an `INFORMATION` plugin additionally requires the selected scope to pin a sealed, time-aligned sentiment/model snapshot. The job copies the scope's worker runtime hash and the worker rejects a different local build. The frontend then polls `GET /backtests/{candidateId}`. A retry creates another durable attempt but never exceeds `maxAttempts`. The active-attempt generation fences overlapping stalled deliveries: a superseded worker cannot close its Attempt or move the Candidate. If cancellation wins before work starts, no simulation runs. If it wins during simulation, the worker may close its still-running Attempt/Trades for audit but cannot overwrite `CANCELLED` or create an Experiment/rank. `POST /backtests/{candidateId}/cancel` gives Manual runs the same idempotent DB-first cancellation; only the Coordinator performs best-effort waiting/delayed-job cleanup. If a job is redelivered after a successful PostgreSQL commit, the worker finds the completed attempt and returns its IDs instead of simulating again.
+Before Candidate commit, the Coordinator validates plugin parameters from registry descriptors and verifies all definition FKs. A composite containing an `INFORMATION` plugin additionally requires the selected scope to pin a sealed, time-aligned sentiment/model snapshot. The job copies the scope's worker runtime hash and the worker rejects a different local build. The frontend then polls `GET /backtests/{candidateId}`. A retry creates another durable attempt but never exceeds `maxAttempts`. The active-attempt generation fences overlapping stalled deliveries: a superseded worker cannot close its Attempt or move the Candidate. If cancellation wins before work starts, no simulation runs. If it wins during simulation, the worker may finish its own Attempt as `COMPLETED` and persist Trades for audit, but cannot overwrite `CANCELLED` or create an Experiment/rank. `POST /backtests/{candidateId}/cancel` gives Manual runs the same idempotent DB-first cancellation; only the Coordinator performs best-effort waiting/delayed-job cleanup. If a job is redelivered after a successful PostgreSQL commit, the worker finds the completed attempt and returns its IDs instead of simulating again.
 
 ## 5. Continuous Search Run
 
@@ -110,9 +112,9 @@ sequenceDiagram
     actor U as User
     participant FE as Frontend
     participant API as REST API
-    participant O as Search Loop Orchestrator
-    participant BC as Backtest Coordinator
-    participant G as Strategy Generator
+    participant O as Search module / Loop Orchestrator
+    participant BC as Backtesting module / Coordinator
+    participant G as Search module / Generator
     participant PG as PostgreSQL
     participant Q as BullMQ
 
@@ -123,7 +125,9 @@ sequenceDiagram
     O-->>API: searchRunId
     API-->>FE: 202 Accepted
 
-    O->>PG: fillAvailableSlots: acquire per-run lease; derive slots/limits
+    O->>PG: fillAvailableSlots: acquire Search Run lease; read Search-owned limits
+    O->>BC: summarizeSearchCandidates(searchRunId)
+    BC-->>O: Candidate projection/counts
     loop For each available slot while RUNNING and stop=false
         O->>G: generate(searchSpace)
         G-->>O: GeneratedCandidate
@@ -132,15 +136,17 @@ sequenceDiagram
         BC->>Q: Idempotent enqueue BacktestQueueJob
         BC->>PG: Conditional CREATED -> QUEUED
     end
-    O->>PG: Release lease; persist terminal run if stop reached and drained
+    O->>PG: Release lease; persist Search Run state if stop reached and drained
 
     FE->>API: GET /search-runs/{id}
-    API->>PG: Read progress projection
-    PG-->>API: LoopStatus
+    API->>O: status(searchRunId)
+    O->>BC: summarizeSearchCandidates(searchRunId)
+    BC-->>O: Candidate projection/counts
+    O-->>API: LoopStatus
     API-->>FE: 200 OK
 ```
 
-The Search Loop limits the number of in-flight jobs and never enqueues the whole space. `fillAvailableSlots(searchRunId)` is idempotent and serialized by a Search Run row lock/lease. It computes persisted in-flight and total-created counts, checks stop conditions, and reserves no more than the missing slots or remaining `maxCandidates`. Once a stop condition is met it reserves nothing; when in-flight reaches zero it persists `COMPLETED`, `stopReason`, and `endedAt`. It runs on start, resume, every completion callback, and backend startup/periodic reconciliation for all `RUNNING` runs; therefore a lost callback cannot stall the loop, and concurrent callbacks cannot overfill it. `UNIQUE (search_run_id, iteration_number)` makes a repeated reservation load the existing iteration. `pause` stops filling slots but lets claimed jobs finish. `cancel` locks the run and atomically writes Search Run `CANCELLED`/`USER_CANCELLED`/`endedAt` plus all non-terminal Candidate `CANCELLED` states; after commit it calls `BacktestCoordinator.removePendingJobs(candidateIds)`. The Coordinator alone owns `queue-client` and best-effort removes waiting/delayed jobs. Late attempts/trades are audit-only and create no Experiment/rank.
+The Search module limits the number of in-flight jobs and never enqueues the whole space. `fillAvailableSlots(searchRunId)` is idempotent and serialized by a Search Run row lock/lease. It obtains Candidate counts/projections through the Backtesting public API, checks stop conditions, and submits no more than the missing slots or remaining `maxCandidates` through `BacktestCoordinator.submitSearchCandidate`; Search never reads Candidate tables directly. Once a normal stop condition is met it reserves nothing; when in-flight reaches zero it persists `COMPLETED`, `stopReason`, and `endedAt` only if the run is still `RUNNING`. It runs on start, resume, every completion callback, and backend startup/periodic reconciliation for all `RUNNING` runs; therefore a lost callback cannot stall the loop, and concurrent callbacks cannot overfill it. `UNIQUE (search_run_id, iteration_number)` makes a repeated reservation load the existing iteration. `pause` stops filling slots but lets claimed jobs finish. `cancel` locks the run and, through a process-level application unit of work, writes Search Run `CANCELLED`/`USER_CANCELLED`/`endedAt` and asks Backtesting's public facade to mark non-terminal Candidates `CANCELLED`; after commit it calls `BacktestCoordinator.removePendingJobs(candidateIds)`. The Backtesting module alone owns its queue infrastructure and best-effort removes waiting/delayed jobs. Late attempts/trades are audit-only and create no Experiment/rank. An unrecoverable Search orchestration error immediately records `FAILED`/`ERROR`/`lastError`/`endedAt`; callbacks may update counters but never change that state to `COMPLETED`.
 
 ## 6. Backtest Completion → Experiment → Leaderboard
 
@@ -152,10 +158,10 @@ sequenceDiagram
     participant PG as PostgreSQL
     participant B as BullMQ job state
     participant Q as BullMQ QueueEvents Adapter
-    participant BC as Completion Processor
-    participant E as Evaluator
-    participant L as Leaderboard Service
-    participant O as Search Loop
+    participant BC as Backtesting module / Completion Processor
+    participant E as Evaluation module / Evaluator
+    participant L as Leaderboard module
+    participant O as Search module / Loop
 
     W->>PG: On normal path, persist Attempt/Trades and fenced pending Candidate state
     W->>B: Return success IDs or throw
@@ -219,10 +225,10 @@ Reliability rules:
 
 ```mermaid
 sequenceDiagram
-    participant T as Scheduler or REST Command
-    participant N as News Collector
+    participant T as Backend Scheduler or REST Command
+    participant N as News module / Collector
     participant P as NewsProvider
-    participant S as Sentiment Service
+    participant S as Sentiment module / Analysis
     participant PG as PostgreSQL
     participant API as REST API
     participant FE as Frontend
@@ -231,21 +237,28 @@ sequenceDiagram
     N->>P: fetch()
     P-->>N: Normalized NewsItem[]
     N->>PG: Store/deduplicate news
-    N->>S: analyze(item) through explicit interface
+    N->>S: analyze(SentimentInput) through explicit interface
     alt Sentiment succeeds
         S-->>N: SentimentResult
-        N->>PG: Store sentiment
+        S->>PG: Persist SentimentResult in Sentiment-owned storage
     else Timeout or model failure
         N->>N: Record logs/metrics; leave sentiment missing
     end
     opt Create reproducible INFORMATION benchmark input
-        N->>PG: Seal time-aligned sentiment points + model/hash snapshot
+        S->>PG: Seal sentiment points + model/hash snapshot
     end
     FE->>API: GET /news
     API->>N: Query news
-    N->>PG: Query news + available sentiment
+    N->>PG: Query NewsItem records
+    N->>S: Read available sentiment through Sentiment API
+    S->>PG: Query SentimentResult records
+    S-->>N: Sentiment projection
     N-->>API: News response DTO
     API-->>FE: 200 OK
 ```
 
 There is no `NewsCollected` or `SentimentAnalyzed` event. Sentiment failure is contained by timeout/error handling and cannot stop market charts or backtesting.
+
+The Backend Scheduler is a process-level trigger composed by `apps/backend`; it invokes the News public API and owns no News or Sentiment business rules. News reads `news_items` and Sentiment reads `sentiment_results` through their module APIs.
+
+Redis latest-tick/latest-candle data is an optimization for realtime chart reads only. PostgreSQL remains authoritative for historical candles, news, sentiment, Candidates, Attempts, Trades, Experiments, and Leaderboard. A cache miss or stale/invalid cache entry falls back to PostgreSQL; cache timestamps are exposed only as connection/data freshness metadata, never as a replacement for durable state.
