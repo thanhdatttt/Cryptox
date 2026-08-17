@@ -1,0 +1,26 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "declaration": true,
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "baseUrl": ".",
+    "paths": {
+      "@cryptox/contracts/*": ["packages/contracts/src/*"],
+      "@cryptox/market-data": ["modules/market-data/api"],
+      "@cryptox/strategy": ["modules/strategy/api"],
+      "@cryptox/search": ["modules/search/api"],
+      "@cryptox/backtesting": ["modules/backtesting/api"],
+      "@cryptox/evaluation": ["modules/evaluation/api"],
+      "@cryptox/leaderboard": ["modules/leaderboard/api"],
+      "@cryptox/news": ["modules/news/api"],
+      "@cryptox/sentiment": ["modules/sentiment/api"]
+    }
+  }
+}

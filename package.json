@@ -1,12 +1,16 @@
 {
   "name": "Cryptox",
   "version": "1.0.0",
-  "description": "",
+  "description": "Strategy cryto platform",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "turbo run dev",
-    "build": "turbo run build"
+    "build": "turbo run build",
+    "dev:backend": "turbo run dev --filter=backend",
+    "dev:worker": "turbo run dev --filter=backtest-worker",
+    "dev:frontend": "turbo run dev --filter=frontend",
+    "migrate": "pnpm --filter @cryptox/infra migrate"
   },
   "keywords": [],
   "author": "",
@@ -14,12 +18,14 @@
   "devEngines": {
     "packageManager": {
       "name": "pnpm",
-      "version": "11.21.0",
+      "version": "11.22.0",
       "onFail": "download"
     }
   },
   "type": "module",
   "devDependencies": {
-    "turbo": "^2.10.9"
+    "dependency-cruiser": "^18.2.0",
+    "turbo": "^2.10.9",
+    "typescript": "^7.0.2"
   }
 }

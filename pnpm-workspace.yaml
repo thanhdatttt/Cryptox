@@ -1,4 +1,8 @@
 packages:
   - "apps/*"
   - "packages/*"
-  - "services/*"
+  - "modules/*"
+  - "infra/*"
+allowBuilds:
+  msgpackr-extract: true
+  unrs-resolver: true
