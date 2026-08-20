@@ -1,8 +1,0 @@
-packages:
-  - "apps/*"
-  - "packages/*"
-  - "modules/*"
-  - "infra/*"
-allowBuilds:
-  msgpackr-extract: true
-  unrs-resolver: true
