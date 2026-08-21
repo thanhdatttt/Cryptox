@@ -1,6 +1,6 @@
 # Spec: Backtest Log and Audit Trail (`modules/backtesting`)
 
-Status: proposed implementation baseline — format-audited against the branch `main` module specs
+Status: proposed implementation baseline — aligned with the branch `main` module specs
 
 This spec defines the durable record and read model used to understand what
 happened to one Manual or Search backtest. It covers Candidate progress,
@@ -89,11 +89,6 @@ into the exact ownership, queue, persistence, fencing, and API rules in this
 document. In particular, loop-level counters and ranking remain Search and
 Leaderboard projections, while Backtesting owns the per-Candidate audit trail
 that supplies them.
-
-The section/heading and contract-shape comparison against every document in
-`openspec/specs` is recorded in the companion
-`openspec/specs/backtest-log-format-audit.md`; that audit is a compatibility
-record, while this file remains the normative implementation specification.
 
 The branch `main` design documents are the compatibility baseline for shared
 contracts. This spec adds the Backtest Log detail required by the assignment,
