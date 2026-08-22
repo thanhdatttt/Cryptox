@@ -391,7 +391,25 @@ CREATE TABLE strategy_definitions (
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX idx_strategy_defs_name ON strategy_definitions (strategy_name);
+---
+## 3.15 `composite_strategy_definitions` (add user ownership)
+
+Add a `user_id` foreign‑key column to tie each composite definition to its owner.
+
+```sql
+ALTER TABLE composite_strategy_definitions ADD COLUMN user_id UUID NOT NULL REFERENCES users(id);
+```
+---
 CREATE UNIQUE INDEX uq_strategy_defs_family_version
+---
+## 3.14 `strategy_definitions` (add user ownership)
+
+Add a `user_id` foreign‑key column to tie each strategy definition to its owner.
+
+```sql
+ALTER TABLE strategy_definitions ADD COLUMN user_id UUID NOT NULL REFERENCES users(id);
+```
+---
   ON strategy_definitions (logical_family_key, version);
 ```
 
@@ -419,6 +437,15 @@ CREATE TABLE composite_strategy_definitions (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE UNIQUE INDEX uq_composite_defs_family_version
+---
+## 3.16 `search_runs` (add user ownership)
+
+Add a `user_id` foreign‑key column to tie each Search Run to its creator.
+
+```sql
+ALTER TABLE search_runs ADD COLUMN user_id UUID NOT NULL REFERENCES users(id);
+```
+---
   ON composite_strategy_definitions (logical_family_key, version);
 
 CREATE TABLE composite_strategy_components (
@@ -840,6 +867,23 @@ Two read models are intentionally different:
 - `GET /leaderboard?scopeId=...` reads active `leaderboard_entries` for that immutable benchmark scope. It survives across runs and includes both Manual and Search Experiments that qualified.
 
 ### 3.12 `news_items` / `sentiment_results`
+
+---
+## 3.13 `users`
+
+Owned by `modules/auth`. Stores each registered user and a bcrypt‑hashed password. All other tables that represent user‑owned data reference this table via a `user_id` foreign key.
+
+```sql
+CREATE TABLE users (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  email TEXT NOT NULL UNIQUE,
+  password_hash TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+```
+
+---
+
 
 `modules/news` owns `news_items`; `modules/sentiment` owns `sentiment_results` and sentiment snapshot tables. They remain separate so swapping the sentiment model, or adding a `CrawlerProvider`, never touches the other's business ownership or schema.
 
