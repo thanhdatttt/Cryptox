@@ -1,0 +1,52 @@
+## 1. Canonical Documentation Synchronization
+
+- [ ] 1.1 Update `auth-spec.md`, `strategy-spec.md`, `search-spec.md`, and `ranking-spec.md` with the owner-aware requirements, behavior, contracts, constraints, and acceptance criteria from this change.
+- [ ] 1.2 Repair and update the ownership/table sections in `docs/design/data-model.md`, including one coherent ERD and definitions for `users`, the four `user_id` columns, owner-aware constraints/indexes, and the legacy-owner migration.
+- [ ] 1.3 Update `docs/design/component-contracts.md` with `AuthContext`, breaking owner-aware API signatures, protected REST mappings, derived-resource authorization, and private ranking behavior.
+- [ ] 1.4 Update `strategy-spec.md`, `data-model.md`, and `component-contracts.md` with the generation endpoint, ports, audit table, atomic sequence, and Search/AI-generation distinction.
+- [ ] 1.5 Update Trade, Market Data, and News canonical documentation with the three lower-risk deltas, then run cross-file terminology and ownership-matrix checks.
+
+## 2. Authentication and Ownership Foundation
+
+- [ ] 2.1 Add the legacy migration user and migrate the four owner columns, foreign keys, owner-aware unique constraints, and lookup indexes before enforcing `NOT NULL`.
+- [ ] 2.2 Complete bcrypt registration/login and one-hour HS256 JWT verification, then add Backend middleware that creates `AuthContext` for protected routes.
+- [ ] 2.3 Change Strategy Definition and Composite Definition commands/queries to require `userId` and reject mixed-owner components.
+- [ ] 2.4 Change Leaderboard Scope and Search Run commands/queries to require `userId` and reject cross-owner scope references.
+- [ ] 2.5 Add owner-aware authorization for Candidates, Backtests, Experiments, Trade Detail, Search controls, and all user-owned list/read routes through immutable parent chains.
+- [ ] 2.6 Add isolation tests covering forged body owners, guessed direct/derived IDs, mixed-owner composites/scopes, and same logical names under different users.
+
+## 3. Owner-Scoped Ranking and Search
+
+- [ ] 3.1 Update `rankSearchRun` and Search leaderboard/status projections to resolve an owner-matching Search Run before querying results.
+- [ ] 3.2 Update `topK`, Leaderboard Scope listing, and admission verification so the fixed Top-10 is private to one user-owned scope.
+- [ ] 3.3 Test that equal immutable benchmark inputs under two owners still produce separate Search rankings and persistent Top-10 lists.
+
+## 4. AI-Generated Strategy
+
+- [ ] 4.1 Add the `strategy_generation_requests` migration with owner, exclusive source/result checks, provenance fields, and same-owner result validation.
+- [ ] 4.2 Add request/output schemas, `StrategyGenerationAdapter`, and bounded public-URL source-loader ports without exposing provider SDK types.
+- [ ] 4.3 Implement the synchronous generation application flow through `listStrategies`, `defineStrategy`, and `defineComposite` in one atomic persistence unit.
+- [ ] 4.4 Add authenticated `POST /strategy-generations` transport mapping and the documented validation/source/model error responses.
+- [ ] 4.5 Test text and URL success, single/composite output, unsafe redirects, timeout, malformed schema, unknown plugin, invalid parameters, same-owner persistence, and zero partial writes.
+
+## 5. Trade Risk Fields
+
+- [ ] 5.1 Add nullable positive `stop_loss` and `take_profit` columns to `trades`.
+- [ ] 5.2 Propagate optional price fields through worker persistence, Backtesting `Trade`, Experiment hydration, and REST Trade Detail while keeping queue signals reference-only.
+- [ ] 5.3 Test positive values, legacy null values, invalid values, and unchanged entry-time trigger prices after completion.
+
+## 6. Market Data Default
+
+- [ ] 6.1 Set the omitted-limit historical page constant to 1000 in the REST and `readCandles` page path.
+- [ ] 6.2 Test omitted limit, explicit smaller limit, fewer-than-1000 history, chronological ordering, and unchanged explicit-range/snapshot behavior.
+
+## 7. LLM News Crawler
+
+- [ ] 7.1 Add the tool-free `HtmlNewsInterpreter` port and a schema-constrained provider adapter behind the crawler infrastructure boundary.
+- [ ] 7.2 Replace selector-only crawler extraction with bounded HTML safety preprocessing, LLM interpretation, canonical normalization, and validation.
+- [ ] 7.3 Add observability and tests for layout variation, prompt-like page content, malformed/hallucinated fields, timeout, provider isolation, exact-URL deduplication, and News-before-Sentiment ordering.
+
+## 8. Validation
+
+- [ ] 8.1 Run strict OpenSpec validation and verify every canonical spec follows Overview → Requirements → Behavior → Contracts → Constraints → Acceptance Criteria.
+- [ ] 8.2 Run authentication/ownership integration tests and regression suites for Search lifecycle, ranking, Backtesting completion, Market Data reads/WebSocket reconnect, News/Sentiment failure isolation, and existing evaluation edge cases.
