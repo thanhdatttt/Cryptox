@@ -1,0 +1,18 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./modules/market-data/tsconfig.json" },
+    { "path": "./modules/strategy/tsconfig.json" },
+    { "path": "./modules/search/tsconfig.json" },
+    { "path": "./modules/backtesting/tsconfig.json" },
+    { "path": "./modules/evaluation/tsconfig.json" },
+    { "path": "./modules/leaderboard/tsconfig.json" },
+    { "path": "./modules/news/tsconfig.json" },
+    { "path": "./modules/sentiment/tsconfig.json" },
+    { "path": "./modules/auth/tsconfig.json" },
+    { "path": "./apps/backend/tsconfig.json" },
+    { "path": "./apps/backtest-worker/tsconfig.json" },
+    { "path": "./apps/frontend/tsconfig.json" },
+    { "path": "./packages/contracts/tsconfig.json" }
+  ]
+}
