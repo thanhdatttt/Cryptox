@@ -1,14 +1,24 @@
-import type { SentimentDatasetSnapshotRef, SentimentInput, SentimentResult, SentimentSnapshotPoint } from "../domain/contracts";
+import type { CreateSentimentSnapshotCommand, SentimentDatasetSnapshotRef, SentimentInput, SentimentResult, SentimentSnapshotPoint } from "../domain/contracts";
 export interface SentimentAnalysisService {
     analyze(input: SentimentInput): Promise<SentimentResult>;
 }
+export interface SentimentSnapshotSource {
+    input: SentimentInput;
+    result: SentimentResult;
+}
 export interface SentimentResultRepository {
-    insert(result: SentimentResult): Promise<SentimentResult>;
+    insert(result: SentimentResult, input: SentimentInput): Promise<SentimentResult>;
     readLatestForNews(newsId: string): Promise<SentimentResult | undefined>;
+    readForSnapshot(command: Pick<CreateSentimentSnapshotCommand, "relatedCoin" | "range" | "modelName" | "modelVersion">): Promise<SentimentSnapshotSource[]>;
+}
+export interface SealedSentimentSnapshot {
+    ref: SentimentDatasetSnapshotRef;
+    points: SentimentSnapshotPoint[];
 }
 export interface SentimentSnapshotRepository {
     insertSealed(ref: SentimentDatasetSnapshotRef, points: SentimentSnapshotPoint[]): Promise<SentimentDatasetSnapshotRef>;
-    readAt(snapshotId: string, candleCloseTime: string): SentimentSnapshotPoint | undefined;
+    getRef(snapshotId: string): Promise<SentimentDatasetSnapshotRef | undefined>;
+    readSealed(snapshotId: string): Promise<SealedSentimentSnapshot | undefined>;
 }
 export interface Clock {
     now(): string;

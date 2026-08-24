@@ -1,14 +1,18 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.readSnapshot = exports.createSnapshot = exports.readLatestForNews = exports.analyze = void 0;
-exports.createSentimentModule = createSentimentModule;
-const notImplemented = () => { throw new Error("NOT_IMPLEMENTED"); };
-const analyze = async () => notImplemented();
+exports.createSentimentModule = exports.createInMemorySentimentDependencies = exports.readSnapshot = exports.getSnapshotRef = exports.createSnapshot = exports.readLatestForNews = exports.analyze = void 0;
+const service_1 = require("../application/service");
+const defaultService = (0, service_1.createSentimentModule)((0, service_1.createInMemorySentimentDependencies)());
+const analyze = (input) => defaultService.analyze(input);
 exports.analyze = analyze;
-const readLatestForNews = async () => notImplemented();
+const readLatestForNews = (newsId) => defaultService.readLatestForNews(newsId);
 exports.readLatestForNews = readLatestForNews;
-const createSnapshot = async () => notImplemented();
+const createSnapshot = (command) => defaultService.createSnapshot(command);
 exports.createSnapshot = createSnapshot;
-const readSnapshot = () => notImplemented();
+const getSnapshotRef = (snapshotId) => defaultService.getSnapshotRef(snapshotId);
+exports.getSnapshotRef = getSnapshotRef;
+const readSnapshot = (snapshotId) => defaultService.readSnapshot(snapshotId);
 exports.readSnapshot = readSnapshot;
-function createSentimentModule(_deps) { return { analyze: exports.analyze, readLatestForNews: exports.readLatestForNews, createSnapshot: exports.createSnapshot, readSnapshot: exports.readSnapshot }; }
+var service_2 = require("../application/service");
+Object.defineProperty(exports, "createInMemorySentimentDependencies", { enumerable: true, get: function () { return service_2.createInMemorySentimentDependencies; } });
+Object.defineProperty(exports, "createSentimentModule", { enumerable: true, get: function () { return service_2.createSentimentModule; } });

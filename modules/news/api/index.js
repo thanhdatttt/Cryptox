@@ -1,10 +1,12 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.readNews = exports.collect = void 0;
-exports.createNewsModule = createNewsModule;
-const notImplemented = () => { throw new Error("NOT_IMPLEMENTED"); };
-const collect = async () => notImplemented();
+exports.createNewsModule = exports.createInMemoryNewsDependencies = exports.readNews = exports.collect = void 0;
+const service_1 = require("../application/service");
+const defaultService = (0, service_1.createNewsModule)((0, service_1.createInMemoryNewsDependencies)());
+const collect = () => defaultService.collect();
 exports.collect = collect;
-const readNews = async () => notImplemented();
+const readNews = () => defaultService.readNews();
 exports.readNews = readNews;
-function createNewsModule(_deps) { return { collect: exports.collect, readNews: exports.readNews }; }
+var service_2 = require("../application/service");
+Object.defineProperty(exports, "createInMemoryNewsDependencies", { enumerable: true, get: function () { return service_2.createInMemoryNewsDependencies; } });
+Object.defineProperty(exports, "createNewsModule", { enumerable: true, get: function () { return service_2.createNewsModule; } });
