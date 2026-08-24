@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { BadRequestException, ConflictException, UnauthorizedException } from "@nestjs/common";
 import { createAuthModule, createInMemoryAuthDependencies } from "modules/auth/api";
+import { createInMemoryStrategyDependencies, createStrategyModule } from "modules/strategy/api/bootstrap";
 import { AuthController, MarketController, NewsController, StrategyController } from "./app.module";
 import { composeAllModules, type BackendModules } from "./compose";
 
@@ -32,5 +33,20 @@ describe("backend composition", () => {
     await expect(new NewsController(modules).list("Bearer token")).resolves.toEqual([{ id: "news-1" }]);
     await expect(new MarketController(modules).candles("Bearer token", "BTCUSDT", "1h", "0")).rejects.toBeInstanceOf(BadRequestException);
     await expect(new NewsController(modules).list()).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+
+  it("creates reviewable strategy and composite definitions from the authenticated owner", async () => {
+    const auth = createAuthModule(createInMemoryAuthDependencies());
+    await auth.register("student@example.com", "correct-horse-battery-staple");
+    const { token } = await auth.login("student@example.com", "correct-horse-battery-staple");
+    const modules = { auth, strategy: createStrategyModule(createInMemoryStrategyDependencies()) } as BackendModules;
+    const controller = new StrategyController(modules);
+    const ma = await controller.define(`Bearer ${token}`, { strategyName: "MA", parameters: { fastPeriod: 20, slowPeriod: 50 } });
+    const rsi = await controller.define(`Bearer ${token}`, { strategyName: "RSI", parameters: { period: 14, buyThreshold: 30, sellThreshold: 70 } });
+    const composite = await controller.defineComposite(`Bearer ${token}`, { method: "WEIGHTED_SCORE", components: [{ strategyDefinitionId: ma.id, weight: 0.4 }, { strategyDefinitionId: rsi.id, weight: 0.6 }], thresholds: { buy: 0.2, sell: -0.2 } });
+
+    await expect(controller.definitions(`Bearer ${token}`, `${ma.id},${rsi.id}`)).resolves.toHaveLength(2);
+    await expect(controller.composite(`Bearer ${token}`, composite.id)).resolves.toMatchObject({ id: composite.id, method: "WEIGHTED_SCORE" });
+    await expect(controller.define(`Bearer ${token}`, { strategyName: "MA", parameters: { fastPeriod: 50, slowPeriod: 20 } })).rejects.toBeInstanceOf(BadRequestException);
   });
 });

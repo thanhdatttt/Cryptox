@@ -1,4 +1,4 @@
-import { BadRequestException, Body, ConflictException, Controller, Get, Headers, HttpCode, Inject, Module, Post, Query, UnauthorizedException } from "@nestjs/common";
+import { BadRequestException, Body, ConflictException, Controller, Get, Headers, HttpCode, Inject, Module, NotFoundException, Param, Post, Query, UnauthorizedException } from "@nestjs/common";
 import { AuthException, type AuthModulePublicApi } from "modules/auth/api";
 import type { Timeframe } from "modules/market-data/api";
 import { composeAllModules, type BackendModules } from "./compose";
@@ -64,15 +64,22 @@ export class AuthController {
 abstract class ProtectedController {
   constructor(protected readonly modules: BackendModules) {}
 
-  protected async authenticate(authorization?: string): Promise<void> {
+  protected async authenticate(authorization?: string): Promise<string> {
     if (!authorization?.startsWith("Bearer ")) throw new UnauthorizedException("Bearer token is required.");
     try {
-      await this.modules.auth.verify(authorization.slice("Bearer ".length));
+      return (await this.modules.auth.verify(authorization.slice("Bearer ".length))).userId;
     } catch (error) {
-      authHttpError(error);
+      return authHttpError(error);
     }
   }
 }
+
+const strategyHttpError = (error: unknown): never => {
+  if (!(error instanceof Error)) throw error;
+  if (error.message.endsWith("_NOT_FOUND")) throw new NotFoundException(error.message);
+  if (error.message.startsWith("INVALID_") || error.message === "STRATEGY_NOT_REGISTERED") throw new BadRequestException(error.message);
+  throw error;
+};
 
 @Controller("strategies")
 export class StrategyController extends ProtectedController {
@@ -82,6 +89,49 @@ export class StrategyController extends ProtectedController {
   async list(@Headers("authorization") authorization?: string) {
     await this.authenticate(authorization);
     return this.modules.strategy.listStrategies();
+  }
+
+  @Post()
+  async define(@Headers("authorization") authorization: string | undefined, @Body() body: { strategyName?: unknown; parameters?: unknown }) {
+    const userId = await this.authenticate(authorization);
+    if (typeof body?.strategyName !== "string" || !body.parameters || typeof body.parameters !== "object" || Array.isArray(body.parameters)) throw new BadRequestException("strategyName and parameters are required.");
+    try {
+      return await this.modules.strategy.defineStrategy(userId, body.strategyName, body.parameters as Record<string, number | string>);
+    } catch (error) {
+      return strategyHttpError(error);
+    }
+  }
+
+  @Post("composites")
+  async defineComposite(@Headers("authorization") authorization: string | undefined, @Body() body: { method?: unknown; components?: unknown; thresholds?: unknown }) {
+    const userId = await this.authenticate(authorization);
+    if ((body?.method !== "MAJORITY_VOTE" && body?.method !== "WEIGHTED_SCORE") || !Array.isArray(body.components)) throw new BadRequestException("method and components are required.");
+    try {
+      return await this.modules.strategy.defineComposite(userId, { method: body.method, components: body.components as Array<{ strategyDefinitionId: string; weight: number }>, thresholds: body.thresholds as { buy: number; sell: number } | undefined });
+    } catch (error) {
+      return strategyHttpError(error);
+    }
+  }
+
+  @Get("definitions")
+  async definitions(@Headers("authorization") authorization: string | undefined, @Query("ids") ids?: string) {
+    const userId = await this.authenticate(authorization);
+    if (!ids) throw new BadRequestException("ids is required.");
+    try {
+      return await this.modules.strategy.readDefinitions(userId, ids.split(",").filter(Boolean));
+    } catch (error) {
+      return strategyHttpError(error);
+    }
+  }
+
+  @Get("composites/:id")
+  async composite(@Headers("authorization") authorization: string | undefined, @Param("id") id: string) {
+    const userId = await this.authenticate(authorization);
+    try {
+      return await this.modules.strategy.readComposite(userId, id);
+    } catch (error) {
+      return strategyHttpError(error);
+    }
   }
 }
 

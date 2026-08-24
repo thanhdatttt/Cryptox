@@ -7,6 +7,8 @@ export interface StrategyModulePublicApi {
         strategyDefinitionId: string;
         signal: Signal;
     }>): Signal;
+    readDefinitions(userId: string, ids: string[]): Promise<StrategyDefinition[]>;
+    readComposite(userId: string, id: string): Promise<CompositeStrategyDefinition>;
 }
 export declare const listStrategies: () => StrategyPluginDescriptor[];
 export declare const resolveStrategy: (definition: StrategyDefinition) => Promise<Strategy>;
