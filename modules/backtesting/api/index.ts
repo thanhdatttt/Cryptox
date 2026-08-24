@@ -1,4 +1,6 @@
 import type { BacktestAttemptAudit, BacktestSubmissionAccepted, BenchmarkScopeSummary, CandidateProgress, CancellationUnitOfWork, CreateLeaderboardScopeCommand, ExperimentResultSummary, ReplayVerificationResult, StartManualBacktestCommand, SubmitSearchCandidateCommand, Trade } from "../domain/contracts";
+export { simulateBacktest } from "../domain/simulator";
+export type { SimulationInput } from "../domain/simulator";
 export type { CandidateStatus, BacktestSubmissionAccepted, CancellationUnitOfWork, CompletionUnitOfWork, Trade, CompletedBacktestResult, GeneratorType, CreateLeaderboardScopeCommand, StartManualBacktestCommand, SubmitSearchCandidateCommand, BenchmarkScopeSummary, ReplayVerificationResult, CandidateProgress, BacktestAttemptProgress, BacktestAttemptAudit, ExperimentResult, ExperimentResultSummary } from "../domain/contracts";
 export interface SearchCandidateSummary { searchRunId: string; active: CandidateProgress[]; queuedCount: number; runningCount: number; candidatesTested: number; failedCandidateCount: number; retryExhaustedCandidateCount: number; infrastructureFailureCandidateCount: number; completionProcessingFailureCandidateCount: number; failedAttemptCount: number; averageBacktestDurationMs: number | null; }
 export interface SearchCandidatePageRequest { limit: number; cursor?: string; }

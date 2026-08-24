@@ -23,6 +23,7 @@ export interface Trade {
     id: string;
     sequence: number;
     pair: Pair;
+    settlementAsset: string;
     backtestAttemptId: string;
     signal: "LONG" | "SHORT";
     entryTime: string;
@@ -36,9 +37,11 @@ export interface Trade {
     exitReason: "STOP_LOSS" | "TAKE_PROFIT" | "STRATEGY_CLOSE" | "RANGE_END";
     quantity: number;
     notionalEntryValue: number;
+    equityBeforeTrade: number;
+    equityAfterTrade: number;
     grossProfit: number;
     feeAmount: number;
-    slippageBps: 5;
+    slippageBps: number;
     slippageAmount: number;
     profit: number;
     resultPercent: number;

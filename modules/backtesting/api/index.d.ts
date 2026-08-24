@@ -1,5 +1,6 @@
-import type { BacktestingModuleDependencies } from "./bootstrap";
 import type { BacktestAttemptAudit, BacktestSubmissionAccepted, BenchmarkScopeSummary, CandidateProgress, CancellationUnitOfWork, CreateLeaderboardScopeCommand, ExperimentResultSummary, ReplayVerificationResult, StartManualBacktestCommand, SubmitSearchCandidateCommand, Trade } from "../domain/contracts";
+export { simulateBacktest } from "../domain/simulator";
+export type { SimulationInput } from "../domain/simulator";
 export type { CandidateStatus, BacktestSubmissionAccepted, CancellationUnitOfWork, CompletionUnitOfWork, Trade, CompletedBacktestResult, GeneratorType, CreateLeaderboardScopeCommand, StartManualBacktestCommand, SubmitSearchCandidateCommand, BenchmarkScopeSummary, ReplayVerificationResult, CandidateProgress, BacktestAttemptProgress, BacktestAttemptAudit, ExperimentResult, ExperimentResultSummary } from "../domain/contracts";
 export interface SearchCandidateSummary {
     searchRunId: string;
@@ -66,4 +67,3 @@ export declare const listAttemptTrades: BacktestLogApi["listAttemptTrades"];
 export declare const readExperimentSummary: BacktestLogApi["readExperimentSummary"];
 export declare const listExperimentTrades: BacktestLogApi["listExperimentTrades"];
 export declare const verifyReplay: BacktestLogApi["verifyReplay"];
-export declare function createBacktestingModule(_deps: BacktestingModuleDependencies): BacktestLogApi;

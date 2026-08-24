@@ -1,7 +1,8 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.verifyReplay = exports.listExperimentTrades = exports.readExperimentSummary = exports.listAttemptTrades = exports.readAttempt = exports.removePendingJobs = exports.cancelManualCandidate = exports.cancelSearchCandidates = exports.listSearchCandidates = exports.summarizeSearchCandidates = exports.status = exports.submitSearchCandidate = exports.startManual = exports.createBenchmarkScope = void 0;
-exports.createBacktestingModule = createBacktestingModule;
+exports.verifyReplay = exports.listExperimentTrades = exports.readExperimentSummary = exports.listAttemptTrades = exports.readAttempt = exports.removePendingJobs = exports.cancelManualCandidate = exports.cancelSearchCandidates = exports.listSearchCandidates = exports.summarizeSearchCandidates = exports.status = exports.submitSearchCandidate = exports.startManual = exports.createBenchmarkScope = exports.simulateBacktest = void 0;
+var simulator_1 = require("../domain/simulator");
+Object.defineProperty(exports, "simulateBacktest", { enumerable: true, get: function () { return simulator_1.simulateBacktest; } });
 const notImplemented = () => { throw new Error("NOT_IMPLEMENTED"); };
 const createBenchmarkScope = async () => notImplemented();
 exports.createBenchmarkScope = createBenchmarkScope;
@@ -31,4 +32,3 @@ const listExperimentTrades = async () => notImplemented();
 exports.listExperimentTrades = listExperimentTrades;
 const verifyReplay = async () => notImplemented();
 exports.verifyReplay = verifyReplay;
-function createBacktestingModule(_deps) { return { createBenchmarkScope: exports.createBenchmarkScope, startManual: exports.startManual, submitSearchCandidate: exports.submitSearchCandidate, status: exports.status, summarizeSearchCandidates: exports.summarizeSearchCandidates, listSearchCandidates: exports.listSearchCandidates, cancelSearchCandidates: exports.cancelSearchCandidates, cancelManualCandidate: exports.cancelManualCandidate, removePendingJobs: exports.removePendingJobs, readAttempt: exports.readAttempt, listAttemptTrades: exports.listAttemptTrades, readExperimentSummary: exports.readExperimentSummary, listExperimentTrades: exports.listExperimentTrades, verifyReplay: exports.verifyReplay }; }

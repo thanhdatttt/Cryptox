@@ -1,2 +1,4 @@
 export type { BacktestingModuleDependencies } from "../application/ports";
-export { createBacktestingModule } from "./index";
+import type { BacktestingModuleDependencies } from "../application/ports";
+import type { BacktestLogApi } from "./index";
+export declare function createBacktestingModule(_deps: BacktestingModuleDependencies): BacktestLogApi;
