@@ -37,6 +37,8 @@
 - Frontend workspace validation: `pnpm -r --if-present test`, `pnpm -r --if-present build`, and `pnpm -r --if-present lint` passed for all 13 workspace projects. Direct dependency-cruiser validation passed with 36 modules and 38 dependencies cruised and no violations.
 - Strategy definition focused tests: passed; 2 tests cover descriptor parameter validation, immutable family versioning, idempotent same-content creation, owner isolation, composite normalization, and weighted-composite validation. Backend composition tests: passed; the authenticated REST controller creates and rereads user-owned strategy/composite definitions.
 - Strategy definition workspace validation: `pnpm -r --if-present test`, `pnpm -r --if-present build`, and `pnpm -r --if-present lint` passed for all 13 workspace projects. Direct dependency-cruiser validation passed with 36 modules and 39 dependencies cruised and no violations.
+- Binance adapter focused tests: passed; 2 tests cover REST kline query/normalization and combined-stream trade/candle normalization without leaking exchange payload shapes beyond the adapter.
+- Binance adapter workspace validation: `pnpm -r --if-present test`, `pnpm -r --if-present build`, and `pnpm -r --if-present lint` passed for all 13 workspace projects. Direct dependency-cruiser validation passed with 36 modules and 39 dependencies cruised and no violations.
 
 ## Commits
 
@@ -52,6 +54,7 @@ PostgreSQL Auth persistence committed as `3e5d913` (`feat(auth): add PostgreSQL 
 Initial authenticated backend facade routes committed as `36bee80` (`feat(backend): add authenticated public facade routes`).
 Frontend state and reference-screen application committed as `126e718` (`feat(frontend): add reference dashboard screens and state`).
 Strategy definition authoring committed as `40f7e59` (`feat(strategy): add owned definition authoring API`).
+Binance Market Data adapter committed as `37fd18b` (`feat(market-data): add optional Binance adapter`).
 
 ## Decisions and conflicts
 
@@ -78,6 +81,7 @@ Strategy definition authoring committed as `40f7e59` (`feat(strategy): add owned
 - The composed REST surface is currently `GET /health`, Auth register/login/me, `GET /strategies`, `GET /market/candles`, and `GET /news`, all except health/Auth credentials requiring a verified bearer JWT. Backtest/Search/Leaderboard routes remain integration-hardening work because their static public facade functions are intentionally skeletal while their test runtimes are composition-specific.
 - The frontend provides the supplied Realtime, Strategy Engine, Discovery, Backtest, News Crawler, and Settings screens as a responsive local presentation shell. It keeps its four-chart configuration and merge behavior as tested UI state; displayed market/analysis values are explicitly labelled demo data until the remaining public facade routes are composed into live frontend transport.
 - Strategy authoring now validates descriptor-defined parameters (including MA period ordering and RSI threshold ordering), creates immutable versioned families, is idempotent for identical content, and restricts definition/composite reads to the authenticated user. The default composition uses the deterministic in-memory repository adapters; a PostgreSQL strategy-library adapter is still required for persistence across backend restarts.
+- `createBinanceMarketDataAdapter` keeps REST kline and combined-stream WebSocket payload interpretation inside Market Data infrastructure. Backend composition activates it only when `MARKET_DATA_PROVIDER=BINANCE`; otherwise it retains local/demo behavior. The frontend has no Binance dependency in either mode.
 
 ## Blockers
 
