@@ -3,9 +3,9 @@
 ## Current state
 
 - Branch: `implement`
-- Current feature: Integration hardening (in progress)
-- Next feature: Final requirements review and delivery
-- Completed features: Strategy plugin runtime; Strategy definition authoring; Market data and normalized contracts; Evaluation metrics; Backtesting simulator; Leaderboard scoring and Top-K admission; Search orchestration; News and sentiment; Auth runtime and protected routes; Initial persistence and HTTP composition; Frontend application
+- Current feature: Final requirements review and delivery (in progress)
+- Next feature: None after final validation and documentation commit
+- Completed features: Strategy plugin runtime; Strategy definition authoring and persistence; Market data and normalized contracts; Evaluation metrics; Backtesting simulator; Leaderboard scoring and Top-K admission; Search orchestration; News and sentiment; Auth runtime and protected routes; Initial persistence and HTTP composition; Frontend application; Binance adapter and architecture-check hardening
 
 ## Baseline
 
@@ -39,6 +39,8 @@
 - Strategy definition workspace validation: `pnpm -r --if-present test`, `pnpm -r --if-present build`, and `pnpm -r --if-present lint` passed for all 13 workspace projects. Direct dependency-cruiser validation passed with 36 modules and 39 dependencies cruised and no violations.
 - Binance adapter focused tests: passed; 2 tests cover REST kline query/normalization and combined-stream trade/candle normalization without leaking exchange payload shapes beyond the adapter.
 - Binance adapter workspace validation: `pnpm -r --if-present test`, `pnpm -r --if-present build`, and `pnpm -r --if-present lint` passed for all 13 workspace projects. Direct dependency-cruiser validation passed with 36 modules and 39 dependencies cruised and no violations.
+- PostgreSQL Strategy Library focused tests: passed; 1 repository test verifies parameterized owner-scoped definition/composite SQL, while the 2 definition-runtime tests preserve validation, versioning, idempotency, and ownership behavior. Backend focused test/build/lint passed after composition activates the PostgreSQL adapter when `DATABASE_URL` is set.
+- Final workspace validation: `pnpm -r --if-present test`, `pnpm -r --if-present build`, and `pnpm -r --if-present lint` passed for all 13 workspace projects. The architecture policy was rerun with pinned `dependency-cruiser@16.10.4` in a temporary pnpm environment after the local pnpm virtual-store symlink became inconsistent; it passed with 425 modules and 429 dependencies cruised and no violations.
 
 ## Commits
 
@@ -55,6 +57,7 @@ Initial authenticated backend facade routes committed as `36bee80` (`feat(backen
 Frontend state and reference-screen application committed as `126e718` (`feat(frontend): add reference dashboard screens and state`).
 Strategy definition authoring committed as `40f7e59` (`feat(strategy): add owned definition authoring API`).
 Binance Market Data adapter committed as `37fd18b` (`feat(market-data): add optional Binance adapter`).
+Persistent Strategy Library and architecture-check hardening committed as `4e8d686` (`feat(strategy): persist versioned library in PostgreSQL`).
 
 ## Decisions and conflicts
 
@@ -82,7 +85,10 @@ Binance Market Data adapter committed as `37fd18b` (`feat(market-data): add opti
 - The frontend provides the supplied Realtime, Strategy Engine, Discovery, Backtest, News Crawler, and Settings screens as a responsive local presentation shell. It keeps its four-chart configuration and merge behavior as tested UI state; displayed market/analysis values are explicitly labelled demo data until the remaining public facade routes are composed into live frontend transport.
 - Strategy authoring now validates descriptor-defined parameters (including MA period ordering and RSI threshold ordering), creates immutable versioned families, is idempotent for identical content, and restricts definition/composite reads to the authenticated user. The default composition uses the deterministic in-memory repository adapters; a PostgreSQL strategy-library adapter is still required for persistence across backend restarts.
 - `createBinanceMarketDataAdapter` keeps REST kline and combined-stream WebSocket payload interpretation inside Market Data infrastructure. Backend composition activates it only when `MARKET_DATA_PROVIDER=BINANCE`; otherwise it retains local/demo behavior. The frontend has no Binance dependency in either mode.
+- `infra/db/migrations/003_create_strategy_library.js` adds owner-scoped, versioned strategy and composite tables. Backend composition selects the PostgreSQL repositories together with the existing PostgreSQL Auth mode when `DATABASE_URL` is configured; the local in-memory repository remains the deliberate no-database development fallback.
+- The requirements map was corrected: PDF §§32-34 are architectural drivers, not a mandate to call an LLM or fetch arbitrary strategy URLs. The Prompt/URL fields remain in the reference-matched presentation; the source-of-truth functional requirement is validated, reviewable, versioned Strategy Library persistence from PDF §36.
+- The root `arch:check` script now invokes the actual `dependency-cruise` binary and excludes generated output/declarations. The previous script used an unsupported `--validate` token and its Windows-hostile regex quoting; the corrected equivalent policy was validated in the temporary pinned runtime.
 
 ## Blockers
 
-- No active blocker. Integration hardening will compose the remaining public Backtest/Search/Leaderboard facades, persist the strategy library across restarts, and complete the final requirement review.
+- No active blocker. The assignment requirement review is complete; the remaining operational limitation is that live Binance and PostgreSQL integration require the optional external services/environment values documented in `README.md`. A local pnpm v11 virtual-store symlink currently prevents its installed dependency-cruiser binary from resolving `semver`; the root `npm run arch:check` script has been corrected and its equivalent command was validated through a fresh pinned temporary runtime.
