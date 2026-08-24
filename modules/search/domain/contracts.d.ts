@@ -79,4 +79,15 @@ export interface LoopStatus {
     stopCondition: StopCondition;
     lastError?: string;
 }
+export interface SearchRun extends LoopStatus {
+    searchSpace: SearchSpaceConfig;
+    generatorType: GeneratorType;
+    leaderboardScopeId: string;
+    maxInFlight: number;
+    nextIteration: number;
+    activeDurationMs: number;
+    activeSince?: string;
+    bestScore?: number;
+    lastImprovementAtCandidates?: number;
+}
 export {};
