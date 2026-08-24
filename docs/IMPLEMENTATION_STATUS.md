@@ -3,9 +3,9 @@
 ## Current state
 
 - Branch: `implement`
-- Current feature: Persistence and remaining HTTP composition (in progress)
-- Next feature: Frontend application
-- Completed features: Strategy plugin runtime; Market data and normalized contracts; Evaluation metrics; Backtesting simulator; Leaderboard scoring and Top-K admission; Search orchestration; News and sentiment; Auth runtime and protected routes
+- Current feature: Frontend application (in progress)
+- Next feature: Integration hardening
+- Completed features: Strategy plugin runtime; Market data and normalized contracts; Evaluation metrics; Backtesting simulator; Leaderboard scoring and Top-K admission; Search orchestration; News and sentiment; Auth runtime and protected routes; Initial persistence and HTTP composition
 
 ## Baseline
 
@@ -31,6 +31,7 @@
 - Backend Auth composition tests: passed; 2 tests covering nine-module composition plus `/auth/register`, `/auth/login`, and protected `/auth/me` controller mapping.
 - Auth workspace validation: `pnpm -r --if-present test`, `pnpm -r --if-present build`, and `pnpm -r --if-present lint` all passed for 13 workspace projects. Direct dependency-cruiser validation passed with 32 modules and 32 dependencies cruised and no violations.
 - Auth PostgreSQL repository tests: passed; 1 test covering parameterized insert/read SQL and storage-to-domain mapping. The full workspace test/build/lint/dependency-cruiser validation was rerun after the users migration and adapter and passed unchanged (32 modules and 32 dependencies cruised).
+- HTTP composition tests: passed; backend controller tests now cover authenticated strategy-list, market-candle, and News read mappings plus invalid market query and missing bearer handling. Full workspace test/build/lint passed, and dependency-cruiser passed with 34 modules and 36 dependencies cruised.
 
 ## Commits
 
@@ -43,6 +44,7 @@ Search orchestration committed as `06b93e5` (`feat(search): add bounded strategy
 News and Sentiment runtime committed as `502e7e2` (`feat(news): add sentiment isolation and sealed snapshots`).
 Auth runtime and protected routes committed as `da4ca1c` (`feat(auth): add bcrypt jwt runtime and protected routes`).
 PostgreSQL Auth persistence committed as `3e5d913` (`feat(auth): add PostgreSQL user persistence`).
+Initial authenticated backend facade routes committed as `36bee80` (`feat(backend): add authenticated public facade routes`).
 
 ## Decisions and conflicts
 
@@ -66,7 +68,8 @@ PostgreSQL Auth persistence committed as `3e5d913` (`feat(auth): add PostgreSQL 
 - The worker's local placeholder now implements the expanded Sentiment repository shape without reaching into Sentiment internals.
 - Auth uses `bcryptjs` for bcrypt-compatible password hashes and `jsonwebtoken` for HS256 one-hour JWTs. The in-memory adapter supports local composition/tests; PostgreSQL user persistence remains the next incomplete portion of the composed feature. Backend composition reads `JWT_SECRET` when set and otherwise uses a documented development-only fallback that must not be used for deployment.
 - `infra/db/migrations/002_create_users.js` creates the Auth-owned `users` table after the existing pgcrypto extension migration. Backend composition selects the PostgreSQL Auth repository when `DATABASE_URL` is configured and otherwise retains the local in-memory repository; `npm run db:migrate` is the documented migration entrypoint.
+- The composed REST surface is currently `GET /health`, Auth register/login/me, `GET /strategies`, `GET /market/candles`, and `GET /news`, all except health/Auth credentials requiring a verified bearer JWT. Backtest/Search/Leaderboard routes remain integration-hardening work because their static public facade functions are intentionally skeletal while their test runtimes are composition-specific.
 
 ## Blockers
 
-- No active blocker. The next feature is Auth, persistence, and HTTP composition.
+- No active blocker. The next feature is the Frontend application.
