@@ -6,7 +6,8 @@
     "build": "npm run build --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
-    "arch:check": "dependency-cruiser --config .dependency-cruiser.js --exclude '(^|/)dist/' --validate modules apps packages"
+    "arch:check": "dependency-cruiser --config .dependency-cruiser.js --exclude '(^|/)dist/' --validate modules apps packages",
+    "db:migrate": "node-pg-migrate up -m infra/db/migrations"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

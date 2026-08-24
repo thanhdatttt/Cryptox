@@ -1,4 +1,4 @@
-import { createAuthModule } from "modules/auth/api/bootstrap";
+import { createConfiguredAuthModule } from "modules/auth/api/bootstrap";
 import type { AuthModulePublicApi } from "modules/auth/api";
 import { createBacktestingModule } from "modules/backtesting/api/bootstrap";
 import { createEvaluationModule } from "modules/evaluation/api/bootstrap";
@@ -23,7 +23,7 @@ export function composeAllModules(): BackendModules {
     leaderboard: createLeaderboardModule(undefined as never),
     news: createNewsModule(undefined as never),
     sentiment: createSentimentModule(undefined as never),
-    auth: createAuthModule(undefined as never),
+    auth: createConfiguredAuthModule(),
   };
   console.log("backend modules composed", Object.keys(modules).join(","));
   return modules;
