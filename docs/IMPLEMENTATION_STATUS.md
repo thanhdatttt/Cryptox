@@ -1,0 +1,33 @@
+# Implementation Status
+
+## Current state
+
+- Branch: `implement`
+- Current feature: Market data and normalized contracts
+- Next feature: Market data and normalized contracts
+- Completed features: Strategy plugin runtime
+
+## Baseline
+
+- Root npm wrapper scripts cannot run in this shell because `npm` is not on PATH; equivalent workspace commands were run through bundled pnpm.
+- `pnpm -r --if-present test`: passed; all existing module/app tests and the 2 strategy runtime tests passed.
+- `pnpm -r --if-present build`: passed; all 13 buildable workspaces compiled and the frontend production bundle was generated.
+- `pnpm -r --if-present lint`: passed; all 13 lintable workspaces type-checked.
+- Direct dependency-cruiser invocation with the repository config: passed; 31 modules and 27 dependencies cruised with no violations.
+
+## Commits
+
+Strategy plugin runtime is ready to commit after the passing validation above. The required `implement` branch was created from `main`.
+
+## Decisions and conflicts
+
+- The PDF is authoritative over the Markdown companion and reference images.
+- The reference images are visual targets, not additional API contracts; existing OpenSpec module contracts remain the executable design detail.
+- Existing code is intentionally skeletal and existing skeleton tests are preserved unless a feature makes them obsolete.
+- Added built-in MA, RSI, Bollinger, and Support/Resistance plugin implementations plus majority/weighted composite logic.
+- The repository tracks source-adjacent generated JavaScript and declaration files. They were refreshed for the strategy API and plugin files so Vitest and the existing backend/worker composition tests resolve the same runtime implementation.
+- A temporary pnpm workspace manifest was used only for dependency installation and is not part of the implementation.
+
+## Blockers
+
+- No active blocker. The next feature is market data and normalized contracts.

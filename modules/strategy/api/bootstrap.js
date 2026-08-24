@@ -1,5 +1,5 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.createStrategyModule = void 0;
-var index_1 = require("./index");
-Object.defineProperty(exports, "createStrategyModule", { enumerable: true, get: function () { return index_1.createStrategyModule; } });
+exports.createStrategyModule = createStrategyModule;
+const index_1 = require("./index");
+function createStrategyModule(_deps) { return { listStrategies: index_1.listStrategies, resolveStrategy: index_1.resolveStrategy, combineSignals: index_1.combineSignals, defineStrategy: async () => { throw new Error("NOT_IMPLEMENTED"); }, defineComposite: async () => { throw new Error("NOT_IMPLEMENTED"); } }; }
