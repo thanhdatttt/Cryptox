@@ -32,24 +32,29 @@ The audit also found source-adjacent generated JavaScript/declaration files that
    - Make root install/build/development/start commands work, with a cross-platform backend launcher and no undeclared runtime tools.
    - Acceptance: `npm install`, `npm run build`, documented root development/start commands, and focused launcher smoke verification pass on Windows-compatible Node tooling.
 
-2. **Implement durable backtest execution and public API**
-   - Replace every Backtesting public `NOT_IMPLEMENTED` function; add PostgreSQL migrations/repositories for benchmark scopes, candidates, attempts, trades, evaluations, snapshots, and idempotency/audit data.
-   - Replace the worker skeleton/queue placeholder with a real job dispatch/consume/complete path.
-   - Acceptance: a saved strategy and market snapshot produce deterministic persisted trades and evaluation through the public API and worker.
+2. **Implement durable manual backtest execution and public API** *(completed in pending commit)*
+   - Replace the assignment-required Backtesting public `NOT_IMPLEMENTED` functions with an authenticated, synchronous manual-run vertical slice.
+   - Add PostgreSQL migrations/repositories for Backtesting-owned copies of input snapshots/candles, benchmark scopes, candidates, attempts, trades, experiment results, and idempotency/audit data.
+   - Acceptance: a saved strategy and market snapshot produce deterministic persisted trades and evaluation through the public API; scope, candidate, attempt, trade, and experiment reads enforce ownership.
 
-3. **Connect evaluation, leaderboard, and bounded search end-to-end**
+3. **Replace the Backtesting worker/queue skeleton with durable dispatch and recovery**
+   - Replace `apps/backtest-worker` placeholder adapters and the Backtesting queue placeholder with a real job dispatch/consume/complete path.
+   - Move the synchronous manual processor behind that queue boundary; persist job state and retry/recovery outcomes.
+   - Acceptance: an accepted backtest survives a process restart, is consumed by the worker exactly once per attempt, and completes its durable audit records.
+
+4. **Connect evaluation, leaderboard, and bounded search end-to-end**
    - Replace Search and Leaderboard public `NOT_IMPLEMENTED` functions; persist search runs, leaderboard scopes/entries, and outcomes; expose authenticated REST routes.
    - Acceptance: random search creates candidates, invokes backtests, evaluates results, ranks a Top-K, and supports status/pause/resume/cancel with durable recovery.
 
-4. **Deliver live frontend flows for implemented APIs**
+5. **Deliver live frontend flows for implemented APIs**
    - Replace hard-coded demo paths with authenticated REST/WebSocket transport and loading/error/empty states for strategy, market charts, backtests/trades, discovery/leaderboard, and news.
    - Acceptance: the supplied screen flows operate against the composed backend without direct Binance payload handling in the browser.
 
-5. **Complete market and news/sentiment production adapters**
+6. **Complete market and news/sentiment production adapters**
    - Persist normalized market/news data as required by the pipeline; make Binance realtime/history and the configured news collection → store → sentiment flow concrete, resilient, and observable.
    - Acceptance: adapter-contract tests plus an integration fixture prove the full collect/normalize/store/analyze and realtime update paths.
 
-6. **Docker-backed integration and final traceability**
+7. **Docker-backed integration and final traceability**
    - Run PostgreSQL/Redis/backend/worker/frontend together, apply migrations, execute an end-to-end smoke flow, close remaining visual/requirements-map gaps, and remove obsolete placeholders.
    - Acceptance: no assignment-required public `NOT_IMPLEMENTED` implementation remains; full tests, build, lint, architecture check, and Docker-backed validation pass.
 

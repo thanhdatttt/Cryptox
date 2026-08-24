@@ -4,8 +4,10 @@ import type { AuthModulePublicApi } from "modules/auth/api";
 import type { MarketDataModulePublicApi } from "modules/market-data/api";
 import type { NewsModulePublicApi } from "modules/news/api";
 import type { StrategyModuleRuntime } from "modules/strategy/api/bootstrap";
-import { createBacktestingModule } from "modules/backtesting/api/bootstrap";
+import type { BacktestLogApi } from "modules/backtesting/api";
+import { createBacktestingModule, createInMemoryBacktestingDependencies, createPostgresBacktestingDependencies } from "modules/backtesting/api/bootstrap";
 import { createEvaluationModule } from "modules/evaluation/api/bootstrap";
+import type { EvaluatorModulePublicApi } from "modules/evaluation/api";
 import { createLeaderboardModule } from "modules/leaderboard/api/bootstrap";
 import { createBinanceMarketDataAdapter, createMarketDataModule } from "modules/market-data/api/bootstrap";
 import { createNewsModule } from "modules/news/api/bootstrap";
@@ -18,21 +20,28 @@ export interface BackendModules extends Record<string, unknown> {
   marketData: MarketDataModulePublicApi;
   news: NewsModulePublicApi;
   strategy: StrategyModuleRuntime;
+  backtesting: BacktestLogApi;
+  evaluation: EvaluatorModulePublicApi;
 }
 
 export function composeAllModules(): BackendModules {
+  const postgres = process.env.DATABASE_URL ? new Pool({ connectionString: process.env.DATABASE_URL }) : undefined;
   const marketData = process.env.MARKET_DATA_PROVIDER === "BINANCE"
     ? createMarketDataModule({ providerRegistry: { defaultProvider: createBinanceMarketDataAdapter() } })
     : createMarketDataModule();
-  const strategy = process.env.DATABASE_URL
-    ? createStrategyModule(createPostgresStrategyDependencies(new Pool({ connectionString: process.env.DATABASE_URL })))
+  const strategy = postgres
+    ? createStrategyModule(createPostgresStrategyDependencies(postgres))
     : createStrategyModule();
+  const evaluation = createEvaluationModule();
+  const backtesting = postgres
+    ? createBacktestingModule(createPostgresBacktestingDependencies(postgres, { marketData, strategy, evaluation, clock: { now: () => new Date().toISOString() } }))
+    : createBacktestingModule({ ...createInMemoryBacktestingDependencies(), marketData, strategy, evaluation });
   const modules = {
     marketData,
     strategy,
     search: createSearchModule(undefined as never),
-    backtesting: createBacktestingModule(undefined as never),
-    evaluation: createEvaluationModule(),
+    backtesting,
+    evaluation,
     leaderboard: createLeaderboardModule(undefined as never),
     news: createNewsModule(undefined as never),
     sentiment: createSentimentModule(undefined as never),

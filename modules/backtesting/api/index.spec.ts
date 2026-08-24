@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { simulateBacktest, status } from "./index";
+import { simulateBacktest } from "./index";
+import { createBacktestingService, createInMemoryBacktestingDependencies } from "../application/service";
+import { createEvaluationModule } from "modules/evaluation/api/bootstrap";
 import type { Candle } from "modules/market-data/api";
 
 const candle = (timestamp: string, open: number, close: number): Candle => ({
@@ -145,7 +147,36 @@ describe("backtesting runtime", () => {
     ]);
   });
 
-  it("keeps the public lifecycle facade explicit while simulation is pure", async () => {
-    await expect(status("candidate")).rejects.toThrow("NOT_IMPLEMENTED");
+  it("creates a sealed scope and persists a manual simulator result, trade audit, and evaluation", async () => {
+    const snapshot = { id: "snapshot-1", pair: "BTCUSDT", pairMetadata: { pair: "BTCUSDT", baseAsset: "BTC", quoteAsset: "USDT", settlementAsset: "USDT" }, timeframe: "1h" as const, range: { from: "2025-01-01T00:00:00.000Z", to: "2025-01-01T03:00:00.000Z" }, candleCount: 3, sha256: "s".repeat(64), createdAt: "2025-01-01T00:00:00.000Z" };
+    const candles = [candle("2025-01-01T00:00:00.000Z", 100, 101), candle("2025-01-01T01:00:00.000Z", 102, 105), candle("2025-01-01T02:00:00.000Z", 106, 110)];
+    let sequence = 0;
+    const service = createBacktestingService({
+      ...createInMemoryBacktestingDependencies(),
+      marketData: { readDatasetSnapshot: async () => ({ snapshot, candles }) },
+      strategy: {
+        resolveStrategy: async () => ({ name: "test", category: "TREND", analyze: (context) => context.candles.length === 1 ? "BUY" : "HOLD" }),
+        combineSignals: (_definition, signals) => signals[0]?.signal ?? "HOLD",
+      },
+      evaluation: createEvaluationModule(),
+      clock: { now: () => `2025-01-01T0${sequence++}:00:00.000Z` },
+      idGenerator: () => `id-${sequence++}`,
+    });
+    const definition = { id: "definition-1", logicalFamilyKey: "strategy:test", strategyName: "TEST", implementationVersion: "1", implementationSha256: "a".repeat(64), version: 1, parameters: {}, createdAt: "2025-01-01T00:00:00.000Z" };
+    const composite = { id: "composite-1", logicalFamilyKey: "composite:test", version: 1, method: "MAJORITY_VOTE" as const, components: [{ strategyDefinitionId: definition.id, weight: 0 }], createdAt: "2025-01-01T00:00:00.000Z" };
+    const scope = await service.createBenchmarkScope({ name: "BTC fixture", datasetSnapshot: snapshot, initialCapital: 1000, feeRatePercent: 0, slippageBps: 0, scoreFormulaId: "MVP_MANUAL_V1", workerRuntimeVersion: "1", workerRuntimeSha256: "b".repeat(64), evaluationRuntimeVersion: "1", evaluationRuntimeSha256: "c".repeat(64) }, { ownerUserId: "user-1", scopeIdempotencyKey: "scope-key" });
+    const accepted = await service.startManual({ leaderboardScopeId: scope.id, strategyDefinitions: [definition], compositeDefinition: composite, maxAttempts: 1 }, { ownerUserId: "user-1", submissionIdempotencyKey: "submission-key" });
+
+    expect(accepted.status).toBe("COMPLETED");
+    await expect(service.startManual({ leaderboardScopeId: scope.id, strategyDefinitions: [definition], compositeDefinition: composite, maxAttempts: 1 }, { ownerUserId: "user-1", submissionIdempotencyKey: "submission-key" })).resolves.toEqual(accepted);
+    const progress = await service.status(accepted.candidateId, { ownerUserId: "user-1" });
+    expect(progress).toMatchObject({ status: "COMPLETED", attempts: [{ status: "COMPLETED" }] });
+    const attempt = await service.readAttempt(progress.attempts[0]!.attemptId, { ownerUserId: "user-1" });
+    const trades = await service.listAttemptTrades(attempt.attemptId, { limit: 10 }, { ownerUserId: "user-1" });
+    expect(trades.items).toHaveLength(1);
+    const experiment = await service.readExperimentSummary(progress.experimentResultId!, { ownerUserId: "user-1" });
+    expect(experiment.metrics).toMatchObject({ numberOfTrades: 1, candidateId: accepted.candidateId });
+    await expect(service.verifyReplay(experiment.id, { ownerUserId: "user-1" })).resolves.toMatchObject({ status: "MATCH", comparedTradeCount: 1 });
+    await expect(service.status(accepted.candidateId, { ownerUserId: "another-user" })).rejects.toThrow("BACKTEST_ACCESS_DENIED");
   });
 });

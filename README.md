@@ -83,7 +83,7 @@ $env:JWT_SECRET = "replace-this-with-a-long-random-production-secret"
 npm run db:migrate
 ```
 
-The same `DATABASE_URL` and `JWT_SECRET` must be present in the backend process. The migrations create the `users` table plus the versioned Strategy Library tables used by registration/login and saved strategy/composite definitions.
+The same `DATABASE_URL` and `JWT_SECRET` must be present in the backend process. The migrations create the `users` table, versioned Strategy Library tables, and the Backtesting-owned input-snapshot, benchmark-scope, candidate, attempt, trade, and experiment-result tables. With PostgreSQL enabled, authenticated scope and manual-backtest endpoints persist this complete audit trail; the asynchronous worker/queue flow remains a future implementation step.
 
 The default frontend data is deliberately labelled as demo data. Set `MARKET_DATA_PROVIDER=BINANCE` when you want the backend market-data boundary to fetch and subscribe to Binance; browser clients still never consume Binance payloads directly.
 

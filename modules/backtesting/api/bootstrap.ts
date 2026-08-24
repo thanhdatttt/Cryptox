@@ -1,5 +1,8 @@
 export type { BacktestingModuleDependencies } from "../application/ports";
+import { createBacktestingService, createInMemoryBacktestingDependencies } from "../application/service";
 import type { BacktestingModuleDependencies } from "../application/ports";
 import type { BacktestLogApi } from "./index";
-import { cancelManualCandidate, cancelSearchCandidates, createBenchmarkScope, listAttemptTrades, listExperimentTrades, listSearchCandidates, readAttempt, readExperimentSummary, removePendingJobs, startManual, status, submitSearchCandidate, summarizeSearchCandidates, verifyReplay } from "./index";
-export function createBacktestingModule(_deps: BacktestingModuleDependencies): BacktestLogApi { return { createBenchmarkScope, startManual, submitSearchCandidate, status, summarizeSearchCandidates, listSearchCandidates, cancelSearchCandidates, cancelManualCandidate, removePendingJobs, readAttempt, listAttemptTrades, readExperimentSummary, listExperimentTrades, verifyReplay }; }
+export function createBacktestingModule(deps?: BacktestingModuleDependencies): BacktestLogApi { return createBacktestingService(deps ?? createInMemoryBacktestingDependencies()); }
+export { createInMemoryBacktestingDependencies, createBacktestingService, BACKTEST_RUNTIME_SHA256, BACKTEST_RUNTIME_VERSION } from "../application/service";
+export { PostgresBacktestingRepository, createPostgresBacktestingDependencies } from "../infrastructure/postgres-repository";
+export type { BacktestingSqlClient } from "../infrastructure/postgres-repository";

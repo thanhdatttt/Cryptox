@@ -1,5 +1,14 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.createPostgresBacktestingDependencies = exports.PostgresBacktestingRepository = exports.BACKTEST_RUNTIME_VERSION = exports.BACKTEST_RUNTIME_SHA256 = exports.createBacktestingService = exports.createInMemoryBacktestingDependencies = void 0;
 exports.createBacktestingModule = createBacktestingModule;
-const index_1 = require("./index");
-function createBacktestingModule(_deps) { return { createBenchmarkScope: index_1.createBenchmarkScope, startManual: index_1.startManual, submitSearchCandidate: index_1.submitSearchCandidate, status: index_1.status, summarizeSearchCandidates: index_1.summarizeSearchCandidates, listSearchCandidates: index_1.listSearchCandidates, cancelSearchCandidates: index_1.cancelSearchCandidates, cancelManualCandidate: index_1.cancelManualCandidate, removePendingJobs: index_1.removePendingJobs, readAttempt: index_1.readAttempt, listAttemptTrades: index_1.listAttemptTrades, readExperimentSummary: index_1.readExperimentSummary, listExperimentTrades: index_1.listExperimentTrades, verifyReplay: index_1.verifyReplay }; }
+const service_1 = require("../application/service");
+function createBacktestingModule(deps) { return (0, service_1.createBacktestingService)(deps ?? (0, service_1.createInMemoryBacktestingDependencies)()); }
+var service_2 = require("../application/service");
+Object.defineProperty(exports, "createInMemoryBacktestingDependencies", { enumerable: true, get: function () { return service_2.createInMemoryBacktestingDependencies; } });
+Object.defineProperty(exports, "createBacktestingService", { enumerable: true, get: function () { return service_2.createBacktestingService; } });
+Object.defineProperty(exports, "BACKTEST_RUNTIME_SHA256", { enumerable: true, get: function () { return service_2.BACKTEST_RUNTIME_SHA256; } });
+Object.defineProperty(exports, "BACKTEST_RUNTIME_VERSION", { enumerable: true, get: function () { return service_2.BACKTEST_RUNTIME_VERSION; } });
+var postgres_repository_1 = require("../infrastructure/postgres-repository");
+Object.defineProperty(exports, "PostgresBacktestingRepository", { enumerable: true, get: function () { return postgres_repository_1.PostgresBacktestingRepository; } });
+Object.defineProperty(exports, "createPostgresBacktestingDependencies", { enumerable: true, get: function () { return postgres_repository_1.createPostgresBacktestingDependencies; } });

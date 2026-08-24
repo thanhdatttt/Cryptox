@@ -1,4 +1,4 @@
-import { createBacktestingModule } from "modules/backtesting/api/bootstrap";
+import { createBacktestingModule, createInMemoryBacktestingDependencies } from "modules/backtesting/api/bootstrap";
 import { createMarketDataSnapshotReader } from "modules/market-data/api/snapshot-reader";
 import { createSentimentModule } from "modules/sentiment/api/bootstrap";
 import { createStrategyModule } from "modules/strategy/api/bootstrap";
@@ -12,7 +12,7 @@ export function composeWorkerModules(): Record<string, unknown> {
     clock: { now: () => new Date().toISOString() },
   });
   const modules = {
-    backtesting: createBacktestingModule({ marketData, strategy: createStrategyModule(undefined as never), sentiment }),
+    backtesting: createBacktestingModule({ ...createInMemoryBacktestingDependencies(), marketData, strategy: createStrategyModule(undefined as never) }),
     strategy: createStrategyModule(undefined as never),
     marketDataSnapshotReader: marketData,
     sentimentRead: sentiment,

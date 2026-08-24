@@ -1,4 +1,5 @@
 import type { BacktestAttemptAudit, BacktestSubmissionAccepted, BenchmarkScopeSummary, CandidateProgress, CancellationUnitOfWork, CreateLeaderboardScopeCommand, ExperimentResultSummary, ReplayVerificationResult, StartManualBacktestCommand, SubmitSearchCandidateCommand, Trade } from "../domain/contracts";
+import { createBacktestingService, createInMemoryBacktestingDependencies } from "../application/service";
 export { simulateBacktest } from "../domain/simulator";
 export type { SimulationInput } from "../domain/simulator";
 export type { CandidateStatus, BacktestSubmissionAccepted, CancellationUnitOfWork, CompletionUnitOfWork, Trade, CompletedBacktestResult, GeneratorType, CreateLeaderboardScopeCommand, StartManualBacktestCommand, SubmitSearchCandidateCommand, BenchmarkScopeSummary, ReplayVerificationResult, CandidateProgress, BacktestAttemptProgress, BacktestAttemptAudit, ExperimentResult, ExperimentResultSummary } from "../domain/contracts";
@@ -7,19 +8,21 @@ export interface SearchCandidatePageRequest { limit: number; cursor?: string; }
 export interface SearchCandidatePage { items: CandidateProgress[]; nextCursor?: string; }
 export interface TradePageRequest { limit: number; cursor?: string; }
 export interface TradePage { items: Trade[]; nextCursor?: string; }
-export interface BacktestLogApi { createBenchmarkScope(command: CreateLeaderboardScopeCommand, options: { scopeIdempotencyKey: string }): Promise<BenchmarkScopeSummary>; startManual(command: StartManualBacktestCommand, options?: { submissionIdempotencyKey?: string }): Promise<BacktestSubmissionAccepted>; submitSearchCandidate(command: SubmitSearchCandidateCommand): Promise<BacktestSubmissionAccepted>; status(candidateId: string): Promise<CandidateProgress>; summarizeSearchCandidates(searchRunId: string): Promise<SearchCandidateSummary>; listSearchCandidates(searchRunId: string, page: SearchCandidatePageRequest): Promise<SearchCandidatePage>; cancelSearchCandidates(searchRunId: string, unitOfWork: CancellationUnitOfWork): Promise<{ candidateIds: string[] }>; cancelManualCandidate(candidateId: string, unitOfWork: CancellationUnitOfWork): Promise<void>; removePendingJobs(candidateIds: string[]): Promise<void>; readAttempt(attemptId: string): Promise<BacktestAttemptAudit>; listAttemptTrades(attemptId: string, page: TradePageRequest): Promise<TradePage>; readExperimentSummary(experimentId: string): Promise<ExperimentResultSummary>; listExperimentTrades(experimentId: string, page: TradePageRequest): Promise<TradePage>; verifyReplay(experimentId: string): Promise<ReplayVerificationResult>; }
-const notImplemented = (): never => { throw new Error("NOT_IMPLEMENTED"); };
-export const createBenchmarkScope: BacktestLogApi["createBenchmarkScope"] = async () => notImplemented();
-export const startManual: BacktestLogApi["startManual"] = async () => notImplemented();
-export const submitSearchCandidate: BacktestLogApi["submitSearchCandidate"] = async () => notImplemented();
-export const status: BacktestLogApi["status"] = async () => notImplemented();
-export const summarizeSearchCandidates: BacktestLogApi["summarizeSearchCandidates"] = async () => notImplemented();
-export const listSearchCandidates: BacktestLogApi["listSearchCandidates"] = async () => notImplemented();
-export const cancelSearchCandidates: BacktestLogApi["cancelSearchCandidates"] = async () => notImplemented();
-export const cancelManualCandidate: BacktestLogApi["cancelManualCandidate"] = async () => notImplemented();
-export const removePendingJobs: BacktestLogApi["removePendingJobs"] = async () => notImplemented();
-export const readAttempt: BacktestLogApi["readAttempt"] = async () => notImplemented();
-export const listAttemptTrades: BacktestLogApi["listAttemptTrades"] = async () => notImplemented();
-export const readExperimentSummary: BacktestLogApi["readExperimentSummary"] = async () => notImplemented();
-export const listExperimentTrades: BacktestLogApi["listExperimentTrades"] = async () => notImplemented();
-export const verifyReplay: BacktestLogApi["verifyReplay"] = async () => notImplemented();
+export interface BacktestReadOptions { ownerUserId?: string; }
+export interface BacktestLogApi { createBenchmarkScope(command: CreateLeaderboardScopeCommand, options: { scopeIdempotencyKey: string; ownerUserId: string }): Promise<BenchmarkScopeSummary>; startManual(command: StartManualBacktestCommand, options: { ownerUserId: string; submissionIdempotencyKey?: string }): Promise<BacktestSubmissionAccepted>; submitSearchCandidate(command: SubmitSearchCandidateCommand): Promise<BacktestSubmissionAccepted>; status(candidateId: string, options?: BacktestReadOptions): Promise<CandidateProgress>; summarizeSearchCandidates(searchRunId: string): Promise<SearchCandidateSummary>; listSearchCandidates(searchRunId: string, page: SearchCandidatePageRequest): Promise<SearchCandidatePage>; cancelSearchCandidates(searchRunId: string, unitOfWork: CancellationUnitOfWork): Promise<{ candidateIds: string[] }>; cancelManualCandidate(candidateId: string, unitOfWork: CancellationUnitOfWork): Promise<void>; removePendingJobs(candidateIds: string[]): Promise<void>; readAttempt(attemptId: string, options?: BacktestReadOptions): Promise<BacktestAttemptAudit>; listAttemptTrades(attemptId: string, page: TradePageRequest, options?: BacktestReadOptions): Promise<TradePage>; readExperimentSummary(experimentId: string, options?: BacktestReadOptions): Promise<ExperimentResultSummary>; listExperimentTrades(experimentId: string, page: TradePageRequest, options?: BacktestReadOptions): Promise<TradePage>; verifyReplay(experimentId: string, options?: BacktestReadOptions): Promise<ReplayVerificationResult>; }
+const defaultService = createBacktestingService(createInMemoryBacktestingDependencies());
+export const createBenchmarkScope: BacktestLogApi["createBenchmarkScope"] = (command, options) => defaultService.createBenchmarkScope(command, options);
+export const startManual: BacktestLogApi["startManual"] = (command, options) => defaultService.startManual(command, options);
+export const submitSearchCandidate: BacktestLogApi["submitSearchCandidate"] = (command) => defaultService.submitSearchCandidate(command);
+export const status: BacktestLogApi["status"] = (candidateId, options) => defaultService.status(candidateId, options);
+export const summarizeSearchCandidates: BacktestLogApi["summarizeSearchCandidates"] = (searchRunId) => defaultService.summarizeSearchCandidates(searchRunId);
+export const listSearchCandidates: BacktestLogApi["listSearchCandidates"] = (searchRunId, page) => defaultService.listSearchCandidates(searchRunId, page);
+export const cancelSearchCandidates: BacktestLogApi["cancelSearchCandidates"] = (searchRunId, unitOfWork) => defaultService.cancelSearchCandidates(searchRunId, unitOfWork);
+export const cancelManualCandidate: BacktestLogApi["cancelManualCandidate"] = (candidateId, unitOfWork) => defaultService.cancelManualCandidate(candidateId, unitOfWork);
+export const removePendingJobs: BacktestLogApi["removePendingJobs"] = (candidateIds) => defaultService.removePendingJobs(candidateIds);
+export const readAttempt: BacktestLogApi["readAttempt"] = (attemptId, options) => defaultService.readAttempt(attemptId, options);
+export const listAttemptTrades: BacktestLogApi["listAttemptTrades"] = (attemptId, page, options) => defaultService.listAttemptTrades(attemptId, page, options);
+export const readExperimentSummary: BacktestLogApi["readExperimentSummary"] = (experimentId, options) => defaultService.readExperimentSummary(experimentId, options);
+export const listExperimentTrades: BacktestLogApi["listExperimentTrades"] = (experimentId, page, options) => defaultService.listExperimentTrades(experimentId, page, options);
+export const verifyReplay: BacktestLogApi["verifyReplay"] = (experimentId, options) => defaultService.verifyReplay(experimentId, options);
+export { createBacktestingService, createInMemoryBacktestingDependencies } from "../application/service";

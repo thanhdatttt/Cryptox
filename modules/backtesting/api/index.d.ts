@@ -31,15 +31,20 @@ export interface TradePage {
     items: Trade[];
     nextCursor?: string;
 }
+export interface BacktestReadOptions {
+    ownerUserId?: string;
+}
 export interface BacktestLogApi {
     createBenchmarkScope(command: CreateLeaderboardScopeCommand, options: {
         scopeIdempotencyKey: string;
+        ownerUserId: string;
     }): Promise<BenchmarkScopeSummary>;
-    startManual(command: StartManualBacktestCommand, options?: {
+    startManual(command: StartManualBacktestCommand, options: {
+        ownerUserId: string;
         submissionIdempotencyKey?: string;
     }): Promise<BacktestSubmissionAccepted>;
     submitSearchCandidate(command: SubmitSearchCandidateCommand): Promise<BacktestSubmissionAccepted>;
-    status(candidateId: string): Promise<CandidateProgress>;
+    status(candidateId: string, options?: BacktestReadOptions): Promise<CandidateProgress>;
     summarizeSearchCandidates(searchRunId: string): Promise<SearchCandidateSummary>;
     listSearchCandidates(searchRunId: string, page: SearchCandidatePageRequest): Promise<SearchCandidatePage>;
     cancelSearchCandidates(searchRunId: string, unitOfWork: CancellationUnitOfWork): Promise<{
@@ -47,11 +52,11 @@ export interface BacktestLogApi {
     }>;
     cancelManualCandidate(candidateId: string, unitOfWork: CancellationUnitOfWork): Promise<void>;
     removePendingJobs(candidateIds: string[]): Promise<void>;
-    readAttempt(attemptId: string): Promise<BacktestAttemptAudit>;
-    listAttemptTrades(attemptId: string, page: TradePageRequest): Promise<TradePage>;
-    readExperimentSummary(experimentId: string): Promise<ExperimentResultSummary>;
-    listExperimentTrades(experimentId: string, page: TradePageRequest): Promise<TradePage>;
-    verifyReplay(experimentId: string): Promise<ReplayVerificationResult>;
+    readAttempt(attemptId: string, options?: BacktestReadOptions): Promise<BacktestAttemptAudit>;
+    listAttemptTrades(attemptId: string, page: TradePageRequest, options?: BacktestReadOptions): Promise<TradePage>;
+    readExperimentSummary(experimentId: string, options?: BacktestReadOptions): Promise<ExperimentResultSummary>;
+    listExperimentTrades(experimentId: string, page: TradePageRequest, options?: BacktestReadOptions): Promise<TradePage>;
+    verifyReplay(experimentId: string, options?: BacktestReadOptions): Promise<ReplayVerificationResult>;
 }
 export declare const createBenchmarkScope: BacktestLogApi["createBenchmarkScope"];
 export declare const startManual: BacktestLogApi["startManual"];
@@ -67,3 +72,4 @@ export declare const listAttemptTrades: BacktestLogApi["listAttemptTrades"];
 export declare const readExperimentSummary: BacktestLogApi["readExperimentSummary"];
 export declare const listExperimentTrades: BacktestLogApi["listExperimentTrades"];
 export declare const verifyReplay: BacktestLogApi["verifyReplay"];
+export { createBacktestingService, createInMemoryBacktestingDependencies } from "../application/service";
