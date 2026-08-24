@@ -49,35 +49,28 @@ From the repository root:
 npm install
 ```
 
-### Start the frontend
+This repository supports **npm workspaces only**. Keep the committed `package-lock.json`; do not use pnpm or Yarn for this project.
+
+### Development
+
+Start the backend and Vite frontend together from the repository root:
 
 ```bash
-npm run dev --workspace=@cryptox/frontend
+npm run dev
 ```
 
-Vite prints the local URL when it starts (normally `http://localhost:5173`). Use `npm run start --workspace=@cryptox/frontend` for the same server command without Vite's development alias.
+The backend listens on `http://localhost:3000` and Vite prints its local URL (normally `http://localhost:5173`). The backend is compiled before it starts; rerun `npm run dev` after changing backend TypeScript. To run either process separately, use `npm run dev:backend` or `npm run dev:frontend` from the root.
 
 ### Build and start the backend
 
-First build every workspace:
+Build all workspaces and then start the backend from the repository root:
 
 ```bash
 npm run build
+npm start
 ```
 
-On macOS or Linux, start the backend with:
-
-```bash
-npm run start --workspace=@cryptox/backend
-```
-
-The backend package's start script uses POSIX environment-variable syntax. On Windows PowerShell, use the following equivalent after the build:
-
-```powershell
-Set-Location apps/backend
-$env:NODE_PATH = (Resolve-Path dist)
-node .\dist\apps\backend\src\main.js
-```
+The same commands work in Windows PowerShell, Command Prompt, macOS, and Linux. The launcher sets the compiled module resolution path in Node itself, not through shell-specific environment-variable syntax.
 
 ### Persist accounts with PostgreSQL (optional for local development)
 
@@ -103,6 +96,9 @@ npm test
 npm run build
 npm run lint
 npm run arch:check
+npm run test:workflow
+npm run smoke:backend
+npm run smoke:dev
 ```
 
 The architecture check enforces the module boundaries described below. If a package install becomes inconsistent, remove only `node_modules`, run `npm install` again, then rerun the verification commands.

@@ -4,8 +4,17 @@
   "workspaces": ["modules/*", "apps/*", "packages/*"],
   "scripts": {
     "build": "npm run build --workspaces --if-present",
+    "build:backend": "npm run build --workspace=@cryptox/backend",
+    "dev": "node scripts/dev.mjs",
+    "dev:backend": "npm run build:backend && npm run start:backend",
+    "dev:frontend": "npm run dev --workspace=@cryptox/frontend",
     "lint": "npm run lint --workspaces --if-present",
+    "smoke:backend": "npm run build:backend && node scripts/smoke-backend.mjs",
+    "smoke:dev": "node scripts/smoke-dev.mjs",
+    "start": "npm run start:backend",
+    "start:backend": "node scripts/start-backend.mjs",
     "test": "npm run test --workspaces --if-present",
+    "test:workflow": "node --test scripts/start-backend.test.mjs",
     "arch:check": "dependency-cruise --config .dependency-cruiser.js --exclude dist --exclude d.ts modules apps packages",
     "db:migrate": "node-pg-migrate up -m infra/db/migrations"
   },
