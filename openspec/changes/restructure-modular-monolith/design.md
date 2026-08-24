@@ -65,16 +65,16 @@ Not every module needs all four directories. Empty layer directories must not be
 
 ## 3. Module ownership
 
-| Module | Owns | Important boundary |
-|---|---|---|
-| `market-data` | live candles, market ticks, dataset snapshots, exchange normalization | raw exchange payloads stop at its infrastructure adapter |
-| `strategy` | Strategy Definitions, registry, plugin descriptors/artifacts, Composite Definitions and combination policies | strategy domain remains pure; composite logic sees normalized signals only |
-| `search` | Search Runs, generator policies, stop conditions, slot reservation, pause/resume/cancel | submits work through `backtesting/api`, never through BullMQ |
+| Module        | Owns                                                                                                              | Important boundary                                                                                                                                          |
+| ------------- | ----------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `market-data` | live candles, market ticks, dataset snapshots, exchange normalization                                             | raw exchange payloads stop at its infrastructure adapter                                                                                                    |
+| `strategy`    | Strategy Definitions, registry, plugin descriptors/artifacts, Composite Definitions and combination policies      | strategy domain remains pure; composite logic sees normalized signals only                                                                                  |
+| `search`      | Search Runs, generator policies, stop conditions, slot reservation, pause/resume/cancel                           | submits work through `backtesting/api`, never through BullMQ                                                                                                |
 | `backtesting` | benchmark-scope composition, Candidates, Attempts, Trades, queue boundary, worker simulation/completion lifecycle | owns Candidate APIs and is the only module allowed to own `infrastructure/queue` and BullMQ integration; Search never writes Candidate persistence directly |
-| `evaluation` | metric calculation and finite/edge-case policy | pure evaluator; no strategy or infrastructure dependency |
-| `leaderboard` | score formulas, benchmark scopes, Top-10 admission and ranking reads | owns scope locking and ranking invariants |
-| `news` | providers, normalized News Items, NewsItem persistence and collection workflow | invokes Sentiment through neutral input; sentiment failure must not discard collected news |
-| `sentiment` | neutral input/result API, SentimentResult persistence, model provenance, sentiment snapshots | owns sentiment tables/snapshots and is called through a typed interface with timeout/error isolation |
+| `evaluation`  | metric calculation and finite/edge-case policy                                                                    | pure evaluator; no strategy or infrastructure dependency                                                                                                    |
+| `leaderboard` | score formulas, benchmark scopes, Top-10 admission and ranking reads                                              | owns scope locking and ranking invariants                                                                                                                   |
+| `news`        | providers, normalized News Items, NewsItem persistence and collection workflow                                    | invokes Sentiment through neutral input; sentiment failure must not discard collected news                                                                  |
+| `sentiment`   | neutral input/result API, SentimentResult persistence, model provenance, sentiment snapshots                      | owns sentiment tables/snapshots and is called through a typed interface with timeout/error isolation                                                        |
 
 `ExperimentResult` and the Completion Processor remain in `backtesting` for the MVP. This keeps the completion transaction near the async boundary while allowing Evaluation and Leaderboard to expose pure/public services. A later dedicated `experiment` module remains an explicit extension point if the aggregate grows beyond this responsibility.
 

@@ -4,7 +4,7 @@
 
 `strategy-spec.md` defines how the **Strategy Engine, Registry, and Composite**
 work — how a plugin is registered, versioned, and executed. It deliberately
-does not define what any *specific* plugin computes, because that is a
+does not define what any _specific_ plugin computes, because that is a
 per-plugin business rule, not an engine rule (`architecture.md` §1.2: adding a
 plugin must never require engine changes).
 
@@ -52,8 +52,8 @@ so the rule has one canonical home.
 ### 1.1 Insufficient-data policy (normative for all plugins)
 
 `StrategyContext.candles` is caller-supplied and caller-sized
-(`component-contracts.md` §3: *"most recent N candles, N decided by the
-caller, not by the strategy"*). A plugin must never assume it received enough
+(`component-contracts.md` §3: _"most recent N candles, N decided by the
+caller, not by the strategy"_). A plugin must never assume it received enough
 history for its configured parameters.
 
 **Rule:** if `context.candles.length` is smaller than the plugin's computed
@@ -85,7 +85,7 @@ crossDown(a, b) := a[t-1] >= b[t-1]  AND  a[t] < b[t]
 
 where `t` is the index of the last candle in `context.candles` and `t-1` is
 the second-to-last. This requires the underlying series to have at least 2
-valid values *after* their own warmup — see each plugin's
+valid values _after_ their own warmup — see each plugin's
 `minimumRequiredCandles`.
 
 ### 1.4 Category → parameter schema consistency
@@ -93,7 +93,7 @@ valid values *after* their own warmup — see each plugin's
 Every plugin's `descriptor.parameters` must satisfy
 `StrategyParameterDescriptor` (`component-contracts.md` §3) exactly — `type`,
 `required`, `defaultValue`, and `minimum`/`maximum`/`options` as applicable.
-Any **cross-field** constraint (e.g. `fastPeriod < slowPeriod`) is *not*
+Any **cross-field** constraint (e.g. `fastPeriod < slowPeriod`) is _not_
 expressible in that schema and must be validated explicitly inside the
 plugin's own parameter-construction path, returning the existing
 `400 VALIDATION_ERROR` (`strategy-spec.md` §3.7) — it is not a new error code.
@@ -102,18 +102,18 @@ plugin's own parameter-construction path, returning the existing
 
 ## 2. MA — Moving Average Crossover
 
-| Field | Value |
-|---|---|
-| `name` | `"MA"` |
+| Field      | Value     |
+| ---------- | --------- |
+| `name`     | `"MA"`    |
 | `category` | `"TREND"` |
 
 ### 2.1 Parameters
 
-| Key | Type | Required | Default | Min | Max |
-|---|---|---|---|---|---|
-| `fastPeriod` | `INTEGER` | yes | `20` | `2` | `200` |
-| `slowPeriod` | `INTEGER` | yes | `50` | `3` | `400` |
-| `maType` | `ENUM` (`"SMA" \| "EMA"`) | yes | `"SMA"` | — | — |
+| Key          | Type                      | Required | Default | Min | Max   |
+| ------------ | ------------------------- | -------- | ------- | --- | ----- |
+| `fastPeriod` | `INTEGER`                 | yes      | `20`    | `2` | `200` |
+| `slowPeriod` | `INTEGER`                 | yes      | `50`    | `3` | `400` |
+| `maType`     | `ENUM` (`"SMA" \| "EMA"`) | yes      | `"SMA"` | —   | —     |
 
 **Cross-field rule:** `fastPeriod < slowPeriod` is required at
 `defineStrategy` time (see §1.4); `fastPeriod == slowPeriod` or
@@ -148,18 +148,18 @@ else:                                   HOLD
 
 ## 3. RSI — Relative Strength Index
 
-| Field | Value |
-|---|---|
-| `name` | `"RSI"` |
+| Field      | Value        |
+| ---------- | ------------ |
+| `name`     | `"RSI"`      |
 | `category` | `"MOMENTUM"` |
 
 ### 3.1 Parameters
 
-| Key | Type | Required | Default | Min | Max |
-|---|---|---|---|---|---|
-| `period` | `INTEGER` | yes | `14` | `2` | `100` |
-| `buyThreshold` | `NUMBER` | yes | `30` | `0` | `100` |
-| `sellThreshold` | `NUMBER` | yes | `70` | `0` | `100` |
+| Key             | Type      | Required | Default | Min | Max   |
+| --------------- | --------- | -------- | ------- | --- | ----- |
+| `period`        | `INTEGER` | yes      | `14`    | `2` | `100` |
+| `buyThreshold`  | `NUMBER`  | yes      | `30`    | `0` | `100` |
+| `sellThreshold` | `NUMBER`  | yes      | `70`    | `0` | `100` |
 
 **Cross-field rule:** `buyThreshold < sellThreshold` is required at
 `defineStrategy` time.
@@ -202,17 +202,17 @@ closes).
 
 ## 4. BOLLINGER — Bollinger Bands
 
-| Field | Value |
-|---|---|
-| `name` | `"BOLLINGER"` |
+| Field      | Value          |
+| ---------- | -------------- |
+| `name`     | `"BOLLINGER"`  |
 | `category` | `"VOLATILITY"` |
 
 ### 4.1 Parameters
 
-| Key | Type | Required | Default | Min | Max |
-|---|---|---|---|---|---|
-| `period` | `INTEGER` | yes | `20` | `2` | `200` |
-| `stdDevMultiplier` | `NUMBER` | yes | `2` | `0.1` | `5` |
+| Key                | Type      | Required | Default | Min   | Max   |
+| ------------------ | --------- | -------- | ------- | ----- | ----- |
+| `period`           | `INTEGER` | yes      | `20`    | `2`   | `200` |
+| `stdDevMultiplier` | `NUMBER`  | yes      | `2`     | `0.1` | `5`   |
 
 No cross-field constraint for this plugin.
 
@@ -247,19 +247,19 @@ current candle's band is evaluated).
 
 ## 5. SR — Support / Resistance
 
-| Field | Value |
-|---|---|
-| `name` | `"SR"` |
+| Field      | Value         |
+| ---------- | ------------- |
+| `name`     | `"SR"`        |
 | `category` | `"STRUCTURE"` |
 
 ### 5.1 Parameters
 
-| Key | Type | Required | Default | Min | Max |
-|---|---|---|---|---|---|
-| `lookbackPeriod` | `INTEGER` | yes | `50` | `10` | `500` |
-| `swingWindow` | `INTEGER` | yes | `2` | `1` | `10` |
-| `minTouches` | `INTEGER` | yes | `2` | `1` | `10` |
-| `proximityPercent` | `NUMBER` | yes | `0.5` | `0.01` | `5` |
+| Key                | Type      | Required | Default | Min    | Max   |
+| ------------------ | --------- | -------- | ------- | ------ | ----- |
+| `lookbackPeriod`   | `INTEGER` | yes      | `50`    | `10`   | `500` |
+| `swingWindow`      | `INTEGER` | yes      | `2`     | `1`    | `10`  |
+| `minTouches`       | `INTEGER` | yes      | `2`     | `1`    | `10`  |
+| `proximityPercent` | `NUMBER`  | yes      | `0.5`   | `0.01` | `5`   |
 
 No cross-field constraint for this plugin.
 
@@ -317,13 +317,13 @@ else:                                                 HOLD
 
 The `close[t] > close[t-1]` / `close[t] < close[t-1]` condition avoids
 signaling on mere proximity — it requires the immediately preceding candle to
-show a reaction *away* from the level, not just closeness to it.
+show a reaction _away_ from the level, not just closeness to it.
 
 ### 5.4 `minimumRequiredCandles`
 
 `lookbackPeriod + 1` (the completed level-formation window plus the current
 candle `t`; `close[t-1]` is already the last candle in that window). The
-effective number of *usable* swing points is reduced by `swingWindow` at each
+effective number of _usable_ swing points is reduced by `swingWindow` at each
 edge — this is normal and simply yields fewer/no qualified levels, not an
 error.
 
@@ -336,18 +336,18 @@ error path.
 
 ## 6. MACD — Moving Average Convergence Divergence
 
-| Field | Value |
-|---|---|
-| `name` | `"MACD"` |
+| Field      | Value     |
+| ---------- | --------- |
+| `name`     | `"MACD"`  |
 | `category` | `"TREND"` |
 
 ### 6.1 Parameters
 
-| Key | Type | Required | Default | Min | Max |
-|---|---|---|---|---|---|
-| `fastPeriod` | `INTEGER` | yes | `12` | `2` | `200` |
-| `slowPeriod` | `INTEGER` | yes | `26` | `3` | `400` |
-| `signalPeriod` | `INTEGER` | yes | `9` | `2` | `100` |
+| Key            | Type      | Required | Default | Min | Max   |
+| -------------- | --------- | -------- | ------- | --- | ----- |
+| `fastPeriod`   | `INTEGER` | yes      | `12`    | `2` | `200` |
+| `slowPeriod`   | `INTEGER` | yes      | `26`    | `3` | `400` |
+| `signalPeriod` | `INTEGER` | yes      | `9`     | `2` | `100` |
 
 **Cross-field rule:** `fastPeriod < slowPeriod` is required at
 `defineStrategy` time, same as MA (§2.1).
@@ -384,35 +384,35 @@ candle then provides the second valid signal-line value needed for the
 
 ## 7. What is intentionally out of scope here
 
-| Item | Where it actually belongs |
-|---|---|
-| `INFORMATION`-category `NewsSentimentStrategy` | `sentiment-specs.md` §3.6 — it reads `context.sentiment` instead of `context.indicators`; no OHLCV formula applies. |
-| Where `context.indicators` values (e.g. precomputed `"MA20"`) come from | `strategy-spec.md` §4.2 — an Indicator layer computes them once per context so multiple plugins sharing an indicator don't recompute it; this catalog's formulas are the authoritative definition of *what* that layer must compute for each named indicator. |
-| Composite combination (`MAJORITY_VOTE` / `WEIGHTED_SCORE`) of these plugins' signals | `strategy-spec.md` §2.2 — this catalog only defines each plugin in isolation. |
-| `implementationVersion` / `implementationSha256` values for each plugin build | `component-contracts.md` §3 (`StrategyPluginDescriptor`) — assigned at build/release time, not fixed by this catalog. |
-| Adding a 6th built-in plugin (e.g. Stochastic, ATR, SMC, Wyckoff) | Follow this same document's format: category, parameters table, formula, signal rule, `minimumRequiredCandles`. No engine change required (`architecture.md` §1.2). |
+| Item                                                                                 | Where it actually belongs                                                                                                                                                                                                                                     |
+| ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `INFORMATION`-category `NewsSentimentStrategy`                                       | `sentiment-specs.md` §3.6 — it reads `context.sentiment` instead of `context.indicators`; no OHLCV formula applies.                                                                                                                                           |
+| Where `context.indicators` values (e.g. precomputed `"MA20"`) come from              | `strategy-spec.md` §4.2 — an Indicator layer computes them once per context so multiple plugins sharing an indicator don't recompute it; this catalog's formulas are the authoritative definition of _what_ that layer must compute for each named indicator. |
+| Composite combination (`MAJORITY_VOTE` / `WEIGHTED_SCORE`) of these plugins' signals | `strategy-spec.md` §2.2 — this catalog only defines each plugin in isolation.                                                                                                                                                                                 |
+| `implementationVersion` / `implementationSha256` values for each plugin build        | `component-contracts.md` §3 (`StrategyPluginDescriptor`) — assigned at build/release time, not fixed by this catalog.                                                                                                                                         |
+| Adding a 6th built-in plugin (e.g. Stochastic, ATR, SMC, Wyckoff)                    | Follow this same document's format: category, parameters table, formula, signal rule, `minimumRequiredCandles`. No engine change required (`architecture.md` §1.2).                                                                                           |
 
 ## 8. Acceptance criteria (per plugin)
 
 - [ ] For each plugin, a fixture candle series + parameter set exists with a
-  hand-computed expected `Signal`, and `analyze()` returns exactly that value.
+      hand-computed expected `Signal`, and `analyze()` returns exactly that value.
 - [ ] For each plugin, calling `analyze()` with `candles.length < minimumRequiredCandles`
-  returns `HOLD` and does not throw.
+      returns `HOLD` and does not throw.
 - [ ] A strategy/plugin test verifies that `analyze()` performs no exchange,
-  broker, wallet, fund-transfer, or order-placement I/O; `BUY` and `SELL`
-  remain simulated signal values only.
+      broker, wallet, fund-transfer, or order-placement I/O; `BUY` and `SELL`
+      remain simulated signal values only.
 - [ ] For MA and MACD, a fixture exists that produces `BUY` via `crossUp` and
-  another that produces `SELL` via `crossDown`, using the shared crossover
-  rule in §1.3.
+      another that produces `SELL` via `crossDown`, using the shared crossover
+      rule in §1.3.
 - [ ] For MA and MACD, `defineStrategy` with `fastPeriod >= slowPeriod` is
-  rejected with `400 VALIDATION_ERROR` before any row is written
-  (`strategy-spec.md` §3.7 pattern).
+      rejected with `400 VALIDATION_ERROR` before any row is written
+      (`strategy-spec.md` §3.7 pattern).
 - [ ] For RSI, a fixture with `avgLoss = 0` returns `RSI = 100` without a
-  division-by-zero error.
+      division-by-zero error.
 - [ ] For BOLLINGER, `populationStdDev` (not sample stdDev) is verified
-  against a fixture with a known variance.
+      against a fixture with a known variance.
 - [ ] For SR, a fixture with no qualifying level (all clusters below
-  `minTouches`) returns `HOLD` rather than an error.
+      `minTouches`) returns `HOLD` rather than an error.
 - [ ] Every plugin's `analyze()` is verified to be pure (no I/O observed
-  during the call), matching `strategy-spec.md`'s Resolution & execution
-  acceptance criteria.
+      during the call), matching `strategy-spec.md`'s Resolution & execution
+      acceptance criteria.

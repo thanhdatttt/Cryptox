@@ -1,56 +1,98 @@
 import type { BacktestingModuleDependencies } from "./bootstrap";
-import type { BacktestAttemptAudit, BacktestSubmissionAccepted, BenchmarkScopeSummary, CandidateProgress, CancellationUnitOfWork, CreateLeaderboardScopeCommand, ExperimentResultSummary, ReplayVerificationResult, StartManualBacktestCommand, SubmitSearchCandidateCommand, Trade } from "../domain/contracts";
-export type { CandidateStatus, BacktestSubmissionAccepted, CancellationUnitOfWork, CompletionUnitOfWork, Trade, CompletedBacktestResult, GeneratorType, CreateLeaderboardScopeCommand, StartManualBacktestCommand, SubmitSearchCandidateCommand, BenchmarkScopeSummary, ReplayVerificationResult, CandidateProgress, BacktestAttemptProgress, BacktestAttemptAudit, ExperimentResult, ExperimentResultSummary } from "../domain/contracts";
+import type {
+  BacktestAttemptAudit,
+  BacktestSubmissionAccepted,
+  BenchmarkScopeSummary,
+  CandidateProgress,
+  CancellationUnitOfWork,
+  CreateLeaderboardScopeCommand,
+  ExperimentResultSummary,
+  ReplayVerificationResult,
+  StartManualBacktestCommand,
+  SubmitSearchCandidateCommand,
+  Trade,
+} from "../domain/contracts";
+export type {
+  CandidateStatus,
+  BacktestSubmissionAccepted,
+  CancellationUnitOfWork,
+  CompletionUnitOfWork,
+  Trade,
+  CompletedBacktestResult,
+  GeneratorType,
+  CreateLeaderboardScopeCommand,
+  StartManualBacktestCommand,
+  SubmitSearchCandidateCommand,
+  BenchmarkScopeSummary,
+  ReplayVerificationResult,
+  CandidateProgress,
+  BacktestAttemptProgress,
+  BacktestAttemptAudit,
+  ExperimentResult,
+  ExperimentResultSummary,
+} from "../domain/contracts";
 export interface SearchCandidateSummary {
-    searchRunId: string;
-    active: CandidateProgress[];
-    queuedCount: number;
-    runningCount: number;
-    candidatesTested: number;
-    failedCandidateCount: number;
-    retryExhaustedCandidateCount: number;
-    infrastructureFailureCandidateCount: number;
-    completionProcessingFailureCandidateCount: number;
-    failedAttemptCount: number;
-    averageBacktestDurationMs: number | null;
+  searchRunId: string;
+  active: CandidateProgress[];
+  queuedCount: number;
+  runningCount: number;
+  candidatesTested: number;
+  failedCandidateCount: number;
+  retryExhaustedCandidateCount: number;
+  infrastructureFailureCandidateCount: number;
+  completionProcessingFailureCandidateCount: number;
+  failedAttemptCount: number;
+  averageBacktestDurationMs: number | null;
 }
 export interface SearchCandidatePageRequest {
-    limit: number;
-    cursor?: string;
+  limit: number;
+  cursor?: string;
 }
 export interface SearchCandidatePage {
-    items: CandidateProgress[];
-    nextCursor?: string;
+  items: CandidateProgress[];
+  nextCursor?: string;
 }
 export interface TradePageRequest {
-    limit: number;
-    cursor?: string;
+  limit: number;
+  cursor?: string;
 }
 export interface TradePage {
-    items: Trade[];
-    nextCursor?: string;
+  items: Trade[];
+  nextCursor?: string;
 }
 export interface BacktestLogApi {
-    createBenchmarkScope(command: CreateLeaderboardScopeCommand, options: {
-        scopeIdempotencyKey: string;
-    }): Promise<BenchmarkScopeSummary>;
-    startManual(command: StartManualBacktestCommand, options?: {
-        submissionIdempotencyKey?: string;
-    }): Promise<BacktestSubmissionAccepted>;
-    submitSearchCandidate(command: SubmitSearchCandidateCommand): Promise<BacktestSubmissionAccepted>;
-    status(candidateId: string): Promise<CandidateProgress>;
-    summarizeSearchCandidates(searchRunId: string): Promise<SearchCandidateSummary>;
-    listSearchCandidates(searchRunId: string, page: SearchCandidatePageRequest): Promise<SearchCandidatePage>;
-    cancelSearchCandidates(searchRunId: string, unitOfWork: CancellationUnitOfWork): Promise<{
-        candidateIds: string[];
-    }>;
-    cancelManualCandidate(candidateId: string, unitOfWork: CancellationUnitOfWork): Promise<void>;
-    removePendingJobs(candidateIds: string[]): Promise<void>;
-    readAttempt(attemptId: string): Promise<BacktestAttemptAudit>;
-    listAttemptTrades(attemptId: string, page: TradePageRequest): Promise<TradePage>;
-    readExperimentSummary(experimentId: string): Promise<ExperimentResultSummary>;
-    listExperimentTrades(experimentId: string, page: TradePageRequest): Promise<TradePage>;
-    verifyReplay(experimentId: string): Promise<ReplayVerificationResult>;
+  createBenchmarkScope(
+    command: CreateLeaderboardScopeCommand,
+    options: {
+      scopeIdempotencyKey: string;
+    },
+  ): Promise<BenchmarkScopeSummary>;
+  startManual(
+    command: StartManualBacktestCommand,
+    options?: {
+      submissionIdempotencyKey?: string;
+    },
+  ): Promise<BacktestSubmissionAccepted>;
+  submitSearchCandidate(command: SubmitSearchCandidateCommand): Promise<BacktestSubmissionAccepted>;
+  status(candidateId: string): Promise<CandidateProgress>;
+  summarizeSearchCandidates(searchRunId: string): Promise<SearchCandidateSummary>;
+  listSearchCandidates(
+    searchRunId: string,
+    page: SearchCandidatePageRequest,
+  ): Promise<SearchCandidatePage>;
+  cancelSearchCandidates(
+    searchRunId: string,
+    unitOfWork: CancellationUnitOfWork,
+  ): Promise<{
+    candidateIds: string[];
+  }>;
+  cancelManualCandidate(candidateId: string, unitOfWork: CancellationUnitOfWork): Promise<void>;
+  removePendingJobs(candidateIds: string[]): Promise<void>;
+  readAttempt(attemptId: string): Promise<BacktestAttemptAudit>;
+  listAttemptTrades(attemptId: string, page: TradePageRequest): Promise<TradePage>;
+  readExperimentSummary(experimentId: string): Promise<ExperimentResultSummary>;
+  listExperimentTrades(experimentId: string, page: TradePageRequest): Promise<TradePage>;
+  verifyReplay(experimentId: string): Promise<ReplayVerificationResult>;
 }
 export declare const createBenchmarkScope: BacktestLogApi["createBenchmarkScope"];
 export declare const startManual: BacktestLogApi["startManual"];
@@ -66,4 +108,6 @@ export declare const listAttemptTrades: BacktestLogApi["listAttemptTrades"];
 export declare const readExperimentSummary: BacktestLogApi["readExperimentSummary"];
 export declare const listExperimentTrades: BacktestLogApi["listExperimentTrades"];
 export declare const verifyReplay: BacktestLogApi["verifyReplay"];
-export declare function createBacktestingModule(_deps: BacktestingModuleDependencies): BacktestLogApi;
+export declare function createBacktestingModule(
+  _deps: BacktestingModuleDependencies,
+): BacktestLogApi;

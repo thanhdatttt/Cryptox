@@ -1,1 +1,5 @@
-{"extends":"../../tsconfig.base.json","compilerOptions":{"outDir":"dist","composite":false},"include":["**/*.ts"]}
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": { "outDir": "dist", "composite": false },
+  "include": ["**/*.ts"]
+}

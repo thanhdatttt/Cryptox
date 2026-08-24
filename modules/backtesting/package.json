@@ -1,1 +1,9 @@
-{"name":"@cryptox/backtesting","private":true,"scripts":{"build":"tsc -p tsconfig.json","test":"vitest run --passWithNoTests","lint":"tsc -p tsconfig.json --noEmit"}}
+{
+  "name": "@cryptox/backtesting",
+  "private": true,
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run --passWithNoTests",
+    "lint": "tsc -p tsconfig.json --noEmit"
+  }
+}

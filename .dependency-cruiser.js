@@ -5,7 +5,10 @@ module.exports = {
       name: "domain-must-be-pure",
       severity: "error",
       from: { path: "^modules/[^/]+/domain" },
-      to: { pathNot: "^modules/[^/]+/domain", path: "(^|/)(http|pg|knex|ioredis|bullmq|ws)(/|$)|@nestjs|exchange|ui|react|vite" },
+      to: {
+        pathNot: "^modules/[^/]+/domain",
+        path: "(^|/)(http|pg|knex|ioredis|bullmq|ws)(/|$)|@nestjs|exchange|ui|react|vite",
+      },
     },
     {
       name: "no-cross-module-internals",
@@ -48,12 +51,12 @@ module.exports = {
       severity: "error",
       from: { path: "^modules/(news|sentiment)/domain" },
       to: { path: "^modules/(news|sentiment)/domain" },
-    }
+    },
   ],
   options: {
     doNotFollow: { path: "node_modules" },
     tsPreCompilationDeps: true,
     enhancedResolveOptions: { extensions: [".ts", ".tsx", ".js", ".jsx"] },
-    preserveSymlinks: false
-  }
+    preserveSymlinks: false,
+  },
 };

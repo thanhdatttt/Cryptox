@@ -15,6 +15,7 @@ Search does **not** own Candidate persistence, the BullMQ queue, backtest execut
 ### Scope
 
 In scope:
+
 - Starting, pausing, resuming, cancelling, and polling the status of a `SearchRun`.
 - Generating candidate strategy/composite definitions within a declared `SearchSpaceConfig` via a replaceable `StrategyGenerator`.
 - Enforcing `StopCondition` (`maxCandidates`, `maxDurationSeconds`, `noImprovementAfterIterations`) and `maxInFlight` concurrency.
@@ -25,6 +26,7 @@ In scope:
 Adjacent but **not** served by this module: `GET /search-runs/{searchRunId}/candidates` (per-candidate progress/history for a run) is part of the minimum REST surface in `component-contracts.md` §10, but it is composed directly from `modules/backtesting`'s `CandidateProgress` projection by `apps/backend`; it does not route through `modules/search/api`.
 
 Out of scope (owned by other modules, consumed through their public APIs only):
+
 - Persisting Candidates, Attempts, Trades, or owning the BullMQ queue/adapter — `modules/backtesting`.
 - Validating/persisting `StrategyDefinition`/`CompositeStrategyDefinition` content — `modules/strategy` (Search only maps its own `GeneratedCandidate` into Backtesting's neutral submission command).
 - Running the backtest simulation — the Backtest Worker Pool (`apps/backtest-worker`), composed from `modules/backtesting` + `modules/strategy`.
@@ -34,29 +36,29 @@ Out of scope (owned by other modules, consumed through their public APIs only):
 
 ### Actors
 
-| Actor | Interaction |
-|---|---|
-| `apps/backend` | Calls `createSearchModule()` at startup; exposes `start/pause/resume/cancel/status` over REST; invokes periodic reconciliation for every `RUNNING` run. |
-| Frontend (via Backend REST) | Starts a Search Run, polls `GET /search-runs/{id}` and `GET /search-runs/{id}/leaderboard` while active; may also read `GET /search-runs/{id}/candidates` for per-candidate history. Closing the browser does not stop server-side work. |
+| Actor                               | Interaction                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/backend`                      | Calls `createSearchModule()` at startup; exposes `start/pause/resume/cancel/status` over REST; invokes periodic reconciliation for every `RUNNING` run.                                                                                                                                                                                                                                                                               |
+| Frontend (via Backend REST)         | Starts a Search Run, polls `GET /search-runs/{id}` and `GET /search-runs/{id}/leaderboard` while active; may also read `GET /search-runs/{id}/candidates` for per-candidate history. Closing the browser does not stop server-side work.                                                                                                                                                                                              |
 | `modules/backtesting` (Coordinator) | Receiving side of `submitSearchCandidate`; source of `CandidateProgress` counts/projections via `summarizeSearchCandidates`; also the direct source for `GET /search-runs/{id}/candidates` (Backend composes this endpoint straight from Backtesting's projection API — Search's own `api` surface is not on this read path). Calls `SearchLoop.onCandidateFinished(searchRunId)` after a Candidate reaches a durable terminal state. |
-| `modules/leaderboard` | Source of the run-scoped ranking (`currentTopEntry`, `GET /search-runs/{id}/leaderboard`) and of the `noImprovementAfterIterations` baseline signal. |
-| `modules/strategy` | Indirectly, through `GeneratedCandidate.strategyDefinitions`/`compositeDefinition`, which Backtesting validates/persists on Search's behalf — Search never imports `modules/strategy` internals. |
+| `modules/leaderboard`               | Source of the run-scoped ranking (`currentTopEntry`, `GET /search-runs/{id}/leaderboard`) and of the `noImprovementAfterIterations` baseline signal.                                                                                                                                                                                                                                                                                  |
+| `modules/strategy`                  | Indirectly, through `GeneratedCandidate.strategyDefinitions`/`compositeDefinition`, which Backtesting validates/persists on Search's behalf — Search never imports `modules/strategy` internals.                                                                                                                                                                                                                                      |
 
 ## 2. Requirements
 
 ### 2.1 Functional requirements
 
-| ID | Requirement |
-|---|---|
+| ID   | Requirement                                                                                                                                                                                                                                                  |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | FR-1 | The module must let a caller `start` a `SearchRun` given a `SearchSpaceConfig`, `StopCondition`, `GeneratorType`, `leaderboardScopeId`, and `maxInFlight`, and must return a `searchRunId` immediately (`202`-style acceptance; work continues server-side). |
-| FR-2 | The module must expose `pause`, `resume`, and `cancel` for a `SearchRun`, each idempotent and safe to call while slot-filling is in progress. |
-| FR-3 | The module must expose `status(searchRunId)` returning a durable `LoopStatus` projection sufficient for REST polling, with no reliance on in-memory state surviving a backend restart. |
-| FR-4 | The module must expose serialized, idempotent `fillAvailableSlots(searchRunId)` that generates and submits at most the run's missing in-flight slots, respecting `maxInFlight` and remaining `StopCondition` budget. |
-| FR-5 | The module must generate candidates only through the replaceable `StrategyGenerator` interface (`RANDOM`, `DOMAIN_GUIDED`, future `GENETIC`), never branching orchestration logic on generator identity. |
-| FR-6 | The module must submit every generated candidate to `modules/backtesting` through `BacktestCoordinator.submitSearchCandidate` and must never persist, query, or mutate Candidate rows itself. |
-| FR-7 | The module must expose `onCandidateFinished(searchRunId)` as an internal post-commit callback that triggers `fillAvailableSlots`; a lost callback must never be the sole path to progress. |
-| FR-8 | The module must invoke `fillAvailableSlots` on `start`, `resume`, every completion callback, and backend startup/periodic reconciliation for every `RUNNING` run. |
-| FR-9 | The module must expose a run-scoped ranking read (`GET /search-runs/{id}/leaderboard`) sourced from the Leaderboard public API, distinct from the persistent cross-run Top-10. |
+| FR-2 | The module must expose `pause`, `resume`, and `cancel` for a `SearchRun`, each idempotent and safe to call while slot-filling is in progress.                                                                                                                |
+| FR-3 | The module must expose `status(searchRunId)` returning a durable `LoopStatus` projection sufficient for REST polling, with no reliance on in-memory state surviving a backend restart.                                                                       |
+| FR-4 | The module must expose serialized, idempotent `fillAvailableSlots(searchRunId)` that generates and submits at most the run's missing in-flight slots, respecting `maxInFlight` and remaining `StopCondition` budget.                                         |
+| FR-5 | The module must generate candidates only through the replaceable `StrategyGenerator` interface (`RANDOM`, `DOMAIN_GUIDED`, future `GENETIC`), never branching orchestration logic on generator identity.                                                     |
+| FR-6 | The module must submit every generated candidate to `modules/backtesting` through `BacktestCoordinator.submitSearchCandidate` and must never persist, query, or mutate Candidate rows itself.                                                                |
+| FR-7 | The module must expose `onCandidateFinished(searchRunId)` as an internal post-commit callback that triggers `fillAvailableSlots`; a lost callback must never be the sole path to progress.                                                                   |
+| FR-8 | The module must invoke `fillAvailableSlots` on `start`, `resume`, every completion callback, and backend startup/periodic reconciliation for every `RUNNING` run.                                                                                            |
+| FR-9 | The module must expose a run-scoped ranking read (`GET /search-runs/{id}/leaderboard`) sourced from the Leaderboard public API, distinct from the persistent cross-run Top-10.                                                                               |
 
 ### 2.2 Business rules
 
@@ -68,7 +70,7 @@ Out of scope (owned by other modules, consumed through their public APIs only):
 - **Stop-condition evaluation order:** at every serialized `fillAvailableSlots` boundary, normal conditions are evaluated in the deterministic order `MAX_DURATION`, then `MAX_CANDIDATES`, then `NO_IMPROVEMENT`. An accepted user cancellation wins over any of these normal conditions.
 - **`maxCandidates` semantics:** counts every committed candidate reservation (via the `UNIQUE (search_run_id, iteration_number)` allocation); cancellation never restores budget.
 - **`maxDurationSeconds` semantics:** counts only active `RUNNING` wall-clock time; `CREATED` and `PAUSED` time are excluded. `started_at` is set only on the `CREATED → RUNNING` transition.
-- **`noImprovementAfterIterations` semantics:** means no *strict* increase in the current best rank-eligible score after the configured number of completed non-cancelled Search candidates; ties are not improvements. Before the first rank-eligible score exists, the baseline is `none`; the first rank-eligible score establishes the baseline and resets the count.
+- **`noImprovementAfterIterations` semantics:** means no _strict_ increase in the current best rank-eligible score after the configured number of completed non-cancelled Search candidates; ties are not improvements. Before the first rank-eligible score exists, the baseline is `none`; the first rank-eligible score establishes the baseline and resets the count.
 - **Idempotent reservation:** `UNIQUE (search_run_id, iteration_number)` makes a repeated slot reservation (e.g. after a crash mid-fill) load the existing iteration instead of creating a duplicate.
 - **Pause vs. cancel:** `pause` stops filling new slots but lets already-claimed jobs finish; it does not touch Candidate state. `cancel` locks the run and, through one process-level application unit of work, writes `SearchRun` `CANCELLED`/`USER_CANCELLED`/`endedAt` and asks Backtesting's public facade to mark every non-terminal Candidate `CANCELLED`; only after that commit does Search call `BacktestCoordinator.removePendingJobs(candidateIds)` for best-effort waiting/delayed-job cleanup.
 - **Unit of work is opaque:** the `CancellationUnitOfWork` passed across the Search↔Backtesting boundary is a process-level application transaction port, never a database handle — Search cannot open a second transaction through it.
@@ -167,7 +169,7 @@ sequenceDiagram
     end
 ```
 
-`fillAvailableSlots` re-reads `maxInFlight`, `stopCondition`, and `searchSpace` from the persisted `search_runs` row on every invocation rather than trusting any caller-supplied or in-memory copy of that config (`data-flow.md` §5: *"acquire Search Run lease; read Search-owned limits"*). This is what makes the use case safe to invoke from a fresh process after a crash or restart — it never depends on orchestrator state surviving in memory. It never creates more than the missing `maxInFlight` slots or the remaining `maxCandidates` budget, whichever is smaller. It is safe to invoke concurrently from any trigger because the row lock/lease serializes all callers, and `UNIQUE (search_run_id, iteration_number)` makes a repeated reservation idempotent rather than duplicative.
+`fillAvailableSlots` re-reads `maxInFlight`, `stopCondition`, and `searchSpace` from the persisted `search_runs` row on every invocation rather than trusting any caller-supplied or in-memory copy of that config (`data-flow.md` §5: _"acquire Search Run lease; read Search-owned limits"_). This is what makes the use case safe to invoke from a fresh process after a crash or restart — it never depends on orchestrator state surviving in memory. It never creates more than the missing `maxInFlight` slots or the remaining `maxCandidates` budget, whichever is smaller. It is safe to invoke concurrently from any trigger because the row lock/lease serializes all callers, and `UNIQUE (search_run_id, iteration_number)` makes a repeated reservation idempotent rather than duplicative.
 
 ### 3.4 Completion callback (post-commit)
 
@@ -266,18 +268,18 @@ sequenceDiagram
 
 ### 3.8 Error / edge cases
 
-| Case | Trigger | Result |
-|---|---|---|
-| `StopCondition` with no fields, or a non-positive value | `POST /search-runs` body validation | `400 VALIDATION_ERROR`; no `search_runs` row written |
-| Concurrent `fillAvailableSlots` triggers (callback + periodic + resume, same run) | Multiple triggers fire close together | Row lock/lease serializes them; at most one performs reservations for that boundary; others observe updated counts and no-op or reserve the remaining delta |
-| Callback lost (backend crash between commit and callback delivery) | Backtesting commits Candidate terminal state but the process crashes before `onCandidateFinished` fires | Periodic reconciliation for `RUNNING` runs invokes `fillAvailableSlots` and repairs the missed refill; no candidate slot is permanently lost |
-| `resume` on a `FAILED` run | `stopReason = ERROR` already recorded | Rejected: `409 CANNOT_RESUME_FAILED_RUN` |
-| `cancel` on an already-`FAILED` run | Error already recorded | Idempotent no-op; no new Candidate cancellation issued |
-| `cancel` racing the `ERROR` transition | Both try to lock `search_runs` concurrently | Whichever transaction acquires the row lock first commits; the loser observes the already-terminal state and no-ops (cancel) or is rejected (a subsequent error attempt on an already-cancelled run) |
-| `maxCandidates` reached mid-fill | `fillAvailableSlots` computes remaining budget as `0` | No further candidates generated this boundary; existing in-flight candidates continue to completion |
-| `noImprovementAfterIterations` reached with no rank-eligible score ever recorded | All completed candidates are zero-trade / non-rank-eligible | Baseline remains `none`; the condition can never trigger until at least one rank-eligible score exists |
-| A generated candidate's definitions fail Backtesting/Strategy validation | e.g. malformed `SearchSpaceConfig` produces an invalid composite | `submitSearchCandidate` rejects; Search does not commit that iteration slot and may retry generation within the same `fillAvailableSlots` boundary, subject to remaining budget |
-| Search Run restarted after a crash mid-reservation | Process died after generating but before Backtesting committed | The Backtesting-side idempotent `(searchRunId, iterationNumber)` allocation prevents a duplicate; the next `fillAvailableSlots` call re-derives the correct remaining slot count from `summarizeSearchCandidates` |
+| Case                                                                              | Trigger                                                                                                 | Result                                                                                                                                                                                                            |
+| --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `StopCondition` with no fields, or a non-positive value                           | `POST /search-runs` body validation                                                                     | `400 VALIDATION_ERROR`; no `search_runs` row written                                                                                                                                                              |
+| Concurrent `fillAvailableSlots` triggers (callback + periodic + resume, same run) | Multiple triggers fire close together                                                                   | Row lock/lease serializes them; at most one performs reservations for that boundary; others observe updated counts and no-op or reserve the remaining delta                                                       |
+| Callback lost (backend crash between commit and callback delivery)                | Backtesting commits Candidate terminal state but the process crashes before `onCandidateFinished` fires | Periodic reconciliation for `RUNNING` runs invokes `fillAvailableSlots` and repairs the missed refill; no candidate slot is permanently lost                                                                      |
+| `resume` on a `FAILED` run                                                        | `stopReason = ERROR` already recorded                                                                   | Rejected: `409 CANNOT_RESUME_FAILED_RUN`                                                                                                                                                                          |
+| `cancel` on an already-`FAILED` run                                               | Error already recorded                                                                                  | Idempotent no-op; no new Candidate cancellation issued                                                                                                                                                            |
+| `cancel` racing the `ERROR` transition                                            | Both try to lock `search_runs` concurrently                                                             | Whichever transaction acquires the row lock first commits; the loser observes the already-terminal state and no-ops (cancel) or is rejected (a subsequent error attempt on an already-cancelled run)              |
+| `maxCandidates` reached mid-fill                                                  | `fillAvailableSlots` computes remaining budget as `0`                                                   | No further candidates generated this boundary; existing in-flight candidates continue to completion                                                                                                               |
+| `noImprovementAfterIterations` reached with no rank-eligible score ever recorded  | All completed candidates are zero-trade / non-rank-eligible                                             | Baseline remains `none`; the condition can never trigger until at least one rank-eligible score exists                                                                                                            |
+| A generated candidate's definitions fail Backtesting/Strategy validation          | e.g. malformed `SearchSpaceConfig` produces an invalid composite                                        | `submitSearchCandidate` rejects; Search does not commit that iteration slot and may retry generation within the same `fillAvailableSlots` boundary, subject to remaining budget                                   |
+| Search Run restarted after a crash mid-reservation                                | Process died after generating but before Backtesting committed                                          | The Backtesting-side idempotent `(searchRunId, iterationNumber)` allocation prevents a duplicate; the next `fillAvailableSlots` call re-derives the correct remaining slot count from `summarizeSearchCandidates` |
 
 ## 4. Contracts
 
@@ -304,11 +306,11 @@ export interface SearchModulePublicApi {
 export function createSearchModule(deps: {
   searchRunRepository: SearchRunRepository;
   generators: Record<GeneratorType, StrategyGenerator>;
-  backtestCoordinator: BacktestCoordinator;      // modules/backtesting public API only
+  backtestCoordinator: BacktestCoordinator; // modules/backtesting public API only
   leaderboardService: Pick<LeaderboardService, "rankSearchRun">; // modules/leaderboard public API only
 }): SearchModulePublicApi & {
-  onCandidateFinished(searchRunId: string): Promise<void>;   // internal callback target for Backtesting
-  fillAvailableSlots(searchRunId: string): Promise<void>;    // serialized, idempotent recovery use case
+  onCandidateFinished(searchRunId: string): Promise<void>; // internal callback target for Backtesting
+  fillAvailableSlots(searchRunId: string): Promise<void>; // serialized, idempotent recovery use case
 };
 ```
 
@@ -319,8 +321,7 @@ export function createSearchModule(deps: {
 ```typescript
 export type GeneratorType = "RANDOM" | "DOMAIN_GUIDED" | "GENETIC";
 
-export type StrategyCategory =
-  | "TREND" | "MOMENTUM" | "VOLATILITY" | "STRUCTURE" | "INFORMATION";
+export type StrategyCategory = "TREND" | "MOMENTUM" | "VOLATILITY" | "STRUCTURE" | "INFORMATION";
 
 export interface GeneratedCandidate {
   strategyDefinitions: StrategyDefinition[];
@@ -364,8 +365,15 @@ export interface CandidateProgress {
   iterationNumber?: number;
   leaderboardScopeId: string;
   status:
-    | "CREATED" | "QUEUED" | "BACKTESTING" | "RETRY_WAIT" | "PROCESSING_RESULT"
-    | "TERMINAL_FAILURE_PENDING" | "COMPLETED" | "FAILED" | "CANCELLED";
+    | "CREATED"
+    | "QUEUED"
+    | "BACKTESTING"
+    | "RETRY_WAIT"
+    | "PROCESSING_RESULT"
+    | "TERMINAL_FAILURE_PENDING"
+    | "COMPLETED"
+    | "FAILED"
+    | "CANCELLED";
   attempts: Array<{
     attemptId: string;
     attemptNumber: number;
@@ -399,16 +407,16 @@ export interface SearchRunRankingEntry {
 export interface LoopStatus {
   searchRunId: string;
   state: "CREATED" | "RUNNING" | "PAUSED" | "COMPLETED" | "CANCELLED" | "FAILED";
-  activeCandidates: CandidateProgress[];      // every non-terminal Candidate
-  queuedCount: number;                        // CREATED | QUEUED
-  runningCount: number;                       // BACKTESTING | RETRY_WAIT | PROCESSING_RESULT | TERMINAL_FAILURE_PENDING
-  candidatesTested: number;                   // non-cancelled Candidates terminal COMPLETED or FAILED
+  activeCandidates: CandidateProgress[]; // every non-terminal Candidate
+  queuedCount: number; // CREATED | QUEUED
+  runningCount: number; // BACKTESTING | RETRY_WAIT | PROCESSING_RESULT | TERMINAL_FAILURE_PENDING
+  candidatesTested: number; // non-cancelled Candidates terminal COMPLETED or FAILED
   failedCandidateCount: number;
   retryExhaustedCandidateCount: number;
   infrastructureFailureCandidateCount: number;
   completionProcessingFailureCandidateCount: number;
   failedAttemptCount: number;
-  averageBacktestDurationMs: number;          // completed Attempts only
+  averageBacktestDurationMs: number; // completed Attempts only
   currentTopEntry?: SearchRunRankingEntry;
   createdAt: string;
   startedAt?: string;
@@ -468,7 +476,10 @@ export interface BacktestCoordinator {
     runningCount: number;
     candidatesTested: number;
   }>;
-  cancelSearchCandidates(searchRunId: string, unitOfWork: CancellationUnitOfWork): Promise<{ candidateIds: string[] }>;
+  cancelSearchCandidates(
+    searchRunId: string,
+    unitOfWork: CancellationUnitOfWork,
+  ): Promise<{ candidateIds: string[] }>;
   removePendingJobs(candidateIds: string[]): Promise<void>; // best-effort, waiting/delayed jobs only
 }
 ```

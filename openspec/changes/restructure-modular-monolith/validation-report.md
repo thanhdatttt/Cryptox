@@ -172,14 +172,14 @@ The following are limitations on trustworthiness, not necessarily design defects
 
 ## 7. Pre-refinement trust assessment
 
-| Area | Assessment |
-|---|---|
-| Architectural direction | Coherent and well supported by repeated documentation |
-| Module ownership | Not trustworthy until Candidate and Sentiment ownership are resolved |
-| Cross-process contract placement | Not trustworthy until queue canonical location is resolved |
-| Runtime semantics | Consistent as a design narrative, but not executablely verified |
-| Implementation readiness | Not ready |
-| Docs-only scope of the current change | Verified; no code/runtime/migration files were changed |
+| Area                                  | Assessment                                                           |
+| ------------------------------------- | -------------------------------------------------------------------- |
+| Architectural direction               | Coherent and well supported by repeated documentation                |
+| Module ownership                      | Not trustworthy until Candidate and Sentiment ownership are resolved |
+| Cross-process contract placement      | Not trustworthy until queue canonical location is resolved           |
+| Runtime semantics                     | Consistent as a design narrative, but not executablely verified      |
+| Implementation readiness              | Not ready                                                            |
+| Docs-only scope of the current change | Verified; no code/runtime/migration files were changed               |
 
 ## 8. Decision resolution recorded in the docs-only refinement
 
