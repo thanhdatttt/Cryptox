@@ -37,7 +37,7 @@ The audit also found source-adjacent generated JavaScript/declaration files that
    - Add PostgreSQL migrations/repositories for Backtesting-owned copies of input snapshots/candles, benchmark scopes, candidates, attempts, trades, experiment results, and idempotency/audit data.
    - Acceptance: a saved strategy and market snapshot produce deterministic persisted trades and evaluation through the public API; scope, candidate, attempt, trade, and experiment reads enforce ownership.
 
-3. **Connect evaluation, leaderboard, and bounded search end-to-end** *(completed in pending commit)*
+3. **Connect evaluation, leaderboard, and bounded search end-to-end** *(completed in `745dc18`)*
    - Replace Search and Leaderboard public `NOT_IMPLEMENTED` functions with a deterministic, offline-capable generation → Backtesting → Evaluation → Top-K flow.
    - Persist search runs, candidate projections, and leaderboard entries; expose authenticated REST commands and reads.
    - Acceptance: a bounded search generates deterministic strategies without external credentials, submits/evaluates them through Backtesting, and serves scope-specific rankings with lifecycle controls. Search runs and Leaderboard entries are durable; candidate and experiment records remain Backtesting-owned durable projections.
