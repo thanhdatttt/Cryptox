@@ -19,7 +19,7 @@
 ## Commits
 
 Strategy plugin runtime committed as `97bd4f6` (`feat(strategy): add built-in plugin runtime and composite signals`). The required `implement` branch was created from `main`.
-Market-data runtime is ready to commit after the passing validation above.
+Market-data runtime committed as `cd091a6` (`feat(market-data): normalize candles and seal snapshots`).
 
 ## Decisions and conflicts
 
