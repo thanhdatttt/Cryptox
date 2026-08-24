@@ -3,9 +3,9 @@
 ## Current state
 
 - Branch: `implement`
-- Current feature: News and sentiment (in progress)
-- Next feature: Auth, persistence, and HTTP composition
-- Completed features: Strategy plugin runtime; Market data and normalized contracts; Evaluation metrics; Backtesting simulator; Leaderboard scoring and Top-K admission; Search orchestration
+- Current feature: Auth, persistence, and HTTP composition (in progress)
+- Next feature: Frontend application
+- Completed features: Strategy plugin runtime; Market data and normalized contracts; Evaluation metrics; Backtesting simulator; Leaderboard scoring and Top-K admission; Search orchestration; News and sentiment
 
 ## Baseline
 
@@ -24,6 +24,9 @@
 - Search focused tests: passed; 3 tests covering bounded slot filling, drained max-candidate completion, idempotent cancellation, and isolated static facade behavior. The full workspace test/build/lint and dependency-cruiser checks passed after this module.
 - README local-run instructions were reviewed against the root and workspace package scripts. The documentation-only change does not affect the previously passing implementation validation set.
 - Frontend local-run smoke test: the Vite development server responded with HTTP 200 at `http://127.0.0.1:5173/`.
+- News focused tests: passed; 3 tests covering normalized persistence before Sentiment invocation, exact-URL duplicate handling in the composition default, missing/degraded Sentiment reads, and malformed provider values.
+- Sentiment focused tests: passed; 3 tests covering append-only model provenance/latest selection, invalid inference-result rejection, and immutable content-hashed window snapshots with no future/carry-forward reads.
+- News/Sentiment workspace validation: `pnpm -r --if-present test`, `pnpm -r --if-present build`, and `pnpm -r --if-present lint` all passed for 13 workspace projects. Direct dependency-cruiser validation passed with 31 modules and 27 dependencies cruised and no violations.
 
 ## Commits
 
@@ -33,6 +36,7 @@ Evaluation runtime committed as `0d8f1f8` (`feat(evaluation): add deterministic 
 Backtesting simulator committed as `9d9645e` (`feat(backtesting): add deterministic candle simulator`).
 Leaderboard scoring and Top-K admission committed as `8f8364c` (`feat(leaderboard): add deterministic scoring and Top-K admission`).
 Search orchestration committed as `06b93e5` (`feat(search): add bounded strategy loop orchestration`).
+News and Sentiment runtime committed as `502e7e2` (`feat(news): add sentiment isolation and sealed snapshots`).
 
 ## Decisions and conflicts
 
@@ -51,7 +55,10 @@ Search orchestration committed as `06b93e5` (`feat(search): add bounded strategy
 - Search uses serialized per-run slot filling, only public Backtesting/Leaderboard ports, explicit bounded stop conditions, pause/resume/cancel state transitions, and durable repository-shaped run state. Its default in-memory adapter exists solely for the current composition shell and tests.
 - A temporary pnpm workspace manifest was used only for dependency installation and is not part of the implementation.
 - The README documents npm as the supported user-facing workflow because the repository declares npm workspaces. It includes a Windows PowerShell backend command because the current package start script uses POSIX `NODE_PATH=...` syntax.
+- News accepts only canonical normalized `NewsItem` values from provider adapters, stores them before attempting Sentiment, and composes missing Sentiment rather than fabricating a neutral value on timeout/inference failure. The concrete RSS/API/crawler extraction and LLM-template implementations remain composition adapters because no external provider credentials or approved extraction contract are present yet.
+- Sentiment validates neutral input/result provenance, keeps model results append-only, selects latest by timestamp then insertion order in the in-memory adapter, and seals deterministic SHA-256 snapshot points. A point is readable only at its completed aggregation-window end; it never exposes a future point or carries a previous window across a missing one.
+- The worker's local placeholder now implements the expanded Sentiment repository shape without reaching into Sentiment internals.
 
 ## Blockers
 
-- No active blocker. The next feature is News and sentiment.
+- No active blocker. The next feature is Auth, persistence, and HTTP composition.
