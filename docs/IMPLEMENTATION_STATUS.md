@@ -3,9 +3,9 @@
 ## Current state
 
 - Branch: `implement`
-- Current feature: Frontend application (in progress)
-- Next feature: Integration hardening
-- Completed features: Strategy plugin runtime; Market data and normalized contracts; Evaluation metrics; Backtesting simulator; Leaderboard scoring and Top-K admission; Search orchestration; News and sentiment; Auth runtime and protected routes; Initial persistence and HTTP composition
+- Current feature: Integration hardening (in progress)
+- Next feature: Final requirements review and delivery
+- Completed features: Strategy plugin runtime; Market data and normalized contracts; Evaluation metrics; Backtesting simulator; Leaderboard scoring and Top-K admission; Search orchestration; News and sentiment; Auth runtime and protected routes; Initial persistence and HTTP composition; Frontend application
 
 ## Baseline
 
@@ -32,6 +32,9 @@
 - Auth workspace validation: `pnpm -r --if-present test`, `pnpm -r --if-present build`, and `pnpm -r --if-present lint` all passed for 13 workspace projects. Direct dependency-cruiser validation passed with 32 modules and 32 dependencies cruised and no violations.
 - Auth PostgreSQL repository tests: passed; 1 test covering parameterized insert/read SQL and storage-to-domain mapping. The full workspace test/build/lint/dependency-cruiser validation was rerun after the users migration and adapter and passed unchanged (32 modules and 32 dependencies cruised).
 - HTTP composition tests: passed; backend controller tests now cover authenticated strategy-list, market-candle, and News read mappings plus invalid market query and missing bearer handling. Full workspace test/build/lint passed, and dependency-cruiser passed with 34 modules and 36 dependencies cruised.
+- Frontend focused tests: passed; 3 tests cover deterministic initial four-panel chart state, immutable panel updates, and the closed-versus-forming candle merge invariant. The frontend production build and TypeScript lint passed.
+- Frontend smoke test: the Vite development server responded with HTTP 200 and the root mount at `http://127.0.0.1:5174/`. The in-app browser connector could not initialize because of a host `AppData` permission error, so the check was limited to the production build and HTTP response rather than a browser screenshot.
+- Frontend workspace validation: `pnpm -r --if-present test`, `pnpm -r --if-present build`, and `pnpm -r --if-present lint` passed for all 13 workspace projects. Direct dependency-cruiser validation passed with 36 modules and 38 dependencies cruised and no violations.
 
 ## Commits
 
@@ -45,6 +48,7 @@ News and Sentiment runtime committed as `502e7e2` (`feat(news): add sentiment is
 Auth runtime and protected routes committed as `da4ca1c` (`feat(auth): add bcrypt jwt runtime and protected routes`).
 PostgreSQL Auth persistence committed as `3e5d913` (`feat(auth): add PostgreSQL user persistence`).
 Initial authenticated backend facade routes committed as `36bee80` (`feat(backend): add authenticated public facade routes`).
+Frontend state and reference-screen application committed as `126e718` (`feat(frontend): add reference dashboard screens and state`).
 
 ## Decisions and conflicts
 
@@ -69,7 +73,8 @@ Initial authenticated backend facade routes committed as `36bee80` (`feat(backen
 - Auth uses `bcryptjs` for bcrypt-compatible password hashes and `jsonwebtoken` for HS256 one-hour JWTs. The in-memory adapter supports local composition/tests; PostgreSQL user persistence remains the next incomplete portion of the composed feature. Backend composition reads `JWT_SECRET` when set and otherwise uses a documented development-only fallback that must not be used for deployment.
 - `infra/db/migrations/002_create_users.js` creates the Auth-owned `users` table after the existing pgcrypto extension migration. Backend composition selects the PostgreSQL Auth repository when `DATABASE_URL` is configured and otherwise retains the local in-memory repository; `npm run db:migrate` is the documented migration entrypoint.
 - The composed REST surface is currently `GET /health`, Auth register/login/me, `GET /strategies`, `GET /market/candles`, and `GET /news`, all except health/Auth credentials requiring a verified bearer JWT. Backtest/Search/Leaderboard routes remain integration-hardening work because their static public facade functions are intentionally skeletal while their test runtimes are composition-specific.
+- The frontend provides the supplied Realtime, Strategy Engine, Discovery, Backtest, News Crawler, and Settings screens as a responsive local presentation shell. It keeps its four-chart configuration and merge behavior as tested UI state; displayed market/analysis values are explicitly labelled demo data until the remaining public facade routes are composed into live frontend transport.
 
 ## Blockers
 
-- No active blocker. The next feature is the Frontend application.
+- No active blocker. Integration hardening will compose the remaining public Backtest/Search/Leaderboard facades and complete the final requirement review.
