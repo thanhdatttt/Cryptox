@@ -36,13 +36,13 @@ Out of scope:
 
 ### Actors
 
-| Actor | Interaction |
-|---|---|
-| Visitor | Registers or logs in before accessing user-owned application data. |
-| Authenticated user | Configures charts and strategies, starts work, monitors progress, and reads their own results. |
-| Backend REST API | Single command/query boundary and source of authoritative application state. |
-| Market WebSocket Gateway | Supplies normalized ticks, candles, and exchange connection status only. |
-| Browser runtime | Hosts React, session authentication state, REST cache, chart state, and reconnect behavior. |
+| Actor                    | Interaction                                                                                    |
+| ------------------------ | ---------------------------------------------------------------------------------------------- |
+| Visitor                  | Registers or logs in before accessing user-owned application data.                             |
+| Authenticated user       | Configures charts and strategies, starts work, monitors progress, and reads their own results. |
+| Backend REST API         | Single command/query boundary and source of authoritative application state.                   |
+| Market WebSocket Gateway | Supplies normalized ticks, candles, and exchange connection status only.                       |
+| Browser runtime          | Hosts React, session authentication state, REST cache, chart state, and reconnect behavior.    |
 
 ### Source interpretation and precedence
 
@@ -52,32 +52,32 @@ This spec is a frontend projection of the contracts owned by the Backend modules
 
 ### 2.1 Functional requirements
 
-| ID | Requirement |
-|---|---|
-| FR-FE-001 | The Frontend must provide registration and login forms using the Auth REST endpoints and must attach the returned JWT as `Authorization: Bearer <token>` on protected REST requests. |
-| FR-FE-002 | The Frontend must clear local authentication state on logout and on an authenticated request that returns `401`, then direct the user to login. |
-| FR-FE-003 | Authenticated screens must never accept or send a user-selected `userId`; ownership is derived by the Backend from the bearer token. |
-| FR-FE-004 | The dashboard must support one to four chart panels. Each panel independently selects a supported pair and `Timeframe`. |
-| FR-FE-005 | Each chart must load initial closed-candle history with `GET /market/candles`; when `limit` is omitted, the documented effective load is the latest 1000 closed candles. |
-| FR-FE-006 | After historical bootstrap, charts must consume normalized `MarketTick`, `Candle`, and `MarketDataConnectionStatus` messages from the market WebSocket only. |
-| FR-FE-007 | The Frontend must merge candle updates by `(pair, timeframe, timestamp)`, update forming candles in place, and never render a duplicate candle for repeated or corrected messages. |
-| FR-FE-008 | The Frontend must obtain `StrategyPluginDescriptor[]` from `GET /strategies` and render parameter controls from descriptor metadata without branching on a specific strategy name. |
-| FR-FE-009 | The manual strategy editor must support one or more Strategy Definitions and the documented `MAJORITY_VOTE` or `WEIGHTED_SCORE` composite configuration. |
-| FR-FE-010 | The Frontend must support authenticated AI-assisted Strategy generation from exactly one natural-language text input or one HTTP(S) website URL through `POST /strategy-generations`. |
-| FR-FE-011 | A generated Strategy/Composite must be shown as a reviewable configuration before the user starts a manual backtest or uses it in a Search configuration. |
-| FR-FE-012 | The Frontend must list user-owned Leaderboard Scopes and allow creation of a new immutable scope/version using the documented REST contracts. |
+| ID        | Requirement                                                                                                                                                                                                   |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| FR-FE-001 | The Frontend must provide registration and login forms using the Auth REST endpoints and must attach the returned JWT as `Authorization: Bearer <token>` on protected REST requests.                          |
+| FR-FE-002 | The Frontend must clear local authentication state on logout and on an authenticated request that returns `401`, then direct the user to login.                                                               |
+| FR-FE-003 | Authenticated screens must never accept or send a user-selected `userId`; ownership is derived by the Backend from the bearer token.                                                                          |
+| FR-FE-004 | The dashboard must support one to four chart panels. Each panel independently selects a supported pair and `Timeframe`.                                                                                       |
+| FR-FE-005 | Each chart must load initial closed-candle history with `GET /market/candles`; when `limit` is omitted, the documented effective load is the latest 1000 closed candles.                                      |
+| FR-FE-006 | After historical bootstrap, charts must consume normalized `MarketTick`, `Candle`, and `MarketDataConnectionStatus` messages from the market WebSocket only.                                                  |
+| FR-FE-007 | The Frontend must merge candle updates by `(pair, timeframe, timestamp)`, update forming candles in place, and never render a duplicate candle for repeated or corrected messages.                            |
+| FR-FE-008 | The Frontend must obtain `StrategyPluginDescriptor[]` from `GET /strategies` and render parameter controls from descriptor metadata without branching on a specific strategy name.                            |
+| FR-FE-009 | The manual strategy editor must support one or more Strategy Definitions and the documented `MAJORITY_VOTE` or `WEIGHTED_SCORE` composite configuration.                                                      |
+| FR-FE-010 | The Frontend must support authenticated AI-assisted Strategy generation from exactly one natural-language text input or one HTTP(S) website URL through `POST /strategy-generations`.                         |
+| FR-FE-011 | A generated Strategy/Composite must be shown as a reviewable configuration before the user starts a manual backtest or uses it in a Search configuration.                                                     |
+| FR-FE-012 | The Frontend must list user-owned Leaderboard Scopes and allow creation of a new immutable scope/version using the documented REST contracts.                                                                 |
 | FR-FE-013 | Starting a manual backtest must submit the selected immutable strategy/composite configuration and `leaderboardScopeId` through `POST /backtests`, then navigate to or display the returned Candidate status. |
-| FR-FE-014 | While a manual Candidate is non-terminal, the Frontend must periodically poll `GET /backtests/{candidateId}`. It must stop active polling when the Candidate is terminal or the view is no longer active. |
-| FR-FE-015 | The Frontend must expose manual cancellation through `POST /backtests/{candidateId}/cancel`; Search Candidates must be controlled through their Search Run rather than the manual endpoint. |
-| FR-FE-016 | The Search form must require a search space, generator type, positive `maxInFlight`, one Leaderboard Scope, and at least one positive Stop Condition field before submitting `POST /search-runs`. |
-| FR-FE-017 | While a Search Run is active, the Frontend must poll its `LoopStatus`, candidate history, and run-scoped leaderboard through REST. Closing or navigating away from the page must not imply cancellation. |
-| FR-FE-018 | Search controls must reflect the current server state and invoke the documented pause, resume, or cancel command. The UI must not optimistically claim a lifecycle transition before the command succeeds. |
-| FR-FE-019 | The Frontend must distinguish the Search Run ranking from the persistent Top-10 for a selected user-owned Leaderboard Scope. It must render Backend-provided ranks/scores without recalculating them. |
-| FR-FE-020 | Experiment Detail must render the persisted strategy/composite version, benchmark scope, finite Evaluation metrics, score/rank eligibility, and Trade Detail returned by `GET /experiments/{experimentId}`. |
-| FR-FE-021 | Trade Detail must render entry/exit values, result percentage, signal, and optional `stopLoss`/`takeProfit`; missing risk values must display as unavailable rather than zero. |
-| FR-FE-022 | The News view must render normalized News items and available Sentiment. Missing Sentiment caused by unavailable or failed analysis must not be presented as `NEUTRAL`. |
-| FR-FE-023 | Every REST-driven view must provide distinguishable loading, empty, validation-error, unauthorized, not-found, conflict, degraded-service, and retryable-failure states where applicable. |
-| FR-FE-024 | Data returned for a previous authenticated user must be removed from the client cache when authentication changes or logout occurs. |
+| FR-FE-014 | While a manual Candidate is non-terminal, the Frontend must periodically poll `GET /backtests/{candidateId}`. It must stop active polling when the Candidate is terminal or the view is no longer active.     |
+| FR-FE-015 | The Frontend must expose manual cancellation through `POST /backtests/{candidateId}/cancel`; Search Candidates must be controlled through their Search Run rather than the manual endpoint.                   |
+| FR-FE-016 | The Search form must require a search space, generator type, positive `maxInFlight`, one Leaderboard Scope, and at least one positive Stop Condition field before submitting `POST /search-runs`.             |
+| FR-FE-017 | While a Search Run is active, the Frontend must poll its `LoopStatus`, candidate history, and run-scoped leaderboard through REST. Closing or navigating away from the page must not imply cancellation.      |
+| FR-FE-018 | Search controls must reflect the current server state and invoke the documented pause, resume, or cancel command. The UI must not optimistically claim a lifecycle transition before the command succeeds.    |
+| FR-FE-019 | The Frontend must distinguish the Search Run ranking from the persistent Top-10 for a selected user-owned Leaderboard Scope. It must render Backend-provided ranks/scores without recalculating them.         |
+| FR-FE-020 | Experiment Detail must render the persisted strategy/composite version, benchmark scope, finite Evaluation metrics, score/rank eligibility, and Trade Detail returned by `GET /experiments/{experimentId}`.   |
+| FR-FE-021 | Trade Detail must render entry/exit values, result percentage, signal, and optional `stopLoss`/`takeProfit`; missing risk values must display as unavailable rather than zero.                                |
+| FR-FE-022 | The News view must render normalized News items and available Sentiment. Missing Sentiment caused by unavailable or failed analysis must not be presented as `NEUTRAL`.                                       |
+| FR-FE-023 | Every REST-driven view must provide distinguishable loading, empty, validation-error, unauthorized, not-found, conflict, degraded-service, and retryable-failure states where applicable.                     |
+| FR-FE-024 | Data returned for a previous authenticated user must be removed from the client cache when authentication changes or logout occurs.                                                                           |
 
 ### 2.2 Business and presentation rules
 
@@ -286,22 +286,22 @@ The Frontend does not expose raw crawler HTML or raw model output. A News/Sentim
 
 ### 3.9 Error and edge cases
 
-| Case | Frontend behavior |
-|---|---|
-| Missing/expired JWT | Clear authenticated state and user-scoped cache; show login. |
-| Owner-scoped `404` | Show unavailable/not found without disclosing ownership. |
-| `409` lifecycle conflict | Reload authoritative resource state and explain that the action is no longer valid. |
-| `400` validation error | Keep user input and map field/global errors where supplied. |
-| `503` model/provider dependency failure | Keep the current page usable and offer bounded retry for that operation. |
-| REST polling failure | Keep the last successful projection visibly stale, show retry status, and retry according to the query policy while the view remains active. |
-| WebSocket disconnect | Show connection degradation; reconnect with bounded backoff and reconcile candles through REST. |
-| Duplicate/out-of-order candle | Merge by identity; never append a duplicate or regress a closed candle to forming. |
-| Search/browser disconnect | Do not cancel the Search Run; reload its state by ID after reconnection/navigation. |
-| Candidate completes between polls | The next authoritative response transitions the UI directly to the terminal state. |
-| Empty ranking | Show an empty state; do not synthesize placeholder ranks. |
-| Zero-trade Experiment | Show persisted metrics/score and the not-rank-eligible reason; do not hide the Experiment. |
-| Missing Trade risk price | Display unavailable; do not render `0`. |
-| Missing Sentiment | Display unavailable; do not render `NEUTRAL`. |
+| Case                                    | Frontend behavior                                                                                                                            |
+| --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Missing/expired JWT                     | Clear authenticated state and user-scoped cache; show login.                                                                                 |
+| Owner-scoped `404`                      | Show unavailable/not found without disclosing ownership.                                                                                     |
+| `409` lifecycle conflict                | Reload authoritative resource state and explain that the action is no longer valid.                                                          |
+| `400` validation error                  | Keep user input and map field/global errors where supplied.                                                                                  |
+| `503` model/provider dependency failure | Keep the current page usable and offer bounded retry for that operation.                                                                     |
+| REST polling failure                    | Keep the last successful projection visibly stale, show retry status, and retry according to the query policy while the view remains active. |
+| WebSocket disconnect                    | Show connection degradation; reconnect with bounded backoff and reconcile candles through REST.                                              |
+| Duplicate/out-of-order candle           | Merge by identity; never append a duplicate or regress a closed candle to forming.                                                           |
+| Search/browser disconnect               | Do not cancel the Search Run; reload its state by ID after reconnection/navigation.                                                          |
+| Candidate completes between polls       | The next authoritative response transitions the UI directly to the terminal state.                                                           |
+| Empty ranking                           | Show an empty state; do not synthesize placeholder ranks.                                                                                    |
+| Zero-trade Experiment                   | Show persisted metrics/score and the not-rank-eligible reason; do not hide the Experiment.                                                   |
+| Missing Trade risk price                | Display unavailable; do not render `0`.                                                                                                      |
+| Missing Sentiment                       | Display unavailable; do not render `NEUTRAL`.                                                                                                |
 
 ## 4. Contracts
 
@@ -309,17 +309,17 @@ The Frontend does not expose raw crawler HTML or raw model output. A News/Sentim
 
 The minimum navigable views are:
 
-| Route | View | Authentication |
-|---|---|---|
-| `/register` | Account registration | Public |
-| `/login` | Login | Public |
-| `/dashboard` | One-to-four market charts and entry navigation | Required |
-| `/strategies` | Manual and AI-assisted Strategy authoring/review | Required |
-| `/backtests/:candidateId` | Manual Candidate progress/control | Required, owner-scoped |
-| `/search-runs/:searchRunId` | Search status, candidates, controls, and run ranking | Required, owner-scoped |
-| `/experiments/:experimentId` | Metrics and Trade Detail | Required, owner-scoped |
-| `/leaderboard` | Persistent Top-10 for selected scope | Required, owner-scoped |
-| `/news` | News and available Sentiment | Required |
+| Route                        | View                                                 | Authentication         |
+| ---------------------------- | ---------------------------------------------------- | ---------------------- |
+| `/register`                  | Account registration                                 | Public                 |
+| `/login`                     | Login                                                | Public                 |
+| `/dashboard`                 | One-to-four market charts and entry navigation       | Required               |
+| `/strategies`                | Manual and AI-assisted Strategy authoring/review     | Required               |
+| `/backtests/:candidateId`    | Manual Candidate progress/control                    | Required, owner-scoped |
+| `/search-runs/:searchRunId`  | Search status, candidates, controls, and run ranking | Required, owner-scoped |
+| `/experiments/:experimentId` | Metrics and Trade Detail                             | Required, owner-scoped |
+| `/leaderboard`               | Persistent Top-10 for selected scope                 | Required, owner-scoped |
+| `/news`                      | News and available Sentiment                         | Required               |
 
 Exact component/file names are implementation details. Routes may be nested without changing the view responsibilities above.
 
@@ -408,29 +408,29 @@ export interface StrategyDraft {
 
 ### 4.5 Minimum REST mapping
 
-| Method and path | Frontend use |
-|---|---|
-| `POST /auth/register` | Register account |
-| `POST /auth/login` | Obtain session JWT |
-| `GET /auth/me` | Restore/verify current authenticated identity |
+| Method and path                              | Frontend use                                                          |
+| -------------------------------------------- | --------------------------------------------------------------------- |
+| `POST /auth/register`                        | Register account                                                      |
+| `POST /auth/login`                           | Obtain session JWT                                                    |
+| `GET /auth/me`                               | Restore/verify current authenticated identity                         |
 | `GET /market/candles?pair=...&timeframe=...` | Initial/reconciliation candle history; omitted limit defaults to 1000 |
-| `GET /strategies` | Render descriptor-driven configuration |
-| `POST /strategy-generations` | Generate persisted single/composite Strategy from text or URL |
-| `GET /leaderboard-scopes` | List the current user's scopes |
-| `POST /leaderboard-scopes` | Create an immutable scope/version |
-| `POST /backtests` | Start manual Candidate; expect `202` plus IDs |
-| `GET /backtests/{candidateId}` | Poll Candidate progress |
-| `POST /backtests/{candidateId}/cancel` | Cancel a Manual Candidate |
-| `POST /search-runs` | Start bounded Search Run; expect `202` plus ID |
-| `GET /search-runs/{searchRunId}` | Poll `LoopStatus` |
-| `GET /search-runs/{searchRunId}/candidates` | Read Search candidate progress/history |
-| `GET /search-runs/{searchRunId}/leaderboard` | Read Search Run ranking |
-| `POST /search-runs/{searchRunId}/pause` | Pause generation |
-| `POST /search-runs/{searchRunId}/resume` | Resume generation |
-| `POST /search-runs/{searchRunId}/cancel` | Cancel run/non-terminal Candidates |
-| `GET /leaderboard?scopeId=...` | Read persistent scope Top-10 |
-| `GET /experiments/{experimentId}` | Read Experiment metrics and Trades |
-| `GET /news` | Read normalized News and available Sentiment |
+| `GET /strategies`                            | Render descriptor-driven configuration                                |
+| `POST /strategy-generations`                 | Generate persisted single/composite Strategy from text or URL         |
+| `GET /leaderboard-scopes`                    | List the current user's scopes                                        |
+| `POST /leaderboard-scopes`                   | Create an immutable scope/version                                     |
+| `POST /backtests`                            | Start manual Candidate; expect `202` plus IDs                         |
+| `GET /backtests/{candidateId}`               | Poll Candidate progress                                               |
+| `POST /backtests/{candidateId}/cancel`       | Cancel a Manual Candidate                                             |
+| `POST /search-runs`                          | Start bounded Search Run; expect `202` plus ID                        |
+| `GET /search-runs/{searchRunId}`             | Poll `LoopStatus`                                                     |
+| `GET /search-runs/{searchRunId}/candidates`  | Read Search candidate progress/history                                |
+| `GET /search-runs/{searchRunId}/leaderboard` | Read Search Run ranking                                               |
+| `POST /search-runs/{searchRunId}/pause`      | Pause generation                                                      |
+| `POST /search-runs/{searchRunId}/resume`     | Resume generation                                                     |
+| `POST /search-runs/{searchRunId}/cancel`     | Cancel run/non-terminal Candidates                                    |
+| `GET /leaderboard?scopeId=...`               | Read persistent scope Top-10                                          |
+| `GET /experiments/{experimentId}`            | Read Experiment metrics and Trades                                    |
+| `GET /news`                                  | Read normalized News and available Sentiment                          |
 
 ### 4.6 Persistence and events
 

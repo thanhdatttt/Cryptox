@@ -8,13 +8,14 @@
 
 1. The **Strategy Engine** — runs one registered plugin (`Strategy`) against a `StrategyContext` and returns `BUY | SELL | HOLD`.
 2. The **Strategy Registry / Artifact Resolver** — discovers which plugins exist, exposes their parameter schema, and resolves an exact retained build for replay.
-3. **Composite Strategy** — combines several strategies' signals via `MAJORITY_VOTE` or `WEIGHTED_SCORE`, without ever inspecting *why* a component produced its signal.
+3. **Composite Strategy** — combines several strategies' signals via `MAJORITY_VOTE` or `WEIGHTED_SCORE`, without ever inspecting _why_ a component produced its signal.
 
 This is the extensibility seam of the whole platform (`architecture.md` §1.2): adding a new strategy (e.g. MACD) means implementing one plugin and calling `register()` once. No other module — Backtesting, Evaluation, Leaderboard, Search, or the Frontend — changes.
 
 ### Scope
 
 In scope:
+
 - Registering strategy plugins at process bootstrap.
 - Listing registered plugin descriptors for the Frontend's configuration UI.
 - Creating and versioning immutable `StrategyDefinition` rows (a plugin + concrete parameters).
@@ -23,37 +24,38 @@ In scope:
 - Executing `Strategy.analyze()` for one strategy and `CombinationEngine.combine()` for a composite.
 
 Out of scope (owned by other modules, consumed through their public APIs only):
-- Deciding *which* strategies/composites to generate — `modules/search` (Generator).
+
+- Deciding _which_ strategies/composites to generate — `modules/search` (Generator).
 - Persisting/queuing/retrying backtest work, Attempts, Trades — `modules/backtesting`.
 - Computing Return/Win Rate/Drawdown/Sharpe from trades — `modules/evaluation`.
 - Scoring and Top-10 admission — `modules/leaderboard`.
-- Producing `context.sentiment` — `modules/sentiment`; Strategy only *reads* it.
+- Producing `context.sentiment` — `modules/sentiment`; Strategy only _reads_ it.
 - Normalizing candles / building `StrategyContext.candles` — `modules/market-data` plus the caller's context-builder.
 
 ### Actors
 
-| Actor | Interaction |
-|---|---|
-| `apps/backend` | Calls `createStrategyModule()` at startup to compose the module and register bootstrap plugins. |
-| `apps/backtest-worker` | Same bootstrap facade; resolves and executes strategies/composites while simulating trades. |
-| Frontend (via Backend REST) | Reads `GET /strategies` to render the strategy configuration step. |
-| `modules/search` | Calls the public API to validate/persist generated `StrategyDefinition`/`CompositeStrategyDefinition`s before submitting a candidate. |
-| `modules/backtesting` | Calls `resolveStrategy` / `combineSignals` once per Attempt to run the pinned composite against snapshot candles. |
+| Actor                       | Interaction                                                                                                                           |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/backend`              | Calls `createStrategyModule()` at startup to compose the module and register bootstrap plugins.                                       |
+| `apps/backtest-worker`      | Same bootstrap facade; resolves and executes strategies/composites while simulating trades.                                           |
+| Frontend (via Backend REST) | Reads `GET /strategies` to render the strategy configuration step.                                                                    |
+| `modules/search`            | Calls the public API to validate/persist generated `StrategyDefinition`/`CompositeStrategyDefinition`s before submitting a candidate. |
+| `modules/backtesting`       | Calls `resolveStrategy` / `combineSignals` once per Attempt to run the pinned composite against snapshot candles.                     |
 
 ## 2. Requirements
 
 ### 2.1 Functional requirements
 
-| ID | Requirement |
-|---|---|
-| FR-1 | The module must let a process register a `StrategyFactory` (implementation + descriptor) exactly once per `(strategyName, implementationSha256)` at bootstrap. |
-| FR-2 | The module must expose `listStrategies()` returning every registered `StrategyPluginDescriptor`, safe to serialize over REST. |
-| FR-3 | The module must create an immutable `StrategyDefinition` from a registered plugin name + parameters, validating parameters against the plugin's declared schema. |
-| FR-4 | The module must create an immutable `CompositeStrategyDefinition` from ≥1 `StrategyDefinition` references + a `CombinationMethod`. |
-| FR-5 | The module must resolve a runnable `Strategy` instance for a given `StrategyDefinition`, retrieving the *exact* retained build identified by `implementationSha256`. |
-| FR-6 | The module must run `Strategy.analyze(context)` and return exactly one of `BUY | SELL | HOLD`. |
-| FR-7 | The module must combine an array of per-component signals into one `Signal` using the composite's `method`, `components[].weight`, and `thresholds`. |
-| FR-8 | Repeated definition/composite creation with identical logical identity and identical content must be idempotent (return the existing row, not a duplicate). |
+| ID   | Requirement                                                                                                                                                          |
+| ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---- | ------ |
+| FR-1 | The module must let a process register a `StrategyFactory` (implementation + descriptor) exactly once per `(strategyName, implementationSha256)` at bootstrap.       |
+| FR-2 | The module must expose `listStrategies()` returning every registered `StrategyPluginDescriptor`, safe to serialize over REST.                                        |
+| FR-3 | The module must create an immutable `StrategyDefinition` from a registered plugin name + parameters, validating parameters against the plugin's declared schema.     |
+| FR-4 | The module must create an immutable `CompositeStrategyDefinition` from ≥1 `StrategyDefinition` references + a `CombinationMethod`.                                   |
+| FR-5 | The module must resolve a runnable `Strategy` instance for a given `StrategyDefinition`, retrieving the _exact_ retained build identified by `implementationSha256`. |
+| FR-6 | The module must run `Strategy.analyze(context)` and return exactly one of `BUY                                                                                       | SELL | HOLD`. |
+| FR-7 | The module must combine an array of per-component signals into one `Signal` using the composite's `method`, `components[].weight`, and `thresholds`.                 |
+| FR-8 | Repeated definition/composite creation with identical logical identity and identical content must be idempotent (return the existing row, not a duplicate).          |
 
 ### 2.2 Business rules
 
@@ -73,6 +75,7 @@ Out of scope (owned by other modules, consumed through their public APIs only):
   - otherwise → `HOLD`
 
   Encoding and thresholding happen entirely inside `CombinationEngine.combine()`; no component strategy is aware of this mapping.
+
 - **`MAJORITY_VOTE` validation:** at least one component; weights are ignored and normalized to `0`; thresholds are normalized to the documented defaults (`buy: 0.3, sell: -0.3`) even though unused, so the row is always fully populated.
 - **`MAJORITY_VOTE` formula and tie-break rule:** count `signal_i` occurrences across all components into `buyCount`, `sellCount`, `holdCount`. The result is whichever of the three has the strictly highest count.
   - **Tie-break rule:** if two or more counts are tied for the highest value, the result is `HOLD`. This applies uniformly regardless of which signals are tied (e.g. `BUY == SELL`, `BUY == HOLD`, or all three equal) — `HOLD` is the deterministic, conservative default whenever the vote is inconclusive.
@@ -236,18 +239,18 @@ sequenceDiagram
 
 ### 3.7 Error / edge cases
 
-| Case | Trigger | Result |
-|---|---|---|
-| Unregistered strategy name | `defineStrategy`/`resolveStrategy` references a name never registered | Reject with `STRATEGY_NOT_REGISTERED`; no row written |
-| Parameter validation failure | Parameters don't match the descriptor's schema (missing required key, out of `minimum`/`maximum`, invalid `ENUM` option) | `400 VALIDATION_ERROR`, no row written |
-| Artifact unavailable at replay time | `implementationSha256` on an old `StrategyDefinition` no longer has a retained build | `IMPLEMENTATION_ARTIFACT_UNAVAILABLE`; the caller (Backtesting) surfaces this as a non-replayable Candidate rather than substituting current plugin code |
-| Composite with zero components | `components.length = 0` | `400 VALIDATION_ERROR` |
-| `WEIGHTED_SCORE` weights don't sum to 1, or non-finite | e.g. `[0.5, 0.4]` or `NaN` weight | `400 VALIDATION_ERROR` |
-| `WEIGHTED_SCORE` invalid thresholds | `thresholds.buy <= thresholds.sell` | `400 VALIDATION_ERROR` |
-| Composite references unknown `strategyDefinitionId` | ID doesn't exist, or belongs to a different, unrelated version chain | `400 UNKNOWN_STRATEGY_DEFINITION` |
-| Concurrent identical definition request | Two callers submit the same content for the same `logicalFamilyKey` at once | Family-level lock/serialization; second caller observes the first's committed row and returns it (idempotent), never a duplicate version |
-| Conflicting reused ID | A caller supplies a `StrategyDefinition.id`/`CompositeStrategyDefinition.id` that already exists with **different** content | Reject — an existing ID is never overwritten with different content |
-| `INFORMATION` category strategy, no `context.sentiment` | Caller invokes `analyze()` without ever having supplied sentiment | Not a Strategy-module runtime guard; the strategy plugin's own `analyze()` implementation may treat missing sentiment as `HOLD`/neutral, but the *system-level* guarantee that sentiment is present for a valid backtest belongs to `modules/backtesting` (composite-uses-`INFORMATION` ⇒ scope must pin a sentiment snapshot) |
+| Case                                                    | Trigger                                                                                                                     | Result                                                                                                                                                                                                                                                                                                                         |
+| ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Unregistered strategy name                              | `defineStrategy`/`resolveStrategy` references a name never registered                                                       | Reject with `STRATEGY_NOT_REGISTERED`; no row written                                                                                                                                                                                                                                                                          |
+| Parameter validation failure                            | Parameters don't match the descriptor's schema (missing required key, out of `minimum`/`maximum`, invalid `ENUM` option)    | `400 VALIDATION_ERROR`, no row written                                                                                                                                                                                                                                                                                         |
+| Artifact unavailable at replay time                     | `implementationSha256` on an old `StrategyDefinition` no longer has a retained build                                        | `IMPLEMENTATION_ARTIFACT_UNAVAILABLE`; the caller (Backtesting) surfaces this as a non-replayable Candidate rather than substituting current plugin code                                                                                                                                                                       |
+| Composite with zero components                          | `components.length = 0`                                                                                                     | `400 VALIDATION_ERROR`                                                                                                                                                                                                                                                                                                         |
+| `WEIGHTED_SCORE` weights don't sum to 1, or non-finite  | e.g. `[0.5, 0.4]` or `NaN` weight                                                                                           | `400 VALIDATION_ERROR`                                                                                                                                                                                                                                                                                                         |
+| `WEIGHTED_SCORE` invalid thresholds                     | `thresholds.buy <= thresholds.sell`                                                                                         | `400 VALIDATION_ERROR`                                                                                                                                                                                                                                                                                                         |
+| Composite references unknown `strategyDefinitionId`     | ID doesn't exist, or belongs to a different, unrelated version chain                                                        | `400 UNKNOWN_STRATEGY_DEFINITION`                                                                                                                                                                                                                                                                                              |
+| Concurrent identical definition request                 | Two callers submit the same content for the same `logicalFamilyKey` at once                                                 | Family-level lock/serialization; second caller observes the first's committed row and returns it (idempotent), never a duplicate version                                                                                                                                                                                       |
+| Conflicting reused ID                                   | A caller supplies a `StrategyDefinition.id`/`CompositeStrategyDefinition.id` that already exists with **different** content | Reject — an existing ID is never overwritten with different content                                                                                                                                                                                                                                                            |
+| `INFORMATION` category strategy, no `context.sentiment` | Caller invokes `analyze()` without ever having supplied sentiment                                                           | Not a Strategy-module runtime guard; the strategy plugin's own `analyze()` implementation may treat missing sentiment as `HOLD`/neutral, but the _system-level_ guarantee that sentiment is present for a valid backtest belongs to `modules/backtesting` (composite-uses-`INFORMATION` ⇒ scope must pin a sentiment snapshot) |
 
 ## 4. Contracts
 
@@ -260,7 +263,7 @@ export interface StrategyModulePublicApi {
   resolveStrategy(definition: StrategyDefinition): Promise<Strategy>;
   combineSignals(
     definition: CompositeStrategyDefinition,
-    signals: Array<{ strategyDefinitionId: string; signal: Signal }>
+    signals: Array<{ strategyDefinitionId: string; signal: Signal }>,
   ): Signal;
 }
 
@@ -270,7 +273,10 @@ export function createStrategyModule(deps: {
   definitionRepository: StrategyDefinitionRepository;
   compositeRepository: CompositeDefinitionRepository;
 }): StrategyModulePublicApi & {
-  defineStrategy(strategyName: string, parameters: Record<string, number | string>): Promise<StrategyDefinition>;
+  defineStrategy(
+    strategyName: string,
+    parameters: Record<string, number | string>,
+  ): Promise<StrategyDefinition>;
   defineComposite(command: {
     method: CombinationMethod;
     components: Array<{ strategyDefinitionId: string; weight: number }>;
@@ -287,17 +293,21 @@ export function createStrategyModule(deps: {
 export type Signal = "BUY" | "SELL" | "HOLD";
 
 export type StrategyCategory =
-  | "TREND"        // MA, MACD
-  | "MOMENTUM"     // RSI, Stochastic
-  | "VOLATILITY"   // Bollinger, ATR
-  | "STRUCTURE"    // Support/Resistance, SMC, Wyckoff
+  | "TREND" // MA, MACD
+  | "MOMENTUM" // RSI, Stochastic
+  | "VOLATILITY" // Bollinger, ATR
+  | "STRUCTURE" // Support/Resistance, SMC, Wyckoff
   | "INFORMATION"; // News Sentiment
 
 export type CombinationMethod = "MAJORITY_VOTE" | "WEIGHTED_SCORE";
 
 export interface StrategyCandle {
   timestamp: string;
-  open: number; high: number; low: number; close: number; volume: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
 }
 
 export interface StrategyContext {
@@ -316,9 +326,9 @@ export interface Strategy {
 }
 
 export interface StrategyDefinition {
-  id: string;                     // unique per version
+  id: string; // unique per version
   logicalFamilyKey: string;
-  familyName?: string;            // display-only, never a FK
+  familyName?: string; // display-only, never a FK
   strategyName: string;
   implementationVersion: string;
   implementationSha256: string;
@@ -340,7 +350,7 @@ export interface CompositeStrategyDefinition {
 export interface CombinationEngine {
   combine(
     definition: CompositeStrategyDefinition,
-    signals: Array<{ strategyDefinitionId: string; signal: Signal }>
+    signals: Array<{ strategyDefinitionId: string; signal: Signal }>,
   ): Signal;
 }
 ```
@@ -355,10 +365,24 @@ export interface StrategyRegistry {
 }
 
 export type StrategyParameterDescriptor =
-  | { key: string; label: string; type: "INTEGER" | "NUMBER"; required: boolean;
-      defaultValue: number; minimum?: number; maximum?: number; step?: number }
-  | { key: string; label: string; type: "ENUM"; required: boolean;
-      defaultValue: string; options: string[] };
+  | {
+      key: string;
+      label: string;
+      type: "INTEGER" | "NUMBER";
+      required: boolean;
+      defaultValue: number;
+      minimum?: number;
+      maximum?: number;
+      step?: number;
+    }
+  | {
+      key: string;
+      label: string;
+      type: "ENUM";
+      required: boolean;
+      defaultValue: string;
+      options: string[];
+    };
 
 export interface StrategyPluginDescriptor {
   name: string;
@@ -416,7 +440,7 @@ erDiagram
 
 - `strategy_definitions`: `SELECT`/`INSERT` only for repository roles; append-only trigger as defense in depth; `UNIQUE (logical_family_key, version)`.
 - `composite_strategy_definitions` / `composite_strategy_components`: same append-only policy; every `strategy_definition_id` is a real FK, so a composite can never silently pick up a newer version of one of its components.
-- There is deliberately **no `strategy_catalog` table** — the list of currently registered plugin *types* lives only in the in-process `StrategyRegistry`, returned live by `list()`. Persisting it would create a second, driftable source of truth for "what code is currently deployed" (`data-model.md` §3.2.1).
+- There is deliberately **no `strategy_catalog` table** — the list of currently registered plugin _types_ lives only in the in-process `StrategyRegistry`, returned live by `list()`. Persisting it would create a second, driftable source of truth for "what code is currently deployed" (`data-model.md` §3.2.1).
 
 ### 4.5 Events
 
@@ -450,7 +474,7 @@ flowchart LR
 
 - A `StrategyDefinition`/`CompositeStrategyDefinition` row, once created, is never updated or deleted — only superseded by a new version under the same `logicalFamilyKey`.
 - The Combination Engine must never be given, and must never request, anything beyond `Signal` + `weight`/`method`/`thresholds` — no access to another strategy's `indicators` or internal state, even for debugging.
-- A composite containing an `INFORMATION` plugin is a valid `CompositeStrategyDefinition` on its own; the requirement that its *execution* have a sentiment snapshot available is enforced by the caller (`modules/backtesting`'s scope validation), not by this module.
+- A composite containing an `INFORMATION` plugin is a valid `CompositeStrategyDefinition` on its own; the requirement that its _execution_ have a sentiment snapshot available is enforced by the caller (`modules/backtesting`'s scope validation), not by this module.
 
 ### Out of scope
 

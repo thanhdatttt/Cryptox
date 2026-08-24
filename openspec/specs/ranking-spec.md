@@ -49,13 +49,12 @@ Out of scope (owned by other modules, consumed through their public APIs only):
 
 ### Actors
 
-| Actor | Interaction |
-|---|---|
-| `apps/backend` | Creates the Leaderboard module at startup; exposes `GET /leaderboard` and `GET /search-runs/{id}/leaderboard` via REST using the public API. |
-| Backtesting Completion Processor | Calls `score()` to produce a `ScoredEvaluation`, then calls `submit(experiment, unitOfWork)` inside an existing PostgreSQL transaction to perform Top-10 admission atomically with Experiment persistence. |
-| `modules/search` | Calls `rankSearchRun(searchRunId)` to get the session-scoped best Experiment for `currentTopEntry` and no-improvement stop-condition checks. Reads the public `LeaderboardService` API only; never imports Leaderboard domain or infrastructure. |
-| Frontend (via Backend REST) | Reads `GET /leaderboard?scopeId=...` for the persistent cross-run Top-10 and `GET /search-runs/{id}/leaderboard` for a run-scoped ranking. |
-
+| Actor                            | Interaction                                                                                                                                                                                                                                      |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `apps/backend`                   | Creates the Leaderboard module at startup; exposes `GET /leaderboard` and `GET /search-runs/{id}/leaderboard` via REST using the public API.                                                                                                     |
+| Backtesting Completion Processor | Calls `score()` to produce a `ScoredEvaluation`, then calls `submit(experiment, unitOfWork)` inside an existing PostgreSQL transaction to perform Top-10 admission atomically with Experiment persistence.                                       |
+| `modules/search`                 | Calls `rankSearchRun(searchRunId)` to get the session-scoped best Experiment for `currentTopEntry` and no-improvement stop-condition checks. Reads the public `LeaderboardService` API only; never imports Leaderboard domain or infrastructure. |
+| Frontend (via Backend REST)      | Reads `GET /leaderboard?scopeId=...` for the persistent cross-run Top-10 and `GET /search-runs/{id}/leaderboard` for a run-scoped ranking.                                                                                                       |
 
 ---
 
@@ -63,18 +62,18 @@ Out of scope (owned by other modules, consumed through their public APIs only):
 
 ### 2.1 Functional requirements
 
-| ID | Requirement |
-|---|---|
-| FR-1 | The module must expose a pure `score(leaderboardScopeId, metrics)` function that applies the pinned `ScoreFormula` and returns a deterministic `ScoredEvaluation`. |
-| FR-2 | `score()` must override `overallScore = 0`, set `rankEligible = false`, and set `rankExclusionReason = "NO_TRADES"` when `metrics.numberOfTrades === 0`. |
-| FR-3 | `score()` must reject (throw/return invalid) any `ScoredEvaluation` containing `NaN`, `Infinity`, or `-Infinity` values. |
-| FR-4 | The module must expose `submit(experiment, unitOfWork)` that, using the caller's PostgreSQL transaction, inserts a `leaderboard_entries` row when the experiment is rank-eligible and either a slot is empty or the experiment beats the current lowest entry. |
-| FR-5 | `submit()` must evict the lowest-ranked existing entry when the Top-K is full and the new score is strictly higher, retaining the evicted row as inactive history. |
-| FR-6 | `submit()` must be idempotent: submitting the same `experimentResultId` twice must result in exactly one active `leaderboard_entries` row. |
-| FR-7 | The module must expose `topK(leaderboardScopeId)` returning the current active Top-K `LeaderboardEntry[]`, ordered by `score` descending, for a given scope. |
-| FR-8 | The module must expose `rankSearchRun(searchRunId)` returning all rank-eligible `ExperimentResult`s from that Search Run, ordered by `score` descending. |
-| FR-9 | The module must persist immutable `LeaderboardScope` rows via `createLeaderboardScope(command)` and expose `getLeaderboardScope(id)` for reload. |
-| FR-10 | `createLeaderboardScope()` must validate that `scoreFormulaId` references an existing `ScoreFormula`, that all numeric parameters are finite and positive, and that runtime version strings are non-empty. |
+| ID    | Requirement                                                                                                                                                                                                                                                    |
+| ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| FR-1  | The module must expose a pure `score(leaderboardScopeId, metrics)` function that applies the pinned `ScoreFormula` and returns a deterministic `ScoredEvaluation`.                                                                                             |
+| FR-2  | `score()` must override `overallScore = 0`, set `rankEligible = false`, and set `rankExclusionReason = "NO_TRADES"` when `metrics.numberOfTrades === 0`.                                                                                                       |
+| FR-3  | `score()` must reject (throw/return invalid) any `ScoredEvaluation` containing `NaN`, `Infinity`, or `-Infinity` values.                                                                                                                                       |
+| FR-4  | The module must expose `submit(experiment, unitOfWork)` that, using the caller's PostgreSQL transaction, inserts a `leaderboard_entries` row when the experiment is rank-eligible and either a slot is empty or the experiment beats the current lowest entry. |
+| FR-5  | `submit()` must evict the lowest-ranked existing entry when the Top-K is full and the new score is strictly higher, retaining the evicted row as inactive history.                                                                                             |
+| FR-6  | `submit()` must be idempotent: submitting the same `experimentResultId` twice must result in exactly one active `leaderboard_entries` row.                                                                                                                     |
+| FR-7  | The module must expose `topK(leaderboardScopeId)` returning the current active Top-K `LeaderboardEntry[]`, ordered by `score` descending, for a given scope.                                                                                                   |
+| FR-8  | The module must expose `rankSearchRun(searchRunId)` returning all rank-eligible `ExperimentResult`s from that Search Run, ordered by `score` descending.                                                                                                       |
+| FR-9  | The module must persist immutable `LeaderboardScope` rows via `createLeaderboardScope(command)` and expose `getLeaderboardScope(id)` for reload.                                                                                                               |
+| FR-10 | `createLeaderboardScope()` must validate that `scoreFormulaId` references an existing `ScoreFormula`, that all numeric parameters are finite and positive, and that runtime version strings are non-empty.                                                     |
 
 ### 2.2 Business rules
 
@@ -146,7 +145,7 @@ Out of scope (owned by other modules, consumed through their public APIs only):
   by `addedAt ASC` for equal scores (older entry retains the higher rank).
 - **Performance**: `topK()` is called on every Completion Processor write and on every
   frontend `GET /leaderboard` request. The query must be indexed by `(leaderboard_scope_id,
-  active, score DESC)` and must not require a full table scan.
+active, score DESC)` and must not require a full table scan.
 
 ---
 
@@ -282,16 +281,16 @@ the view is slightly stale.
 
 ### 3.6 Error / edge cases
 
-| Case | Trigger | Result |
-|---|---|---|
-| `numberOfTrades = 0` | `EvaluationMetrics.numberOfTrades === 0` | `score()` returns `{ rankEligible: false, overallScore: 0, rankExclusionReason: "NO_TRADES" }`. `submit()` returns `admitted: false` immediately without touching `leaderboard_entries`. |
-| Non-finite score | Formula produces `NaN`, `Infinity`, or `-Infinity` | `score()` throws `INVALID_SCORE`. The Completion Processor marks the Candidate as `FAILED` with reason `COMPLETION_PROCESSING`. No `leaderboard_entries` row is created. |
-| Duplicate `submit()` | Same `experimentResultId` submitted twice (e.g., retry) | `submit()` detects the existing row by `experimentResultId` uniqueness constraint. Returns `admitted: true` with the existing entry (idempotent). |
-| Score exactly ties current #10 | New score equals current lowest active entry's score | New experiment is **not** admitted (`admitted: false`). Existing entry retains its rank (older entry wins ties). |
-| `leaderboardScopeId` not found | `score()` or `submit()` called with a non-existent scope ID | Throw `SCOPE_NOT_FOUND`. Caller (Completion Processor) treats this as a non-retryable invariant failure and marks the Candidate `FAILED`. |
-| Formula missing from cache | Formula ID referenced by scope no longer in in-process cache | Reload from PostgreSQL. If still not found, throw `FORMULA_NOT_FOUND`. |
-| Cancelled candidate path | Completion Processor mistakenly calls `submit()` for a cancelled Candidate | The Experiment row will not exist (Completion Processor invariant), so `submit()` will find no row to reference. If reached, throw `INVALID_EXPERIMENT_STATE`. |
-| Concurrent submission race | Two Completion Processor instances submit different experiments for the same scope simultaneously | `SELECT ... FOR UPDATE` serializes the admission. One writer will see the other's commit first. Both may be admitted if both beat #10, or one may be evicted by the other. No corrupt state is possible. |
+| Case                           | Trigger                                                                                           | Result                                                                                                                                                                                                   |
+| ------------------------------ | ------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `numberOfTrades = 0`           | `EvaluationMetrics.numberOfTrades === 0`                                                          | `score()` returns `{ rankEligible: false, overallScore: 0, rankExclusionReason: "NO_TRADES" }`. `submit()` returns `admitted: false` immediately without touching `leaderboard_entries`.                 |
+| Non-finite score               | Formula produces `NaN`, `Infinity`, or `-Infinity`                                                | `score()` throws `INVALID_SCORE`. The Completion Processor marks the Candidate as `FAILED` with reason `COMPLETION_PROCESSING`. No `leaderboard_entries` row is created.                                 |
+| Duplicate `submit()`           | Same `experimentResultId` submitted twice (e.g., retry)                                           | `submit()` detects the existing row by `experimentResultId` uniqueness constraint. Returns `admitted: true` with the existing entry (idempotent).                                                        |
+| Score exactly ties current #10 | New score equals current lowest active entry's score                                              | New experiment is **not** admitted (`admitted: false`). Existing entry retains its rank (older entry wins ties).                                                                                         |
+| `leaderboardScopeId` not found | `score()` or `submit()` called with a non-existent scope ID                                       | Throw `SCOPE_NOT_FOUND`. Caller (Completion Processor) treats this as a non-retryable invariant failure and marks the Candidate `FAILED`.                                                                |
+| Formula missing from cache     | Formula ID referenced by scope no longer in in-process cache                                      | Reload from PostgreSQL. If still not found, throw `FORMULA_NOT_FOUND`.                                                                                                                                   |
+| Cancelled candidate path       | Completion Processor mistakenly calls `submit()` for a cancelled Candidate                        | The Experiment row will not exist (Completion Processor invariant), so `submit()` will find no row to reference. If reached, throw `INVALID_EXPERIMENT_STATE`.                                           |
+| Concurrent submission race     | Two Completion Processor instances submit different experiments for the same scope simultaneously | `SELECT ... FOR UPDATE` serializes the admission. One writer will see the other's commit first. Both may be admitted if both beat #10, or one may be evicted by the other. No corrupt state is possible. |
 
 ---
 
@@ -307,7 +306,7 @@ export interface LeaderboardModulePublicApi {
   rankSearchRun(searchRunId: string): Promise<SearchRunRankingEntry[]>;
   submit(
     experiment: ExperimentResult,
-    unitOfWork: CompletionUnitOfWork
+    unitOfWork: CompletionUnitOfWork,
   ): Promise<LeaderboardSubmissionResult>;
 }
 ```
@@ -346,7 +345,7 @@ export interface ScoreFormula {
   version: number;
   name: string;
   weights: {
-    return: number;    // must sum to 1.0 with winRate + riskScore
+    return: number; // must sum to 1.0 with winRate + riskScore
     winRate: number;
     riskScore: number;
   };
@@ -365,12 +364,12 @@ export interface LeaderboardScope {
   datasetSnapshot: DatasetSnapshotRef;
   sentimentDatasetSnapshot?: SentimentDatasetSnapshotRef; // required for INFORMATION composites
   workerRuntimeVersion: string;
-  workerRuntimeSha256: string;     // hex SHA-256, 64 chars
+  workerRuntimeSha256: string; // hex SHA-256, 64 chars
   evaluationRuntimeVersion: string;
   evaluationRuntimeSha256: string; // hex SHA-256, 64 chars
-  initialCapital: number;          // must be finite and positive
-  feeRatePercent: number;          // must be finite and non-negative
-  slippageBps: number;             // must be finite and non-negative
+  initialCapital: number; // must be finite and positive
+  feeRatePercent: number; // must be finite and non-negative
+  slippageBps: number; // must be finite and non-negative
   scoreFormulaId: string;
   createdAt: string; // ISO-8601 UTC
 }
@@ -383,21 +382,22 @@ interface ScoredEvaluationBase {
   overallScore: number; // always finite; never NaN/Infinity
 }
 
-export type ScoredEvaluation = ScoredEvaluationBase & (
-  | { rankEligible: true; rankExclusionReason?: never }
-  | { rankEligible: false; rankExclusionReason: "NO_TRADES" }
-);
+export type ScoredEvaluation = ScoredEvaluationBase &
+  (
+    | { rankEligible: true; rankExclusionReason?: never }
+    | { rankEligible: false; rankExclusionReason: "NO_TRADES" }
+  );
 
 // ─── LeaderboardEntry ────────────────────────────────────────────────────────
 
 export interface LeaderboardEntry {
   id: string;
-  rank: number;             // 1-indexed, stable sort: score DESC, addedAt ASC
+  rank: number; // 1-indexed, stable sort: score DESC, addedAt ASC
   experimentResultId: string;
   leaderboardScopeId: string;
   scoreFormulaId: string;
-  score: number;            // always finite
-  addedAt: string;          // ISO-8601 UTC
+  score: number; // always finite
+  addedAt: string; // ISO-8601 UTC
 }
 
 // ─── SearchRunRankingEntry ────────────────────────────────────────────────────
@@ -467,15 +467,17 @@ export interface LeaderboardEntryRepository {
 
 // Read-only port. Leaderboard never writes experiment_results directly.
 export interface ExperimentResultReader {
-  getBySearchRunId(searchRunId: string): Promise<Array<{
-    id: string;
-    candidateId: string;
-    searchRunId: string;
-    leaderboardScopeId: string;
-    scoreFormulaId: string;
-    overallScore: number;
-    rankEligible: boolean;
-  }>>;
+  getBySearchRunId(searchRunId: string): Promise<
+    Array<{
+      id: string;
+      candidateId: string;
+      searchRunId: string;
+      leaderboardScopeId: string;
+      scoreFormulaId: string;
+      overallScore: number;
+      rankEligible: boolean;
+    }>
+  >;
 }
 
 export interface Clock {
@@ -590,6 +592,7 @@ Application roles may `SELECT`/`INSERT` those tables and `UPDATE active` on
 **None.** This module does not publish or consume domain events.
 
 `modules/leaderboard` collaborates synchronously:
+
 - The Backtesting Completion Processor calls `submit()` inside its transaction.
 - `modules/search` calls `rankSearchRun()` in-process.
 - BullMQ/Redis is reserved for backtest job dispatch only (`openspec/config.yaml`
@@ -680,65 +683,65 @@ flowchart LR
 ### Score calculation (`score()`)
 
 - [ ] `score()` given `numberOfTrades = 0` always returns
-  `{ rankEligible: false, overallScore: 0, rankExclusionReason: "NO_TRADES" }` regardless
-  of other metrics.
+      `{ rankEligible: false, overallScore: 0, rankExclusionReason: "NO_TRADES" }` regardless
+      of other metrics.
 - [ ] `score()` given valid non-zero metrics with the MVP formula computes
-  `riskScore = clamp(50 + 10×sharpeRatio − maxDrawdownPercent, 0, 100)` and
-  `overallScore = 0.5×totalReturnPercent + 0.2×winRatePercent + 0.3×riskScore`,
-  returning a finite float.
+      `riskScore = clamp(50 + 10×sharpeRatio − maxDrawdownPercent, 0, 100)` and
+      `overallScore = 0.5×totalReturnPercent + 0.2×winRatePercent + 0.3×riskScore`,
+      returning a finite float.
 - [ ] `score()` given metrics that produce a `NaN` or `Infinity` formula result throws
-  `INVALID_SCORE`; it never returns or stores a non-finite value.
+      `INVALID_SCORE`; it never returns or stores a non-finite value.
 - [ ] `score()` called twice with identical arguments always returns an identical
-  `ScoredEvaluation` (determinism test).
+      `ScoredEvaluation` (determinism test).
 - [ ] `score()` does not perform any database query, file I/O, or network call during
-  execution.
+      execution.
 
 ### Scope and formula creation
 
 - [ ] `createLeaderboardScope()` with a valid command persists an immutable row with all
-  fields including `scoreFormulaId` FK, finite capital/fee values, and 64-char hex runtime
-  hashes.
+      fields including `scoreFormulaId` FK, finite capital/fee values, and 64-char hex runtime
+      hashes.
 - [ ] `createLeaderboardScope()` with a non-existent `scoreFormulaId` rejects with a
-  validation error and persists no row.
+      validation error and persists no row.
 - [ ] `createLeaderboardScope()` with `initialCapital ≤ 0` rejects with a validation
-  error.
+      error.
 - [ ] Calling `UPDATE` or `DELETE` on a `leaderboard_scopes` or `score_formulas` row is
-  rejected by the database permissions.
+      rejected by the database permissions.
 
 ### Top-K admission (`submit()`)
 
 - [ ] `submit()` given a rank-eligible experiment when the Top-K has fewer than 10 active
-  entries inserts one new active `leaderboard_entries` row and returns
-  `{ admitted: true, entry: ..., evictedExperimentResultId: undefined }`.
+      entries inserts one new active `leaderboard_entries` row and returns
+      `{ admitted: true, entry: ..., evictedExperimentResultId: undefined }`.
 - [ ] `submit()` given a rank-eligible experiment whose score **strictly exceeds** the
-  current 10th entry's score deactivates the 10th entry and inserts a new active row.
-  Returns `{ admitted: true, entry: ..., evictedExperimentResultId: <10th's id> }`.
+      current 10th entry's score deactivates the 10th entry and inserts a new active row.
+      Returns `{ admitted: true, entry: ..., evictedExperimentResultId: <10th's id> }`.
 - [ ] `submit()` given a rank-eligible experiment whose score equals or is below the
-  current 10th entry's score returns `{ admitted: false }` and inserts no row.
+      current 10th entry's score returns `{ admitted: false }` and inserts no row.
 - [ ] `submit()` called twice with the same `experimentResultId` returns `admitted: true`
-  with the existing entry on the second call, and `SELECT COUNT(*) FROM leaderboard_entries
-  WHERE experiment_result_id = ?` = 1.
+      with the existing entry on the second call, and `SELECT COUNT(*) FROM leaderboard_entries
+WHERE experiment_result_id = ?` = 1.
 - [ ] `submit()` given a `rankEligible = false` experiment returns `{ admitted: false }`
-  immediately without touching `leaderboard_entries`.
+      immediately without touching `leaderboard_entries`.
 - [ ] `submit()` with a non-existent `leaderboardScopeId` throws `SCOPE_NOT_FOUND`.
 
 ### Read queries
 
 - [ ] `topK(leaderboardScopeId)` returns at most 10 active entries ordered by `score DESC`,
-  with `addedAt ASC` as tie-breaker (older entry has the higher rank on a tie).
+      with `addedAt ASC` as tie-breaker (older entry has the higher rank on a tie).
 - [ ] `topK()` never returns an inactive (evicted) entry.
 - [ ] `rankSearchRun(searchRunId)` returns only experiments with `rankEligible = true`,
-  ordered by `score DESC`, and excludes zero-trade experiments.
+      ordered by `score DESC`, and excludes zero-trade experiments.
 - [ ] `GET /leaderboard?scopeId=<id>` maps to `topK()` and returns a valid JSON response
-  (verified by a REST integration test).
+      (verified by a REST integration test).
 
 ### Architecture and boundary
 
 - [ ] An architecture test or code review prevents `modules/leaderboard/domain` from
-  importing HTTP, PostgreSQL, Redis, BullMQ, or UI libraries.
+      importing HTTP, PostgreSQL, Redis, BullMQ, or UI libraries.
 - [ ] An architecture test or code review prevents any other module from importing
-  `modules/leaderboard/domain` or `modules/leaderboard/infrastructure` directly.
+      `modules/leaderboard/domain` or `modules/leaderboard/infrastructure` directly.
 - [ ] `submit()` uses the caller's `CompletionUnitOfWork` and does not open a separate
-  database transaction (verified by inspecting the infrastructure implementation and
-  confirming no new `knex.transaction()` call inside `submit()`).
+      database transaction (verified by inspecting the infrastructure implementation and
+      confirming no new `knex.transaction()` call inside `submit()`).
 - [ ] A unit test for `score()` does not require a running database or any async setup.

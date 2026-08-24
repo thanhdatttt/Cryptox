@@ -1,1 +1,10 @@
-{"extends":"../../tsconfig.base.json","compilerOptions":{"outDir":"dist","composite":false,"experimentalDecorators":true,"emitDecoratorMetadata":true},"include":["**/*.ts"]}
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "outDir": "dist",
+    "composite": false,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true
+  },
+  "include": ["**/*.ts"]
+}

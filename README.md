@@ -13,6 +13,7 @@
 - [🧭 Architecture Principles](#-architecture-principles)
 - [🧰 OpenSpec - AI-driven Development](#-openspec---ai-driven-development)
 - [📜 License](#-license)
+
 ---
 
 # 📍 Overview
@@ -27,13 +28,13 @@ Architectural Decision Records (ADRs) capture the reasoning behind the key desig
 
 # 👥 Team members
 
-| Fullname | Student ID | Role |
-|---|---|---|
-| Pham Thanh Dat | 23127170 | Developer |
-| Tran Khon Chi | 23127032 | Developer |
-| Mai Xuan Hung | 23127372 | Developer |
-| Nguyen Van Minh | 23127422 | Developer |
-| Giao Thai Bao | 23127526 | Developer |
+| Fullname        | Student ID | Role      |
+| --------------- | ---------- | --------- |
+| Pham Thanh Dat  | 23127170   | Developer |
+| Tran Khon Chi   | 23127032   | Developer |
+| Mai Xuan Hung   | 23127372   | Developer |
+| Nguyen Van Minh | 23127422   | Developer |
+| Giao Thai Bao   | 23127526   | Developer |
 
 ---
 

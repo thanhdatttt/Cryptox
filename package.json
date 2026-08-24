@@ -1,7 +1,11 @@
 {
   "name": "cryptox",
   "private": true,
-  "workspaces": ["modules/*", "apps/*", "packages/*"],
+  "workspaces": [
+    "modules/*",
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
     "build": "npm run build --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",

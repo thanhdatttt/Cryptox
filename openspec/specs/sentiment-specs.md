@@ -32,15 +32,15 @@ Out of scope:
 
 ### Actors
 
-| Actor | Interaction |
-|---|---|
-| modules/news | Sends neutral SentimentInput to analyze and reads available results through the public Sentiment API. |
-| Backtesting scope composition | Requests a sealed Sentiment snapshot when a composite uses an INFORMATION strategy and pins the reference in the immutable scope. |
-| Backtest worker / Strategy adapter | Reads sealed snapshot points for candle-close times through readAt; it does not query live aggregates. |
-| Backend composition root | Creates the Sentiment module and supplies model, repository, hash, clock, and observability adapters. |
-| Sentiment analysis adapter | Produces a label and normalized per-News-item score behind the application boundary. |
-| PostgreSQL | Authoritative storage for Sentiment results, snapshot metadata, and snapshot points. |
-| Frontend / Backend REST API | Receives News read projections composed by News; it does not call Sentiment infrastructure directly. |
+| Actor                              | Interaction                                                                                                                       |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| modules/news                       | Sends neutral SentimentInput to analyze and reads available results through the public Sentiment API.                             |
+| Backtesting scope composition      | Requests a sealed Sentiment snapshot when a composite uses an INFORMATION strategy and pins the reference in the immutable scope. |
+| Backtest worker / Strategy adapter | Reads sealed snapshot points for candle-close times through readAt; it does not query live aggregates.                            |
+| Backend composition root           | Creates the Sentiment module and supplies model, repository, hash, clock, and observability adapters.                             |
+| Sentiment analysis adapter         | Produces a label and normalized per-News-item score behind the application boundary.                                              |
+| PostgreSQL                         | Authoritative storage for Sentiment results, snapshot metadata, and snapshot points.                                              |
+| Frontend / Backend REST API        | Receives News read projections composed by News; it does not call Sentiment infrastructure directly.                              |
 
 ### Source interpretation and precedence
 
@@ -50,22 +50,22 @@ The supplied project brief and architecture slides are requirements/reference ma
 
 ### 2.1 Functional requirements
 
-| ID | Requirement |
-|---|---|
-| FR-1 | The module must accept a neutral SentimentInput containing News provenance and content without importing NewsItem or any News domain type. |
-| FR-2 | The module must expose analyze(input) and return one SentimentResult with a POSITIVE, NEUTRAL, or NEGATIVE label, a score in [-1, 1], and model provenance. |
-| FR-3 | A successful result must persist newsId, label, score, model name, model version, and analysis time in Sentiment-owned storage. |
-| FR-4 | Sentiment result persistence must be append-only. Re-analysis with a different model identity inserts a new row and never overwrites an earlier result. |
-| FR-5 | The module must expose deterministic latest-result selection for News reads without making newsId unique by itself. |
-| FR-6 | The module must expose createSnapshot for an immutable Sentiment dataset retaining range, aggregation, model provenance, point count, and content hash. |
-| FR-7 | The module must expose readSnapshot and the exact low-level readAt(snapshotId, candleCloseTime) behavior for sealed snapshot reads. |
-| FR-8 | Snapshot creation must enforce a positive aggregation window, valid half-open range, canonical base-asset identity, normalized scores, and at least one persisted point. |
-| FR-9 | Snapshot points must be time-aligned aggregation points whose timestamps are inclusive ends of their windows. |
-| FR-10 | Snapshot lookup must be as-of and deterministic: it never selects a future point and never carries a previous value across a missing window. |
+| ID    | Requirement                                                                                                                                                                    |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| FR-1  | The module must accept a neutral SentimentInput containing News provenance and content without importing NewsItem or any News domain type.                                     |
+| FR-2  | The module must expose analyze(input) and return one SentimentResult with a POSITIVE, NEUTRAL, or NEGATIVE label, a score in [-1, 1], and model provenance.                    |
+| FR-3  | A successful result must persist newsId, label, score, model name, model version, and analysis time in Sentiment-owned storage.                                                |
+| FR-4  | Sentiment result persistence must be append-only. Re-analysis with a different model identity inserts a new row and never overwrites an earlier result.                        |
+| FR-5  | The module must expose deterministic latest-result selection for News reads without making newsId unique by itself.                                                            |
+| FR-6  | The module must expose createSnapshot for an immutable Sentiment dataset retaining range, aggregation, model provenance, point count, and content hash.                        |
+| FR-7  | The module must expose readSnapshot and the exact low-level readAt(snapshotId, candleCloseTime) behavior for sealed snapshot reads.                                            |
+| FR-8  | Snapshot creation must enforce a positive aggregation window, valid half-open range, canonical base-asset identity, normalized scores, and at least one persisted point.       |
+| FR-9  | Snapshot points must be time-aligned aggregation points whose timestamps are inclusive ends of their windows.                                                                  |
+| FR-10 | Snapshot lookup must be as-of and deterministic: it never selects a future point and never carries a previous value across a missing window.                                   |
 | FR-11 | Sentiment must preserve model name/version and model hash on snapshots, plus a content hash covering model identity, aggregation rule, ordered timestamps, labels, and scores. |
-| FR-12 | A timeout or inference failure must reject the analysis attempt without creating a fabricated result row; News records the degraded outcome and keeps the News item readable. |
-| FR-13 | The module must not publish NewsCollected, SentimentAnalyzed, or any general Sentiment domain event in the MVP. |
-| FR-14 | The module must expose only its public API/bootstrap contracts; consumers cannot import Sentiment domain or infrastructure internals. |
+| FR-12 | A timeout or inference failure must reject the analysis attempt without creating a fabricated result row; News records the degraded outcome and keeps the News item readable.  |
+| FR-13 | The module must not publish NewsCollected, SentimentAnalyzed, or any general Sentiment domain event in the MVP.                                                                |
+| FR-14 | The module must expose only its public API/bootstrap contracts; consumers cannot import Sentiment domain or infrastructure internals.                                          |
 
 ### 2.2 Business rules
 
@@ -100,7 +100,7 @@ The supplied project brief and architecture slides are requirements/reference ma
 
 News persists the News item first, then invokes Sentiment with neutral input. Sentiment validates the input, delegates to the configured adapter, validates the returned label/score, persists successful provenance, and returns the result.
 
-~~~mermaid
+```mermaid
 sequenceDiagram
     participant N as News module
     participant S as Sentiment API
@@ -123,7 +123,7 @@ sequenceDiagram
         N->>O: record degraded/missing sentiment
         Note over N: News item remains readable; no fabricated row
     end
-~~~
+```
 
 Sentiment does not invent a neutral result. The News workflow owns the user-facing degraded-read behavior, while Sentiment owns result persistence and model provenance.
 
@@ -131,7 +131,7 @@ Sentiment does not invent a neutral result. The News workflow owns the user-faci
 
 News may compose an available result for GET /news. Sentiment reads its own result storage and returns either the deterministic latest result or no result.
 
-~~~mermaid
+```mermaid
 sequenceDiagram
     participant N as News module
     participant S as Sentiment API
@@ -145,7 +145,7 @@ sequenceDiagram
     else No successful result
         S-->>N: undefined
     end
-~~~
+```
 
 This read operation does not change result history and does not imply that a live latest result is valid historical input for a backtest.
 
@@ -153,7 +153,7 @@ This read operation does not change result history and does not imply that a liv
 
 Backtesting scope composition requests a reproducible snapshot. Sentiment reads the relevant result history, aggregates points using the requested window, validates completeness and canonical identity, computes model/content hashes, inserts metadata and points, and seals the snapshot.
 
-~~~mermaid
+```mermaid
 sequenceDiagram
     participant BT as Backtesting scope composition
     participant S as Sentiment module
@@ -170,7 +170,7 @@ sequenceDiagram
     PG-->>S: immutable SentimentDatasetSnapshotRef
     S-->>BT: snapshot reference
     BT->>L: persist LeaderboardScope with snapshot reference
-~~~
+```
 
 The snapshot content hash covers model identity/hash, aggregation rule, ordered point timestamps, labels, and scores. Snapshot creation does not mutate a previously referenced snapshot.
 
@@ -180,7 +180,7 @@ Snapshot creation is deterministic for one requested model identity. The command
 
 The Backtest Worker or Strategy adapter reads the pinned snapshot for each candle close. It never queries live result history during replay.
 
-~~~mermaid
+```mermaid
 sequenceDiagram
     participant W as Backtest worker / Strategy adapter
     participant S as Sentiment API
@@ -197,7 +197,7 @@ sequenceDiagram
     else Missing aligned window
         R-->>W: undefined
     end
-~~~
+```
 
 readSnapshot may perform the storage read and validation needed to hydrate the sealed reader. The low-level readAt contract is then a synchronous, deterministic lookup over that immutable reader, using half-open range and window-end semantics. It does not select a future point and does not carry a prior point forward.
 
@@ -205,7 +205,7 @@ readSnapshot may perform the storage read and validation needed to hydrate the s
 
 Sentiment provides the sealed snapshot contract; Backtesting owns Candidate/scope validation.
 
-~~~mermaid
+```mermaid
 sequenceDiagram
     participant BT as Backtesting coordinator
     participant S as Sentiment module
@@ -223,30 +223,30 @@ sequenceDiagram
     else Snapshot missing or incompatible
         BT-->>BT: reject Candidate/scope
     end
-~~~
+```
 
 No module substitutes a live aggregate or future point to make incomplete historical input appear valid.
 
 ### 3.6 Error / edge cases
 
-| Case | Trigger | Result |
-|---|---|---|
-| Invalid neutral input | Missing required field or invalid timestamp/coin representation | Reject before model execution; no result row is written. |
-| Model timeout | Analysis adapter exceeds the configured timeout | Reject the analysis; News records missing sentiment; no fabricated result row. |
-| Model inference error | Adapter throws or returns an invalid result | Reject the analysis; record observability data; keep the saved News item readable. |
-| Invalid label | Result is not POSITIVE, NEUTRAL, or NEGATIVE | Reject and persist no result. |
-| Out-of-range score | Score is outside [-1, 1] or non-finite | Reject and persist no result. |
-| Same News/model identity | A result already exists for the same newsId, modelName, and modelVersion | Respect the documented unique identity; do not overwrite the existing row. |
-| Changed model | Model name/version changes for the same News item | Insert a new result row; preserve the old result. |
-| Equal analyzed timestamps | Multiple results have the same analyzedAt | Latest selection uses id descending as deterministic tie-breaker. |
-| Invalid snapshot range | dataset_to <= dataset_from | Reject snapshot creation; write no sealed snapshot. |
-| Invalid aggregation window | aggregationWindowSeconds <= 0 | Reject snapshot creation. |
-| Empty snapshot | No valid point can be produced | Reject snapshot creation; do not create a zero-point snapshot. |
-| Missing candle-window point | Snapshot has no point for a required candle window | readAt returns undefined; Backtesting rejects the INFORMATION Candidate/scope. |
-| Future point | A point is after the requested candle close or outside its containing window | Do not return it; readAt returns the as-of point or undefined. |
-| Carry-forward request | Caller requests a value across a missing window | Do not carry forward; return undefined and let Backtesting reject incomplete input. |
-| Snapshot mutation | UPDATE or DELETE is attempted after sealing | Reject the operation; the original snapshot remains unchanged. |
-| Event request | Consumer expects News/Sentiment domain events | No such MVP event is published; use the typed public APIs. |
+| Case                        | Trigger                                                                      | Result                                                                              |
+| --------------------------- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Invalid neutral input       | Missing required field or invalid timestamp/coin representation              | Reject before model execution; no result row is written.                            |
+| Model timeout               | Analysis adapter exceeds the configured timeout                              | Reject the analysis; News records missing sentiment; no fabricated result row.      |
+| Model inference error       | Adapter throws or returns an invalid result                                  | Reject the analysis; record observability data; keep the saved News item readable.  |
+| Invalid label               | Result is not POSITIVE, NEUTRAL, or NEGATIVE                                 | Reject and persist no result.                                                       |
+| Out-of-range score          | Score is outside [-1, 1] or non-finite                                       | Reject and persist no result.                                                       |
+| Same News/model identity    | A result already exists for the same newsId, modelName, and modelVersion     | Respect the documented unique identity; do not overwrite the existing row.          |
+| Changed model               | Model name/version changes for the same News item                            | Insert a new result row; preserve the old result.                                   |
+| Equal analyzed timestamps   | Multiple results have the same analyzedAt                                    | Latest selection uses id descending as deterministic tie-breaker.                   |
+| Invalid snapshot range      | dataset_to <= dataset_from                                                   | Reject snapshot creation; write no sealed snapshot.                                 |
+| Invalid aggregation window  | aggregationWindowSeconds <= 0                                                | Reject snapshot creation.                                                           |
+| Empty snapshot              | No valid point can be produced                                               | Reject snapshot creation; do not create a zero-point snapshot.                      |
+| Missing candle-window point | Snapshot has no point for a required candle window                           | readAt returns undefined; Backtesting rejects the INFORMATION Candidate/scope.      |
+| Future point                | A point is after the requested candle close or outside its containing window | Do not return it; readAt returns the as-of point or undefined.                      |
+| Carry-forward request       | Caller requests a value across a missing window                              | Do not carry forward; return undefined and let Backtesting reject incomplete input. |
+| Snapshot mutation           | UPDATE or DELETE is attempted after sealing                                  | Reject the operation; the original snapshot remains unchanged.                      |
+| Event request               | Consumer expects News/Sentiment domain events                                | No such MVP event is published; use the typed public APIs.                          |
 
 ## 4. Contracts
 
@@ -254,7 +254,7 @@ No module substitutes a live aggregate or future point to make incomplete histor
 
 The following is the intended public boundary. Equivalent TypeScript symbols are acceptable if the responsibilities and public names analyze, createSnapshot, and readSnapshot remain available through the module facade.
 
-~~~typescript
+```typescript
 // modules/sentiment/api/index.ts
 export interface SentimentModulePublicApi {
   analyze(input: SentimentInput): Promise<SentimentResult>;
@@ -271,7 +271,7 @@ export function createSentimentModule(deps: {
   clock: Clock;
   observability?: SentimentObservability;
 }): SentimentModulePublicApi;
-~~~
+```
 
 readLatestForNews is the read capability used when News composes GET /news. The planning-level API matrix names the snapshot facade readSnapshot; the exact point lookup contract is SentimentSnapshotReader.readAt.
 
@@ -279,7 +279,7 @@ There is no required public REST route owned by Sentiment. Backend composition a
 
 ### 4.2 Analysis contracts
 
-~~~typescript
+```typescript
 // modules/sentiment/api/contracts.ts
 export type SentimentLabel = "POSITIVE" | "NEUTRAL" | "NEGATIVE";
 
@@ -293,25 +293,25 @@ export interface SentimentInput {
 }
 
 export interface SentimentResult {
-  newsId: string;       // references NewsItem.id without importing NewsItem
+  newsId: string; // references NewsItem.id without importing NewsItem
   label: SentimentLabel;
-  score: number;         // normalized to [-1, 1]
+  score: number; // normalized to [-1, 1]
   modelName: string;
   modelVersion: string;
-  analyzedAt: string;   // ISO-8601 UTC
+  analyzedAt: string; // ISO-8601 UTC
 }
 
 export interface SentimentAnalysisService {
   // Rejects/throws on timeout or inference failure.
   analyze(input: SentimentInput): Promise<SentimentResult>;
 }
-~~~
+```
 
 Sentiment owns these public contracts. News maps its own News item into SentimentInput; Sentiment never accepts the News domain entity directly.
 
 ### 4.3 Snapshot contracts
 
-~~~typescript
+```typescript
 export interface CreateSentimentSnapshotCommand {
   relatedCoin: string; // canonical base asset, e.g. BTC for BTCUSDT
   range: { from: string; to: string }; // half-open [from, to)
@@ -335,24 +335,21 @@ export interface SentimentDatasetSnapshotRef {
 }
 
 export interface SentimentSnapshotPoint {
-  timestamp: string;       // inclusive end of an aggregation window
+  timestamp: string; // inclusive end of an aggregation window
   label: SentimentLabel;
-  averageScore: number;    // normalized to [-1, 1]
+  averageScore: number; // normalized to [-1, 1]
 }
 
 export interface SentimentSnapshotReader {
-  readAt(
-    snapshotId: string,
-    candleCloseTime: string
-  ): SentimentSnapshotPoint | undefined;
+  readAt(snapshotId: string, candleCloseTime: string): SentimentSnapshotPoint | undefined;
 }
-~~~
+```
 
 readAt selects the point whose aggregation window contains the requested candle close, subject to the snapshot's half-open range. It never selects a future point and never carries forward over a missing window.
 
 ### 4.4 Application ports and observability
 
-~~~typescript
+```typescript
 export interface SentimentResultRepository {
   insert(result: SentimentResult): Promise<SentimentResult>;
   readLatestForNews(newsId: string): Promise<SentimentResult | undefined>;
@@ -361,12 +358,9 @@ export interface SentimentResultRepository {
 export interface SentimentSnapshotRepository {
   insertSealed(
     ref: SentimentDatasetSnapshotRef,
-    points: SentimentSnapshotPoint[]
+    points: SentimentSnapshotPoint[],
   ): Promise<SentimentDatasetSnapshotRef>;
-  readAt(
-    snapshotId: string,
-    candleCloseTime: string
-  ): SentimentSnapshotPoint | undefined;
+  readAt(snapshotId: string, candleCloseTime: string): SentimentSnapshotPoint | undefined;
 }
 
 export interface Clock {
@@ -379,7 +373,7 @@ export interface SentimentObservability {
     reason: "TIMEOUT" | "INFERENCE_ERROR" | "INVALID_RESULT";
   }): void;
 }
-~~~
+```
 
 These are application ports, not cross-module persistence contracts. Infrastructure implements them; consumers use the public Sentiment facade.
 
@@ -387,7 +381,7 @@ These are application ports, not cross-module persistence contracts. Infrastruct
 
 Sentiment owns the following tables. News remains the owner of news_items; news_id is a foreign-key reference only.
 
-~~~mermaid
+```mermaid
 erDiagram
     NEWS_ITEMS ||--o{ SENTIMENT_RESULTS : "analyzed as"
     SENTIMENT_DATASET_SNAPSHOTS ||--o{ SENTIMENT_SNAPSHOT_POINTS : "freezes"
@@ -422,11 +416,11 @@ erDiagram
         sentiment_label_enum label
         numeric average_score
     }
-~~~
+```
 
 The result and snapshot schema is:
 
-~~~sql
+```sql
 CREATE TYPE sentiment_label_enum AS ENUM ('POSITIVE','NEUTRAL','NEGATIVE');
 
 CREATE TABLE sentiment_results (
@@ -468,16 +462,16 @@ CREATE TABLE sentiment_snapshot_points (
   average_score          NUMERIC NOT NULL CHECK (average_score BETWEEN -1 AND 1),
   PRIMARY KEY (sentiment_snapshot_id, "timestamp")
 );
-~~~
+```
 
 The Sentiment-owned latest read projection is:
 
-~~~sql
+```sql
 CREATE VIEW latest_sentiment AS
 SELECT DISTINCT ON (news_id) *
 FROM sentiment_results
 ORDER BY news_id, analyzed_at DESC, id DESC;
-~~~
+```
 
 Snapshot creation inserts metadata and points atomically, verifies the declared point count and content hash, and seals the result. Application code canonicalizes relatedCoin and validates point-window containment, while the transaction verifies point count and ordered-content hash. Database permissions/append-only triggers reject UPDATE or DELETE on sealed snapshot metadata and points; corrected data creates a new snapshot ID/hash. Result rows are append-only in the business model, and the semantic identity prevents duplicate rows for the same News/model identity.
 
@@ -489,7 +483,7 @@ Sentiment does not publish NewsCollected, SentimentAnalyzed, or a generic EventE
 
 ### 4.7 Module dependency direction
 
-~~~text
+```text
 apps/backend
   -> modules/sentiment/api or modules/sentiment/api/bootstrap
 
@@ -508,7 +502,7 @@ forbidden:
   modules/sentiment/domain -> News domain / HTTP / PostgreSQL / Redis / BullMQ / UI
   modules/sentiment/domain -> concrete model runtime
   other modules -> modules/sentiment/domain or modules/sentiment/infrastructure
-~~~
+```
 
 News and Backtesting consume only the public Sentiment API. Strategy implementations consume the caller-supplied StrategyContext.sentiment and never call Sentiment.
 

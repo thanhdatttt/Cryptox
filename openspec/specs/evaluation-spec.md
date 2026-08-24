@@ -12,7 +12,7 @@ reproducible performance metrics. It owns the mathematical policy for computing
 The module is intentionally narrow: it receives only trade outcomes and knows nothing
 about the strategy that generated those trades, the dataset it ran on, or how the
 metrics will be used for ranking. This separation is the core mandate from the project
-brief (A§20–21): *"Strategy Evaluation must be separate from Strategy Implementation."*
+brief (A§20–21): _"Strategy Evaluation must be separate from Strategy Implementation."_
 
 The position of `modules/evaluation` in the overall pipeline:
 
@@ -25,6 +25,7 @@ modules/backtesting (runs simulation, produces Trade[])
 ### Scope
 
 In scope:
+
 - Accepting a `CompletedBacktestResult` (candidateId + `Trade[]`) as the sole input.
 - Computing all five core metrics: `totalReturnPercent`, `winRatePercent`,
   `numberOfTrades`, `maxDrawdownPercent`, `profitFactor`, `sharpeRatio`.
@@ -36,6 +37,7 @@ In scope:
   Processor) for persistence and ranking.
 
 Out of scope (owned by other modules):
+
 - Executing the strategy or simulating trades — `modules/backtesting`.
 - Applying a score formula or managing the Top-K leaderboard — `modules/leaderboard`.
 - Generating strategy candidates or managing Search Runs — `modules/search`.
@@ -44,32 +46,33 @@ Out of scope (owned by other modules):
 
 ### Actors
 
-| Actor | Interaction |
-|---|---|
+| Actor                            | Interaction                                                                                                                                                                               |
+| -------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Backtesting Completion Processor | Calls `Evaluator.evaluate(completedBacktestResult)` synchronously after loading the completed `Trade[]`. Uses the returned `EvaluationMetrics` to build the `ExperimentResult` aggregate. |
-| `modules/leaderboard` | Consumes the `EvaluationMetrics` shape (imported from `modules/evaluation/api`) as input to `score()`. It never calls `Evaluator` directly. |
-| `apps/backend` | Composes the Evaluation module at startup by injecting it into the Backtesting Completion Processor. |
+| `modules/leaderboard`            | Consumes the `EvaluationMetrics` shape (imported from `modules/evaluation/api`) as input to `score()`. It never calls `Evaluator` directly.                                               |
+| `apps/backend`                   | Composes the Evaluation module at startup by injecting it into the Backtesting Completion Processor.                                                                                      |
 
 ## 2. Requirements
 
 ### 2.1 Functional requirements
 
-| ID | Requirement |
-|---|---|
-| FR-1 | The module must expose a synchronous `evaluate(result: CompletedBacktestResult): EvaluationMetrics` function. |
-| FR-2 | `evaluate()` must compute `totalReturnPercent` as the overall portfolio return across all trades. |
-| FR-3 | `evaluate()` must compute `winRatePercent` as the percentage of trades with `resultPercent > 0`. Break-even trades (`resultPercent === 0`) count as **losses**, not wins. |
-| FR-4 | `evaluate()` must compute `numberOfTrades` as the count of all trades in the input array. |
-| FR-5 | `evaluate()` must compute `maxDrawdownPercent` as a **non-negative** magnitude (e.g., `18`, never `-18`) representing the largest peak-to-trough portfolio value decline across all trades. |
-| FR-6 | `evaluate()` must compute `profitFactor` and `profitFactorStatus` according to the documented edge-case policy (§2.2). |
-| FR-7 | `evaluate()` must compute `sharpeRatio` and `sharpeRatioStatus` according to the documented edge-case policy (§2.2). |
-| FR-8 | `evaluate()` must never return `NaN`, `Infinity`, or `-Infinity` in any numeric field. |
-| FR-9 | `evaluate()` must be a **pure function**: no I/O, no database access, no network calls, no external state. Given the same `CompletedBacktestResult`, it must always return the same `EvaluationMetrics`. |
-| FR-10 | The module must stamp `evaluationRuntimeVersion` and `evaluationRuntimeSha256` on the `EvaluationMetrics` object so the Completion Processor can pin them on `experiment_results` for reproducibility. |
+| ID    | Requirement                                                                                                                                                                                              |
+| ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| FR-1  | The module must expose a synchronous `evaluate(result: CompletedBacktestResult): EvaluationMetrics` function.                                                                                            |
+| FR-2  | `evaluate()` must compute `totalReturnPercent` as the overall portfolio return across all trades.                                                                                                        |
+| FR-3  | `evaluate()` must compute `winRatePercent` as the percentage of trades with `resultPercent > 0`. Break-even trades (`resultPercent === 0`) count as **losses**, not wins.                                |
+| FR-4  | `evaluate()` must compute `numberOfTrades` as the count of all trades in the input array.                                                                                                                |
+| FR-5  | `evaluate()` must compute `maxDrawdownPercent` as a **non-negative** magnitude (e.g., `18`, never `-18`) representing the largest peak-to-trough portfolio value decline across all trades.              |
+| FR-6  | `evaluate()` must compute `profitFactor` and `profitFactorStatus` according to the documented edge-case policy (§2.2).                                                                                   |
+| FR-7  | `evaluate()` must compute `sharpeRatio` and `sharpeRatioStatus` according to the documented edge-case policy (§2.2).                                                                                     |
+| FR-8  | `evaluate()` must never return `NaN`, `Infinity`, or `-Infinity` in any numeric field.                                                                                                                   |
+| FR-9  | `evaluate()` must be a **pure function**: no I/O, no database access, no network calls, no external state. Given the same `CompletedBacktestResult`, it must always return the same `EvaluationMetrics`. |
+| FR-10 | The module must stamp `evaluationRuntimeVersion` and `evaluationRuntimeSha256` on the `EvaluationMetrics` object so the Completion Processor can pin them on `experiment_results` for reproducibility.   |
 
 ### 2.2 Business rules
 
 #### Total Return
+
 `totalReturnPercent` is the compounded result of all trade returns. Because `initialCapital`
 appears in both numerator and denominator it cancels out — `evaluate()` does **not** receive
 or need `initialCapital` as a parameter.
@@ -84,14 +87,17 @@ totalReturnPercent = (factor - 1) × 100
 With zero trades: `totalReturnPercent = 0`.
 
 #### Win Rate
+
 ```
 wins = count of trades where resultPercent > 0
 winRatePercent = (wins / numberOfTrades) × 100
 ```
+
 With zero trades: `winRatePercent = 0`.
 Break-even trades (`resultPercent === 0`) are **not** wins.
 
 #### Max Drawdown
+
 Like Total Return, `initialCapital` cancels out — the algorithm tracks a normalized factor
 starting at `1.0`.
 
@@ -106,18 +112,20 @@ for each trade in sequence:
     if drawdown > maxDrawdown: maxDrawdown = drawdown
 maxDrawdownPercent = maxDrawdown  // non-negative, e.g. 18.5 not -18.5
 ```
+
 With zero trades: `maxDrawdownPercent = 0`.
 
 #### Profit Factor
 
-| Condition | `profitFactor` | `profitFactorStatus` |
-|---|---|---|
-| `numberOfTrades = 0` | `null` | `"NO_TRADES"` |
-| `grossProfit > 0` AND `grossLoss > 0` | `grossProfit / grossLoss` (finite, ≥ 0) | `"FINITE"` |
-| `grossProfit > 0` AND `grossLoss = 0` (no losing trades) | `null` | `"NO_LOSSES"` |
-| `grossProfit = 0` AND `grossLoss = 0` (all break-even) | `null` | `"NO_GROSS_MOVEMENT"` |
+| Condition                                                | `profitFactor`                          | `profitFactorStatus`  |
+| -------------------------------------------------------- | --------------------------------------- | --------------------- |
+| `numberOfTrades = 0`                                     | `null`                                  | `"NO_TRADES"`         |
+| `grossProfit > 0` AND `grossLoss > 0`                    | `grossProfit / grossLoss` (finite, ≥ 0) | `"FINITE"`            |
+| `grossProfit > 0` AND `grossLoss = 0` (no losing trades) | `null`                                  | `"NO_LOSSES"`         |
+| `grossProfit = 0` AND `grossLoss = 0` (all break-even)   | `null`                                  | `"NO_GROSS_MOVEMENT"` |
 
 where:
+
 - `grossProfit = sum of resultPercent for all trades where resultPercent > 0`
 - `grossLoss = abs(sum of resultPercent for all trades where resultPercent < 0)`
 - A `"NO_LOSSES"` scenario — all trades profitable — is the **best** possible case; the UI may display `"∞"` but this value never crosses an API or persistence boundary.
@@ -133,17 +141,18 @@ stdDev = population standard deviation of observations
 sharpeRatio = mean / stdDev    (annualization is not required for MVP)
 ```
 
-| Condition | `sharpeRatio` | `sharpeRatioStatus` |
-|---|---|---|
-| `numberOfTrades < 2` | `0` | `"INSUFFICIENT_OBSERVATIONS"` |
-| `stdDev ≤ 1e-12` (effectively zero variance — all returns identical) | `0` | `"ZERO_VARIANCE"` |
-| Otherwise | finite float | `"FINITE"` |
+| Condition                                                            | `sharpeRatio` | `sharpeRatioStatus`           |
+| -------------------------------------------------------------------- | ------------- | ----------------------------- |
+| `numberOfTrades < 2`                                                 | `0`           | `"INSUFFICIENT_OBSERVATIONS"` |
+| `stdDev ≤ 1e-12` (effectively zero variance — all returns identical) | `0`           | `"ZERO_VARIANCE"`             |
+| Otherwise                                                            | finite float  | `"FINITE"`                    |
 
 > **Note:** The Sharpe Ratio uses population standard deviation over the trade-return
 > series. Annualization is deferred to a future formula version; the MVP Sharpe is a
 > raw signal-to-noise ratio of the trade series.
 
 #### Finite-metric enforcement
+
 - All numeric fields (`totalReturnPercent`, `winRatePercent`, `maxDrawdownPercent`,
   `sharpeRatio`, and `profitFactor` when non-null) must be finite (not `NaN`, not
   `±Infinity`).
@@ -152,7 +161,9 @@ sharpeRatio = mean / stdDev    (annualization is not required for MVP)
   `EVALUATION_FINITE_METRIC_VIOLATION` rather than return a corrupt result.
 
 #### Zero-trade experiment
+
 When `trades.length === 0`:
+
 - `totalReturnPercent = 0`
 - `winRatePercent = 0`
 - `numberOfTrades = 0`
@@ -218,15 +229,15 @@ sequenceDiagram
 
 ### 3.2 Error / edge cases
 
-| Case | Trigger | Behavior |
-|---|---|---|
-| Zero trades | `completedBacktestResult.trades.length === 0` | Returns valid `EvaluationMetrics` with all numeric fields `= 0`, `profitFactorStatus = "NO_TRADES"`, `sharpeRatioStatus = "INSUFFICIENT_OBSERVATIONS"`. Does NOT throw. |
-| Single trade | `trades.length === 1` | `sharpeRatio = 0`, `sharpeRatioStatus = "INSUFFICIENT_OBSERVATIONS"`. Other metrics computed normally. |
-| All trades break-even | All `resultPercent === 0` | `winRatePercent = 0`, `profitFactor = null`, `profitFactorStatus = "NO_GROSS_MOVEMENT"`, `sharpeRatio = 0`, `sharpeRatioStatus = "ZERO_VARIANCE"`. |
-| All trades winning | All `resultPercent > 0` | `winRatePercent = 100`, `profitFactor = null`, `profitFactorStatus = "NO_LOSSES"`. Other metrics computed normally. |
-| All trades losing | All `resultPercent < 0` | `winRatePercent = 0`, `profitFactor = 0` (grossProfit = 0, grossLoss > 0, ratio = 0), `profitFactorStatus = "FINITE"`. |
-| Non-finite intermediate | Unexpected division by zero or overflow not handled by edge-case rules | Throw `EVALUATION_FINITE_METRIC_VIOLATION`. Completion Processor marks Candidate `FAILED`. |
-| Called with `FailedBacktestResult` | Caller mistakenly passes a failed result | Must throw `INVALID_INPUT`: `evaluate()` requires `status: "COMPLETED"`. |
+| Case                               | Trigger                                                                | Behavior                                                                                                                                                                |
+| ---------------------------------- | ---------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Zero trades                        | `completedBacktestResult.trades.length === 0`                          | Returns valid `EvaluationMetrics` with all numeric fields `= 0`, `profitFactorStatus = "NO_TRADES"`, `sharpeRatioStatus = "INSUFFICIENT_OBSERVATIONS"`. Does NOT throw. |
+| Single trade                       | `trades.length === 1`                                                  | `sharpeRatio = 0`, `sharpeRatioStatus = "INSUFFICIENT_OBSERVATIONS"`. Other metrics computed normally.                                                                  |
+| All trades break-even              | All `resultPercent === 0`                                              | `winRatePercent = 0`, `profitFactor = null`, `profitFactorStatus = "NO_GROSS_MOVEMENT"`, `sharpeRatio = 0`, `sharpeRatioStatus = "ZERO_VARIANCE"`.                      |
+| All trades winning                 | All `resultPercent > 0`                                                | `winRatePercent = 100`, `profitFactor = null`, `profitFactorStatus = "NO_LOSSES"`. Other metrics computed normally.                                                     |
+| All trades losing                  | All `resultPercent < 0`                                                | `winRatePercent = 0`, `profitFactor = 0` (grossProfit = 0, grossLoss > 0, ratio = 0), `profitFactorStatus = "FINITE"`.                                                  |
+| Non-finite intermediate            | Unexpected division by zero or overflow not handled by edge-case rules | Throw `EVALUATION_FINITE_METRIC_VIOLATION`. Completion Processor marks Candidate `FAILED`.                                                                              |
+| Called with `FailedBacktestResult` | Caller mistakenly passes a failed result                               | Must throw `INVALID_INPUT`: `evaluate()` requires `status: "COMPLETED"`.                                                                                                |
 
 ---
 
@@ -270,28 +281,28 @@ export interface EvaluationMetrics {
 
   // Core metrics — all finite numbers; never NaN / Infinity / -Infinity
   totalReturnPercent: number;
-  winRatePercent: number;           // 0–100
-  numberOfTrades: number;           // non-negative integer
-  maxDrawdownPercent: number;       // non-negative; 18 = 18% loss, NOT -18
+  winRatePercent: number; // 0–100
+  numberOfTrades: number; // non-negative integer
+  maxDrawdownPercent: number; // non-negative; 18 = 18% loss, NOT -18
 
   // Profit Factor — null when status is not "FINITE"
   profitFactor: number | null;
   profitFactorStatus:
-    | "FINITE"               // grossLoss > 0; value = grossProfit / grossLoss
-    | "NO_TRADES"            // numberOfTrades = 0
-    | "NO_LOSSES"            // grossProfit > 0, grossLoss = 0 (all trades profitable)
-    | "NO_GROSS_MOVEMENT";   // grossProfit = 0, grossLoss = 0 (all break-even)
+    | "FINITE" // grossLoss > 0; value = grossProfit / grossLoss
+    | "NO_TRADES" // numberOfTrades = 0
+    | "NO_LOSSES" // grossProfit > 0, grossLoss = 0 (all trades profitable)
+    | "NO_GROSS_MOVEMENT"; // grossProfit = 0, grossLoss = 0 (all break-even)
 
   // Sharpe Ratio — always a finite number (0 when status is not "FINITE")
   sharpeRatio: number;
   sharpeRatioStatus:
-    | "FINITE"                      // numberOfTrades >= 2 AND stdDev > 1e-12
-    | "INSUFFICIENT_OBSERVATIONS"   // numberOfTrades < 2
-    | "ZERO_VARIANCE";              // stdDev <= 1e-12
+    | "FINITE" // numberOfTrades >= 2 AND stdDev > 1e-12
+    | "INSUFFICIENT_OBSERVATIONS" // numberOfTrades < 2
+    | "ZERO_VARIANCE"; // stdDev <= 1e-12
 
   // Provenance — must match the values pinned in experiment_results
   evaluationRuntimeVersion: string; // semver, e.g. "1.0.0"
-  evaluationRuntimeSha256: string;  // hex SHA-256 (64 chars) of the evaluation domain code
+  evaluationRuntimeSha256: string; // hex SHA-256 (64 chars) of the evaluation domain code
 }
 
 // ─── Evaluator ───────────────────────────────────────────────────────────────
@@ -323,9 +334,9 @@ without redeclaring it.
 export interface Trade {
   id: string;
   backtestAttemptId: string;
-  entryTime: string;    // ISO-8601 UTC
+  entryTime: string; // ISO-8601 UTC
   entryPrice: number;
-  exitTime: string;     // ISO-8601 UTC
+  exitTime: string; // ISO-8601 UTC
   exitPrice: number;
   resultPercent: number; // e.g. +1.85 or -0.90
   signal: "LONG" | "SHORT"; // MVP uses LONG only
@@ -474,25 +485,25 @@ flowchart LR
 
 - [ ] `evaluate()` with an empty `trades` array returns `totalReturnPercent = 0`.
 - [ ] `evaluate()` with a single trade of `resultPercent = +5` returns
-  `totalReturnPercent = 5`.
+      `totalReturnPercent = 5`.
 - [ ] `evaluate()` with two trades `[+10, -5]` returns
-  `totalReturnPercent = ((1.10 × 0.95) − 1) × 100 = 4.5`.
+      `totalReturnPercent = ((1.10 × 0.95) − 1) × 100 = 4.5`.
 - [ ] `evaluate()` with all-losing trades returns a finite negative `totalReturnPercent`.
 
 ### Win Rate
 
 - [ ] `evaluate()` with `trades = [+1, -1, 0, +2]` returns
-  `numberOfTrades = 4`, `winRatePercent = 50` (2 wins; break-even counts as loss).
+      `numberOfTrades = 4`, `winRatePercent = 50` (2 wins; break-even counts as loss).
 - [ ] `evaluate()` with zero trades returns `winRatePercent = 0`.
 - [ ] `evaluate()` with all break-even trades (`resultPercent = 0`) returns
-  `winRatePercent = 0`.
+      `winRatePercent = 0`.
 - [ ] `evaluate()` with all winning trades returns `winRatePercent = 100`.
 
 ### Max Drawdown
 
 - [ ] `evaluate()` with zero trades returns `maxDrawdownPercent = 0`.
 - [ ] `evaluate()` with a trade sequence `[+20, -10, +5]` returns a finite,
-  non-negative `maxDrawdownPercent`.
+      non-negative `maxDrawdownPercent`.
 - [ ] `evaluate()` with all-winning trades returns `maxDrawdownPercent = 0`.
 - [ ] `evaluate()` never returns a negative `maxDrawdownPercent`.
 
@@ -501,50 +512,50 @@ flowchart LR
 - [ ] Zero trades → `profitFactor = null`, `profitFactorStatus = "NO_TRADES"`.
 - [ ] Trades `[+5, -2]` → `profitFactor = 5/2 = 2.5`, `profitFactorStatus = "FINITE"`.
 - [ ] All trades winning (`[+3, +1]`) → `profitFactor = null`,
-  `profitFactorStatus = "NO_LOSSES"`.
+      `profitFactorStatus = "NO_LOSSES"`.
 - [ ] All break-even (`[0, 0]`) → `profitFactor = null`,
-  `profitFactorStatus = "NO_GROSS_MOVEMENT"`.
+      `profitFactorStatus = "NO_GROSS_MOVEMENT"`.
 - [ ] All trades losing (`[-2, -1]`) → `profitFactor = 0`,
-  `profitFactorStatus = "FINITE"`.
+      `profitFactorStatus = "FINITE"`.
 
 ### Sharpe Ratio
 
 - [ ] Zero trades → `sharpeRatio = 0`, `sharpeRatioStatus = "INSUFFICIENT_OBSERVATIONS"`.
 - [ ] Single trade → `sharpeRatio = 0`, `sharpeRatioStatus = "INSUFFICIENT_OBSERVATIONS"`.
 - [ ] Two identical trades (`[+2, +2]`) → `sharpeRatio = 0`,
-  `sharpeRatioStatus = "ZERO_VARIANCE"` (stdDev = 0 ≤ 1e-12).
+      `sharpeRatioStatus = "ZERO_VARIANCE"` (stdDev = 0 ≤ 1e-12).
 - [ ] Mixed trades (`[+5, -1, +3]`) → finite `sharpeRatio`,
-  `sharpeRatioStatus = "FINITE"`.
+      `sharpeRatioStatus = "FINITE"`.
 
 ### Finite metric enforcement
 
 - [ ] Any computation path that would produce `NaN` or `±Infinity` throws
-  `EVALUATION_FINITE_METRIC_VIOLATION`; no `EvaluationMetrics` object is returned.
+      `EVALUATION_FINITE_METRIC_VIOLATION`; no `EvaluationMetrics` object is returned.
 - [ ] Calling `evaluate()` with a `FailedBacktestResult` (status `"FAILED"`) throws
-  `INVALID_INPUT`.
+      `INVALID_INPUT`.
 
 ### Purity and determinism
 
 - [ ] `evaluate()` called twice with identical `CompletedBacktestResult` returns byte-for-byte
-  identical `EvaluationMetrics` (determinism test).
+      identical `EvaluationMetrics` (determinism test).
 - [ ] A unit test for `evaluate()` requires no database, no network, and no async
-  setup; it runs in < 10ms for 10,000 trades.
+      setup; it runs in < 10ms for 10,000 trades.
 
 ### Provenance
 
 - [ ] `evaluationRuntimeVersion` and `evaluationRuntimeSha256` on the returned
-  `EvaluationMetrics` are non-empty strings and match the values exposed by
-  `EvaluatorModulePublicApi.runtimeVersion` / `runtimeSha256`.
+      `EvaluationMetrics` are non-empty strings and match the values exposed by
+      `EvaluatorModulePublicApi.runtimeVersion` / `runtimeSha256`.
 - [ ] Changing any metric formula (e.g., the `stdDev` threshold or the win definition)
-  results in a different `evaluationRuntimeSha256` without requiring a manual update —
-  enforced by deriving the hash from the source files at build time.
+      results in a different `evaluationRuntimeSha256` without requiring a manual update —
+      enforced by deriving the hash from the source files at build time.
 
 ### Architecture boundary
 
 - [ ] An architecture test or code review prevents `modules/evaluation/domain` from
-  importing PostgreSQL, Redis, BullMQ, HTTP, or UI libraries.
+      importing PostgreSQL, Redis, BullMQ, HTTP, or UI libraries.
 - [ ] An architecture test or code review prevents any module other than
-  `modules/backtesting` from calling `Evaluator.evaluate()` at runtime (the type is
-  exported but calling it outside the Completion Processor is a design violation).
+      `modules/backtesting` from calling `Evaluator.evaluate()` at runtime (the type is
+      exported but calling it outside the Completion Processor is a design violation).
 - [ ] A unit test confirms `evaluate()` contains no `await`, `Promise`, or any async
-  primitive in its call stack.
+      primitive in its call stack.

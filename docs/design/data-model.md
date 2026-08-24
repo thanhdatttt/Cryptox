@@ -2,10 +2,10 @@
 
 ## 1. Storage Strategy Recap
 
-| Store | Role |
-|---|---|
-| **PostgreSQL** | Single source of truth for everything with ACID/versioning/reproducibility needs: candles, strategy & composite definitions, candidates, trades, experiment results, leaderboard, news, sentiment. |
-| **Redis** | (a) BullMQ-backed backtest work queue and completion/failure notifications, (b) latest-candle/latest-tick cache for realtime reads, and (c) ephemeral exchange connection status. Redis is not a general Event Bus and stores no authoritative Experiment or Leaderboard state. |
+| Store          | Role                                                                                                                                                                                                                                                                            |
+| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **PostgreSQL** | Single source of truth for everything with ACID/versioning/reproducibility needs: candles, strategy & composite definitions, candidates, trades, experiment results, leaderboard, news, sentiment.                                                                              |
+| **Redis**      | (a) BullMQ-backed backtest work queue and completion/failure notifications, (b) latest-candle/latest-tick cache for realtime reads, and (c) ephemeral exchange connection status. Redis is not a general Event Bus and stores no authoritative Experiment or Leaderboard state. |
 
 Schema ownership follows business-module ownership, even though the MVP uses one PostgreSQL database. The owning module defines the aggregate rules and repository ports; its `infrastructure` layer implements persistence. SQL migrations, seeds, and database bootstrap remain under `infra/db/migrations` and `infra/`, while deployable composition remains under `apps/`. This session changes documentation only and applies no migrations or runtime behavior; any newly stated planning invariant (such as version-family allocation) remains pending implementation.
 
@@ -267,13 +267,13 @@ erDiagram
 
 Owned by `modules/market-data`. Corresponds to brief §4 and `architecture.md` §1.3: the module normalizes and upserts candles, then serves them through REST and the market-only WebSocket boundary.
 
-| Column | Type | Notes |
-|---|---|---|
-| `pair` | `text` | Part of PK. Deliberately `text`, not an enum — brief §32.2/§44.3 requires adding pairs without a code change (mirrors the `Pair` contract type). |
-| `timeframe` | `timeframe_enum` (`'1m','5m','15m','1h','4h','1d'`) | Part of PK. Matches the closed `Timeframe` union in the contract — extending it is a migration, which is acceptable since it's a small, brief-defined set. |
-| `timestamp` | `timestamptz` | Part of PK. Candle open time. |
-| `open`, `high`, `low`, `close`, `volume` | `numeric` | Per brief §1 example. |
-| `is_closed` | `boolean` | Mirrors `Candle.isClosed` — lets the same table hold the still-forming realtime candle as well as finalized ones. |
+| Column                                   | Type                                                | Notes                                                                                                                                                      |
+| ---------------------------------------- | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pair`                                   | `text`                                              | Part of PK. Deliberately `text`, not an enum — brief §32.2/§44.3 requires adding pairs without a code change (mirrors the `Pair` contract type).           |
+| `timeframe`                              | `timeframe_enum` (`'1m','5m','15m','1h','4h','1d'`) | Part of PK. Matches the closed `Timeframe` union in the contract — extending it is a migration, which is acceptable since it's a small, brief-defined set. |
+| `timestamp`                              | `timestamptz`                                       | Part of PK. Candle open time.                                                                                                                              |
+| `open`, `high`, `low`, `close`, `volume` | `numeric`                                           | Per brief §1 example.                                                                                                                                      |
+| `is_closed`                              | `boolean`                                           | Mirrors `Candle.isClosed` — lets the same table hold the still-forming realtime candle as well as finalized ones.                                          |
 
 ```sql
 CREATE TYPE timeframe_enum AS ENUM ('1m','5m','15m','1h','4h','1d');
@@ -293,7 +293,7 @@ CREATE TABLE candles (
 CREATE INDEX idx_candles_pair_tf_time ON candles (pair, timeframe, "timestamp" DESC);
 ```
 
-**Not persisted:** `MarketTick` (raw per-tick price) and `MarketDataConnectionStatus`. Both are pure realtime/ephemeral state — see §5 (Redis). Writing every tick to Postgres would fight the Realtime driver (§32.3) for no reproducibility benefit, since only *closed* candles are ever backtested (brief §19).
+**Not persisted:** `MarketTick` (raw per-tick price) and `MarketDataConnectionStatus`. Both are pure realtime/ephemeral state — see §5 (Redis). Writing every tick to Postgres would fight the Realtime driver (§32.3) for no reproducibility benefit, since only _closed_ candles are ever backtested (brief §19).
 
 **Growth note (brief §32.2):** this table is the one most likely to need partitioning once multiple pairs × 6 timeframes × months of history accumulate. Recommended path if/when it matters: monthly range partitions on `timestamp`, or move to TimescaleDB — noted as a scalability follow-up, not required for the MVP scope (brief §37).
 
@@ -367,18 +367,18 @@ Alignment uses half-open dataset range `[dataset_from, dataset_to)` and aggregat
 
 Owned by `modules/strategy`. Corresponds to `StrategyDefinition` in `component-contracts.md` §3, brief §36 (versioning).
 
-| Column | Type | Notes |
-|---|---|---|
-| `id` | `uuid PK` | Unique **per version** (Identity rule, §0 of the contracts file) — never reused. |
-| `logical_family_key` | `text NOT NULL` | Stable family identity used for atomic version allocation; not a display label. |
-| `family_name` | `text NULL` | Display-only label (e.g. "MA-RSI Strategy"); **never a FK.** |
-| `strategy_name` | `text NOT NULL` | Matches `Strategy.name`, resolved via the runtime `StrategyRegistry` — not a FK to a DB table (see §3.2.1). |
-| `implementation_version`, `implementation_sha256` | `text`, `char(64)` | Pins the exact retained plugin build; parameter version alone cannot reproduce behavior after code changes. |
-| `version` | `int NOT NULL` | Incremented on any parameter or implementation provenance change; rows are append-only, never updated. |
-| `parameters` | `jsonb NOT NULL` | e.g. `{ "fastPeriod": 20, "slowPeriod": 50 }`. |
-| `created_at` | `timestamptz NOT NULL DEFAULT now()` | |
+| Column                                            | Type                                 | Notes                                                                                                       |
+| ------------------------------------------------- | ------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
+| `id`                                              | `uuid PK`                            | Unique **per version** (Identity rule, §0 of the contracts file) — never reused.                            |
+| `logical_family_key`                              | `text NOT NULL`                      | Stable family identity used for atomic version allocation; not a display label.                             |
+| `family_name`                                     | `text NULL`                          | Display-only label (e.g. "MA-RSI Strategy"); **never a FK.**                                                |
+| `strategy_name`                                   | `text NOT NULL`                      | Matches `Strategy.name`, resolved via the runtime `StrategyRegistry` — not a FK to a DB table (see §3.2.1). |
+| `implementation_version`, `implementation_sha256` | `text`, `char(64)`                   | Pins the exact retained plugin build; parameter version alone cannot reproduce behavior after code changes. |
+| `version`                                         | `int NOT NULL`                       | Incremented on any parameter or implementation provenance change; rows are append-only, never updated.      |
+| `parameters`                                      | `jsonb NOT NULL`                     | e.g. `{ "fastPeriod": 20, "slowPeriod": 50 }`.                                                              |
+| `created_at`                                      | `timestamptz NOT NULL DEFAULT now()` |                                                                                                             |
 
-```sql
+````sql
 CREATE TABLE strategy_definitions (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   logical_family_key TEXT NOT NULL,
@@ -398,10 +398,12 @@ Add a `user_id` foreign‑key column to tie each composite definition to its own
 
 ```sql
 ALTER TABLE composite_strategy_definitions ADD COLUMN user_id UUID NOT NULL REFERENCES users(id);
-```
+````
+
 ---
-CREATE UNIQUE INDEX uq_strategy_defs_family_version
----
+
+## CREATE UNIQUE INDEX uq_strategy_defs_family_version
+
 ## 3.14 `strategy_definitions` (add user ownership)
 
 Add a `user_id` foreign‑key column to tie each strategy definition to its owner.
@@ -409,9 +411,12 @@ Add a `user_id` foreign‑key column to tie each strategy definition to its owne
 ```sql
 ALTER TABLE strategy_definitions ADD COLUMN user_id UUID NOT NULL REFERENCES users(id);
 ```
+
 ---
-  ON strategy_definitions (logical_family_key, version);
-```
+
+ON strategy_definitions (logical_family_key, version);
+
+````
 
 Version allocation is an application/repository invariant. `logical_family_key` is stable for the logical strategy family and is not a display label. Before inserting, `modules/strategy` atomically locks or serializes that family, verifies the next version, and guarantees that concurrent callers may never reuse a `(logical_family_key, version)` pair. A new version is required for parameter or implementation provenance changes. The same rule applies to Composite Definitions.
 
@@ -444,17 +449,20 @@ Add a `user_id` foreign‑key column to tie each Search Run to its creator.
 
 ```sql
 ALTER TABLE search_runs ADD COLUMN user_id UUID NOT NULL REFERENCES users(id);
-```
+````
+
 ---
-  ON composite_strategy_definitions (logical_family_key, version);
+
+ON composite_strategy_definitions (logical_family_key, version);
 
 CREATE TABLE composite_strategy_components (
-  composite_definition_id UUID NOT NULL REFERENCES composite_strategy_definitions(id),
-  strategy_definition_id  UUID NOT NULL REFERENCES strategy_definitions(id),
-  weight                   NUMERIC NOT NULL DEFAULT 0,  -- ignored when method = MAJORITY_VOTE
-  PRIMARY KEY (composite_definition_id, strategy_definition_id)
+composite_definition_id UUID NOT NULL REFERENCES composite_strategy_definitions(id),
+strategy_definition_id UUID NOT NULL REFERENCES strategy_definitions(id),
+weight NUMERIC NOT NULL DEFAULT 0, -- ignored when method = MAJORITY_VOTE
+PRIMARY KEY (composite_definition_id, strategy_definition_id)
 );
-```
+
+````
 
 Composite repository validation mirrors the public contract: at least one component is required; `WEIGHTED_SCORE` requires finite weights summing to `1` and thresholds with `buy > sell`; `MAJORITY_VOTE` stores normalized zero weights and documented default thresholds. A changed component set, weight, method, threshold, or referenced Strategy Definition creates the next version under the same logical-family allocation rule.
 
@@ -484,7 +492,7 @@ CREATE TABLE score_formulas (
   UNIQUE (name, version),
   CHECK (weight_return + weight_win_rate + weight_risk_score = 1)
 );
-```
+````
 
 Changing weights or risk calculation creates a new version; old rows are never updated. Database roles grant formula repositories `SELECT`/`INSERT` but not `UPDATE`/`DELETE`, and an append-only trigger rejects in-place changes as defense in depth. This turns the brief's example `0.5×Return + 0.2×WinRate + 0.3×RiskScore` into an auditable rule instead of a hard-coded constant.
 
@@ -521,7 +529,7 @@ CREATE TABLE leaderboard_scopes (
 
 Both Manual Backtest and Search Run select a scope. A scope combines immutable candle/sentiment inputs, capital/cost assumptions, a score-formula version, and exact worker/evaluation runtime hashes. Candidate submission inspects registered plugin descriptors: a composite containing category `INFORMATION` requires the scope's sentiment snapshot, matching coin and covering the candle snapshot range; candle-only composites may use a scope without it. The Coordinator copies the pinned worker runtime into the job, and both worker and evaluator reject a local runtime that does not match the scope. Scope repositories likewise have `SELECT`/`INSERT` only, and an append-only trigger rejects `UPDATE`/`DELETE`; changes always create a new version. Every non-cancelled Candidate whose pipeline succeeds becomes a permanent Experiment; only a rank-eligible Experiment that qualifies for that scope's fixed MVP Top-10 becomes a persistent `leaderboard_entries` row.
 
-### 3.6 `search_runs` *(additive)*
+### 3.6 `search_runs` _(additive)_
 
 Groups candidates by "one press of START SEARCH" (brief §46 step 3) and gives `LoopStatus` (contracts §5.1) a durable backing row instead of pure in-memory state. Owned by `modules/search`.
 
@@ -575,7 +583,7 @@ For concurrency accounting, `CREATED`, `QUEUED`, `BACKTESTING`, `RETRY_WAIT`, `P
 
 All transactions that touch more than one lifecycle aggregate use one lock order: a Search Candidate takes `SearchRun → Candidate → LeaderboardScope`; a Manual Candidate takes `Candidate → LeaderboardScope`. Search cancel/fill begins with Search Run and calls Backtesting application ports for Candidate state; worker-only transitions lock Candidate, and Top-10 admission locks Scope last. Bounded retries for PostgreSQL deadlock/serialization codes `40P01`/`40001` repeat the same transaction without consuming a new completion claim.
 
-### 3.7 `candidate_strategies` *(additive)*
+### 3.7 `candidate_strategies` _(additive)_
 
 Owned by `modules/backtesting`. The Search module supplies metadata for Search candidates, while Manual candidates use the same lifecycle and queue boundary.
 
@@ -869,6 +877,7 @@ Two read models are intentionally different:
 ### 3.12 `news_items` / `sentiment_results`
 
 ---
+
 ## 3.13 `users`
 
 Owned by `modules/auth`. Stores each registered user and a bcrypt‑hashed password. All other tables that represent user‑owned data reference this table via a `user_id` foreign key.
@@ -883,7 +892,6 @@ CREATE TABLE users (
 ```
 
 ---
-
 
 `modules/news` owns `news_items`; `modules/sentiment` owns `sentiment_results` and sentiment snapshot tables. They remain separate so swapping the sentiment model, or adding a `CrawlerProvider`, never touches the other's business ownership or schema.
 
@@ -912,7 +920,7 @@ CREATE TABLE sentiment_results (
 CREATE INDEX idx_sentiment_news ON sentiment_results (news_id, analyzed_at DESC);
 ```
 
-`sentiment_results` is deliberately **one-to-many** on `news_id`, not one-to-one: if the ML model changes (brief §40.6: *"if the sentiment model changes, is the Strategy Engine affected?"*), re-analyzing old news inserts a new row instead of overwriting — the same append-only, never-mutate-in-place spirit as `strategy_definitions`. `NewsSentimentStrategy` (contracts §9) reads the row with `MAX(analyzed_at)` per `news_id` — a `latest_sentiment` view is the natural place to put that:
+`sentiment_results` is deliberately **one-to-many** on `news_id`, not one-to-one: if the ML model changes (brief §40.6: _"if the sentiment model changes, is the Strategy Engine affected?"_), re-analyzing old news inserts a new row instead of overwriting — the same append-only, never-mutate-in-place spirit as `strategy_definitions`. `NewsSentimentStrategy` (contracts §9) reads the row with `MAX(analyzed_at)` per `news_id` — a `latest_sentiment` view is the natural place to put that:
 
 ```sql
 CREATE VIEW latest_sentiment AS
@@ -923,20 +931,20 @@ ORDER BY news_id, analyzed_at DESC, id DESC;
 
 `url UNIQUE` on `news_items` gives the multi-provider de-dup that brief §28 implies (RSS, NewsAPI, and a Crawler could all surface the same story) without any provider needing to know about the others.
 
-## 4. What is intentionally *not* a table
+## 4. What is intentionally _not_ a table
 
-| Contract type | Where it actually lives | Why |
-|---|---|---|
-| `MarketTick` | Redis only (`ticks:latest:{pair}`) | Pure realtime state; never backtested, never reproducibility-relevant. |
-| `MarketDataConnectionStatus` | Redis only (`connection:status:{provider}`) | Ephemeral health state; brief §32.4 needs it pushed to the Frontend live, not queried historically. |
-| `LoopStatus` | Derived at REST read-time from `search_runs` + `candidate_strategies` + `backtest_attempts` + `experiment_results` | It is a read model, not a second source of truth. Its current top entry is scoped to that Search Run. |
-| `StrategyPluginDescriptor` / registered plugin list | In-process `StrategyRegistry`, queried live | See §3.2.1 — persisting it would create a second, driftable source of truth for something that is really just "what code is currently deployed." |
+| Contract type                                       | Where it actually lives                                                                                            | Why                                                                                                                                              |
+| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `MarketTick`                                        | Redis only (`ticks:latest:{pair}`)                                                                                 | Pure realtime state; never backtested, never reproducibility-relevant.                                                                           |
+| `MarketDataConnectionStatus`                        | Redis only (`connection:status:{provider}`)                                                                        | Ephemeral health state; brief §32.4 needs it pushed to the Frontend live, not queried historically.                                              |
+| `LoopStatus`                                        | Derived at REST read-time from `search_runs` + `candidate_strategies` + `backtest_attempts` + `experiment_results` | It is a read model, not a second source of truth. Its current top entry is scoped to that Search Run.                                            |
+| `StrategyPluginDescriptor` / registered plugin list | In-process `StrategyRegistry`, queried live                                                                        | See §3.2.1 — persisting it would create a second, driftable source of truth for something that is really just "what code is currently deployed." |
 
 ## 5. Redis Key Design
 
-| Key pattern | Type | Written by | Read by | Purpose |
-|---|---|---|---|---|
-| `candles:latest:{pair}:{timeframe}` | List/JSON blob (bounded latest window; includes `schemaVersion`, `asOf`, and `completeThrough`) | `modules/market-data` after normalizing a candle | REST initial chart load, Market WebSocket Gateway | Fresh realtime/initial chart optimization; miss/stale/invalid falls back to PostgreSQL. |
-| `ticks:latest:{pair}` | String (JSON; includes `schemaVersion` and `asOf`) | `modules/market-data` on every tick | WebSocket Gateway | The sub-candle price stream (brief §4 example); never persisted, as noted in §4. |
-| `connection:status:{provider}` | String (JSON) | `BinanceAdapter` (and future `OKXAdapter`, etc.) | WebSocket Gateway → Frontend warning banner | Answers brief §40.7 ("if Binance WS disconnects, how does the system recover?") — Frontend shows `RECONNECTING` instead of freezing. |
-| `bullmq:backtest:*` | BullMQ-managed | Backtest Coordinator (enqueue), Backtest Workers (consume/complete/fail) | Backtest Worker Pool and Completion Processor | The only asynchronous messaging boundary. BullMQ owns dispatch, retry/backoff, and terminal notifications; PostgreSQL remains authoritative. |
+| Key pattern                         | Type                                                                                            | Written by                                                               | Read by                                           | Purpose                                                                                                                                      |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ | ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `candles:latest:{pair}:{timeframe}` | List/JSON blob (bounded latest window; includes `schemaVersion`, `asOf`, and `completeThrough`) | `modules/market-data` after normalizing a candle                         | REST initial chart load, Market WebSocket Gateway | Fresh realtime/initial chart optimization; miss/stale/invalid falls back to PostgreSQL.                                                      |
+| `ticks:latest:{pair}`               | String (JSON; includes `schemaVersion` and `asOf`)                                              | `modules/market-data` on every tick                                      | WebSocket Gateway                                 | The sub-candle price stream (brief §4 example); never persisted, as noted in §4.                                                             |
+| `connection:status:{provider}`      | String (JSON)                                                                                   | `BinanceAdapter` (and future `OKXAdapter`, etc.)                         | WebSocket Gateway → Frontend warning banner       | Answers brief §40.7 ("if Binance WS disconnects, how does the system recover?") — Frontend shows `RECONNECTING` instead of freezing.         |
+| `bullmq:backtest:*`                 | BullMQ-managed                                                                                  | Backtest Coordinator (enqueue), Backtest Workers (consume/complete/fail) | Backtest Worker Pool and Completion Processor     | The only asynchronous messaging boundary. BullMQ owns dispatch, retry/backoff, and terminal notifications; PostgreSQL remains authoritative. |

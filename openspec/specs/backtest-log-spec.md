@@ -61,16 +61,16 @@ Out of scope:
 
 ### Actors
 
-| Actor | Interaction |
-|---|---|
-| `apps/backend` / Frontend | Starts, polls, cancels, and displays a backtest through REST. It never reads Backtesting tables directly. |
-| Backtest Coordinator | Creates Candidates, owns queue submission/reconciliation, exposes progress, and owns terminal-job watchdog behavior. |
-| Backtest Worker | Claims a queue job, creates a fenced Attempt, runs the pure simulation, and persists Attempt/Trade results before returning or throwing. |
-| Completion Processor | Consumes small terminal wake-ups, reloads PostgreSQL state, evaluates successful Attempts, and finalizes the Candidate/Experiment transactionally. |
-| `modules/search` | Reads Candidate summaries through the Backtesting public API and receives a post-commit completion callback. |
-| Evaluation / Leaderboard | Supplies metric and scoring policies through public APIs; neither owns Candidate or Attempt history. |
-| PostgreSQL | Authoritative source for Candidate, Attempt, Trade, completion, and Experiment history. |
-| BullMQ / Redis | Durable work dispatch and terminal wake-up transport only; its messages are not the audit record. |
+| Actor                     | Interaction                                                                                                                                        |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/backend` / Frontend | Starts, polls, cancels, and displays a backtest through REST. It never reads Backtesting tables directly.                                          |
+| Backtest Coordinator      | Creates Candidates, owns queue submission/reconciliation, exposes progress, and owns terminal-job watchdog behavior.                               |
+| Backtest Worker           | Claims a queue job, creates a fenced Attempt, runs the pure simulation, and persists Attempt/Trade results before returning or throwing.           |
+| Completion Processor      | Consumes small terminal wake-ups, reloads PostgreSQL state, evaluates successful Attempts, and finalizes the Candidate/Experiment transactionally. |
+| `modules/search`          | Reads Candidate summaries through the Backtesting public API and receives a post-commit completion callback.                                       |
+| Evaluation / Leaderboard  | Supplies metric and scoring policies through public APIs; neither owns Candidate or Attempt history.                                               |
+| PostgreSQL                | Authoritative source for Candidate, Attempt, Trade, completion, and Experiment history.                                                            |
+| BullMQ / Redis            | Durable work dispatch and terminal wake-up transport only; its messages are not the audit record.                                                  |
 
 ### Source interpretation and precedence
 
@@ -105,35 +105,35 @@ runtime behaviors.
 
 ### 2.1 Functional requirements
 
-| ID | Requirement |
-|---|---|
+| ID        | Requirement                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | FR-BL-001 | The Backtesting module must persist one Candidate identity containing `candidateId`, origin, immutable `selectionMode`, origin-specific Search metadata, `leaderboardScopeId`, immutable composite-definition reference, `queueJobId`, attempt budget, and lifecycle timestamps before queue submission. Search Candidates require `searchRunId`, `generatedBy`, and positive `iterationNumber`; Manual Candidates must contain none of those Search fields. A Manual transport retry is identified by an optional durable `submissionIdempotencyKey`; the key is request metadata and is not a strategy identity. |
-| FR-BL-002 | The log must expose the Candidate's current lifecycle status using the documented states `CREATED`, `QUEUED`, `BACKTESTING`, `RETRY_WAIT`, `PROCESSING_RESULT`, `TERMINAL_FAILURE_PENDING`, `COMPLETED`, `FAILED`, and `CANCELLED`. |
-| FR-BL-003 | Every runnable worker delivery must create at most one Attempt number for the Candidate, and the persisted Attempt number must never exceed `Candidate.maxAttempts`. A redelivery that observes an existing `RUNNING` Attempt must reuse it or close it only after verified stalled/terminal evidence; repeated delivery of an already completed or terminal Candidate must create no new Attempt. |
-| FR-BL-004 | Each Attempt must retain `attemptId`, `candidateId`, `queueJobId`, `attemptNumber`, `status`, `startedAt`, optional `completedAt`, worker runtime version, worker runtime SHA-256, and bounded, redacted failure context when the Attempt fails. |
-| FR-BL-005 | A successful Attempt must persist its Trades before the worker reports success to BullMQ. A failed Attempt must have no Trades. A completed Attempt belonging to a Candidate cancelled during simulation may retain Trades as audit history, but those Trades are not eligible for an Experiment or ranking. |
-| FR-BL-006 | The log must distinguish simulation Attempt status from completion-processing status. Completion processing uses the persisted `completionAttemptCount` as its claim generation, fixed completion budget, next-retry time, lease/token, `failureKind`, and `lastError`; final writes must match the Candidate, claim generation, token, and an unexpired lease (`completion_lease_until > now()`), and completion processing never consumes another simulation Attempt. |
-| FR-BL-007 | The log must classify terminal failure as `RETRY_EXHAUSTED`, `INFRASTRUCTURE`, or `COMPLETION_PROCESSING`, retain bounded/redacted error context, and preserve the original simulation failure kind when completion processing later exhausts its own budget. MVP Attempt failures identify `RETRYABLE`, `INFRASTRUCTURE`, or `CANCELLED_AUDIT`; permanent validation failures are rejected before Attempt allocation, and invalid evaluator output is `COMPLETION_PROCESSING`. |
-| FR-BL-008 | A non-cancelled Candidate whose completed Attempt is evaluated successfully must produce at most one ExperimentResult, linked to the exact Candidate, Attempt, Composite Definition, Leaderboard Scope, score formula, worker runtime, and evaluation runtime. The completion transaction must re-lock the Candidate and require the expected `PROCESSING_RESULT` state, claim generation/token, and unexpired completion lease before creating Experiment or ranking data. |
-| FR-BL-009 | The log must preserve a zero-trade successful Experiment with finite `totalProfitAmount = 0`, `totalReturnPercent = 0`, `winRatePercent = 0`, `maxDrawdownPercent = 0`, `numberOfTrades = 0`, `overallScore = 0`, `profitFactor = null`/`NO_TRADES`, and `rankEligible = false`; it must not fabricate a Trade or silently discard the successful Attempt. |
-| FR-BL-010 | Worker final writes must be fenced by the active Attempt generation and Candidate state. A superseded delivery may emit `IGNORED/SUPERSEDED`, but it must not close another Attempt, overwrite Candidate state, or add Trades. The only exception is the explicit cancelled-audit fence in §3.4, which permits that same Attempt to finish its own audit Trades without reopening the Candidate. |
-| FR-BL-011 | Cancellation must be durable and idempotent. A Candidate that is `CANCELLED` must remain `CANCELLED`; a worker already simulating may finish its own Attempt and Trades for audit, but no Experiment, ranking entry, Search completion counter, or slot release may be created from that audit result. |
-| FR-BL-012 | The Completion Processor must reload the authoritative log state for every terminal wake-up. Duplicate `completed`, `retries-exhausted`, or verified-terminal-failed notifications must converge to one final outcome without duplicate Attempts, Experiments, ranking entries, counters, or slot releases. |
-| FR-BL-013 | Startup and periodic reconciliation must recover Candidates whose queue notification was lost, whose enqueue state was interrupted, or whose worker crashed before its normal final write. Recovery must close an abandoned `RUNNING` Attempt or create a synthetic failed Attempt before terminal failure finalization. |
-| FR-BL-014 | The public progress projection must be bounded and safe for polling: it must include Candidate status, deterministically ordered Attempt summaries, retry/completion metadata, failure information, timestamps, and an Experiment reference when available, but must not embed the full Trade list or raw queue payload. `maxAttempts` must obey a finite deployment-configured upper bound. |
-| FR-BL-015 | The Experiment read surface must provide the reproducibility chain and Trade Detail for a completed Experiment: pair, timeframe, dataset range/hash, initial capital, fees, slippage, immutable strategy/composite versions and parameters, worker/simulator provenance, evaluation provenance, score-formula version, finite metrics including total net profit amount, score, rank eligibility, and deterministically ordered Trades. Each Trade row must expose the columns required by FR-BL-021. |
-| FR-BL-016 | Operational structured logs and metrics may record queue, worker, reconciliation, fencing, and completion events, but they must contain stable IDs and typed failure categories rather than secrets, credentials, or provider-specific raw payloads. Operational logs are diagnostic only; PostgreSQL remains authoritative. |
-| FR-BL-017 | The allowlisted Backtesting boundary must expose submission, status, Candidate summary, cancellation, Attempt audit, and paginated Trade Detail capabilities. Terminal-signal processing and reconciliation are Backtesting application/bootstrap operations, not REST or Search-owned operations. REST adapters must map missing IDs to `404`, wrong-origin cancellation to `409`, and repeated cancellation of an already terminal Candidate to an idempotent success/no-op. |
-| FR-BL-018 | The Manual Backtest flow must let the caller create or select an immutable benchmark scope containing canonical pair/coin, timeframe, UTC `[from, to)` range, initial capital, fee rate, and MVP slippage of exactly `5` bps. The scope must seal the dataset snapshot before a Candidate is created; the accepted Candidate stores only the committed scope reference and later exposes the same values. |
-| FR-BL-019 | Manual submission may declare `selectionMode = "SINGLE"` or `"COMPOSITE"` as a client assertion. The server derives and persists `SINGLE` for exactly one Strategy Definition and one-component weight-`1` Composite, or `COMPOSITE` for at least two components; a mismatching assertion is rejected. The supplied Strategy Definitions must match the Composite components one-to-one, in deterministic order, with no duplicates or extras. |
-| FR-BL-020 | The Manual Backtest REST flow must expose `POST /leaderboard-scopes` for benchmark setup and `POST /backtests` for Manual submission. The first returns `201` with a committed scope reference; the second returns `202` with `candidateId`, `jobId`, and status. The REST adapter maps request bodies to the public Backtesting API and never writes domain tables directly. |
-| FR-BL-021 | Paginated Trade Detail must expose one row per completed Trade with pair, sequence/trade ID, entry time and executed price, optional stop-loss and take-profit trigger prices, exit time and executed price, quantity, fee amount, `slippageBps = 5`, slippage amount, net absolute `profit`, and net `resultPercent`. Amounts are in the scope's quote currency; timestamps are ISO-8601 UTC; all values are finite and deterministically ordered. |
-| FR-BL-022 | Trade accounting must be reproducible: the simulator applies the scope fee rate and exactly 5 bps slippage to entry and exit fills, persists the applied amounts, and defines `profit` as net P&L after fee and slippage. The Experiment metrics must also expose total net profit amount and define `totalReturnPercent = totalProfitAmount / initialCapital * 100`. |
-| FR-BL-023 | Reproducibility provenance must include simulator version/hash (an MVP alias of the pinned worker runtime version/hash), benchmark timezone, fill/execution policy, same-candle ordering policy, and a deterministic seed or an explicit deterministic guarantee, so replaying the same sealed scope and definitions yields identical Trade rows and metrics. |
-| FR-BL-024 | Benchmark-scope creation must be retry-safe. A scope request uses a required bounded idempotency key and immutable request SHA-256; the Market Data snapshot operation and scope persistence use the same create-or-get identity, while reconciliation repairs an interrupted cross-system call without creating a second scope or snapshot reference. A reused key with a different body is rejected with `409`. |
-| FR-BL-025 | The Backtesting Coordinator must derive the persisted `selectionMode` from the validated Composite component count (`1` = `SINGLE`, `>=2` = `COMPOSITE`). A transport `selectionMode` is only an optional client assertion; a mismatch is rejected with `400` and it is never an independent identity field. Every retained Strategy Definition must resolve through the Strategy public API using its exact implementation version/hash; unavailable artifacts fail explicitly with `IMPLEMENTATION_ARTIFACT_UNAVAILABLE`. |
-| FR-BL-026 | The public Backtesting API must expose a replay-verification operation that loads the original sealed scope, Strategy/Composite artifacts, simulator/fill/evaluation policies, and runtime hashes, then compares canonical ordered Trades and metrics without creating a new Candidate, Experiment, ranking entry, or mutating historical rows. Missing artifacts or snapshots produce typed non-replayable failures. |
-| FR-BL-027 | Shared v1 REST/in-process contracts remain compatible with branch `main` and use finite JavaScript `number` values for existing prices, quantities, fees, P&L, capital, percentages, and metrics. The simulator and persistence layer must still use the exact decimal policy internally and for canonical replay comparison; `DecimalString` is internal/persistence representation, not a replacement wire type. Trade timestamps must declare candle-level fill semantics, and every Trade cursor must be opaque, resource-bound, limit-bound, and encode the last `(entryTime, sequence, id)` ordering key. |
+| FR-BL-002 | The log must expose the Candidate's current lifecycle status using the documented states `CREATED`, `QUEUED`, `BACKTESTING`, `RETRY_WAIT`, `PROCESSING_RESULT`, `TERMINAL_FAILURE_PENDING`, `COMPLETED`, `FAILED`, and `CANCELLED`.                                                                                                                                                                                                                                                                                                                                                                                |
+| FR-BL-003 | Every runnable worker delivery must create at most one Attempt number for the Candidate, and the persisted Attempt number must never exceed `Candidate.maxAttempts`. A redelivery that observes an existing `RUNNING` Attempt must reuse it or close it only after verified stalled/terminal evidence; repeated delivery of an already completed or terminal Candidate must create no new Attempt.                                                                                                                                                                                                                 |
+| FR-BL-004 | Each Attempt must retain `attemptId`, `candidateId`, `queueJobId`, `attemptNumber`, `status`, `startedAt`, optional `completedAt`, worker runtime version, worker runtime SHA-256, and bounded, redacted failure context when the Attempt fails.                                                                                                                                                                                                                                                                                                                                                                   |
+| FR-BL-005 | A successful Attempt must persist its Trades before the worker reports success to BullMQ. A failed Attempt must have no Trades. A completed Attempt belonging to a Candidate cancelled during simulation may retain Trades as audit history, but those Trades are not eligible for an Experiment or ranking.                                                                                                                                                                                                                                                                                                       |
+| FR-BL-006 | The log must distinguish simulation Attempt status from completion-processing status. Completion processing uses the persisted `completionAttemptCount` as its claim generation, fixed completion budget, next-retry time, lease/token, `failureKind`, and `lastError`; final writes must match the Candidate, claim generation, token, and an unexpired lease (`completion_lease_until > now()`), and completion processing never consumes another simulation Attempt.                                                                                                                                            |
+| FR-BL-007 | The log must classify terminal failure as `RETRY_EXHAUSTED`, `INFRASTRUCTURE`, or `COMPLETION_PROCESSING`, retain bounded/redacted error context, and preserve the original simulation failure kind when completion processing later exhausts its own budget. MVP Attempt failures identify `RETRYABLE`, `INFRASTRUCTURE`, or `CANCELLED_AUDIT`; permanent validation failures are rejected before Attempt allocation, and invalid evaluator output is `COMPLETION_PROCESSING`.                                                                                                                                    |
+| FR-BL-008 | A non-cancelled Candidate whose completed Attempt is evaluated successfully must produce at most one ExperimentResult, linked to the exact Candidate, Attempt, Composite Definition, Leaderboard Scope, score formula, worker runtime, and evaluation runtime. The completion transaction must re-lock the Candidate and require the expected `PROCESSING_RESULT` state, claim generation/token, and unexpired completion lease before creating Experiment or ranking data.                                                                                                                                        |
+| FR-BL-009 | The log must preserve a zero-trade successful Experiment with finite `totalProfitAmount = 0`, `totalReturnPercent = 0`, `winRatePercent = 0`, `maxDrawdownPercent = 0`, `numberOfTrades = 0`, `overallScore = 0`, `profitFactor = null`/`NO_TRADES`, and `rankEligible = false`; it must not fabricate a Trade or silently discard the successful Attempt.                                                                                                                                                                                                                                                         |
+| FR-BL-010 | Worker final writes must be fenced by the active Attempt generation and Candidate state. A superseded delivery may emit `IGNORED/SUPERSEDED`, but it must not close another Attempt, overwrite Candidate state, or add Trades. The only exception is the explicit cancelled-audit fence in §3.4, which permits that same Attempt to finish its own audit Trades without reopening the Candidate.                                                                                                                                                                                                                   |
+| FR-BL-011 | Cancellation must be durable and idempotent. A Candidate that is `CANCELLED` must remain `CANCELLED`; a worker already simulating may finish its own Attempt and Trades for audit, but no Experiment, ranking entry, Search completion counter, or slot release may be created from that audit result.                                                                                                                                                                                                                                                                                                             |
+| FR-BL-012 | The Completion Processor must reload the authoritative log state for every terminal wake-up. Duplicate `completed`, `retries-exhausted`, or verified-terminal-failed notifications must converge to one final outcome without duplicate Attempts, Experiments, ranking entries, counters, or slot releases.                                                                                                                                                                                                                                                                                                        |
+| FR-BL-013 | Startup and periodic reconciliation must recover Candidates whose queue notification was lost, whose enqueue state was interrupted, or whose worker crashed before its normal final write. Recovery must close an abandoned `RUNNING` Attempt or create a synthetic failed Attempt before terminal failure finalization.                                                                                                                                                                                                                                                                                           |
+| FR-BL-014 | The public progress projection must be bounded and safe for polling: it must include Candidate status, deterministically ordered Attempt summaries, retry/completion metadata, failure information, timestamps, and an Experiment reference when available, but must not embed the full Trade list or raw queue payload. `maxAttempts` must obey a finite deployment-configured upper bound.                                                                                                                                                                                                                       |
+| FR-BL-015 | The Experiment read surface must provide the reproducibility chain and Trade Detail for a completed Experiment: pair, timeframe, dataset range/hash, initial capital, fees, slippage, immutable strategy/composite versions and parameters, worker/simulator provenance, evaluation provenance, score-formula version, finite metrics including total net profit amount, score, rank eligibility, and deterministically ordered Trades. Each Trade row must expose the columns required by FR-BL-021.                                                                                                              |
+| FR-BL-016 | Operational structured logs and metrics may record queue, worker, reconciliation, fencing, and completion events, but they must contain stable IDs and typed failure categories rather than secrets, credentials, or provider-specific raw payloads. Operational logs are diagnostic only; PostgreSQL remains authoritative.                                                                                                                                                                                                                                                                                       |
+| FR-BL-017 | The allowlisted Backtesting boundary must expose submission, status, Candidate summary, cancellation, Attempt audit, and paginated Trade Detail capabilities. Terminal-signal processing and reconciliation are Backtesting application/bootstrap operations, not REST or Search-owned operations. REST adapters must map missing IDs to `404`, wrong-origin cancellation to `409`, and repeated cancellation of an already terminal Candidate to an idempotent success/no-op.                                                                                                                                     |
+| FR-BL-018 | The Manual Backtest flow must let the caller create or select an immutable benchmark scope containing canonical pair/coin, timeframe, UTC `[from, to)` range, initial capital, fee rate, and MVP slippage of exactly `5` bps. The scope must seal the dataset snapshot before a Candidate is created; the accepted Candidate stores only the committed scope reference and later exposes the same values.                                                                                                                                                                                                          |
+| FR-BL-019 | Manual submission may declare `selectionMode = "SINGLE"` or `"COMPOSITE"` as a client assertion. The server derives and persists `SINGLE` for exactly one Strategy Definition and one-component weight-`1` Composite, or `COMPOSITE` for at least two components; a mismatching assertion is rejected. The supplied Strategy Definitions must match the Composite components one-to-one, in deterministic order, with no duplicates or extras.                                                                                                                                                                     |
+| FR-BL-020 | The Manual Backtest REST flow must expose `POST /leaderboard-scopes` for benchmark setup and `POST /backtests` for Manual submission. The first returns `201` with a committed scope reference; the second returns `202` with `candidateId`, `jobId`, and status. The REST adapter maps request bodies to the public Backtesting API and never writes domain tables directly.                                                                                                                                                                                                                                      |
+| FR-BL-021 | Paginated Trade Detail must expose one row per completed Trade with pair, sequence/trade ID, entry time and executed price, optional stop-loss and take-profit trigger prices, exit time and executed price, quantity, fee amount, `slippageBps = 5`, slippage amount, net absolute `profit`, and net `resultPercent`. Amounts are in the scope's quote currency; timestamps are ISO-8601 UTC; all values are finite and deterministically ordered.                                                                                                                                                                |
+| FR-BL-022 | Trade accounting must be reproducible: the simulator applies the scope fee rate and exactly 5 bps slippage to entry and exit fills, persists the applied amounts, and defines `profit` as net P&L after fee and slippage. The Experiment metrics must also expose total net profit amount and define `totalReturnPercent = totalProfitAmount / initialCapital * 100`.                                                                                                                                                                                                                                              |
+| FR-BL-023 | Reproducibility provenance must include simulator version/hash (an MVP alias of the pinned worker runtime version/hash), benchmark timezone, fill/execution policy, same-candle ordering policy, and a deterministic seed or an explicit deterministic guarantee, so replaying the same sealed scope and definitions yields identical Trade rows and metrics.                                                                                                                                                                                                                                                      |
+| FR-BL-024 | Benchmark-scope creation must be retry-safe. A scope request uses a required bounded idempotency key and immutable request SHA-256; the Market Data snapshot operation and scope persistence use the same create-or-get identity, while reconciliation repairs an interrupted cross-system call without creating a second scope or snapshot reference. A reused key with a different body is rejected with `409`.                                                                                                                                                                                                  |
+| FR-BL-025 | The Backtesting Coordinator must derive the persisted `selectionMode` from the validated Composite component count (`1` = `SINGLE`, `>=2` = `COMPOSITE`). A transport `selectionMode` is only an optional client assertion; a mismatch is rejected with `400` and it is never an independent identity field. Every retained Strategy Definition must resolve through the Strategy public API using its exact implementation version/hash; unavailable artifacts fail explicitly with `IMPLEMENTATION_ARTIFACT_UNAVAILABLE`.                                                                                        |
+| FR-BL-026 | The public Backtesting API must expose a replay-verification operation that loads the original sealed scope, Strategy/Composite artifacts, simulator/fill/evaluation policies, and runtime hashes, then compares canonical ordered Trades and metrics without creating a new Candidate, Experiment, ranking entry, or mutating historical rows. Missing artifacts or snapshots produce typed non-replayable failures.                                                                                                                                                                                              |
+| FR-BL-027 | Shared v1 REST/in-process contracts remain compatible with branch `main` and use finite JavaScript `number` values for existing prices, quantities, fees, P&L, capital, percentages, and metrics. The simulator and persistence layer must still use the exact decimal policy internally and for canonical replay comparison; `DecimalString` is internal/persistence representation, not a replacement wire type. Trade timestamps must declare candle-level fill semantics, and every Trade cursor must be opaque, resource-bound, limit-bound, and encode the last `(entryTime, sequence, id)` ordering key.    |
 
 ### 2.2 Business rules
 
@@ -177,25 +177,25 @@ runtime behaviors.
   idempotency and prevents equivalent JSON bodies from producing different
   identities.
 - **Manual benchmark selection:** the Manual screen may present benchmark
-   setup as one form, but the durable backend sequence is
-   `POST /leaderboard-scopes` followed by `POST /backtests`. Scope creation
+  setup as one form, but the durable backend sequence is
+  `POST /leaderboard-scopes` followed by `POST /backtests`. Scope creation
   validates canonical pair/coin, supported timeframe, UTC inclusive `from`,
   UTC exclusive `to`, `from < to`, timeframe alignment, finite positive
   `initialCapital`, finite non-negative `feeRatePercent`, and the MVP literal
-   `slippageBps = 5`. Any configured `stopLossPercent` or
+  `slippageBps = 5`. Any configured `stopLossPercent` or
   `takeProfitPercent` must be finite and in `[0, 100)`. It requires a bounded
   idempotency key and immutable
-   request digest, then calls Market Data's idempotent
-   `createDatasetSnapshot` for the exact pair/range, persists both
-   `datasetSnapshotId` and its content hash, and asks Leaderboard to persist and
-   lock the immutable scope. Backtesting never writes the `leaderboard_scopes`
-   table directly. Market Data and PostgreSQL are separate resource managers,
-   so this is an idempotent two-step saga rather than a pretend distributed
-   transaction: retry/reconciliation repeats the same snapshot command and
-   content hash, and changed sealed content returns
-   `SCOPE_SNAPSHOT_CONTENT_CHANGED` instead of silently substituting a new
-   benchmark. `startManual` accepts only that
-   committed scope ID; it cannot
+  request digest, then calls Market Data's idempotent
+  `createDatasetSnapshot` for the exact pair/range, persists both
+  `datasetSnapshotId` and its content hash, and asks Leaderboard to persist and
+  lock the immutable scope. Backtesting never writes the `leaderboard_scopes`
+  table directly. Market Data and PostgreSQL are separate resource managers,
+  so this is an idempotent two-step saga rather than a pretend distributed
+  transaction: retry/reconciliation repeats the same snapshot command and
+  content hash, and changed sealed content returns
+  `SCOPE_SNAPSHOT_CONTENT_CHANGED` instead of silently substituting a new
+  benchmark. `startManual` accepts only that
+  committed scope ID; it cannot
   silently replace pair, range, capital, fee, or slippage with current defaults.
   `sentimentSnapshotId` and `sentimentCreate` are mutually exclusive. When
   `sentimentCreate` is supplied, Backtesting calls Sentiment's public
@@ -204,47 +204,47 @@ runtime behaviors.
   provide neither, but never both; Backtesting never persists sentiment points
   or reads Sentiment tables.
 - **Manual strategy selection:** execution always resolves a
-   `CompositeStrategyDefinition`, even for a single strategy.
-   `derivedSelectionMode = SINGLE` requires one Strategy Definition, one
-   matching Composite component, `WEIGHTED_SCORE`, and weight `1`;
-   `derivedSelectionMode = COMPOSITE` requires at
-   least two matching components and uses the existing `MAJORITY_VOTE` or
-   `WEIGHTED_SCORE` rules. The submitted definitions must match component IDs
-   one-to-one, with no duplicate or extra IDs. The Coordinator derives the
-   persisted mode from component cardinality; a submitted mode is only a
-   client assertion and a mismatch is rejected with `400`.
+  `CompositeStrategyDefinition`, even for a single strategy.
+  `derivedSelectionMode = SINGLE` requires one Strategy Definition, one
+  matching Composite component, `WEIGHTED_SCORE`, and weight `1`;
+  `derivedSelectionMode = COMPOSITE` requires at
+  least two matching components and uses the existing `MAJORITY_VOTE` or
+  `WEIGHTED_SCORE` rules. The submitted definitions must match component IDs
+  one-to-one, with no duplicate or extra IDs. The Coordinator derives the
+  persisted mode from component cardinality; a submitted mode is only a
+  client assertion and a mismatch is rejected with `400`.
 - **Manual strategy validation:** definitions are created or verified through
-   the Strategy public API first. The API may participate in the caller's
-   opaque process-level unit of work, but Strategy remains the owner of its
-   tables and repositories. Backtesting persists only immutable definition
-   IDs, versions, implementation hashes, and the Composite reference in its
-   Candidate transaction; it never writes Strategy-owned tables or passes a
-   database handle across the module boundary. Unknown, duplicate, mismatched,
-   or conflicting IDs reject with a typed `400`/`409`.
-   Weighted composites require finite weights summing to `1` and valid
-   thresholds (`buy > sell`). If any component is an `INFORMATION` strategy,
-   the selected scope must contain a matching sealed sentiment snapshot
-   covering the candle range.
+  the Strategy public API first. The API may participate in the caller's
+  opaque process-level unit of work, but Strategy remains the owner of its
+  tables and repositories. Backtesting persists only immutable definition
+  IDs, versions, implementation hashes, and the Composite reference in its
+  Candidate transaction; it never writes Strategy-owned tables or passes a
+  database handle across the module boundary. Unknown, duplicate, mismatched,
+  or conflicting IDs reject with a typed `400`/`409`.
+  Weighted composites require finite weights summing to `1` and valid
+  thresholds (`buy > sell`). If any component is an `INFORMATION` strategy,
+  the selected scope must contain a matching sealed sentiment snapshot
+  covering the candle range.
 - **Strategy execution compatibility:** the worker calls the Strategy public
-   `resolveStrategy` and `combineSignals` APIs. Combination semantics remain
-   owned by Strategy: encode `BUY = +1`, `HOLD = 0`, `SELL = -1`; use strict
-   `score > buy` / `score < sell` thresholds for `WEIGHTED_SCORE`; and return
-   `HOLD` for every `MAJORITY_VOTE` tie. Majority Vote weights/thresholds use
-   Strategy's normalized defaults. Backtesting records the resolved versions
-   but does not reimplement or fork those rules.
+  `resolveStrategy` and `combineSignals` APIs. Combination semantics remain
+  owned by Strategy: encode `BUY = +1`, `HOLD = 0`, `SELL = -1`; use strict
+  `score > buy` / `score < sell` thresholds for `WEIGHTED_SCORE`; and return
+  `HOLD` for every `MAJORITY_VOTE` tie. Majority Vote weights/thresholds use
+  Strategy's normalized defaults. Backtesting records the resolved versions
+  but does not reimplement or fork those rules.
 - **Retained strategy artifacts:** before a worker claims an Attempt, every
-   Strategy Definition is resolved through the Strategy public API using its
-   retained `implementationVersion` and `implementationSha256`. If the exact
-   artifact is unavailable, the Attempt records
-   `failure_category = INFRASTRUCTURE`,
-   `failure_code = IMPLEMENTATION_ARTIFACT_UNAVAILABLE`,
-   `failure_retryable = false`, and the Candidate follows the terminal failure
-   mapping; current deployed code is never substituted.
+  Strategy Definition is resolved through the Strategy public API using its
+  retained `implementationVersion` and `implementationSha256`. If the exact
+  artifact is unavailable, the Attempt records
+  `failure_category = INFRASTRUCTURE`,
+  `failure_code = IMPLEMENTATION_ARTIFACT_UNAVAILABLE`,
+  `failure_retryable = false`, and the Candidate follows the terminal failure
+  mapping; current deployed code is never substituted.
 - **Attempt budget ownership:** `maxAttempts` is a positive integer requested
-   by the caller but owned and capped by the Backtesting Coordinator's
-   deployment configuration. The accepted Candidate persists the effective
-   value before enqueue; no queue payload, worker, Search generator, or retry
-   may increase it later.
+  by the caller but owned and capped by the Backtesting Coordinator's
+  deployment configuration. The accepted Candidate persists the effective
+  value before enqueue; no queue payload, worker, Search generator, or retry
+  may increase it later.
 - **Trade accounting:** a Trade's `entryPrice` and `exitPrice` are executed
   quote-per-base prices after the scope's 5-bps slippage policy. The simulator
   also records `feeAmount` and `slippageAmount` in quote currency. `grossProfit`
@@ -263,7 +263,7 @@ runtime behaviors.
   The MVP never opens a short or reverses on the same candle, and no same-candle
   re-entry is allowed after an exit. Position quantity is full-capital and
   fee-aware: `quantity = initialCapital / (executedEntryPrice * (1 +
-  feeRatePercent / 100))`. `SHORT` remains a reserved extension in the generic
+feeRatePercent / 100))`. `SHORT` remains a reserved extension in the generic
   formulas and is rejected by the MVP policy rather than inferred from a
   `SELL` signal.
 - **Risk-policy source:** when `stopLossPercent` or `takeProfitPercent` is
@@ -280,18 +280,18 @@ runtime behaviors.
   `exitNotional = exitPrice * quantity`; `notionalEntryValue` is exactly the
   persisted rounded `entryNotional`;
   `slippageAmount = abs(entryPrice - marketEntryPrice) * quantity +
-  abs(exitPrice - marketExitPrice) * quantity`;
+abs(exitPrice - marketExitPrice) * quantity`;
   `grossProfit = d * (marketExitPrice - marketEntryPrice) * quantity`;
   `feeAmount = (feeRatePercent / 100) * (entryNotional + exitNotional)`;
   and `profit = grossProfit - slippageAmount - feeAmount`. These formulas use
   the scope decimal policy before persistence.
- - **Evaluation policy `MVP_EVALUATION_V1`:** is the sole authoritative
-   evaluation policy for this spec. `modules/evaluation` owns its implementation
-   and version; Backtesting does not recalculate or override the metrics
-   returned by that API. The adapter must persist this policy ID, and any future
-   formula requires a new policy ID and compatibility mapping. Over the
-   deterministically ordered closed Trades ordered by
-   `(entryTime ASC, sequence ASC, id ASC)`,
+- **Evaluation policy `MVP_EVALUATION_V1`:** is the sole authoritative
+  evaluation policy for this spec. `modules/evaluation` owns its implementation
+  and version; Backtesting does not recalculate or override the metrics
+  returned by that API. The adapter must persist this policy ID, and any future
+  formula requires a new policy ID and compatibility mapping. Over the
+  deterministically ordered closed Trades ordered by
+  `(entryTime ASC, sequence ASC, id ASC)`,
   `numberOfTrades = N`, `wins = count(profit > 0)`,
   `winRatePercent = 0` when `N = 0`, otherwise `wins / N * 100`, and
   `totalProfitAmount = sum(profit)`. Let `equity_0 = initialCapital` and
@@ -304,12 +304,12 @@ runtime behaviors.
   `NO_LOSSES` when `N > 0`, positive profit exists, and `negativeProfit = 0`,
   `NO_GROSS_MOVEMENT` when `N > 0` and both positive and negative profit are
   zero, and `FINITE` otherwise. Sharpe uses per-Trade decimal returns
-   `resultPercent / 100`, arithmetic mean, sample standard deviation (denominator
-   `N - 1`), and
+  `resultPercent / 100`, arithmetic mean, sample standard deviation (denominator
+  `N - 1`), and
   `mean / stddev * sqrt(N)` with no risk-free rate; `N < 2` maps to
-   `INSUFFICIENT_OBSERVATIONS`, and `N >= 2` with sample standard deviation
+  `INSUFFICIENT_OBSERVATIONS`, and `N >= 2` with sample standard deviation
   `<= 1e-12` maps to `ZERO_VARIANCE`, matching the branch `main` Evaluation
-   contract. Otherwise both metric statuses are `FINITE`.
+  contract. Otherwise both metric statuses are `FINITE`.
   `profitFactor` is null for all non-`FINITE` profit-factor statuses; Sharpe is
   finite `0` for `INSUFFICIENT_OBSERVATIONS` or `ZERO_VARIANCE`. All formulas
   use closed Trades only.
@@ -338,14 +338,14 @@ runtime behaviors.
   rule: if the final candle is also the next-open entry bar, it may close at
   that candle's close with `exitReason = RANGE_END`. A strategy close
   is filled at that candle's `close`. Only one position may be open per
-   component/composite context, and no same-candle re-entry is allowed. These
-   raw fill prices become `marketEntryPrice`/`marketExitPrice` before the 5-bps
-   execution adjustment. `entryTime` is the next candle's UTC open timestamp.
-   A gap or protective trigger exit uses the current candle's UTC open
-   timestamp because OHLC data has no authoritative intrabar time; a strategy
-   close or `RANGE_END` exit uses the current candle's UTC close timestamp
-   (`candle.timestamp + timeframe duration`). No synthetic sub-candle timestamp
-   may be invented.
+  component/composite context, and no same-candle re-entry is allowed. These
+  raw fill prices become `marketEntryPrice`/`marketExitPrice` before the 5-bps
+  execution adjustment. `entryTime` is the next candle's UTC open timestamp.
+  A gap or protective trigger exit uses the current candle's UTC open
+  timestamp because OHLC data has no authoritative intrabar time; a strategy
+  close or `RANGE_END` exit uses the current candle's UTC close timestamp
+  (`candle.timestamp + timeframe duration`). No synthetic sub-candle timestamp
+  may be invented.
 - **Slippage and fee policy:** `slippageBps = 5` means a rate of
   `5 / 10,000 = 0.0005` (`0.05%`) per fill. The simulator applies adverse
   slippage to both entry and exit according to side (`LONG`/`SHORT`) and
@@ -431,11 +431,11 @@ runtime behaviors.
   counted once in the completion transaction; startup reconciliation may repair
   counters from PostgreSQL.
 - **Replay verification:** `verifyReplay` loads the exact sealed snapshot and
-   retained Strategy artifacts, reruns the pure simulator and evaluator, and
-   compares canonical decimal Trade rows and metrics. It is read-only and has
-   no Candidate, Experiment, or Leaderboard side effects. Missing historical
-   input or implementation artifacts returns a typed non-replayable failure
-   rather than silently using current data or code.
+  retained Strategy artifacts, reruns the pure simulator and evaluator, and
+  compares canonical decimal Trade rows and metrics. It is read-only and has
+  no Candidate, Experiment, or Leaderboard side effects. Missing historical
+  input or implementation artifacts returns a typed non-replayable failure
+  rather than silently using current data or code.
 - **No future-looking replay:** the log identifies the immutable candle and,
   when applicable, sentiment snapshot selected by the Leaderboard Scope. A
   replay must use those sealed references instead of querying mutable live
@@ -447,28 +447,28 @@ The following transitions are normative. `COMPLETED`, `FAILED`, and
 `CANCELLED` are terminal. Cancellation wins when its transaction acquires the
 Candidate lock before a worker or Completion Processor final write.
 
-| Current state | Allowed next state | Guard / owner |
-|---|---|---|
-| `CREATED` | `QUEUED` | Coordinator records enqueue success; update is conditional on `status = CREATED`. |
-| `CREATED` | `BACKTESTING` | Worker claims the job before the late `QUEUED` update; the late update must not overwrite it. |
-| `CREATED` | `TERMINAL_FAILURE_PENDING` | Watchdog verifies the deterministic job is terminal and no retry is runnable. |
-| `CREATED` | `CANCELLED` | Manual/Search cancellation commits first. |
-| `QUEUED` | `BACKTESTING` | Worker allocates the active Attempt generation. |
-| `QUEUED` | `TERMINAL_FAILURE_PENDING` | Watchdog has `QueueRecoveryEvidence` proving the deterministic job is terminal and no retry is runnable; it closes or creates one synthetic failed Attempt. |
-| `QUEUED` | `CANCELLED` | Manual/Search cancellation commits first. |
-| `BACKTESTING` | `RETRY_WAIT` | Fenced retryable Attempt failure with remaining simulation budget. |
-| `BACKTESTING` | `PROCESSING_RESULT` | Fenced successful Attempt transaction persisted Trades and closed the Attempt. |
-| `BACKTESTING` | `TERMINAL_FAILURE_PENDING` | Last simulation failure or verified infrastructure failure. |
-| `BACKTESTING` | `CANCELLED` | Cancellation commits first; a later audit Attempt write does not leave this state. |
-| `RETRY_WAIT` | `BACKTESTING` | A retry delivery allocates the next Attempt generation. |
-| `RETRY_WAIT` | `TERMINAL_FAILURE_PENDING` | Watchdog verifies terminal/no-runnable queue state. |
-| `RETRY_WAIT` | `CANCELLED` | Manual/Search cancellation commits first. |
-| `PROCESSING_RESULT` | `COMPLETED` | Completion transaction matches claim generation/token and creates/ensures one Experiment. |
-| `PROCESSING_RESULT` | `FAILED` | Completion claim is permanently invalid or exhausted; use `COMPLETION_PROCESSING`. |
-| `PROCESSING_RESULT` | `CANCELLED` | Cancellation commits first; completion discards computed metrics. |
-| `TERMINAL_FAILURE_PENDING` | `FAILED` | Completion transaction preserves `RETRY_EXHAUSTED` or `INFRASTRUCTURE`. |
-| `TERMINAL_FAILURE_PENDING` | `CANCELLED` | Cancellation commits first; no Experiment is created. |
-| `COMPLETED`, `FAILED`, `CANCELLED` | none | Terminal states are never reopened. |
+| Current state                      | Allowed next state         | Guard / owner                                                                                                                                               |
+| ---------------------------------- | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `CREATED`                          | `QUEUED`                   | Coordinator records enqueue success; update is conditional on `status = CREATED`.                                                                           |
+| `CREATED`                          | `BACKTESTING`              | Worker claims the job before the late `QUEUED` update; the late update must not overwrite it.                                                               |
+| `CREATED`                          | `TERMINAL_FAILURE_PENDING` | Watchdog verifies the deterministic job is terminal and no retry is runnable.                                                                               |
+| `CREATED`                          | `CANCELLED`                | Manual/Search cancellation commits first.                                                                                                                   |
+| `QUEUED`                           | `BACKTESTING`              | Worker allocates the active Attempt generation.                                                                                                             |
+| `QUEUED`                           | `TERMINAL_FAILURE_PENDING` | Watchdog has `QueueRecoveryEvidence` proving the deterministic job is terminal and no retry is runnable; it closes or creates one synthetic failed Attempt. |
+| `QUEUED`                           | `CANCELLED`                | Manual/Search cancellation commits first.                                                                                                                   |
+| `BACKTESTING`                      | `RETRY_WAIT`               | Fenced retryable Attempt failure with remaining simulation budget.                                                                                          |
+| `BACKTESTING`                      | `PROCESSING_RESULT`        | Fenced successful Attempt transaction persisted Trades and closed the Attempt.                                                                              |
+| `BACKTESTING`                      | `TERMINAL_FAILURE_PENDING` | Last simulation failure or verified infrastructure failure.                                                                                                 |
+| `BACKTESTING`                      | `CANCELLED`                | Cancellation commits first; a later audit Attempt write does not leave this state.                                                                          |
+| `RETRY_WAIT`                       | `BACKTESTING`              | A retry delivery allocates the next Attempt generation.                                                                                                     |
+| `RETRY_WAIT`                       | `TERMINAL_FAILURE_PENDING` | Watchdog verifies terminal/no-runnable queue state.                                                                                                         |
+| `RETRY_WAIT`                       | `CANCELLED`                | Manual/Search cancellation commits first.                                                                                                                   |
+| `PROCESSING_RESULT`                | `COMPLETED`                | Completion transaction matches claim generation/token and creates/ensures one Experiment.                                                                   |
+| `PROCESSING_RESULT`                | `FAILED`                   | Completion claim is permanently invalid or exhausted; use `COMPLETION_PROCESSING`.                                                                          |
+| `PROCESSING_RESULT`                | `CANCELLED`                | Cancellation commits first; completion discards computed metrics.                                                                                           |
+| `TERMINAL_FAILURE_PENDING`         | `FAILED`                   | Completion transaction preserves `RETRY_EXHAUSTED` or `INFRASTRUCTURE`.                                                                                     |
+| `TERMINAL_FAILURE_PENDING`         | `CANCELLED`                | Cancellation commits first; no Experiment is created.                                                                                                       |
+| `COMPLETED`, `FAILED`, `CANCELLED` | none                       | Terminal states are never reopened.                                                                                                                         |
 
 ### 2.4 Non-functional requirements
 
@@ -492,7 +492,7 @@ Candidate lock before a worker or Completion Processor final write.
   depend on process-local caches or a particular worker instance remaining
   alive.
 - **Layering and boundaries:** the module follows `api -> application ->
-  domain`; infrastructure implements ports. Other modules consume the public
+domain`; infrastructure implements ports. Other modules consume the public
   Backtesting API and never read its tables or queue adapter directly.
 - **Observability:** retries, fencing, terminal-watchdog repair, completion
   claim exhaustion, and malformed queue observations are measurable with
@@ -509,11 +509,7 @@ references that scope. This prevents a queue job from carrying mutable pair,
 date-range, capital, fee, or slippage inputs.
 
 ```typescript
-import type {
-  DatasetSnapshotRef,
-  Pair,
-  Timeframe,
-} from "modules/market-data/api";
+import type { DatasetSnapshotRef, Pair, Timeframe } from "modules/market-data/api";
 import type { SentimentDatasetSnapshotRef } from "modules/sentiment/api";
 
 export type DecimalString = string;
@@ -992,26 +988,26 @@ fence after the one audit finalization.
 
 ### 3.5 Error / edge cases
 
-| Case | Trigger | Required log behavior |
-|---|---|---|
-| Invalid submission | Missing/invalid scope, definition, origin metadata, or non-positive attempt budget | Reject before queue submission; no Candidate or Attempt log is created. |
-| Duplicate submission retry | Same Search identity or Manual `submissionIdempotencyKey` and identical immutable body | Return the existing Candidate/definitions; never create a second Candidate for the same idempotency identity. |
-| Idempotency conflict | Same durable identity is reused with different scope, definitions, Search metadata, or attempt budget | Reject with a conflict; never overwrite the existing Candidate or definitions. |
-| Queue enqueue interruption | Candidate committed but `QUEUED` update or enqueue acknowledgment is lost | Keep Candidate durable; reconciler confirms or re-enqueues `jobId = candidateId`. |
-| Retryable Attempt failure | Worker error and attempt budget remains | Persist a failed Attempt with error and `RETRY_WAIT`; later delivery receives a new Attempt number. |
-| Retry exhaustion | Last allowed simulation Attempt fails | Persist failed Attempt and `TERMINAL_FAILURE_PENDING` with `RETRY_EXHAUSTED`; Completion Processor later writes terminal `FAILED`. |
-| Worker crash/stall | No normal Attempt final write before queue becomes terminal | Watchdog verifies terminal/no-runnable queue state, then closes a stale Attempt or inserts one synthetic failed Attempt with `INFRASTRUCTURE`; the synthetic insert is idempotent. |
-| Raw failed wake-up | Queue reports `failed` while a retry may still run | Do not finalize; verify terminal BullMQ state and no runnable retry first. |
-| Duplicate terminal wake-up | `completed` and/or verified failure signals arrive more than once | Reload PostgreSQL and process or no-op idempotently; no duplicate Experiment, ranking, or counter. PostgreSQL state and claim generation/token win over signal arrival order. |
-| Conflicting terminal wake-up | Signals for one job disagree or a signal's `jobId` does not match its return candidate ID | Treat `jobId` as the routing key, reject the mismatch/anomaly, create no result from the signal, and leave the Candidate for reconciliation. |
-| Superseded delivery | Stalled job overlaps with replacement worker | Return `IGNORED/SUPERSEDED`; no late Attempt close, Trade insert, or Candidate overwrite. |
-| Cancelled during simulation | Candidate becomes `CANCELLED` after worker claim | Preserve audit Attempt/Trades if the worker can finish safely; exclude them from Experiment, ranking, and Search counters. |
-| Cancelled worker crashes/stalls | Cancellation committed, but the fenced audit Attempt has no final write | After verified terminal/no-runnable evidence, close one synthetic completed `CANCELLED_AUDIT` Attempt with `CANCELLED_AUDIT_INTERRUPTED`, no Trades, and no downstream side effects; late delivery is superseded. |
-| Completed Candidate redelivery | Queue job is redelivered after durable success | Return existing successful IDs or wake completion; do not simulate again. |
-| Evaluation failure | Evaluation throws, returns invalid data, or produces non-finite metrics | Retain successful Attempt/Trades, classify the failure as transient or permanent, retry only within the completion claim budget, and create no partial Experiment. Terminalization uses `COMPLETION_PROCESSING` and releases the Search slot once. |
-| Zero-trade success | Simulation completes without Trades | Persist Experiment with zero metrics/score as documented and `rankEligible = false`; keep the Attempt auditable. |
-| Missing historical input | Required sealed snapshot data is incomplete or unavailable | Validate snapshot references before worker claim; invalid/incomplete references reject with a typed 4xx and create no Attempt. If the sealed snapshot becomes unavailable after claim, record `failure_category = INFRASTRUCTURE`, `failure_code = MISSING_SNAPSHOT`, `failure_retryable = false`, move to `TERMINAL_FAILURE_PENDING`, and finalize `FAILED`. Never read future/live data or fabricate candles/sentiment. |
-| Invalid lifecycle transition | A worker, reconciler, cancellation, or completion callback observes a state not allowed by §2.3 | Lock/reload, reject or no-op the transition, and leave the durable Candidate state unchanged. |
+| Case                            | Trigger                                                                                               | Required log behavior                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Invalid submission              | Missing/invalid scope, definition, origin metadata, or non-positive attempt budget                    | Reject before queue submission; no Candidate or Attempt log is created.                                                                                                                                                                                                                                                                                                                                                   |
+| Duplicate submission retry      | Same Search identity or Manual `submissionIdempotencyKey` and identical immutable body                | Return the existing Candidate/definitions; never create a second Candidate for the same idempotency identity.                                                                                                                                                                                                                                                                                                             |
+| Idempotency conflict            | Same durable identity is reused with different scope, definitions, Search metadata, or attempt budget | Reject with a conflict; never overwrite the existing Candidate or definitions.                                                                                                                                                                                                                                                                                                                                            |
+| Queue enqueue interruption      | Candidate committed but `QUEUED` update or enqueue acknowledgment is lost                             | Keep Candidate durable; reconciler confirms or re-enqueues `jobId = candidateId`.                                                                                                                                                                                                                                                                                                                                         |
+| Retryable Attempt failure       | Worker error and attempt budget remains                                                               | Persist a failed Attempt with error and `RETRY_WAIT`; later delivery receives a new Attempt number.                                                                                                                                                                                                                                                                                                                       |
+| Retry exhaustion                | Last allowed simulation Attempt fails                                                                 | Persist failed Attempt and `TERMINAL_FAILURE_PENDING` with `RETRY_EXHAUSTED`; Completion Processor later writes terminal `FAILED`.                                                                                                                                                                                                                                                                                        |
+| Worker crash/stall              | No normal Attempt final write before queue becomes terminal                                           | Watchdog verifies terminal/no-runnable queue state, then closes a stale Attempt or inserts one synthetic failed Attempt with `INFRASTRUCTURE`; the synthetic insert is idempotent.                                                                                                                                                                                                                                        |
+| Raw failed wake-up              | Queue reports `failed` while a retry may still run                                                    | Do not finalize; verify terminal BullMQ state and no runnable retry first.                                                                                                                                                                                                                                                                                                                                                |
+| Duplicate terminal wake-up      | `completed` and/or verified failure signals arrive more than once                                     | Reload PostgreSQL and process or no-op idempotently; no duplicate Experiment, ranking, or counter. PostgreSQL state and claim generation/token win over signal arrival order.                                                                                                                                                                                                                                             |
+| Conflicting terminal wake-up    | Signals for one job disagree or a signal's `jobId` does not match its return candidate ID             | Treat `jobId` as the routing key, reject the mismatch/anomaly, create no result from the signal, and leave the Candidate for reconciliation.                                                                                                                                                                                                                                                                              |
+| Superseded delivery             | Stalled job overlaps with replacement worker                                                          | Return `IGNORED/SUPERSEDED`; no late Attempt close, Trade insert, or Candidate overwrite.                                                                                                                                                                                                                                                                                                                                 |
+| Cancelled during simulation     | Candidate becomes `CANCELLED` after worker claim                                                      | Preserve audit Attempt/Trades if the worker can finish safely; exclude them from Experiment, ranking, and Search counters.                                                                                                                                                                                                                                                                                                |
+| Cancelled worker crashes/stalls | Cancellation committed, but the fenced audit Attempt has no final write                               | After verified terminal/no-runnable evidence, close one synthetic completed `CANCELLED_AUDIT` Attempt with `CANCELLED_AUDIT_INTERRUPTED`, no Trades, and no downstream side effects; late delivery is superseded.                                                                                                                                                                                                         |
+| Completed Candidate redelivery  | Queue job is redelivered after durable success                                                        | Return existing successful IDs or wake completion; do not simulate again.                                                                                                                                                                                                                                                                                                                                                 |
+| Evaluation failure              | Evaluation throws, returns invalid data, or produces non-finite metrics                               | Retain successful Attempt/Trades, classify the failure as transient or permanent, retry only within the completion claim budget, and create no partial Experiment. Terminalization uses `COMPLETION_PROCESSING` and releases the Search slot once.                                                                                                                                                                        |
+| Zero-trade success              | Simulation completes without Trades                                                                   | Persist Experiment with zero metrics/score as documented and `rankEligible = false`; keep the Attempt auditable.                                                                                                                                                                                                                                                                                                          |
+| Missing historical input        | Required sealed snapshot data is incomplete or unavailable                                            | Validate snapshot references before worker claim; invalid/incomplete references reject with a typed 4xx and create no Attempt. If the sealed snapshot becomes unavailable after claim, record `failure_category = INFRASTRUCTURE`, `failure_code = MISSING_SNAPSHOT`, `failure_retryable = false`, move to `TERMINAL_FAILURE_PENDING`, and finalize `FAILED`. Never read future/live data or fabricate candles/sentiment. |
+| Invalid lifecycle transition    | A worker, reconciler, cancellation, or completion callback observes a state not allowed by §2.3       | Lock/reload, reject or no-op the transition, and leave the durable Candidate state unchanged.                                                                                                                                                                                                                                                                                                                             |
 
 ## 4. Contracts
 
@@ -1102,17 +1098,23 @@ export interface CompletionCoordinator {
 export interface BacktestLogApi {
   createBenchmarkScope(
     command: CreateLeaderboardScopeCommand,
-    options: { scopeIdempotencyKey: string } // required; 1..255 UTF-8 bytes
+    options: { scopeIdempotencyKey: string }, // required; 1..255 UTF-8 bytes
   ): Promise<BenchmarkScopeSummary>; // REST 201
   startManual(
     command: StartManualBacktestCommand,
-    options?: { submissionIdempotencyKey?: string } // 1..255 UTF-8 bytes; exact value is persisted
+    options?: { submissionIdempotencyKey?: string }, // 1..255 UTF-8 bytes; exact value is persisted
   ): Promise<BacktestSubmissionAccepted>;
   submitSearchCandidate(command: SubmitSearchCandidateCommand): Promise<BacktestSubmissionAccepted>;
   status(candidateId: string): Promise<CandidateProgress>; // missing ID -> 404
   summarizeSearchCandidates(searchRunId: string): Promise<SearchCandidateSummary>;
-  listSearchCandidates(searchRunId: string, page: SearchCandidatePageRequest): Promise<SearchCandidatePage>;
-  cancelSearchCandidates(searchRunId: string, unitOfWork: CancellationUnitOfWork): Promise<{ candidateIds: string[] }>;
+  listSearchCandidates(
+    searchRunId: string,
+    page: SearchCandidatePageRequest,
+  ): Promise<SearchCandidatePage>;
+  cancelSearchCandidates(
+    searchRunId: string,
+    unitOfWork: CancellationUnitOfWork,
+  ): Promise<{ candidateIds: string[] }>;
   cancelManualCandidate(candidateId: string, unitOfWork: CancellationUnitOfWork): Promise<void>; // wrong origin -> 409
   removePendingJobs(candidateIds: string[]): Promise<void>; // internal, best-effort waiting/delayed cleanup only
   readAttempt(attemptId: string): Promise<BacktestAttemptAudit>; // missing ID -> 404
@@ -1226,27 +1228,25 @@ export interface BacktestLogMetrics extends EvaluationMetrics {
   candidateId: string;
   totalProfitAmount: number; // finite quote currency, sum of closed Trade.profit
 }
-
 ```
 
 The Manual Backtest result table uses this canonical mapping:
 
-| UI column | API field | Unit / rule |
-|---|---|---|
-| Pair / Coin | `Trade.pair` | Opaque canonical Market Data `Pair`; the UI label does not imply BASE/QUOTE parsing. |
-| Thời gian vào lệnh | `entryTime` | ISO-8601 UTC. |
-| Giá vào lệnh | `entryPrice` | Executed quote-per-base price after slippage. |
-| Stoploss | `stopLoss` | Trigger price, nullable when not configured. |
-| TakeProfit | `takeProfit` | Trigger price, nullable when not configured. |
-| Thời gian kết thúc | `exitTime` | ISO-8601 UTC using the candle-level fill semantics in §2.2. |
-| Giá kết thúc | `exitPrice` | Executed quote-per-base price after slippage. |
-| Khối lượng | `quantity` | Base-asset quantity used to calculate notionals and P&L. |
-| Transaction cost (Phí) | `feeAmount` | Non-negative quote-currency amount. |
+| UI column                    | API field                       | Unit / rule                                                                                                                 |
+| ---------------------------- | ------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| Pair / Coin                  | `Trade.pair`                    | Opaque canonical Market Data `Pair`; the UI label does not imply BASE/QUOTE parsing.                                        |
+| Thời gian vào lệnh           | `entryTime`                     | ISO-8601 UTC.                                                                                                               |
+| Giá vào lệnh                 | `entryPrice`                    | Executed quote-per-base price after slippage.                                                                               |
+| Stoploss                     | `stopLoss`                      | Trigger price, nullable when not configured.                                                                                |
+| TakeProfit                   | `takeProfit`                    | Trigger price, nullable when not configured.                                                                                |
+| Thời gian kết thúc           | `exitTime`                      | ISO-8601 UTC using the candle-level fill semantics in §2.2.                                                                 |
+| Giá kết thúc                 | `exitPrice`                     | Executed quote-per-base price after slippage.                                                                               |
+| Khối lượng                   | `quantity`                      | Base-asset quantity used to calculate notionals and P&L.                                                                    |
+| Transaction cost (Phí)       | `feeAmount`                     | Non-negative quote-currency amount.                                                                                         |
 | Slippage / Spread (UI label) | `slippageBps`, `slippageAmount` | Exactly 5 bps (`0.05%`) in MVP plus applied quote amount; “Spread” is a display synonym only, not a separate input or cost. |
-| Profit | `profit`, `resultPercent` | Net quote-currency P&L after fee/slippage and net percentage. |
+| Profit                       | `profit`, `resultPercent`       | Net quote-currency P&L after fee/slippage and net percentage.                                                               |
 
 ```typescript
-
 // GET /backtests/{candidateId}; bounded polling projection.
 export interface CandidateProgress {
   candidateId: string;
@@ -1492,16 +1492,16 @@ Trades, the existing `NO_LOSSES`, `NO_GROSS_MOVEMENT`,
 
 ### 4.2 Data model, durable log ownership, and mapping
 
-| Durable record | Owner | Required audit meaning |
-|---|---|---|
-| `leaderboard_scopes` | `modules/leaderboard`; Backtesting is the composition orchestrator | Leaderboard owns persistence, version allocation, locking, and immutability. Backtesting supplies the sealed Market Data/Sentiment references, capital, fee, fixed 5-bps slippage, score formula, decimal policy, and evaluation policy through the public scope API. |
-| `candidate_strategies` | `modules/backtesting` | Current Candidate identity, origin, immutable selection mode, scope, queue identity, lifecycle, attempt budget, completion claims, failure classification, and timestamps. |
-| `backtest_attempts` | `modules/backtesting` | One worker delivery's execution history, retry number, runtime provenance, timing, status, and error. |
-| `trades` | `modules/backtesting` | Immutable Trade Detail produced by one Attempt; excluded from ranking when the Candidate was cancelled. |
-| `experiment_results` | `modules/backtesting` | One successful non-cancelled Candidate's evaluated result, score, provenance, and rank eligibility. |
-| `leaderboard_entries` | `modules/leaderboard` | Optional scoped Top-10 admission/history; it is a projection of ranking, not the execution log. |
-| BullMQ job/terminal signal | `modules/backtesting/infrastructure/queue` | Transport wake-up and failure context only; never a durable domain source. |
-| Operational logs/metrics | Composition/observability adapters | Diagnostic record only; must reference stable IDs and typed categories. |
+| Durable record             | Owner                                                              | Required audit meaning                                                                                                                                                                                                                                                |
+| -------------------------- | ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `leaderboard_scopes`       | `modules/leaderboard`; Backtesting is the composition orchestrator | Leaderboard owns persistence, version allocation, locking, and immutability. Backtesting supplies the sealed Market Data/Sentiment references, capital, fee, fixed 5-bps slippage, score formula, decimal policy, and evaluation policy through the public scope API. |
+| `candidate_strategies`     | `modules/backtesting`                                              | Current Candidate identity, origin, immutable selection mode, scope, queue identity, lifecycle, attempt budget, completion claims, failure classification, and timestamps.                                                                                            |
+| `backtest_attempts`        | `modules/backtesting`                                              | One worker delivery's execution history, retry number, runtime provenance, timing, status, and error.                                                                                                                                                                 |
+| `trades`                   | `modules/backtesting`                                              | Immutable Trade Detail produced by one Attempt; excluded from ranking when the Candidate was cancelled.                                                                                                                                                               |
+| `experiment_results`       | `modules/backtesting`                                              | One successful non-cancelled Candidate's evaluated result, score, provenance, and rank eligibility.                                                                                                                                                                   |
+| `leaderboard_entries`      | `modules/leaderboard`                                              | Optional scoped Top-10 admission/history; it is a projection of ranking, not the execution log.                                                                                                                                                                       |
+| BullMQ job/terminal signal | `modules/backtesting/infrastructure/queue`                         | Transport wake-up and failure context only; never a durable domain source.                                                                                                                                                                                            |
+| Operational logs/metrics   | Composition/observability adapters                                 | Diagnostic record only; must reference stable IDs and typed categories.                                                                                                                                                                                               |
 
 The Backtesting module owns the Candidate, Attempt, Trade, and Experiment
 aggregate for the MVP. Evaluation calculates metrics and Leaderboard decides
@@ -1542,7 +1542,7 @@ constraints, indexes, and tables.
    bounded operator-review table/log and do not silently coerce them.
 3. **Validate:** run the invariant queries in the acceptance criteria plus
    duplicate checks for idempotency keys and `(backtest_attempt_id,
-   trade_sequence)`. Compare every backfilled total against the legacy value
+trade_sequence)`. Compare every backfilled total against the legacy value
    where one exists. The migration fails closed if any required row remains
    NULL, any hash/reference pair disagrees, or any value is non-finite.
 4. **Contract:** only after validation succeeds, add the `NOT NULL`, CHECK,
@@ -1725,24 +1725,24 @@ The adapter and Completion Processor use this closed vocabulary. A new code is
 a contract change and must update the queue adapter, repository mapping, and
 acceptance fixtures together.
 
-| Code | Used when | Category / persistence | Retry or terminal action |
-|---|---|---|---|
-| `INVALID_REQUEST` | Scope, strategy, origin, or attempt-budget validation fails before claim | No Attempt row; typed `4xx` | Do not enqueue or retry |
-| `INVALID_CURSOR` | A Trade or Search cursor is malformed, expired, resource-bound to another ID, or limit-bound incorrectly | No Attempt row; typed `400` | Client must request a fresh page |
-| `NOT_FOUND` | Candidate, Attempt, Experiment, or scope ID is not visible to the authorized caller | No Attempt row; typed `404` | Do not retry without a valid resource ID |
-| `WRONG_ORIGIN` | Manual cancellation targets a Search Candidate | No Attempt row; typed `409` | Use the owning Search control |
-| `SCOPE_SNAPSHOT_CONTENT_CHANGED` | A repeated scope key resolves to different sealed Market Data content | No Attempt row; typed `409` | Require explicit new scope/reconciliation |
-| `MISSING_SNAPSHOT` | A claimed Candidate cannot read its sealed snapshot | `INFRASTRUCTURE`, `failure_retryable = false` | Terminal `FAILED` |
-| `SNAPSHOT_INCOMPLETE` | Snapshot metadata/content hash/candle count fails verification | `INFRASTRUCTURE`, `failure_retryable = false` | Terminal `FAILED` |
-| `IMPLEMENTATION_ARTIFACT_UNAVAILABLE` | Exact retained Strategy implementation version/hash cannot be resolved | `INFRASTRUCTURE`, `failure_retryable = false` | Terminal `FAILED` |
-| `WORKER_RUNTIME_MISMATCH` | Worker runtime does not match the retained scope/runtime contract | `INFRASTRUCTURE`, `failure_retryable = false` | Terminal `FAILED` |
-| `WORKER_CRASH` | Verified terminal worker loss requires a synthetic Attempt | `INFRASTRUCTURE`, `failure_retryable = false` | Terminal `FAILED` |
-| `QUEUE_ANOMALY` | Queue observation is malformed/conflicting after durable reconciliation | `INFRASTRUCTURE`, `failure_retryable = false` | Reconcile, then terminalize if no retry is runnable |
-| `RETRY_EXHAUSTED` | The final retryable simulation Attempt fails | `RETRYABLE`, `failure_retryable = true` | Move to `TERMINAL_FAILURE_PENDING`, then `FAILED` |
-| `EVALUATOR_EXCEPTION` | Evaluation throws or returns an unusable runtime result | Candidate `failureKind = COMPLETION_PROCESSING`; no new simulation Attempt | Retry completion within its five-claim budget |
-| `INVALID_EVALUATOR_OUTPUT` | Evaluation returns non-finite or contract-invalid metrics | Candidate `failureKind = COMPLETION_PROCESSING`; no new simulation Attempt | Terminal `FAILED` with `COMPLETION_PROCESSING` |
-| `CANCELLED_AUDIT_INTERRUPTED` | A fenced cancelled worker crashes before audit finalization | `CANCELLED_AUDIT`, completed `audit_only = true` | Clear fence; no Trades or downstream side effects |
-| `SUPERSEDED` | A stale overlapping delivery loses the Candidate/Attempt fence | Queue return only; no row overwrite | Ignore delivery and reconcile |
+| Code                                  | Used when                                                                                                | Category / persistence                                                     | Retry or terminal action                            |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- | --------------------------------------------------- |
+| `INVALID_REQUEST`                     | Scope, strategy, origin, or attempt-budget validation fails before claim                                 | No Attempt row; typed `4xx`                                                | Do not enqueue or retry                             |
+| `INVALID_CURSOR`                      | A Trade or Search cursor is malformed, expired, resource-bound to another ID, or limit-bound incorrectly | No Attempt row; typed `400`                                                | Client must request a fresh page                    |
+| `NOT_FOUND`                           | Candidate, Attempt, Experiment, or scope ID is not visible to the authorized caller                      | No Attempt row; typed `404`                                                | Do not retry without a valid resource ID            |
+| `WRONG_ORIGIN`                        | Manual cancellation targets a Search Candidate                                                           | No Attempt row; typed `409`                                                | Use the owning Search control                       |
+| `SCOPE_SNAPSHOT_CONTENT_CHANGED`      | A repeated scope key resolves to different sealed Market Data content                                    | No Attempt row; typed `409`                                                | Require explicit new scope/reconciliation           |
+| `MISSING_SNAPSHOT`                    | A claimed Candidate cannot read its sealed snapshot                                                      | `INFRASTRUCTURE`, `failure_retryable = false`                              | Terminal `FAILED`                                   |
+| `SNAPSHOT_INCOMPLETE`                 | Snapshot metadata/content hash/candle count fails verification                                           | `INFRASTRUCTURE`, `failure_retryable = false`                              | Terminal `FAILED`                                   |
+| `IMPLEMENTATION_ARTIFACT_UNAVAILABLE` | Exact retained Strategy implementation version/hash cannot be resolved                                   | `INFRASTRUCTURE`, `failure_retryable = false`                              | Terminal `FAILED`                                   |
+| `WORKER_RUNTIME_MISMATCH`             | Worker runtime does not match the retained scope/runtime contract                                        | `INFRASTRUCTURE`, `failure_retryable = false`                              | Terminal `FAILED`                                   |
+| `WORKER_CRASH`                        | Verified terminal worker loss requires a synthetic Attempt                                               | `INFRASTRUCTURE`, `failure_retryable = false`                              | Terminal `FAILED`                                   |
+| `QUEUE_ANOMALY`                       | Queue observation is malformed/conflicting after durable reconciliation                                  | `INFRASTRUCTURE`, `failure_retryable = false`                              | Reconcile, then terminalize if no retry is runnable |
+| `RETRY_EXHAUSTED`                     | The final retryable simulation Attempt fails                                                             | `RETRYABLE`, `failure_retryable = true`                                    | Move to `TERMINAL_FAILURE_PENDING`, then `FAILED`   |
+| `EVALUATOR_EXCEPTION`                 | Evaluation throws or returns an unusable runtime result                                                  | Candidate `failureKind = COMPLETION_PROCESSING`; no new simulation Attempt | Retry completion within its five-claim budget       |
+| `INVALID_EVALUATOR_OUTPUT`            | Evaluation returns non-finite or contract-invalid metrics                                                | Candidate `failureKind = COMPLETION_PROCESSING`; no new simulation Attempt | Terminal `FAILED` with `COMPLETION_PROCESSING`      |
+| `CANCELLED_AUDIT_INTERRUPTED`         | A fenced cancelled worker crashes before audit finalization                                              | `CANCELLED_AUDIT`, completed `audit_only = true`                           | Clear fence; no Trades or downstream side effects   |
+| `SUPERSEDED`                          | A stale overlapping delivery loses the Candidate/Attempt fence                                           | Queue return only; no row overwrite                                        | Ignore delivery and reconcile                       |
 
 `Trade.pair` is a read-model field resolved through
 `Trade -> BacktestAttempt -> Candidate -> LeaderboardScope`; it is not a
@@ -1758,18 +1758,18 @@ names map to the durable columns as follows: `sequence` -> `trade_sequence`,
 there are no separate simulator columns. A future distinct simulator requires
 an additive schema/version change rather than silently changing the alias.
 
-| Situation | Attempt persistence | Candidate/completion result |
-|---|---|---|
-| Permanent request validation before worker claim | No Attempt row | Reject the request with a typed 4xx; no Candidate is created. |
-| Retryable simulation error with budget remaining | `FAILED`, `failure_category = RETRYABLE`, `failure_retryable = true` | `RETRY_WAIT`; BullMQ may deliver the next Attempt. |
-| Final retryable simulation error | `FAILED`, `failure_category = RETRYABLE`, `failure_retryable = true` | `TERMINAL_FAILURE_PENDING` with `failureKind = RETRY_EXHAUSTED`; completion finalizes `FAILED`. |
-| Verified queue/worker stall or terminal infrastructure loss | One failed real or synthetic Attempt, `failure_category = INFRASTRUCTURE` | `TERMINAL_FAILURE_PENDING` with `failureKind = INFRASTRUCTURE`; completion finalizes `FAILED`. |
-| Sealed snapshot is missing after a worker claim | `FAILED`, `failure_category = INFRASTRUCTURE`, `failure_code = MISSING_SNAPSHOT`, `failure_retryable = false` | `TERMINAL_FAILURE_PENDING` with `failureKind = INFRASTRUCTURE`; completion finalizes `FAILED`. |
-| Sealed snapshot fails metadata/content verification after a worker claim | `FAILED`, `failure_category = INFRASTRUCTURE`, `failure_code = SNAPSHOT_INCOMPLETE`, `failure_retryable = false` | `TERMINAL_FAILURE_PENDING` with `failureKind = INFRASTRUCTURE`; completion finalizes `FAILED`. |
-| Retained strategy implementation is missing after a worker claim | `FAILED`, `failure_category = INFRASTRUCTURE`, `failure_code = IMPLEMENTATION_ARTIFACT_UNAVAILABLE`, `failure_retryable = false` | `TERMINAL_FAILURE_PENDING` with `failureKind = INFRASTRUCTURE`; completion finalizes `FAILED`. |
-| Cancellation wins during a running simulation | `COMPLETED`, `failure_category = CANCELLED_AUDIT`, `audit_only = true`, with Trades allowed | Candidate stays `CANCELLED`; no completion, Experiment, ranking, Search counter, or slot-release side effect. |
-| Evaluator transient error | No new simulation Attempt | Retry the completion claim within the five-claim budget. |
-| Evaluator permanent error or non-finite output | No new simulation Attempt | `FAILED` with `failureKind = COMPLETION_PROCESSING`; retain successful Attempt/Trades, create no Experiment. |
+| Situation                                                                | Attempt persistence                                                                                                              | Candidate/completion result                                                                                   |
+| ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| Permanent request validation before worker claim                         | No Attempt row                                                                                                                   | Reject the request with a typed 4xx; no Candidate is created.                                                 |
+| Retryable simulation error with budget remaining                         | `FAILED`, `failure_category = RETRYABLE`, `failure_retryable = true`                                                             | `RETRY_WAIT`; BullMQ may deliver the next Attempt.                                                            |
+| Final retryable simulation error                                         | `FAILED`, `failure_category = RETRYABLE`, `failure_retryable = true`                                                             | `TERMINAL_FAILURE_PENDING` with `failureKind = RETRY_EXHAUSTED`; completion finalizes `FAILED`.               |
+| Verified queue/worker stall or terminal infrastructure loss              | One failed real or synthetic Attempt, `failure_category = INFRASTRUCTURE`                                                        | `TERMINAL_FAILURE_PENDING` with `failureKind = INFRASTRUCTURE`; completion finalizes `FAILED`.                |
+| Sealed snapshot is missing after a worker claim                          | `FAILED`, `failure_category = INFRASTRUCTURE`, `failure_code = MISSING_SNAPSHOT`, `failure_retryable = false`                    | `TERMINAL_FAILURE_PENDING` with `failureKind = INFRASTRUCTURE`; completion finalizes `FAILED`.                |
+| Sealed snapshot fails metadata/content verification after a worker claim | `FAILED`, `failure_category = INFRASTRUCTURE`, `failure_code = SNAPSHOT_INCOMPLETE`, `failure_retryable = false`                 | `TERMINAL_FAILURE_PENDING` with `failureKind = INFRASTRUCTURE`; completion finalizes `FAILED`.                |
+| Retained strategy implementation is missing after a worker claim         | `FAILED`, `failure_category = INFRASTRUCTURE`, `failure_code = IMPLEMENTATION_ARTIFACT_UNAVAILABLE`, `failure_retryable = false` | `TERMINAL_FAILURE_PENDING` with `failureKind = INFRASTRUCTURE`; completion finalizes `FAILED`.                |
+| Cancellation wins during a running simulation                            | `COMPLETED`, `failure_category = CANCELLED_AUDIT`, `audit_only = true`, with Trades allowed                                      | Candidate stays `CANCELLED`; no completion, Experiment, ranking, Search counter, or slot-release side effect. |
+| Evaluator transient error                                                | No new simulation Attempt                                                                                                        | Retry the completion claim within the five-claim budget.                                                      |
+| Evaluator permanent error or non-finite output                           | No new simulation Attempt                                                                                                        | `FAILED` with `failureKind = COMPLETION_PROCESSING`; retain successful Attempt/Trades, create no Experiment.  |
 
 ### 4.3 Provenance and immutability contract
 
@@ -2019,268 +2019,268 @@ network access.
 ### Candidate and Attempt history
 
 - [ ] Starting a valid Manual or Search Candidate persists its identity,
-  immutable scope/Composite references, deterministic `queueJobId`, attempt
-  budget, and `CREATED` state before enqueue.
+      immutable scope/Composite references, deterministic `queueJobId`, attempt
+      budget, and `CREATED` state before enqueue.
 - [ ] The Manual flow can create/select a sealed scope from pair/coin,
-  timeframe, UTC `from`/`to`, initial capital, fee rate, and exactly 5 bps
-  slippage; the scope calls Market Data to persist a `datasetSnapshotId` and
-  content hash using `market-data-snapshot-v1`, verifies the returned
-  `DatasetSnapshotRef.candleCount`/pair/timeframe/range, and the same immutable
-  values are returned by the scope endpoint and later visible in the Experiment
-  summary.
+      timeframe, UTC `from`/`to`, initial capital, fee rate, and exactly 5 bps
+      slippage; the scope calls Market Data to persist a `datasetSnapshotId` and
+      content hash using `market-data-snapshot-v1`, verifies the returned
+      `DatasetSnapshotRef.candleCount`/pair/timeframe/range, and the same immutable
+      values are returned by the scope endpoint and later visible in the Experiment
+      summary.
 - [ ] Scope creation requires a bounded `Idempotency-Key` and request SHA-256;
-  an identical retry returns the original scope, a conflicting body returns
-  `409`, and a failure between Market Data snapshot creation and PostgreSQL
-  scope commit is repaired by idempotent snapshot/scope reconciliation without attaching
-  the snapshot to another request.
+      an identical retry returns the original scope, a conflicting body returns
+      `409`, and a failure between Market Data snapshot creation and PostgreSQL
+      scope commit is repaired by idempotent snapshot/scope reconciliation without attaching
+      the snapshot to another request.
 - [ ] `POST /leaderboard-scopes` returns `201`, and `POST /backtests` with the
-  committed scope and Manual strategy selection returns `202` with
-  `candidateId`/`jobId`; the REST adapter does not write domain tables.
+      committed scope and Manual strategy selection returns `202` with
+      `candidateId`/`jobId`; the REST adapter does not write domain tables.
 - [ ] Manual `selectionMode = SINGLE` accepts exactly one matching strategy
-  component with weight `1`; `COMPOSITE` accepts at least two; mismatched,
-  duplicate, extra, unknown, invalid-weight, or missing-sentiment definitions
-  are rejected before Candidate creation. The persisted mode is derived from
-  component cardinality; a mismatching client assertion is rejected.
+      component with weight `1`; `COMPOSITE` accepts at least two; mismatched,
+      duplicate, extra, unknown, invalid-weight, or missing-sentiment definitions
+      are rejected before Candidate creation. The persisted mode is derived from
+      component cardinality; a mismatching client assertion is rejected.
 - [ ] Strategy Definitions/Composites are created or verified through the
-  Strategy public API before Backtesting persists only immutable references;
-  the worker calls `resolveStrategy`/`combineSignals` and follows Strategy's
-  exact weighted/majority/tie rules.
+      Strategy public API before Backtesting persists only immutable references;
+      the worker calls `resolveStrategy`/`combineSignals` and follows Strategy's
+      exact weighted/majority/tie rules.
 - [ ] An `INFORMATION` Composite requires a matching immutable
-  `SentimentDatasetSnapshotRef`; scope validation checks related coin, range,
-  aggregation/model provenance, and content hash, and the worker reads it only
-  through Sentiment's public `readSnapshot`/`readAt` API.
+      `SentimentDatasetSnapshotRef`; scope validation checks related coin, range,
+      aggregation/model provenance, and content hash, and the worker reads it only
+      through Sentiment's public `readSnapshot`/`readAt` API.
 - [ ] Scope setup accepts exactly one of an existing `sentimentSnapshotId` or
-  canonical `sentimentCreate` command, or neither; a supplied create command
-  calls Sentiment's public `createSnapshot` and stores the returned immutable
-  reference before the scope is committed.
+      canonical `sentimentCreate` command, or neither; a supplied create command
+      calls Sentiment's public `createSnapshot` and stores the returned immutable
+      reference before the scope is committed.
 - [ ] Search submissions are idempotent by `(searchRunId, iterationNumber)`;
-  Manual retries are idempotent only with the same durable
-  `submissionIdempotencyKey`, and a conflicting body is rejected.
+      Manual retries are idempotent only with the same durable
+      `submissionIdempotencyKey`, and a conflicting body is rejected.
 - [ ] Manual idempotency uses the unique
-  `(origin, submission_idempotency_key)` mapping and persisted request SHA-256
-  digest from §4.2.1; the insert/compare/return-existing path is atomic with
-  Candidate creation.
+      `(origin, submission_idempotency_key)` mapping and persisted request SHA-256
+      digest from §4.2.1; the insert/compare/return-existing path is atomic with
+      Candidate creation.
 - [ ] Search candidates require `searchRunId`, `generatedBy`, and positive
-  `iterationNumber`; Manual candidates reject all Search-only metadata.
+      `iterationNumber`; Manual candidates reject all Search-only metadata.
 - [ ] A successful enqueue can be read as `QUEUED`; if the process crashes
-  before that update, reconciliation finds or recreates the same job and does
-  not create a duplicate Candidate.
+      before that update, reconciliation finds or recreates the same job and does
+      not create a duplicate Candidate.
 - [ ] A late `QUEUED` update is conditional on `status = CREATED` and cannot
-  overwrite `BACKTESTING`, `PROCESSING_RESULT`, or any terminal state.
+      overwrite `BACKTESTING`, `PROCESSING_RESULT`, or any terminal state.
 - [ ] Every runnable delivery creates at most one Attempt with a unique
-  `(candidateId, attemptNumber)` and no Attempt number exceeds `maxAttempts`.
+      `(candidateId, attemptNumber)` and no Attempt number exceeds `maxAttempts`.
 - [ ] Every Attempt preserves worker runtime version/hash, start/completion
-  timestamps, status, and typed error context when failed.
+      timestamps, status, and typed error context when failed.
 - [ ] Attempt failure persistence uses exactly the §4.2.1 persistence shape and
-  §4.2.2 category/code mapping:
-  `RETRYABLE`, `INFRASTRUCTURE`, or `CANCELLED_AUDIT`; permanent request
-  validation creates no Attempt, and evaluator failure maps to
-  `COMPLETION_PROCESSING` without a new simulation Attempt.
+      §4.2.2 category/code mapping:
+      `RETRYABLE`, `INFRASTRUCTURE`, or `CANCELLED_AUDIT`; permanent request
+      validation creates no Attempt, and evaluator failure maps to
+      `COMPLETION_PROCESSING` without a new simulation Attempt.
 - [ ] A worker resolves every retained Strategy Definition by exact
-  implementation version/hash; an unavailable artifact records
-  `IMPLEMENTATION_ARTIFACT_UNAVAILABLE` and never falls back to current code.
+      implementation version/hash; an unavailable artifact records
+      `IMPLEMENTATION_ARTIFACT_UNAVAILABLE` and never falls back to current code.
 - [ ] A `RUNNING` Attempt can transition once to a terminal status; after that
-  transition its row and any Trades are immutable. A retry creates a new
-  Attempt row and leaves prior terminal history unchanged.
+      transition its row and any Trades are immutable. A retry creates a new
+      Attempt row and leaves prior terminal history unchanged.
 - [ ] A replacement delivery closes a `RUNNING` Attempt only after verified
-  stalled/terminal evidence and under the Candidate lock; elapsed time alone
-  cannot supersede a live worker.
+      stalled/terminal evidence and under the Candidate lock; elapsed time alone
+      cannot supersede a live worker.
 
 ### Trades and completion
 
 - [ ] A successful Attempt persists Trades before the worker emits a completed
-  queue result, and the Trade inserts plus Attempt=`COMPLETED` update are one
-  fenced transaction; a failed Attempt persists no Trades.
+      queue result, and the Trade inserts plus Attempt=`COMPLETED` update are one
+      fenced transaction; a failed Attempt persists no Trades.
 - [ ] A Candidate cancelled during simulation may retain completed audit
-  Attempt/Trade rows, but it remains `CANCELLED` and creates no Experiment or
-  ranking entry.
+      Attempt/Trade rows, but it remains `CANCELLED` and creates no Experiment or
+      ranking entry.
 - [ ] Cancellation clears `active_attempt_number`, copies a running generation
-  to `cancelled_audit_attempt_number`, and permits exactly one matching audit
-  finalization before clearing that fence.
+      to `cancelled_audit_attempt_number`, and permits exactly one matching audit
+      finalization before clearing that fence.
 - [ ] Cancelled audit Attempts are readable through the Backtesting public
-  Attempt/Trade Detail API even though they have no Experiment.
+      Attempt/Trade Detail API even though they have no Experiment.
 - [ ] A completed non-cancelled Candidate creates at most one Experiment even
-  when completion signals are duplicated or the backend restarts.
+      when completion signals are duplicated or the backend restarts.
 - [ ] The Experiment references the exact completed Attempt, Candidate,
-  Composite Definition, Leaderboard Scope, score formula, worker runtime, and
-  evaluation runtime used for that result.
+      Composite Definition, Leaderboard Scope, score formula, worker runtime, and
+      evaluation runtime used for that result.
 - [ ] A zero-trade successful Attempt creates finite metrics with Return,
-  Win Rate, Drawdown, and Score equal to `0`, `Profit Factor = null` with
-  `NO_TRADES`, `rankEligible = false`, and remains visible in Experiment
-  History with `totalProfitAmount = 0`.
+      Win Rate, Drawdown, and Score equal to `0`, `Profit Factor = null` with
+      `NO_TRADES`, `rankEligible = false`, and remains visible in Experiment
+      History with `totalProfitAmount = 0`.
 - [ ] Every Trade Detail row exposes pair, stable sequence/ID, UTC entry time,
-  executed entry price, nullable stop-loss/take-profit, UTC exit time,
-  executed exit price, quantity, fee amount, `slippageBps = 5`, slippage
-  amount, net absolute `profit`, and net `resultPercent` in the quote-currency
-  units defined by §2.2.
+      executed entry price, nullable stop-loss/take-profit, UTC exit time,
+      executed exit price, quantity, fee amount, `slippageBps = 5`, slippage
+      amount, net absolute `profit`, and net `resultPercent` in the quote-currency
+      units defined by §2.2.
 - [ ] Trade accounting persists `grossProfit`, fee, slippage, and net profit;
-  `profit = grossProfit - feeAmount - slippageAmount`,
-  `resultPercent = profit / notionalEntryValue * 100`, and the outcome is
-  `WIN`/`LOSS`/`BREAKEVEN` using the fixed decimal policy.
+      `profit = grossProfit - feeAmount - slippageAmount`,
+      `resultPercent = profit / notionalEntryValue * 100`, and the outcome is
+      `WIN`/`LOSS`/`BREAKEVEN` using the fixed decimal policy.
 - [ ] Fixture tests for `MVP_LONG_FULL_CAPITAL_V1` cover `FLAT -> LONG -> FLAT`,
-  next-open entry, full-capital fee-aware quantity, HOLD/no-op behavior,
-  opposite-signal behavior, no short/reversal/same-candle re-entry, and
-  rejection of a `SHORT` signal in the MVP.
+      next-open entry, full-capital fee-aware quantity, HOLD/no-op behavior,
+      opposite-signal behavior, no short/reversal/same-candle re-entry, and
+      rejection of a `SHORT` signal in the MVP.
 - [ ] Fixture tests for `MVP_OHLC_STOP_FIRST_V1` cover LONG stop/take-profit
-  direction, gap-at-open fills, both stop/take-profit triggers in one candle
-  (stop wins), strategy-close fills, forced close at range end, and the
-  explicit final-candle entry/`RANGE_END` exception. Generic SHORT trigger
-  formulas are extension-only tests and cannot change the MVP position policy.
+      direction, gap-at-open fills, both stop/take-profit triggers in one candle
+      (stop wins), strategy-close fills, forced close at range end, and the
+      explicit final-candle entry/`RANGE_END` exception. Generic SHORT trigger
+      formulas are extension-only tests and cannot change the MVP position policy.
 - [ ] Scope risk-policy fixtures cover absent triggers, LONG stop/take formulas
-  derived from the unadjusted market entry price, boundary percentages, and
-  replay using the immutable persisted policy rather than mutable Strategy
-  configuration.
+      derived from the unadjusted market entry price, boundary percentages, and
+      replay using the immutable persisted policy rather than mutable Strategy
+      configuration.
 - [ ] `totalProfitAmount` is stored atomically with the Experiment, equals the
-  rounded sum of closed Trade `profit` values, and is exposed beside the
-  canonical `EvaluationMetrics` without changing the shared Evaluator contract.
+      rounded sum of closed Trade `profit` values, and is exposed beside the
+      canonical `EvaluationMetrics` without changing the shared Evaluator contract.
 
 ### Failure, fencing, and recovery
 
 - [ ] A retryable worker failure records `RETRY_WAIT` and a failed Attempt; the
-  final simulation failure records `TERMINAL_FAILURE_PENDING` with
-  `RETRY_EXHAUSTED` before BullMQ exhaustion.
+      final simulation failure records `TERMINAL_FAILURE_PENDING` with
+      `RETRY_EXHAUSTED` before BullMQ exhaustion.
 - [ ] A worker crash/stall before final persistence is repaired by the terminal
-  watchdog, which closes a stale `RUNNING` Attempt or creates a synthetic
-  failed `INFRASTRUCTURE` Attempt before final Candidate failure.
+      watchdog, which closes a stale `RUNNING` Attempt or creates a synthetic
+      failed `INFRASTRUCTURE` Attempt before final Candidate failure.
 - [ ] A cancelled worker crash/stall closes exactly one synthetic completed
-  `CANCELLED_AUDIT` Attempt with `CANCELLED_AUDIT_INTERRUPTED`, no Trades, and
-  no Experiment/ranking/Search side effect; a late delivery is superseded.
+      `CANCELLED_AUDIT` Attempt with `CANCELLED_AUDIT_INTERRUPTED`, no Trades, and
+      no Experiment/ranking/Search side effect; a late delivery is superseded.
 - [ ] A raw BullMQ `failed` observation does not finalize a Candidate until
-  terminal state and absence of a runnable retry are verified.
+      terminal state and absence of a runnable retry are verified.
 - [ ] The versioned `BacktestQueueJob`, `BacktestQueueReturn`, and terminal
-  signal contracts remain wire-compatible with branch `main`: `jobId ===
-  candidateId`, `status`/`completedAt`/`failedReason` use the canonical names,
-  schema version and bounded attempt budget are validated, and the payloads
-  contain no Trades/metrics/provider data before the Completion Processor runs.
+      signal contracts remain wire-compatible with branch `main`: `jobId ===
+candidateId`, `status`/`completedAt`/`failedReason` use the canonical names,
+      schema version and bounded attempt budget are validated, and the payloads
+      contain no Trades/metrics/provider data before the Completion Processor runs.
 - [ ] An overlapping stalled delivery cannot close or overwrite a superseded
-  Attempt, append Trades, or move Candidate state; it returns
-  `IGNORED/SUPERSEDED` or is recovered by reconciliation.
+      Attempt, append Trades, or move Candidate state; it returns
+      `IGNORED/SUPERSEDED` or is recovered by reconciliation.
 - [ ] Completion claims use the persisted generation/lease/token and fixed
-  five-claim budget; the processor renews the lease while working, every final
-  write requires `completionLeaseUntil > now()`, and an expired fifth claim
-  terminalizes rather than issuing a sixth claim.
+      five-claim budget; the processor renews the lease while working, every final
+      write requires `completionLeaseUntil > now()`, and an expired fifth claim
+      terminalizes rather than issuing a sixth claim.
 - [ ] A completion final write matches `(candidateId, completionAttemptCount,
-  completionClaimToken)`, requires an unexpired completion lease, and matches
-  expected Candidate state; a cancellation that
-  commits first prevents Experiment, ranking, counter, and callback side
-  effects.
+completionClaimToken)`, requires an unexpired completion lease, and matches
+      expected Candidate state; a cancellation that
+      commits first prevents Experiment, ranking, counter, and callback side
+      effects.
 - [ ] Leaderboard scoring/submission is retried with the stable
-  `(candidateId, leaderboardScopeId, scoreFormulaId)` idempotency key after an
-  uncertain outcome and cannot create a duplicate or orphan admission.
+      `(candidateId, leaderboardScopeId, scoreFormulaId)` idempotency key after an
+      uncertain outcome and cannot create a duplicate or orphan admission.
 - [ ] Duplicate terminal signals produce no duplicate Experiment, ranking
-  entry, Search counter increment, or slot release.
+      entry, Search counter increment, or slot release.
 
 ### Read model, reproducibility, and traceability
 
 - [ ] `GET /backtests/{candidateId}` returns a bounded projection containing
-  Candidate status, Attempt summaries, completion retry metadata, failure
-  classification, timestamps, and Experiment reference when available.
+      Candidate status, Attempt summaries, completion retry metadata, failure
+      classification, timestamps, and Experiment reference when available.
 - [ ] The progress projection omits full Trades and raw queue payloads; Attempt
-  and Experiment Trade Detail uses a positive bounded page size, cursor, and
-  deterministic `(entryTime ASC, sequence ASC, id ASC)` ordering; evaluation
-  uses the same order.
+      and Experiment Trade Detail uses a positive bounded page size, cursor, and
+      deterministic `(entryTime ASC, sequence ASC, id ASC)` ordering; evaluation
+      uses the same order.
 - [ ] From one Experiment ID, a read can trace the Candidate, Composite and
-  component strategy versions, immutable benchmark/snapshot ID and hashes, worker and
-  simulator/evaluation runtime provenance, UTC/fill/same-candle/decimal
-  policies, pair/timeframe/range, capital/cost settings, Attempt, Trades,
-  metrics including absolute profit, score, and rank eligibility.
+      component strategy versions, immutable benchmark/snapshot ID and hashes, worker and
+      simulator/evaluation runtime provenance, UTC/fill/same-candle/decimal
+      policies, pair/timeframe/range, capital/cost settings, Attempt, Trades,
+      metrics including absolute profit, score, and rank eligibility.
 - [ ] `GET /backtests/{candidateId}`, `GET /experiments/{experimentId}`, and
-  paginated `GET /experiments/{experimentId}/trades` expose the bounded public
-  projections; `POST /experiments/{experimentId}/replay-verification` returns
-  `MATCH`, `MISMATCH`, or typed `NON_REPLAYABLE` without mutating history.
+      paginated `GET /experiments/{experimentId}/trades` expose the bounded public
+      projections; `POST /experiments/{experimentId}/replay-verification` returns
+      `MATCH`, `MISMATCH`, or typed `NON_REPLAYABLE` without mutating history.
 - [ ] Replaying the same sealed scope and exact strategy/runtime artifacts
-  produces identical ordered Trades and metrics; no current deployment or live
-  market data can alter the result.
+      produces identical ordered Trades and metrics; no current deployment or live
+      market data can alter the result.
 - [ ] Existing public decimal-valued fields remain finite `number` values for
-  branch `main` compatibility; the simulator/persistence layer applies the
-  exact internal decimal policy. Fill times follow the candle-level semantics
-  in §2.2, and Trade cursors are opaque and bound to resource, limit, and
-  `(entryTime, sequence, id)`.
+      branch `main` compatibility; the simulator/persistence layer applies the
+      exact internal decimal policy. Fill times follow the candle-level semantics
+      in §2.2, and Trade cursors are opaque and bound to resource, limit, and
+      `(entryTime, sequence, id)`.
 - [ ] `MVP_EVALUATION_V1` is persisted and its formulas for win rate, profit
-  factor, drawdown equity curve, and per-Trade Sharpe are applied exactly as
-  defined in §2.2; UI formatting (including a negative MDD display sign) does
-  not alter persisted metrics.
+      factor, drawdown equity curve, and per-Trade Sharpe are applied exactly as
+      defined in §2.2; UI formatting (including a negative MDD display sign) does
+      not alter persisted metrics.
 - [ ] Search Run observability can report run state, Candidates tested,
-  backtest duration, failed-job/Attempt counts, and current top entry from the
-  Backtesting, Search, and Leaderboard public projections without reading
-  Candidate tables from Search.
+      backtest duration, failed-job/Attempt counts, and current top entry from the
+      Backtesting, Search, and Leaderboard public projections without reading
+      Candidate tables from Search.
 - [ ] `summarizeSearchCandidates` returns only active Candidate projections
-  plus all documented counts/failure partitions and
-  `averageBacktestDurationMs`; active rows have deterministic ordering.
-  `listSearchCandidates` returns a bounded paginated history. Search owns
-  `maxInFlight` and never admits more active rows than its own persisted limit.
+      plus all documented counts/failure partitions and
+      `averageBacktestDurationMs`; active rows have deterministic ordering.
+      `listSearchCandidates` returns a bounded paginated history. Search owns
+      `maxInFlight` and never admits more active rows than its own persisted limit.
 - [ ] Search owns and updates its failure partitions, failed-attempt count,
-  average duration, and stop-condition counters in `search_runs`; Backtesting
-  exposes the Candidate/Attempt facts needed for that projection but does not
-  duplicate Search-owned aggregates.
+      average duration, and stop-condition counters in `search_runs`; Backtesting
+      exposes the Candidate/Attempt facts needed for that projection but does not
+      duplicate Search-owned aggregates.
 - [ ] Search Run `currentTopEntry` is distinct from persistent scope Top-10 and
-  uses deterministic ordering: score descending, creation time ascending, ID
-  ascending.
+      uses deterministic ordering: score descending, creation time ascending, ID
+      ascending.
 - [ ] Startup/periodic reconciliation can recover a missed completion signal
-  and a Candidate whose queue state or worker write was interrupted without
-  relying on in-memory worker/coordinator state.
+      and a Candidate whose queue state or worker write was interrupted without
+      relying on in-memory worker/coordinator state.
 - [ ] Invalid sealed snapshot references reject before Attempt allocation;
-  snapshot loss discovered after claim records `INFRASTRUCTURE/MISSING_SNAPSHOT`
-  and follows the terminal failure mapping.
+      snapshot loss discovered after claim records `INFRASTRUCTURE/MISSING_SNAPSHOT`
+      and follows the terminal failure mapping.
 - [ ] Structured operational log assertions contain stable Candidate/Attempt
-  identifiers and typed categories, and do not contain credentials or raw
-  provider payloads.
+      identifiers and typed categories, and do not contain credentials or raw
+      provider payloads.
 
 ### Boundary / architecture
 
 - [ ] Other modules access Candidate/Attempt/Trade/Experiment history only via
-  `modules/backtesting/api` or an approved bootstrap facade.
+      `modules/backtesting/api` or an approved bootstrap facade.
 - [ ] REST submission returns `202` with Candidate/job identifiers; missing
-  resources return `404`, wrong-origin cancellation returns `409`, and
-  repeated cancellation is idempotent. Manual cancellation, Attempt audit,
-  and Attempt Trade Detail routes are present and enforce resource
-  authorization.
+      resources return `404`, wrong-origin cancellation returns `409`, and
+      repeated cancellation is idempotent. Manual cancellation, Attempt audit,
+      and Attempt Trade Detail routes are present and enforce resource
+      authorization.
 - [ ] Search cancellation calls Backtesting's `removePendingJobs` only after
-  its own transaction commits; the operation removes waiting/delayed jobs
-  best-effort and never force-kills running workers. `apps/backend` composes
-  `GET /search-runs/{id}/candidates` from Backtesting projections while Search
-  owns the Search Run endpoint and controls.
+      its own transaction commits; the operation removes waiting/delayed jobs
+      best-effort and never force-kills running workers. `apps/backend` composes
+      `GET /search-runs/{id}/candidates` from Backtesting projections while Search
+      owns the Search Run endpoint and controls.
 - [ ] Scope persistence is owned by Leaderboard, Strategy tables are owned by
-  Strategy, and Search counters are owned by Search; cross-module calls use
-  public contracts or opaque process-level units of work and never pass a
-  database handle or write another module's tables.
+      Strategy, and Search counters are owned by Search; cross-module calls use
+      public contracts or opaque process-level units of work and never pass a
+      database handle or write another module's tables.
 - [ ] Search cancellation commits the Search Run transition and Candidate
-  cancellations in one opaque `CancellationUnitOfWork`; Backtesting completion
-  commits Candidate/Experiment postconditions and Search projection facts in
-  the documented process-level unit before any best-effort refill callback.
+      cancellations in one opaque `CancellationUnitOfWork`; Backtesting completion
+      commits Candidate/Experiment postconditions and Search projection facts in
+      the documented process-level unit before any best-effort refill callback.
 - [ ] `CompletionUnitOfWork` is created and committed/rolled back only by the
-  Backtesting composition root; Evaluation, Leaderboard, and Search enlist
-  through the capability, open no nested transaction, and cannot retain it
-  after return. Any enlisted failure rolls back all Experiment, ranking, and
-  Search projection writes together.
+      Backtesting composition root; Evaluation, Leaderboard, and Search enlist
+      through the capability, open no nested transaction, and cannot retain it
+      after return. Any enlisted failure rolls back all Experiment, ranking, and
+      Search projection writes together.
 - [ ] Failure injection after Experiment insertion, after Leaderboard
-  admission, and after Search counter application leaves no partial write;
-  retrying the same Candidate produces exactly one Experiment, at most one
-  matching ranking entry, one terminal counter application, and one terminal
-  Candidate state.
+      admission, and after Search counter application leaves no partial write;
+      retrying the same Candidate produces exactly one Experiment, at most one
+      matching ranking entry, one terminal counter application, and one terminal
+      Candidate state.
 - [ ] The authoritative Evaluation implementation is `MVP_EVALUATION_V1` in
-  `modules/evaluation`; the persisted policy ID, sample-standard-deviation
-  denominator, observation ordering, and zero-trade statuses match §2.2, and
-  Backtesting contains no duplicate metric formula.
+      `modules/evaluation`; the persisted policy ID, sample-standard-deviation
+      denominator, observation ordering, and zero-trade statuses match §2.2, and
+      Backtesting contains no duplicate metric formula.
 - [ ] Worker heartbeat, lock-loss, delivery-token, and stall-timeout evidence
-  satisfy the `QueueRecoveryEvidence` predicate before a stale Attempt is
-  closed or replaced; elapsed wall-clock time alone cannot trigger recovery.
+      satisfy the `QueueRecoveryEvidence` predicate before a stale Attempt is
+      closed or replaced; elapsed wall-clock time alone cannot trigger recovery.
 - [ ] A stale worker whose delivery-token compare-and-set affects zero rows
-  inserts no Trades and cannot update Candidate state; duplicate Trade
-  sequences are rejected by the Attempt/sequence uniqueness constraint.
+      inserts no Trades and cannot update Candidate state; duplicate Trade
+      sequences are rejected by the Attempt/sequence uniqueness constraint.
 - [ ] Persistence migration tests prove the expand/backfill/validate/contract
-  sequence: legacy rows are backfilled in resumable batches, rejects are
-  surfaced, all invariants pass before `NOT NULL`/CHECK/UNIQUE constraints are
-  added, and rerunning any phase is idempotent.
+      sequence: legacy rows are backfilled in resumable batches, rejects are
+      surfaced, all invariants pass before `NOT NULL`/CHECK/UNIQUE constraints are
+      added, and rerunning any phase is idempotent.
 - [ ] The contract migration is blocked while the migration ledger contains an
-  unresolved reject or a legacy `RUNNING` Attempt without the new delivery
-  fence; the deployment drains/reconciles those Attempts before enabling the
-  new worker final-write protocol.
+      unresolved reject or a legacy `RUNNING` Attempt without the new delivery
+      fence; the deployment drains/reconciles those Attempts before enabling the
+      new worker final-write protocol.
 - [ ] No general Event Bus, non-market WebSocket, Redis Pub/Sub, or competing
-  second queue schema is introduced for Backtest Log behavior.
+      second queue schema is introduced for Backtest Log behavior.
 - [ ] Architecture tests fail if Backtesting domain code imports PostgreSQL,
-  Redis, BullMQ, HTTP, or UI code, or if another module imports Backtesting
-  `domain`/`infrastructure` internals directly.
+      Redis, BullMQ, HTTP, or UI code, or if another module imports Backtesting
+      `domain`/`infrastructure` internals directly.
 
 ### Requirement-to-verification traceability
 
@@ -2288,32 +2288,32 @@ Every functional requirement has one primary implementation location and one
 observable verification group. This table is the coding-agent index; the
 normative detail remains in the referenced section above.
 
-| ID | Primary contract/rule | Verification group |
-|---|---|---|
-| FR-BL-001 | Candidate identity, origin metadata, immutable selection/composite reference, queue identity, and timestamps | §2.1 FR-BL-001; §2.2 identity rules; Candidate history acceptance |
-| FR-BL-002 | Candidate lifecycle status vocabulary and allowed transitions | §2.1 FR-BL-002; §2.3 state transition contract; lifecycle acceptance |
-| FR-BL-003 | At-most-one Attempt generation per delivery and bounded attempt allocation | §2.1 FR-BL-003; §3.2 fencing; Attempt allocation acceptance |
-| FR-BL-004 | Attempt identity, runtime provenance, timing, and bounded failure context | §2.1 FR-BL-004; §4.2 persistence shape; Attempt audit acceptance |
-| FR-BL-005 | Durable-before-notification Trade persistence and cancelled audit Trades | §2.1 FR-BL-005; §3.2 worker finalization; Trade persistence acceptance |
-| FR-BL-006 | Separate completion claims, leases, tokens, and fixed completion budget | §2.1 FR-BL-006; §3.3 completion protocol; claim lease acceptance |
-| FR-BL-007 | Terminal failure aggregation and Attempt failure taxonomy | §2.1 FR-BL-007; §3.5 failure cases; §4.2.2 taxonomy |
-| FR-BL-008 | Exactly-once Experiment and ranking postconditions under completion fencing | §2.1 FR-BL-008; §3.3 UoW contract; duplicate-side-effect acceptance |
-| FR-BL-009 | Zero-trade metric/result semantics and rank exclusion | §2.1 FR-BL-009; §2.2 evaluation policy; zero-trade acceptance |
-| FR-BL-010 | Worker final-write fencing and superseded-delivery behavior | §2.1 FR-BL-010; §3.2 recovery evidence; fencing acceptance |
-| FR-BL-011 | Durable idempotent cancellation and audit-result exclusion | §2.1 FR-BL-011; §3.4 cancellation; cancellation acceptance |
-| FR-BL-012 | Duplicate terminal wake-up convergence and no duplicate side effects | §2.1 FR-BL-012; §3.3 claim idempotency; duplicate-signal acceptance |
-| FR-BL-013 | Startup/periodic recovery of lost notifications and crashed workers | §2.1 FR-BL-013; §3.2 watchdog; reconciliation acceptance |
-| FR-BL-014 | Bounded Candidate progress projection and finite attempt budget | §2.1 FR-BL-014; §4.1 CandidateProgress; read-model acceptance |
-| FR-BL-015 | Experiment reproducibility chain and paginated Trade Detail | §2.1 FR-BL-015; §4.1 result surfaces; provenance/read acceptance |
-| FR-BL-016 | Diagnostic structured logs/metrics with stable IDs and typed categories | §2.1 FR-BL-016; §2.4 non-functional requirements; observability acceptance |
-| FR-BL-017 | Allowlisted API boundary, ownership, and REST error mapping | §2.1 FR-BL-017; §4.1 public API; §4.2.2 taxonomy; boundary acceptance |
-| FR-BL-018 | Manual immutable benchmark scope and sealed dataset snapshot | §2.1 FR-BL-018; §2.2 manual benchmark selection; scope acceptance |
-| FR-BL-019 | Derived SINGLE/COMPOSITE assertion validation and component matching | §2.1 FR-BL-019; §2.2 strategy selection; selection acceptance |
-| FR-BL-020 | Manual scope/submission REST endpoints and response status | §2.1 FR-BL-020; §4.1 BacktestLogApi; REST acceptance |
-| FR-BL-021 | Paginated Trade Detail fields, units, ordering, and five-bps output | §2.1 FR-BL-021; §4.1 Trade/TradePage; Trade Detail acceptance |
-| FR-BL-022 | Reproducible fee/slippage accounting and total-return formula | §2.1 FR-BL-022; §2.2 accounting formulas; accounting acceptance |
-| FR-BL-023 | Replay provenance, deterministic policies, and runtime hashes | §2.1 FR-BL-023; §2.2 provenance; replay acceptance |
-| FR-BL-024 | Scope idempotency key/digest and snapshot saga recovery | §2.1 FR-BL-024; §2.2 saga rules; §4.2.1 migration/idempotency acceptance |
-| FR-BL-025 | Server-derived selection mode and exact Strategy artifact resolution | §2.1 FR-BL-025; §2.2 retained artifacts; resolution acceptance |
-| FR-BL-026 | Read-only replay-verification operation and typed non-replayable failures | §2.1 FR-BL-026; §4.1 verifyReplay; replay acceptance |
-| FR-BL-027 | Main-branch wire compatibility, decimal policy, candle timestamps, and cursors | §2.1 FR-BL-027; §4.1 contracts; compatibility/read acceptance |
+| ID        | Primary contract/rule                                                                                        | Verification group                                                         |
+| --------- | ------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------- |
+| FR-BL-001 | Candidate identity, origin metadata, immutable selection/composite reference, queue identity, and timestamps | §2.1 FR-BL-001; §2.2 identity rules; Candidate history acceptance          |
+| FR-BL-002 | Candidate lifecycle status vocabulary and allowed transitions                                                | §2.1 FR-BL-002; §2.3 state transition contract; lifecycle acceptance       |
+| FR-BL-003 | At-most-one Attempt generation per delivery and bounded attempt allocation                                   | §2.1 FR-BL-003; §3.2 fencing; Attempt allocation acceptance                |
+| FR-BL-004 | Attempt identity, runtime provenance, timing, and bounded failure context                                    | §2.1 FR-BL-004; §4.2 persistence shape; Attempt audit acceptance           |
+| FR-BL-005 | Durable-before-notification Trade persistence and cancelled audit Trades                                     | §2.1 FR-BL-005; §3.2 worker finalization; Trade persistence acceptance     |
+| FR-BL-006 | Separate completion claims, leases, tokens, and fixed completion budget                                      | §2.1 FR-BL-006; §3.3 completion protocol; claim lease acceptance           |
+| FR-BL-007 | Terminal failure aggregation and Attempt failure taxonomy                                                    | §2.1 FR-BL-007; §3.5 failure cases; §4.2.2 taxonomy                        |
+| FR-BL-008 | Exactly-once Experiment and ranking postconditions under completion fencing                                  | §2.1 FR-BL-008; §3.3 UoW contract; duplicate-side-effect acceptance        |
+| FR-BL-009 | Zero-trade metric/result semantics and rank exclusion                                                        | §2.1 FR-BL-009; §2.2 evaluation policy; zero-trade acceptance              |
+| FR-BL-010 | Worker final-write fencing and superseded-delivery behavior                                                  | §2.1 FR-BL-010; §3.2 recovery evidence; fencing acceptance                 |
+| FR-BL-011 | Durable idempotent cancellation and audit-result exclusion                                                   | §2.1 FR-BL-011; §3.4 cancellation; cancellation acceptance                 |
+| FR-BL-012 | Duplicate terminal wake-up convergence and no duplicate side effects                                         | §2.1 FR-BL-012; §3.3 claim idempotency; duplicate-signal acceptance        |
+| FR-BL-013 | Startup/periodic recovery of lost notifications and crashed workers                                          | §2.1 FR-BL-013; §3.2 watchdog; reconciliation acceptance                   |
+| FR-BL-014 | Bounded Candidate progress projection and finite attempt budget                                              | §2.1 FR-BL-014; §4.1 CandidateProgress; read-model acceptance              |
+| FR-BL-015 | Experiment reproducibility chain and paginated Trade Detail                                                  | §2.1 FR-BL-015; §4.1 result surfaces; provenance/read acceptance           |
+| FR-BL-016 | Diagnostic structured logs/metrics with stable IDs and typed categories                                      | §2.1 FR-BL-016; §2.4 non-functional requirements; observability acceptance |
+| FR-BL-017 | Allowlisted API boundary, ownership, and REST error mapping                                                  | §2.1 FR-BL-017; §4.1 public API; §4.2.2 taxonomy; boundary acceptance      |
+| FR-BL-018 | Manual immutable benchmark scope and sealed dataset snapshot                                                 | §2.1 FR-BL-018; §2.2 manual benchmark selection; scope acceptance          |
+| FR-BL-019 | Derived SINGLE/COMPOSITE assertion validation and component matching                                         | §2.1 FR-BL-019; §2.2 strategy selection; selection acceptance              |
+| FR-BL-020 | Manual scope/submission REST endpoints and response status                                                   | §2.1 FR-BL-020; §4.1 BacktestLogApi; REST acceptance                       |
+| FR-BL-021 | Paginated Trade Detail fields, units, ordering, and five-bps output                                          | §2.1 FR-BL-021; §4.1 Trade/TradePage; Trade Detail acceptance              |
+| FR-BL-022 | Reproducible fee/slippage accounting and total-return formula                                                | §2.1 FR-BL-022; §2.2 accounting formulas; accounting acceptance            |
+| FR-BL-023 | Replay provenance, deterministic policies, and runtime hashes                                                | §2.1 FR-BL-023; §2.2 provenance; replay acceptance                         |
+| FR-BL-024 | Scope idempotency key/digest and snapshot saga recovery                                                      | §2.1 FR-BL-024; §2.2 saga rules; §4.2.1 migration/idempotency acceptance   |
+| FR-BL-025 | Server-derived selection mode and exact Strategy artifact resolution                                         | §2.1 FR-BL-025; §2.2 retained artifacts; resolution acceptance             |
+| FR-BL-026 | Read-only replay-verification operation and typed non-replayable failures                                    | §2.1 FR-BL-026; §4.1 verifyReplay; replay acceptance                       |
+| FR-BL-027 | Main-branch wire compatibility, decimal policy, candle timestamps, and cursors                               | §2.1 FR-BL-027; §4.1 contracts; compatibility/read acceptance              |
