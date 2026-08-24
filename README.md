@@ -73,6 +73,19 @@ $env:NODE_PATH = (Resolve-Path dist)
 node .\dist\apps\backend\src\main.js
 ```
 
+### Persist accounts with PostgreSQL (optional for local development)
+
+The backend uses its in-memory Auth repository when `DATABASE_URL` is absent. To use the PostgreSQL repository, start the database service, apply the migrations, and set both runtime variables before starting the backend:
+
+```powershell
+docker compose -f infra/docker-compose.yml up -d postgres
+$env:DATABASE_URL = "postgres://cryptox:cryptox@localhost:5432/cryptox"
+$env:JWT_SECRET = "replace-this-with-a-long-random-production-secret"
+npm run db:migrate
+```
+
+The same `DATABASE_URL` and `JWT_SECRET` must be present in the backend process. The migration currently creates the `users` table used by registration and login.
+
 The application is still being implemented feature by feature. At this stage the frontend is a Vite shell and the backend is the Nest composition shell; live Binance/news integrations and the assignment screens are not yet complete.
 
 ### Verify the project

@@ -30,6 +30,7 @@
 - Auth focused tests: passed; 3 tests covering bcrypt-only password storage, one-hour HS256 JWT claims/verification, duplicate/credential handling, and invalid or expired token rejection.
 - Backend Auth composition tests: passed; 2 tests covering nine-module composition plus `/auth/register`, `/auth/login`, and protected `/auth/me` controller mapping.
 - Auth workspace validation: `pnpm -r --if-present test`, `pnpm -r --if-present build`, and `pnpm -r --if-present lint` all passed for 13 workspace projects. Direct dependency-cruiser validation passed with 32 modules and 32 dependencies cruised and no violations.
+- Auth PostgreSQL repository tests: passed; 1 test covering parameterized insert/read SQL and storage-to-domain mapping. The full workspace test/build/lint/dependency-cruiser validation was rerun after the users migration and adapter and passed unchanged (32 modules and 32 dependencies cruised).
 
 ## Commits
 
@@ -41,6 +42,7 @@ Leaderboard scoring and Top-K admission committed as `8f8364c` (`feat(leaderboar
 Search orchestration committed as `06b93e5` (`feat(search): add bounded strategy loop orchestration`).
 News and Sentiment runtime committed as `502e7e2` (`feat(news): add sentiment isolation and sealed snapshots`).
 Auth runtime and protected routes committed as `da4ca1c` (`feat(auth): add bcrypt jwt runtime and protected routes`).
+PostgreSQL Auth persistence committed as `3e5d913` (`feat(auth): add PostgreSQL user persistence`).
 
 ## Decisions and conflicts
 
@@ -63,6 +65,7 @@ Auth runtime and protected routes committed as `da4ca1c` (`feat(auth): add bcryp
 - Sentiment validates neutral input/result provenance, keeps model results append-only, selects latest by timestamp then insertion order in the in-memory adapter, and seals deterministic SHA-256 snapshot points. A point is readable only at its completed aggregation-window end; it never exposes a future point or carries a previous window across a missing one.
 - The worker's local placeholder now implements the expanded Sentiment repository shape without reaching into Sentiment internals.
 - Auth uses `bcryptjs` for bcrypt-compatible password hashes and `jsonwebtoken` for HS256 one-hour JWTs. The in-memory adapter supports local composition/tests; PostgreSQL user persistence remains the next incomplete portion of the composed feature. Backend composition reads `JWT_SECRET` when set and otherwise uses a documented development-only fallback that must not be used for deployment.
+- `infra/db/migrations/002_create_users.js` creates the Auth-owned `users` table after the existing pgcrypto extension migration. Backend composition selects the PostgreSQL Auth repository when `DATABASE_URL` is configured and otherwise retains the local in-memory repository; `npm run db:migrate` is the documented migration entrypoint.
 
 ## Blockers
 
