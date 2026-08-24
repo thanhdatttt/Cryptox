@@ -1,5 +1,6 @@
-import { BadRequestException, Body, ConflictException, Controller, Get, Headers, HttpCode, Inject, Module, Post, UnauthorizedException } from "@nestjs/common";
+import { BadRequestException, Body, ConflictException, Controller, Get, Headers, HttpCode, Inject, Module, Post, Query, UnauthorizedException } from "@nestjs/common";
 import { AuthException, type AuthModulePublicApi } from "modules/auth/api";
+import type { Timeframe } from "modules/market-data/api";
 import { composeAllModules, type BackendModules } from "./compose";
 
 export const BACKEND_MODULES = "BACKEND_MODULES";
@@ -60,8 +61,70 @@ export class AuthController {
   }
 }
 
+abstract class ProtectedController {
+  constructor(protected readonly modules: BackendModules) {}
+
+  protected async authenticate(authorization?: string): Promise<void> {
+    if (!authorization?.startsWith("Bearer ")) throw new UnauthorizedException("Bearer token is required.");
+    try {
+      await this.modules.auth.verify(authorization.slice("Bearer ".length));
+    } catch (error) {
+      authHttpError(error);
+    }
+  }
+}
+
+@Controller("strategies")
+export class StrategyController extends ProtectedController {
+  constructor(@Inject(BACKEND_MODULES) modules: BackendModules) { super(modules); }
+
+  @Get()
+  async list(@Headers("authorization") authorization?: string) {
+    await this.authenticate(authorization);
+    return this.modules.strategy.listStrategies();
+  }
+}
+
+@Controller("market")
+export class MarketController extends ProtectedController {
+  constructor(@Inject(BACKEND_MODULES) modules: BackendModules) { super(modules); }
+
+  @Get("candles")
+  async candles(
+    @Headers("authorization") authorization: string | undefined,
+    @Query("pair") pair: string | undefined,
+    @Query("timeframe") timeframe: string | undefined,
+    @Query("limit") limit?: string,
+  ) {
+    await this.authenticate(authorization);
+    if (!pair || !timeframe) throw new BadRequestException("pair and timeframe are required.");
+    let parsedLimit: number | undefined;
+    if (limit !== undefined) {
+      parsedLimit = Number(limit);
+      if (!Number.isInteger(parsedLimit) || parsedLimit <= 0) throw new BadRequestException("limit must be a positive integer.");
+    }
+    try {
+      return await this.modules.marketData.readCandles({ pair, timeframe: timeframe as Timeframe, limit: parsedLimit });
+    } catch (error) {
+      if (error instanceof Error && "code" in error) throw new BadRequestException(error.message);
+      throw error;
+    }
+  }
+}
+
+@Controller("news")
+export class NewsController extends ProtectedController {
+  constructor(@Inject(BACKEND_MODULES) modules: BackendModules) { super(modules); }
+
+  @Get()
+  async list(@Headers("authorization") authorization?: string) {
+    await this.authenticate(authorization);
+    return this.modules.news.readNews();
+  }
+}
+
 @Module({
-  controllers: [HealthController, AuthController],
+  controllers: [HealthController, AuthController, StrategyController, MarketController, NewsController],
   providers: [{ provide: BACKEND_MODULES, useFactory: (): BackendModules => composeAllModules() }],
 })
 export class AppModule {}

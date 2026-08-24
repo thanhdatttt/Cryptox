@@ -1,5 +1,8 @@
 import { createConfiguredAuthModule } from "modules/auth/api/bootstrap";
 import type { AuthModulePublicApi } from "modules/auth/api";
+import type { MarketDataModulePublicApi } from "modules/market-data/api";
+import type { NewsModulePublicApi } from "modules/news/api";
+import type { StrategyModulePublicApi } from "modules/strategy/api";
 import { createBacktestingModule } from "modules/backtesting/api/bootstrap";
 import { createEvaluationModule } from "modules/evaluation/api/bootstrap";
 import { createLeaderboardModule } from "modules/leaderboard/api/bootstrap";
@@ -11,6 +14,9 @@ import { createStrategyModule } from "modules/strategy/api/bootstrap";
 
 export interface BackendModules extends Record<string, unknown> {
   auth: AuthModulePublicApi;
+  marketData: MarketDataModulePublicApi;
+  news: NewsModulePublicApi;
+  strategy: StrategyModulePublicApi;
 }
 
 export function composeAllModules(): BackendModules {
