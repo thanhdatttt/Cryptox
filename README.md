@@ -35,6 +35,12 @@ Architectural Decision Records (ADRs) capture the reasoning behind the key desig
 
 No environment file or external API credential is currently required for the local frontend and the composition-shell backend. Before deploying the backend, set a strong `JWT_SECRET`; a development-only fallback is used locally so the Auth routes can run without a `.env` file.
 
+The backend uses local/demo market-data composition by default. To enable the normalized Binance REST/WebSocket adapter, set this before starting the backend (internet access is required):
+
+```powershell
+$env:MARKET_DATA_PROVIDER = "BINANCE"
+```
+
 ### Install dependencies
 
 From the repository root:
@@ -86,7 +92,7 @@ npm run db:migrate
 
 The same `DATABASE_URL` and `JWT_SECRET` must be present in the backend process. The migration currently creates the `users` table used by registration and login.
 
-The application is still being implemented feature by feature. At this stage the frontend is a Vite shell and the backend is the Nest composition shell; live Binance/news integrations and the assignment screens are not yet complete.
+The default frontend data is deliberately labelled as demo data. Set `MARKET_DATA_PROVIDER=BINANCE` when you want the backend market-data boundary to fetch and subscribe to Binance; browser clients still never consume Binance payloads directly.
 
 ### Verify the project
 
