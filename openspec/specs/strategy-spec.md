@@ -38,7 +38,7 @@ Out of scope (owned by other modules, consumed through their public APIs only):
 | `apps/backtest-worker` | Same bootstrap facade; resolves and executes strategies/composites while simulating trades. |
 | Frontend (via Backend REST) | Reads `GET /strategies` to render the strategy configuration step. |
 | `modules/search` | Calls the public API to validate/persist generated `StrategyDefinition`/`CompositeStrategyDefinition`s before submitting a candidate. |
-| `modules/backtesting` | Calls `resolveStrategy` / `combineSignals` once per Attempt to run the pinned composite against snapshot candles. |
+| `modules/backtesting` | Resolves retained artifacts once per Attempt, then calls each component once per eligible decision candle, combines once, and requests optional generic visualization through the public API. |
 
 ## 2. Requirements
 
@@ -54,6 +54,8 @@ Out of scope (owned by other modules, consumed through their public APIs only):
 | FR-6 | The module must run `Strategy.analyze(context)` and return exactly one of `BUY | SELL | HOLD`. |
 | FR-7 | The module must combine an array of per-component signals into one `Signal` using the composite's `method`, `components[].weight`, and `thresholds`. |
 | FR-8 | Repeated definition/composite creation with identical logical identity and identical content must be idempotent (return the existing row, not a duplicate). |
+| FR-9 | Every plugin descriptor must declare a deterministic non-negative `minimumHistoryCandles`; callers may use earlier candles for warm-up but must not guess requirements from the strategy name. |
+| FR-10 | The module must expose a pure generic visualization projection for a retained definition using `LINE | ZONE | SIGNAL` overlays, so adding a plugin requires no Backtesting or Frontend strategy-name branch. A plugin may return no overlays. |
 
 ### 2.2 Business rules
 
@@ -85,7 +87,9 @@ Out of scope (owned by other modules, consumed through their public APIs only):
 - **Determinism / reproducibility:** the same `(StrategyDefinition | CompositeStrategyDefinition, StrategyContext)` pair must always produce the same `Signal`, so that "Experiment #122" can always be replayed exactly (brief §36).
 - **Extensibility without ripple:** adding a plugin must not require changes to `modules/backtesting`, `modules/evaluation`, `modules/leaderboard`, `modules/search`, or the Frontend core.
 - **Layering:** `api → application → domain`; `infrastructure` implements application ports only. `domain` must not import HTTP, PostgreSQL, Redis, BullMQ, exchange SDKs, framework code, or UI code (`architecture.md` §1.3.1).
-- **Boundary:** other modules may only import `modules/strategy/api` (runtime facade `listStrategies/resolveStrategy/combineSignals`) or the bootstrap facade `createStrategyModule`. No module may reach into `modules/strategy/domain` or `modules/strategy/infrastructure`.
+- **Boundary:** other modules may only import `modules/strategy/api` (runtime facade `listStrategies/readDefinitions/readComposite/resolveStrategy/combineSignals/buildVisualization`) or the bootstrap facade `createStrategyModule`. No module may reach into `modules/strategy/domain` or `modules/strategy/infrastructure`.
+- **History declaration:** `minimumHistoryCandles` is part of the retained artifact descriptor. It is not inferred by Backtesting from plugin name or parameters; changing it changes artifact provenance.
+- **Visualization purity:** `buildVisualization()` is deterministic and I/O-free, uses only supplied contexts and the retained definition, and emits generic typed overlays. The signal returned by `analyze()` remains the sole trading decision; visualization cannot change it.
 
 ## 3. Behavior
 
@@ -142,7 +146,7 @@ sequenceDiagram
     participant Reg as StrategyRegistry
     participant PG as PostgreSQL (strategy_definitions)
 
-    Caller->>SM: defineStrategy(strategyName, parameters)
+    Caller->>SM: defineStrategy(userId, strategyName, parameters)
     SM->>Reg: get(strategyName)
     Reg-->>SM: descriptor (parameter schema, implementationVersion, implementationSha256)
     SM->>SM: validate parameters against StrategyParameterDescriptor[]
@@ -169,7 +173,7 @@ sequenceDiagram
     participant SM as Strategy module / application
     participant PG as PostgreSQL (composite_strategy_definitions)
 
-    Caller->>SM: defineComposite(method, components[], thresholds?)
+    Caller->>SM: defineComposite(userId, method, components[], thresholds?)
     SM->>SM: validate components.length >= 1
     alt method = WEIGHTED_SCORE
         SM->>SM: validate weights finite and sum = 1
@@ -257,11 +261,17 @@ sequenceDiagram
 // modules/strategy/api/index.ts
 export interface StrategyModulePublicApi {
   listStrategies(): StrategyPluginDescriptor[];
+  readDefinitions(userId: string, ids: string[]): Promise<StrategyDefinition[]>;
+  readComposite(userId: string, id: string): Promise<CompositeStrategyDefinition>;
   resolveStrategy(definition: StrategyDefinition): Promise<Strategy>;
   combineSignals(
     definition: CompositeStrategyDefinition,
     signals: Array<{ strategyDefinitionId: string; signal: Signal }>
   ): Signal;
+  buildVisualization(
+    definition: StrategyDefinition,
+    contexts: StrategyContext[]
+  ): StrategyVisualizationOverlay[];
 }
 
 // modules/strategy/api/bootstrap.ts
@@ -270,8 +280,8 @@ export function createStrategyModule(deps: {
   definitionRepository: StrategyDefinitionRepository;
   compositeRepository: CompositeDefinitionRepository;
 }): StrategyModulePublicApi & {
-  defineStrategy(strategyName: string, parameters: Record<string, number | string>): Promise<StrategyDefinition>;
-  defineComposite(command: {
+  defineStrategy(userId: string, strategyName: string, parameters: Record<string, number | string>): Promise<StrategyDefinition>;
+  defineComposite(userId: string, command: {
     method: CombinationMethod;
     components: Array<{ strategyDefinitionId: string; weight: number }>;
     thresholds?: { buy: number; sell: number };
@@ -284,6 +294,8 @@ export function createStrategyModule(deps: {
 ### 4.2 Core domain contracts (from `component-contracts.md` §1, §3, §4)
 
 ```typescript
+import type { Timeframe } from "modules/market-data/api";
+
 export type Signal = "BUY" | "SELL" | "HOLD";
 
 export type StrategyCategory =
@@ -302,7 +314,7 @@ export interface StrategyCandle {
 
 export interface StrategyContext {
   pair: string;
-  timeframe: "1m" | "5m" | "15m" | "1h" | "4h" | "1d";
+  timeframe: Timeframe; // imported from modules/market-data/api
   candles: StrategyCandle[];
   currentPrice: number;
   indicators: Record<string, number | number[]>;
@@ -367,8 +379,17 @@ export interface StrategyPluginDescriptor {
   category: StrategyCategory;
   implementationVersion: string;
   implementationSha256: string;
+  minimumHistoryCandles: number; // integer >= 0; immutable artifact capability
   parameters: StrategyParameterDescriptor[];
 }
+
+export type StrategyVisualizationOverlay =
+  | { id: string; strategyDefinitionId: string; kind: "LINE"; label: string;
+      points: Array<{ time: string; value: number }> }
+  | { id: string; strategyDefinitionId: string; kind: "ZONE"; label: string;
+      points: Array<{ time: string; low: number; high: number }> }
+  | { id: string; strategyDefinitionId: string; kind: "SIGNAL"; label: string;
+      points: Array<{ time: string; value: number; signal: Signal }> };
 
 export interface StrategyFactory {
   descriptor: StrategyPluginDescriptor;
@@ -493,6 +514,8 @@ flowchart LR
 - [ ] `combineSignals` given N component signals and a `MAJORITY_VOTE` composite returns the signal with the strictly highest count (per §2.2); any tie among the counts (2-way or 3-way) returns `HOLD`.
 - [ ] `combineSignals` given a `WEIGHTED_SCORE` composite computes `score = Σ(encode(signal_i) × weight_i)` with `BUY=+1/HOLD=0/SELL=-1` (per §2.2) and returns `BUY` when `score > thresholds.buy`, `SELL` when `score < thresholds.sell`, and `HOLD` otherwise.
 - [ ] The `CombinationEngine` implementation contains no conditional logic keyed on `strategyName` or `category` — verified by code review / architecture test, not just unit test.
+- [ ] Every registered descriptor has an integer `minimumHistoryCandles >= 0`; Backtesting can calculate composite warm-up using descriptors only.
+- [ ] `buildVisualization()` called twice with the same retained definition and contexts returns identical bounded generic overlays and performs no I/O; a plugin with no overlays returns `[]`.
 
 ### Reproducibility
 

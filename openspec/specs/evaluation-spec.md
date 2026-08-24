@@ -65,9 +65,13 @@ Out of scope (owned by other modules):
 | FR-7 | `evaluate()` must compute `sharpeRatio` and `sharpeRatioStatus` according to the documented edge-case policy (§2.2). |
 | FR-8 | `evaluate()` must never return `NaN`, `Infinity`, or `-Infinity` in any numeric field. |
 | FR-9 | `evaluate()` must be a **pure function**: no I/O, no database access, no network calls, no external state. Given the same `CompletedBacktestResult`, it must always return the same `EvaluationMetrics`. |
-| FR-10 | The module must stamp `evaluationRuntimeVersion` and `evaluationRuntimeSha256` on the `EvaluationMetrics` object so the Completion Processor can pin them on `experiment_results` for reproducibility. |
+| FR-10 | The module must stamp `evaluationPolicyId = "MVP_EVALUATION_V1"`, `evaluationRuntimeVersion`, and `evaluationRuntimeSha256` on `EvaluationMetrics` so the Completion Processor can pin the exact formula policy and artifact. |
 
 ### 2.2 Business rules
+
+The formulas and edge cases in this section are the canonical immutable policy
+`MVP_EVALUATION_V1`. Backtesting may add absolute amount/count read projections,
+but it MUST NOT restate or override these metrics under the same policy ID.
 
 #### Total Return
 `totalReturnPercent` is the compounded result of all trade returns. Because `initialCapital`
@@ -267,6 +271,7 @@ import type { CompletedBacktestResult } from "modules/backtesting/api";
 
 export interface EvaluationMetrics {
   candidateId: string;
+  evaluationPolicyId: "MVP_EVALUATION_V1";
 
   // Core metrics — all finite numbers; never NaN / Infinity / -Infinity
   totalReturnPercent: number;
@@ -319,28 +324,11 @@ The `Trade` type is owned by `modules/backtesting`. Evaluation imports and uses 
 without redeclaring it.
 
 ```typescript
-// From modules/backtesting/api/contracts.ts (authoritative source)
-export interface Trade {
-  id: string;
-  backtestAttemptId: string;
-  entryTime: string;    // ISO-8601 UTC
-  entryPrice: number;
-  exitTime: string;     // ISO-8601 UTC
-  exitPrice: number;
-  resultPercent: number; // e.g. +1.85 or -0.90
-  signal: "LONG" | "SHORT"; // MVP uses LONG only
-}
+// Canonical shapes are imported, never copied or reduced here.
+import type { Trade, CompletedBacktestResult } from "modules/backtesting/api";
 
-export interface CompletedBacktestResult {
-  status: "COMPLETED";
-  candidateId: string;
-  attemptId: string;
-  workerRuntimeVersion: string;
-  workerRuntimeSha256: string;
-  startedAt: string;
-  completedAt: string;
-  trades: Trade[];
-}
+// Evaluation reads only candidateId, status, and ordered Trade.resultPercent;
+// the full Trade remains available without creating a competing interface.
 ```
 
 ### 4.5 Data model

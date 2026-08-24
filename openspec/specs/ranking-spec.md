@@ -26,14 +26,16 @@ In scope:
 
 - Applying an immutable `ScoreFormula` to `EvaluationMetrics` to produce a deterministic
   `ScoredEvaluation` (pure function, no I/O).
-- Creating and persisting immutable `LeaderboardScope` rows that pin the benchmark
-  parameters (dataset snapshot, capital, fees, runtime versions, formula ID).
+- Creating and persisting owner-scoped immutable `LeaderboardScope` rows that
+  pin comparable benchmark parameters (sealed snapshot and pair metadata,
+  eligible trade range, warm-up capacity, capital, costs,
+  simulator/Evaluation versions, formula).
 - Submitting a completed `ExperimentResult` for Top-K admission inside the Completion
   Processor's existing PostgreSQL transaction.
 - Persisting, evicting, and returning `LeaderboardEntry` rows for the cross-run Top-10.
 - Ranking all rank-eligible Experiments from a single Search Run on demand
   (`rankSearchRun`).
-- Exposing `topK(leaderboardScopeId)` and `rankSearchRun(searchRunId)` for read queries.
+- Exposing owner-aware `topK(userId, scopeId)` and `rankSearchRun(userId, runId)` queries.
 
 Out of scope (owned by other modules, consumed through their public APIs only):
 
@@ -71,10 +73,10 @@ Out of scope (owned by other modules, consumed through their public APIs only):
 | FR-4 | The module must expose `submit(experiment, unitOfWork)` that, using the caller's PostgreSQL transaction, inserts a `leaderboard_entries` row when the experiment is rank-eligible and either a slot is empty or the experiment beats the current lowest entry. |
 | FR-5 | `submit()` must evict the lowest-ranked existing entry when the Top-K is full and the new score is strictly higher, retaining the evicted row as inactive history. |
 | FR-6 | `submit()` must be idempotent: submitting the same `experimentResultId` twice must result in exactly one active `leaderboard_entries` row. |
-| FR-7 | The module must expose `topK(leaderboardScopeId)` returning the current active Top-K `LeaderboardEntry[]`, ordered by `score` descending, for a given scope. |
-| FR-8 | The module must expose `rankSearchRun(searchRunId)` returning all rank-eligible `ExperimentResult`s from that Search Run, ordered by `score` descending. |
-| FR-9 | The module must persist immutable `LeaderboardScope` rows via `createLeaderboardScope(command)` and expose `getLeaderboardScope(id)` for reload. |
-| FR-10 | `createLeaderboardScope()` must validate that `scoreFormulaId` references an existing `ScoreFormula`, that all numeric parameters are finite and positive, and that runtime version strings are non-empty. |
+| FR-7 | The module must expose `topK(userId, leaderboardScopeId)` returning the current user's active Top-K, ordered by score descending; another user's scope is concealed as `404`. |
+| FR-8 | The module must expose `rankSearchRun(userId, searchRunId)` returning that user's rank-eligible Experiments for the run, ordered by score descending. |
+| FR-9 | The module must persist owner-scoped immutable scopes via `createLeaderboardScope(userId, command)` and expose owner-aware reload; uniqueness is `(userId, name, version)`. |
+| FR-10 | `createLeaderboardScope()` must validate same-owner context, an existing `scoreFormulaId`, sealed snapshot/pair metadata, aligned trade range, integer warm-up capacity `0..10000`, positive capital, finite bounded non-negative costs, non-empty simulator/Evaluation versions, SHA-256 values, and policy IDs. |
 
 ### 2.2 Business rules
 
@@ -97,7 +99,7 @@ Out of scope (owned by other modules, consumed through their public APIs only):
   `ScoreFormula` version, not an update in place.
 
 - **Scope immutability**: A `LeaderboardScope` row is never updated. Changing the
-  dataset snapshot, capital/cost settings, formula, or runtime hashes creates a new
+  dataset snapshot, warm-up capacity, capital/cost settings, formula, or runtime hashes creates a new
   scope. Past `LeaderboardEntry` rows always point to the exact scope/formula that
   produced them.
 
@@ -288,8 +290,8 @@ the view is slightly stale.
 | Non-finite score | Formula produces `NaN`, `Infinity`, or `-Infinity` | `score()` throws `INVALID_SCORE`. The Completion Processor marks the Candidate as `FAILED` with reason `COMPLETION_PROCESSING`. No `leaderboard_entries` row is created. |
 | Duplicate `submit()` | Same `experimentResultId` submitted twice (e.g., retry) | `submit()` detects the existing row by `experimentResultId` uniqueness constraint. Returns `admitted: true` with the existing entry (idempotent). |
 | Score exactly ties current #10 | New score equals current lowest active entry's score | New experiment is **not** admitted (`admitted: false`). Existing entry retains its rank (older entry wins ties). |
-| `leaderboardScopeId` not found | `score()` or `submit()` called with a non-existent scope ID | Throw `SCOPE_NOT_FOUND`. Caller (Completion Processor) treats this as a non-retryable invariant failure and marks the Candidate `FAILED`. |
-| Formula missing from cache | Formula ID referenced by scope no longer in in-process cache | Reload from PostgreSQL. If still not found, throw `FORMULA_NOT_FOUND`. |
+| `leaderboardScopeId` not found | `score()` or `submit()` called with a non-existent scope ID | Pure `score()` throws `SCOPE_NOT_CACHED`; transactional `submit()` throws `SCOPE_NOT_FOUND`. The Completion Processor treats either as a non-retryable invariant failure. |
+| Scope/formula missing from score cache | The immutable scope-to-formula cache was not warmed at startup/scope creation | Throw `SCOPE_NOT_CACHED`; do not perform I/O inside `score()`. Startup/scope creation must populate the cache before Candidates can reference the scope. |
 | Cancelled candidate path | Completion Processor mistakenly calls `submit()` for a cancelled Candidate | The Experiment row will not exist (Completion Processor invariant), so `submit()` will find no row to reference. If reached, throw `INVALID_EXPERIMENT_STATE`. |
 | Concurrent submission race | Two Completion Processor instances submit different experiments for the same scope simultaneously | `SELECT ... FOR UPDATE` serializes the admission. One writer will see the other's commit first. Both may be admitted if both beat #10, or one may be evicted by the other. No corrupt state is possible. |
 
@@ -303,8 +305,8 @@ the view is slightly stale.
 // modules/leaderboard/api/index.ts
 export interface LeaderboardModulePublicApi {
   score(leaderboardScopeId: string, metrics: EvaluationMetrics): ScoredEvaluation;
-  topK(leaderboardScopeId: string): Promise<LeaderboardEntry[]>;
-  rankSearchRun(searchRunId: string): Promise<SearchRunRankingEntry[]>;
+  topK(userId: string, leaderboardScopeId: string): Promise<LeaderboardEntry[]>;
+  rankSearchRun(userId: string, searchRunId: string): Promise<SearchRunRankingEntry[]>;
   submit(
     experiment: ExperimentResult,
     unitOfWork: CompletionUnitOfWork
@@ -323,8 +325,8 @@ export function createLeaderboardModule(deps: {
   experimentReader: ExperimentResultReader; // read-only port into modules/backtesting tables
   clock: Clock;
 }): LeaderboardModulePublicApi & {
-  createLeaderboardScope(command: CreateLeaderboardScopeCommand): Promise<LeaderboardScope>;
-  getLeaderboardScope(id: string): Promise<LeaderboardScope>;
+  createLeaderboardScope(userId: string, command: CreateLeaderboardScopeCommand): Promise<LeaderboardScope>;
+  getLeaderboardScope(userId: string, id: string): Promise<LeaderboardScope>;
 };
 ```
 
@@ -335,6 +337,8 @@ export function createLeaderboardModule(deps: {
 
 // Supplied by modules/evaluation — imported, not redeclared.
 import type { EvaluationMetrics } from "modules/evaluation/api";
+import type { DatasetSnapshotRef, MarketPairMetadata } from "modules/market-data/api";
+import type { SentimentDatasetSnapshotRef } from "modules/sentiment/api";
 
 // Supplied by modules/backtesting — imported for ExperimentResult and UoW types.
 import type { ExperimentResult, CompletionUnitOfWork } from "modules/backtesting/api";
@@ -360,14 +364,20 @@ export interface ScoreFormula {
 
 export interface LeaderboardScope {
   id: string;
+  userId: string;
   name: string;
   version: number;
   datasetSnapshot: DatasetSnapshotRef;
+  pairMetadata: MarketPairMetadata;
+  tradeRange: { from: string; to: string };
+  warmupCapacityCandles: number;
   sentimentDatasetSnapshot?: SentimentDatasetSnapshotRef; // required for INFORMATION composites
-  workerRuntimeVersion: string;
-  workerRuntimeSha256: string;     // hex SHA-256, 64 chars
+  simulatorVersion: string;
+  simulatorSha256: string;        // pure simulator artifact
   evaluationRuntimeVersion: string;
   evaluationRuntimeSha256: string; // hex SHA-256, 64 chars
+  evaluationPolicyId: string;
+  decimalPolicyId: string;
   initialCapital: number;          // must be finite and positive
   feeRatePercent: number;          // must be finite and non-negative
   slippageBps: number;             // must be finite and non-negative
@@ -425,11 +435,16 @@ export interface LeaderboardSubmissionResult {
 export interface CreateLeaderboardScopeCommand {
   name: string;
   datasetSnapshot: DatasetSnapshotRef;
+  pairMetadata: MarketPairMetadata;
+  tradeRange: { from: string; to: string };
+  warmupCapacityCandles: number;
   sentimentDatasetSnapshot?: SentimentDatasetSnapshotRef;
-  workerRuntimeVersion: string;
-  workerRuntimeSha256: string;
+  simulatorVersion: string;
+  simulatorSha256: string;
   evaluationRuntimeVersion: string;
   evaluationRuntimeSha256: string;
+  evaluationPolicyId: string;
+  decimalPolicyId: string;
   initialCapital: number;
   feeRatePercent: number;
   slippageBps: number;
@@ -444,7 +459,7 @@ export interface CreateLeaderboardScopeCommand {
 
 export interface LeaderboardScopeRepository {
   insert(scope: LeaderboardScope): Promise<LeaderboardScope>;
-  getById(id: string): Promise<LeaderboardScope | undefined>;
+  getById(userId: string, id: string): Promise<LeaderboardScope | undefined>;
 }
 
 export interface ScoreFormulaRepository {
@@ -505,14 +520,20 @@ erDiagram
 
     LEADERBOARD_SCOPES {
         uuid id PK
+        uuid user_id FK
         text name
         int version
         jsonb dataset_snapshot
+        jsonb pair_metadata
+        jsonb trade_range
+        int warmup_capacity_candles
         jsonb sentiment_dataset_snapshot
-        text worker_runtime_version
-        char worker_runtime_sha256
+        text simulator_version
+        char simulator_sha256
         text evaluation_runtime_version
         char evaluation_runtime_sha256
+        text evaluation_policy_id
+        text decimal_policy_id
         numeric initial_capital
         numeric fee_rate_percent
         numeric slippage_bps
@@ -549,21 +570,28 @@ CREATE TABLE score_formulas (
 
 CREATE TABLE leaderboard_scopes (
   id                          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id                     UUID NOT NULL REFERENCES users(id),
   name                        TEXT NOT NULL,
   version                     INT NOT NULL,
   dataset_snapshot            JSONB NOT NULL,
+  pair_metadata               JSONB NOT NULL,
+  trade_range                 JSONB NOT NULL,
+  warmup_capacity_candles     INT NOT NULL CHECK (warmup_capacity_candles BETWEEN 0 AND 10000),
   sentiment_dataset_snapshot  JSONB,
-  worker_runtime_version      TEXT NOT NULL,
-  worker_runtime_sha256       CHAR(64) NOT NULL
-    CHECK (worker_runtime_sha256 ~ '^[0-9A-Fa-f]{64}$'),
+  simulator_version           TEXT NOT NULL,
+  simulator_sha256            CHAR(64) NOT NULL
+    CHECK (simulator_sha256 ~ '^[0-9a-f]{64}$'),
   evaluation_runtime_version  TEXT NOT NULL,
   evaluation_runtime_sha256   CHAR(64) NOT NULL
-    CHECK (evaluation_runtime_sha256 ~ '^[0-9A-Fa-f]{64}$'),
+    CHECK (evaluation_runtime_sha256 ~ '^[0-9a-f]{64}$'),
+  evaluation_policy_id        TEXT NOT NULL,
+  decimal_policy_id           TEXT NOT NULL,
   initial_capital             NUMERIC NOT NULL CHECK (initial_capital > 0),
-  fee_rate_percent            NUMERIC NOT NULL CHECK (fee_rate_percent >= 0),
-  slippage_bps                NUMERIC NOT NULL CHECK (slippage_bps >= 0),
+  fee_rate_percent            NUMERIC NOT NULL CHECK (fee_rate_percent >= 0 AND fee_rate_percent <= 10),
+  slippage_bps                NUMERIC NOT NULL CHECK (slippage_bps >= 0 AND slippage_bps <= 500),
   score_formula_id            UUID NOT NULL REFERENCES score_formulas(id),
-  created_at                  TIMESTAMPTZ NOT NULL DEFAULT now()
+  created_at                  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (user_id, name, version)
 );
 
 CREATE TABLE leaderboard_entries (

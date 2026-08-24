@@ -58,7 +58,7 @@ The supplied project brief and architecture slides are requirements/reference ma
 | FR-4 | Sentiment result persistence must be append-only. Re-analysis with a different model identity inserts a new row and never overwrites an earlier result. |
 | FR-5 | The module must expose deterministic latest-result selection for News reads without making newsId unique by itself. |
 | FR-6 | The module must expose createSnapshot for an immutable Sentiment dataset retaining range, aggregation, model provenance, point count, and content hash. |
-| FR-7 | The module must expose readSnapshot and the exact low-level readAt(snapshotId, candleCloseTime) behavior for sealed snapshot reads. |
+| FR-7 | The module must expose `getSnapshotRef(snapshotId)` for immutable metadata validation plus `readSnapshot` and exact low-level `readAt(snapshotId, candleCloseTime)` behavior for sealed point reads. |
 | FR-8 | Snapshot creation must enforce a positive aggregation window, valid half-open range, canonical base-asset identity, normalized scores, and at least one persisted point. |
 | FR-9 | Snapshot points must be time-aligned aggregation points whose timestamps are inclusive ends of their windows. |
 | FR-10 | Snapshot lookup must be as-of and deterministic: it never selects a future point and never carries a previous value across a missing window. |
@@ -260,6 +260,7 @@ export interface SentimentModulePublicApi {
   analyze(input: SentimentInput): Promise<SentimentResult>;
   readLatestForNews(newsId: string): Promise<SentimentResult | undefined>;
   createSnapshot(command: CreateSentimentSnapshotCommand): Promise<SentimentDatasetSnapshotRef>;
+  getSnapshotRef(snapshotId: string): Promise<SentimentDatasetSnapshotRef>;
   readSnapshot(snapshotId: string): SentimentSnapshotReader;
 }
 
@@ -363,6 +364,7 @@ export interface SentimentSnapshotRepository {
     ref: SentimentDatasetSnapshotRef,
     points: SentimentSnapshotPoint[]
   ): Promise<SentimentDatasetSnapshotRef>;
+  getRef(snapshotId: string): Promise<SentimentDatasetSnapshotRef>;
   readAt(
     snapshotId: string,
     candleCloseTime: string
@@ -589,7 +591,8 @@ News and Backtesting consume only the public Sentiment API. Strategy implementat
 
 ### Architecture and API boundaries
 
-- [ ] The public module facade exposes analyze, createSnapshot, readSnapshot, and the latest-News read capability without exposing infrastructure.
+- [ ] The public module facade exposes analyze, createSnapshot, getSnapshotRef, readSnapshot, and the latest-News read capability without exposing infrastructure.
+- [ ] getSnapshotRef returns the full immutable reference used at creation, or NOT_FOUND, so Backtesting can validate an existing selection without reading Sentiment tables.
 - [ ] readSnapshot exposes or delegates to exact readAt(snapshotId, candleCloseTime) semantics.
 - [ ] Other modules cannot import modules/sentiment/domain or modules/sentiment/infrastructure directly.
 - [ ] An architecture test or code review prevents Sentiment domain code from importing HTTP, PostgreSQL, Redis, BullMQ, concrete ML runtimes, or UI code.

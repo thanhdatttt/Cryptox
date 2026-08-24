@@ -40,7 +40,7 @@ Out of scope (owned by other modules, consumed through their public APIs only):
 | Frontend (via Backend REST) | Starts a Search Run, polls `GET /search-runs/{id}` and `GET /search-runs/{id}/leaderboard` while active; may also read `GET /search-runs/{id}/candidates` for per-candidate history. Closing the browser does not stop server-side work. |
 | `modules/backtesting` (Coordinator) | Receiving side of `submitSearchCandidate`; source of `CandidateProgress` counts/projections via `summarizeSearchCandidates`; also the direct source for `GET /search-runs/{id}/candidates` (Backend composes this endpoint straight from Backtesting's projection API — Search's own `api` surface is not on this read path). Calls `SearchLoop.onCandidateFinished(searchRunId)` after a Candidate reaches a durable terminal state. |
 | `modules/leaderboard` | Source of the run-scoped ranking (`currentTopEntry`, `GET /search-runs/{id}/leaderboard`) and of the `noImprovementAfterIterations` baseline signal. |
-| `modules/strategy` | Indirectly, through `GeneratedCandidate.strategyDefinitions`/`compositeDefinition`, which Backtesting validates/persists on Search's behalf — Search never imports `modules/strategy` internals. |
+| `modules/strategy` | Persists/returns owner-scoped immutable Strategy/Composite references before Search submits them to Backtesting; Search never imports Strategy internals. |
 
 ## 2. Requirements
 
@@ -117,16 +117,22 @@ sequenceDiagram
 sequenceDiagram
     participant O as Search module / Loop Orchestrator
     participant G as Search module / Generator
+    participant ST as Strategy public API
     participant BC as Backtesting module / Coordinator
 
     O->>G: generate(searchSpace)
-    G-->>O: GeneratedCandidate { strategyDefinitions[], compositeDefinition, generatedBy }
-    O->>O: map GeneratedCandidate -> SubmitSearchCandidateCommand
-    O->>BC: submitSearchCandidate(command)
+    G-->>O: GeneratedCandidate drafts + execution policy intent
+    O->>ST: define/verify same-owner immutable definitions/composite
+    ST-->>O: exact definition/composite IDs
+    O->>O: map IDs + normalized ExecutionPolicySnapshot -> SubmitSearchCandidateCommand
+    O->>BC: submitSearchCandidate({ userId }, command)
     BC-->>O: BacktestSubmissionAccepted { candidateId, jobId, status }
 ```
 
-`GeneratedCandidate` is Search-owned and immutable once produced; it is not permission for Search or Backtesting to import Strategy domain internals. `modules/strategy` validates/persists the referenced definitions on Backtesting's behalf, inside the same transaction Backtesting uses to create the Candidate (`component-contracts.md` §5, §6).
+`GeneratedCandidate` is Search-owned and immutable once produced; it is not a
+persisted Strategy aggregate. Search calls Strategy's owner-aware public API
+first, then Backtesting verifies the returned exact references. Backtesting
+never persists Strategy-owned rows in its Candidate transaction.
 
 ### 3.3 `fillAvailableSlots` — the serialized, idempotent core loop
 
@@ -145,7 +151,7 @@ sequenceDiagram
         O->>PG: release lock, no-op
     else Run is RUNNING
         O->>PG: read Search-owned limits (maxInFlight, stopCondition, searchSpace) from the persisted row
-        O->>BC: summarizeSearchCandidates(searchRunId)
+        O->>BC: summarizeSearchCandidates({ userId }, searchRunId)
         BC-->>O: { active, queuedCount, runningCount, candidatesTested }
         O->>L: read current best rank-eligible score (for NO_IMPROVEMENT)
         L-->>O: currentTopEntry / none
@@ -159,7 +165,7 @@ sequenceDiagram
             loop while slots available (maxInFlight - inFlight) and budget remains
                 O->>G: generate(searchSpace)
                 G-->>O: GeneratedCandidate
-                O->>BC: submitSearchCandidate(command)
+                O->>BC: submitSearchCandidate({ userId }, command)
                 BC-->>O: BacktestSubmissionAccepted
             end
         end
@@ -230,7 +236,7 @@ sequenceDiagram
     O->>PG: lock Search Run row
     O->>UOW: open process-level application unit of work
     O->>PG: (within UOW) write CANCELLED, stopReason=USER_CANCELLED, endedAt
-    O->>BC: (within same UOW) cancelSearchCandidates(searchRunId, unitOfWork)
+    O->>BC: (within same UOW) cancelSearchCandidates({ userId }, searchRunId, unitOfWork)
     BC->>BC: mark every non-terminal Candidate CANCELLED, clear active generation, completion retry/lease/token
     BC-->>O: { candidateIds }
     O->>UOW: commit
@@ -254,7 +260,7 @@ sequenceDiagram
 
     FE->>API: GET /search-runs/{id}
     API->>O: status(searchRunId)
-    O->>BC: summarizeSearchCandidates(searchRunId)
+    O->>BC: summarizeSearchCandidates({ userId }, searchRunId)
     BC-->>O: Candidate projection/counts
     O->>L: read run-scoped currentTopEntry
     L-->>O: SearchRunRankingEntry / none
@@ -285,19 +291,22 @@ sequenceDiagram
 
 ```typescript
 // modules/search/api/index.ts
+// REST derives this only from Auth.verify(token).userId.
+export interface AuthContext { userId: string }
+
 export interface SearchModulePublicApi {
-  start(config: {
+  start(auth: AuthContext, config: {
     searchSpace: SearchSpaceConfig;
     stopCondition: StopCondition;
     generatorType: GeneratorType;
     leaderboardScopeId: string;
     maxInFlight: number;
   }): Promise<{ searchRunId: string }>;
-  pause(searchRunId: string): Promise<void>;
-  resume(searchRunId: string): Promise<void>;
-  cancel(searchRunId: string): Promise<void>;
-  status(searchRunId: string): Promise<LoopStatus>;
-  leaderboard(searchRunId: string): Promise<SearchRunRankingEntry[]>;
+  pause(auth: AuthContext, searchRunId: string): Promise<void>;
+  resume(auth: AuthContext, searchRunId: string): Promise<void>;
+  cancel(auth: AuthContext, searchRunId: string): Promise<void>;
+  status(auth: AuthContext, searchRunId: string): Promise<LoopStatus>;
+  leaderboard(auth: AuthContext, searchRunId: string): Promise<SearchRunRankingEntry[]>;
 }
 
 // modules/search/api/bootstrap.ts
@@ -325,6 +334,11 @@ export type StrategyCategory =
 export interface GeneratedCandidate {
   strategyDefinitions: StrategyDefinition[];
   compositeDefinition: CompositeStrategyDefinition;
+  executionPolicyIntent: {
+    mode: "TWO_SIDED_ONE_X_V1";
+    stopLossPercent?: number;
+    takeProfitPercent?: number;
+  };
   generatedBy: GeneratorType;
 }
 
@@ -357,44 +371,8 @@ export type StopCondition =
 
 ```typescript
 // modules/search/api/loop.ts
-export interface CandidateProgress {
-  candidateId: string;
-  origin: "MANUAL" | "SEARCH";
-  searchRunId?: string;
-  iterationNumber?: number;
-  leaderboardScopeId: string;
-  status:
-    | "CREATED" | "QUEUED" | "BACKTESTING" | "RETRY_WAIT" | "PROCESSING_RESULT"
-    | "TERMINAL_FAILURE_PENDING" | "COMPLETED" | "FAILED" | "CANCELLED";
-  attempts: Array<{
-    attemptId: string;
-    attemptNumber: number;
-    status: "RUNNING" | "COMPLETED" | "FAILED";
-    startedAt: string;
-    completedAt?: string;
-    errorMessage?: string;
-  }>;
-  maxAttempts: number;
-  activeAttemptNumber?: number;
-  completionAttemptCount: number;
-  completionMaxAttempts: number;
-  completionNextRetryAt?: string;
-  experimentResultId?: string;
-  failureKind?: "RETRY_EXHAUSTED" | "INFRASTRUCTURE" | "COMPLETION_PROCESSING";
-  lastError?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface SearchRunRankingEntry {
-  rank: number;
-  searchRunId: string;
-  leaderboardScopeId: string;
-  candidateId: string;
-  experimentResultId: string;
-  scoreFormulaId: string;
-  score: number;
-}
+import type { CandidateProgress } from "modules/backtesting/api";
+import type { SearchRunRankingEntry } from "modules/leaderboard/api";
 
 export interface LoopStatus {
   searchRunId: string;
@@ -420,17 +398,17 @@ export interface LoopStatus {
 }
 
 export interface ContinuousLoopOrchestrator {
-  start(config: {
+  start(auth: AuthContext, config: {
     searchSpace: SearchSpaceConfig;
     stopCondition: StopCondition;
     generatorType: GeneratorType;
     leaderboardScopeId: string;
     maxInFlight: number;
   }): Promise<{ searchRunId: string }>;
-  pause(searchRunId: string): Promise<void>;
-  resume(searchRunId: string): Promise<void>;
-  cancel(searchRunId: string): Promise<void>;
-  status(searchRunId: string): Promise<LoopStatus>;
+  pause(auth: AuthContext, searchRunId: string): Promise<void>;
+  resume(auth: AuthContext, searchRunId: string): Promise<void>;
+  cancel(auth: AuthContext, searchRunId: string): Promise<void>;
+  status(auth: AuthContext, searchRunId: string): Promise<LoopStatus>;
   onCandidateFinished(searchRunId: string): Promise<void>;
   fillAvailableSlots(searchRunId: string): Promise<void>;
 }
@@ -439,36 +417,38 @@ export interface ContinuousLoopOrchestrator {
 ### 4.4 Consumed contracts (owned by `modules/backtesting`, imported through its public API only)
 
 ```typescript
-// modules/backtesting/api/contracts.ts — Search calls these, never the tables behind them
-export interface SubmitSearchCandidateCommand {
-  searchRunId: string;
-  leaderboardScopeId: string;
-  iterationNumber: number;
-  maxAttempts: number;
-  strategyDefinitions: StrategyDefinition[];
-  compositeDefinition: CompositeStrategyDefinition;
-  generatedBy: string;
-}
+// Imported, never redeclared or weakened locally.
+import type {
+  BacktestSubmissionAccepted,
+  CancellationUnitOfWork,
+  CandidateProgress,
+  CompletionUnitOfWork,
+  SearchCandidateTerminalFacts,
+  SubmitSearchCandidateCommand,
+} from "modules/backtesting/api";
 
-export interface BacktestSubmissionAccepted {
-  candidateId: string;
-  jobId: string;
-  status: "CREATED" | "QUEUED";
-}
-
-export interface CancellationUnitOfWork {
-  readonly kind: "SEARCH_CANCELLATION"; // opaque; not a database handle
+// Search-owned adapter implemented by the composition root and injected into
+// Backtesting's Completion Processor. It writes only Search projections in the
+// caller's final transaction; it never opens or commits a nested transaction.
+export interface SearchProjectionPort {
+  applyCandidateTerminalFacts(
+    facts: SearchCandidateTerminalFacts,
+    unitOfWork: CompletionUnitOfWork,
+  ): Promise<void>;
 }
 
 export interface BacktestCoordinator {
-  submitSearchCandidate(command: SubmitSearchCandidateCommand): Promise<BacktestSubmissionAccepted>;
-  summarizeSearchCandidates(searchRunId: string): Promise<{
+  submitSearchCandidate(auth: AuthContext, command: SubmitSearchCandidateCommand): Promise<BacktestSubmissionAccepted>;
+  summarizeSearchCandidates(auth: AuthContext, searchRunId: string): Promise<{
     active: CandidateProgress[];
     queuedCount: number;
     runningCount: number;
     candidatesTested: number;
   }>;
-  cancelSearchCandidates(searchRunId: string, unitOfWork: CancellationUnitOfWork): Promise<{ candidateIds: string[] }>;
+  cancelSearchCandidates(auth: AuthContext, searchRunId: string, unitOfWork: CancellationUnitOfWork): Promise<{ candidateIds: string[] }>;
+}
+
+export interface BacktestInternalApi {
   removePendingJobs(candidateIds: string[]): Promise<void>; // best-effort, waiting/delayed jobs only
 }
 ```

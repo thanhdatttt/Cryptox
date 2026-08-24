@@ -773,6 +773,13 @@ export type Pair = string;
 
 export type Timeframe = "1m" | "5m" | "15m" | "1h" | "4h" | "1d";
 
+export interface MarketPairMetadata {
+  pair: Pair;              // opaque canonical symbol
+  baseAsset: string;       // e.g. BTC
+  quoteAsset: string;      // e.g. USDT
+  settlementAsset: string; // accounting currency used by the simulator/UI
+}
+
 // Extensible provider identifier. It is not a raw adapter or an enum that
 // forces Frontend changes when another provider is registered.
 export type ProviderId = string;
@@ -804,6 +811,7 @@ export interface MarketDataConnectionStatus {
 export interface DatasetSnapshotRef {
   id: string;                         // opaque UUID string; required, non-empty
   pair: Pair;
+  pairMetadata: MarketPairMetadata;   // normalized by Market Data; consumers never parse Pair
   timeframe: Timeframe;
   range: { from: string; to: string }; // UTC, half-open [from, to)
   candleCount: number;                 // positive count of closed candles
@@ -834,6 +842,7 @@ Canonical field semantics:
 | `MarketDataConnectionStatus.status` | `CONNECTED\|RECONNECTING\|DISCONNECTED` | Required; provider-level connection state | Market Data connection manager | Market WebSocket consumers |
 | `MarketDataConnectionStatus.lastEventAt` | UTC ISO-8601 string | Required; latest provider frame, or state-transition time before first frame | Market Data connection manager | Market WebSocket consumers |
 | `DatasetSnapshotRef.id` | opaque non-empty UUID string | Required; immutable snapshot identity | Market Data snapshot repository | Backtesting/worker |
+| `DatasetSnapshotRef.pairMetadata` | canonical pair/base/quote/settlement strings | Required; copied from the provider-independent pair registry and immutable with the snapshot | Market Data pair registry | Backtesting/Frontend; consumers never parse `Pair` |
 | `DatasetSnapshotRef.range` | UTC aligned `{from,to}` with `from < to` | Required; half-open `[from,to)` | Market Data snapshot repository | Backtesting benchmark scope |
 | `DatasetSnapshotRef.candleCount` | positive integer | Required; exact closed child-row count | Market Data snapshot repository | Backtesting/verification |
 | `DatasetSnapshotRef.sha256` | lowercase 64-hex string | Required; content address, no unit/timezone | Market Data snapshot repository | Backtesting/reproducibility checks |
@@ -896,6 +905,7 @@ export type MarketDataUpdate =
   | { kind: "CONNECTION_STATUS"; payload: MarketDataConnectionStatus };
 
 export interface MarketDataModulePublicApi {
+  readPairMetadata(pair: Pair): Promise<MarketPairMetadata>;
   readCandles(query: HistoricalCandleQuery): Promise<HistoricalCandlePage>;
   createDatasetSnapshot(command: DatasetSnapshotCreateCommand): Promise<DatasetSnapshotRef>;
   readDatasetSnapshot(query: DatasetSnapshotReadQuery): Promise<DatasetSnapshotPage>;
