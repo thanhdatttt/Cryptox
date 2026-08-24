@@ -3,9 +3,9 @@
 ## Current state
 
 - Branch: `implement`
-- Current feature: Search and leaderboard (in progress)
+- Current feature: Search orchestration (in progress)
 - Next feature: News and sentiment
-- Completed features: Strategy plugin runtime; Market data and normalized contracts; Evaluation metrics; Backtesting simulator
+- Completed features: Strategy plugin runtime; Market data and normalized contracts; Evaluation metrics; Backtesting simulator; Leaderboard scoring and Top-K admission
 
 ## Baseline
 
@@ -20,6 +20,7 @@
 - After a network-enabled dependency repair, `pnpm -r --if-present test`: passed for all 13 workspace projects; `pnpm -r --if-present build`: passed; and `pnpm -r --if-present lint`: passed.
 - Direct dependency-cruiser invocation with `.dependency-cruiser.js`: passed; 31 modules and 27 dependencies cruised with no violations.
 - The same focused and workspace validation set was rerun after the simulator's scientific-notation precision hardening and passed unchanged.
+- Leaderboard focused tests: passed; 3 tests covering deterministic scoring/zero-trade exclusion, strict Top-K admission and idempotency, and rank-eligible per-run ordering. The full workspace test/build/lint and dependency-cruiser checks passed after this module.
 
 ## Commits
 
@@ -27,6 +28,7 @@ Strategy plugin runtime committed as `97bd4f6` (`feat(strategy): add built-in pl
 Market-data runtime committed as `cd091a6` (`feat(market-data): normalize candles and seal snapshots`).
 Evaluation runtime committed as `0d8f1f8` (`feat(evaluation): add deterministic finite metric policy`).
 Backtesting simulator committed as `9d9645e` (`feat(backtesting): add deterministic candle simulator`).
+Leaderboard scoring and Top-K admission committed as `8f8364c` (`feat(leaderboard): add deterministic scoring and Top-K admission`).
 
 ## Decisions and conflicts
 
@@ -41,8 +43,9 @@ Backtesting simulator committed as `9d9645e` (`feat(backtesting): add determinis
 - Backtesting implements `NEXT_OPEN_OHLC_STOP_FIRST_V2` semantics as a pure simulator: decisions only observe closed candles through the current close; entries/reversals fill at the next open; protective exits are stop-first and gap-aware; and final-candle entries are suppressed.
 - The simulator uses local fixed-decimal `bigint` arithmetic for the selected half-up rounding scales, applies fees/slippage separately at entry and exit, and records settlement asset plus equity-before/equity-after audit values on every Trade.
 - The network-approved pnpm repair rebuilt an incomplete virtual store. A temporary workspace manifest remains uncommitted because this repository declares npm workspaces but the available pnpm version requires its own workspace manifest.
+- Leaderboard scoring is pure and formula-versioned; scope/formula lookup is cached before synchronous scoring. Its factory uses injected ports and provides an in-memory default only for the existing composition shell and deterministic tests.
 - A temporary pnpm workspace manifest was used only for dependency installation and is not part of the implementation.
 
 ## Blockers
 
-- No active blocker. The next feature is Search and leaderboard.
+- No active blocker. The next feature is Search orchestration.
