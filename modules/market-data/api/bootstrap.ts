@@ -1,5 +1,5 @@
 import type { MarketDataModuleDependencies } from "../application/ports";
 import type { MarketDataModulePublicApi } from "./index";
-import { createDatasetSnapshot, readCandles, readDatasetSnapshot, shutdown, subscribeMarketData } from "./index";
-export function createMarketDataModule(_deps: MarketDataModuleDependencies): MarketDataModulePublicApi { return { readCandles, createDatasetSnapshot, readDatasetSnapshot, subscribeMarketData, shutdown }; }
+import { createMarketDataService } from "../application/service";
+export function createMarketDataModule(deps: MarketDataModuleDependencies): MarketDataModulePublicApi { return createMarketDataService(deps); }
 export { createMarketDataSnapshotReader } from "./snapshot-reader";

@@ -1,6 +1,5 @@
-import type { MarketDataModuleDependencies } from "../application/ports";
-export type { MarketDataModuleDependencies } from "../application/ports";
-export type { Candle, DatasetSnapshotRef, MarketDataConnectionStatus, MarketTick, Pair, ProviderId, Timeframe } from "../domain/contracts";
+import type { MarketPairMetadata, Pair } from "../domain/contracts";
+export type { Candle, DatasetSnapshotRef, MarketDataConnectionStatus, MarketTick, Pair, ProviderId, Timeframe, MarketPairMetadata } from "../domain/contracts";
 export interface HistoricalCandleQuery {
     pair: import("../domain/contracts").Pair;
     timeframe: import("../domain/contracts").Timeframe;
@@ -63,10 +62,13 @@ export type MarketDataUpdate = {
     payload: import("../domain/contracts").MarketDataConnectionStatus;
 };
 export interface MarketDataError {
-    code: "INVALID_PAIR" | "INVALID_TIMEFRAME" | "RANGE_TOO_LARGE" | "INVALID_CURSOR";
+    code: string;
     message: string;
+    retryable: boolean;
+    details?: Record<string, unknown>;
 }
 export interface MarketDataModulePublicApi {
+    readPairMetadata(pair: Pair): Promise<MarketPairMetadata>;
     readCandles(query: HistoricalCandleQuery): Promise<HistoricalCandlePage>;
     createDatasetSnapshot(command: DatasetSnapshotCreateCommand): Promise<import("../domain/contracts").DatasetSnapshotRef>;
     readDatasetSnapshot(query: DatasetSnapshotReadQuery): Promise<DatasetSnapshotPage>;
@@ -74,10 +76,11 @@ export interface MarketDataModulePublicApi {
     shutdown(): Promise<void>;
 }
 export type MarketDataSnapshotReader = Pick<MarketDataModulePublicApi, "readDatasetSnapshot">;
+export declare const readPairMetadata: MarketDataModulePublicApi["readPairMetadata"];
 export declare const readCandles: MarketDataModulePublicApi["readCandles"];
 export declare const createDatasetSnapshot: MarketDataModulePublicApi["createDatasetSnapshot"];
 export declare const readDatasetSnapshot: MarketDataModulePublicApi["readDatasetSnapshot"];
 export declare const subscribeMarketData: MarketDataModulePublicApi["subscribeMarketData"];
 export declare const shutdown: MarketDataModulePublicApi["shutdown"];
+export { createMarketDataService } from "../application/service";
 export { createMarketDataSnapshotReader } from "./snapshot-reader";
-export declare function createMarketDataModule(_deps: MarketDataModuleDependencies): MarketDataModulePublicApi;
