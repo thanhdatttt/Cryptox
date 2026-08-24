@@ -4,7 +4,7 @@ import type { CreateLeaderboardScopeCommand, LeaderboardEntry, LeaderboardScope,
 import type { LeaderboardModuleDependencies } from "./ports";
 export declare const DEFAULT_SCORE_FORMULA: ScoreFormula;
 export interface LeaderboardModuleRuntime {
-    score(leaderboardScopeId: string, metrics: EvaluationMetrics): ScoredEvaluation;
+    score(leaderboardScopeId: string, metrics: EvaluationMetrics): Promise<ScoredEvaluation>;
     topK(leaderboardScopeId: string): Promise<LeaderboardEntry[]>;
     rankSearchRun(searchRunId: string): Promise<SearchRunRankingEntry[]>;
     submit(experiment: ExperimentResult, unitOfWork: import("modules/backtesting/api").CompletionUnitOfWork): Promise<LeaderboardSubmissionResult>;

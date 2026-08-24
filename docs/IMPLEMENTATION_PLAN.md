@@ -37,14 +37,15 @@ The audit also found source-adjacent generated JavaScript/declaration files that
    - Add PostgreSQL migrations/repositories for Backtesting-owned copies of input snapshots/candles, benchmark scopes, candidates, attempts, trades, experiment results, and idempotency/audit data.
    - Acceptance: a saved strategy and market snapshot produce deterministic persisted trades and evaluation through the public API; scope, candidate, attempt, trade, and experiment reads enforce ownership.
 
-3. **Replace the Backtesting worker/queue skeleton with durable dispatch and recovery**
+3. **Connect evaluation, leaderboard, and bounded search end-to-end** *(completed in pending commit)*
+   - Replace Search and Leaderboard public `NOT_IMPLEMENTED` functions with a deterministic, offline-capable generation → Backtesting → Evaluation → Top-K flow.
+   - Persist search runs, candidate projections, and leaderboard entries; expose authenticated REST commands and reads.
+   - Acceptance: a bounded search generates deterministic strategies without external credentials, submits/evaluates them through Backtesting, and serves scope-specific rankings with lifecycle controls. Search runs and Leaderboard entries are durable; candidate and experiment records remain Backtesting-owned durable projections.
+
+4. **Replace the Backtesting worker/queue skeleton with durable dispatch and recovery**
    - Replace `apps/backtest-worker` placeholder adapters and the Backtesting queue placeholder with a real job dispatch/consume/complete path.
    - Move the synchronous manual processor behind that queue boundary; persist job state and retry/recovery outcomes.
    - Acceptance: an accepted backtest survives a process restart, is consumed by the worker exactly once per attempt, and completes its durable audit records.
-
-4. **Connect evaluation, leaderboard, and bounded search end-to-end**
-   - Replace Search and Leaderboard public `NOT_IMPLEMENTED` functions; persist search runs, leaderboard scopes/entries, and outcomes; expose authenticated REST routes.
-   - Acceptance: random search creates candidates, invokes backtests, evaluates results, ranks a Top-K, and supports status/pause/resume/cancel with durable recovery.
 
 5. **Deliver live frontend flows for implemented APIs**
    - Replace hard-coded demo paths with authenticated REST/WebSocket transport and loading/error/empty states for strategy, market charts, backtests/trades, discovery/leaderboard, and news.

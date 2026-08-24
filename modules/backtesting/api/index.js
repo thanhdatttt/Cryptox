@@ -1,12 +1,14 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.createInMemoryBacktestingDependencies = exports.createBacktestingService = exports.verifyReplay = exports.listExperimentTrades = exports.readExperimentSummary = exports.listAttemptTrades = exports.readAttempt = exports.removePendingJobs = exports.cancelManualCandidate = exports.cancelSearchCandidates = exports.listSearchCandidates = exports.summarizeSearchCandidates = exports.status = exports.submitSearchCandidate = exports.startManual = exports.createBenchmarkScope = exports.simulateBacktest = void 0;
+exports.createInMemoryBacktestingDependencies = exports.createBacktestingService = exports.verifyReplay = exports.listExperimentTrades = exports.scoreExperiment = exports.listSearchExperimentSummaries = exports.readExperimentSummary = exports.listAttemptTrades = exports.readAttempt = exports.removePendingJobs = exports.cancelManualCandidate = exports.cancelSearchCandidates = exports.listSearchCandidates = exports.summarizeSearchCandidates = exports.status = exports.submitSearchCandidate = exports.startManual = exports.readBenchmarkScope = exports.createBenchmarkScope = exports.simulateBacktest = void 0;
 const service_1 = require("../application/service");
 var simulator_1 = require("../domain/simulator");
 Object.defineProperty(exports, "simulateBacktest", { enumerable: true, get: function () { return simulator_1.simulateBacktest; } });
 const defaultService = (0, service_1.createBacktestingService)((0, service_1.createInMemoryBacktestingDependencies)());
 const createBenchmarkScope = (command, options) => defaultService.createBenchmarkScope(command, options);
 exports.createBenchmarkScope = createBenchmarkScope;
+const readBenchmarkScope = (scopeId, options) => defaultService.readBenchmarkScope(scopeId, options);
+exports.readBenchmarkScope = readBenchmarkScope;
 const startManual = (command, options) => defaultService.startManual(command, options);
 exports.startManual = startManual;
 const submitSearchCandidate = (command) => defaultService.submitSearchCandidate(command);
@@ -29,6 +31,10 @@ const listAttemptTrades = (attemptId, page, options) => defaultService.listAttem
 exports.listAttemptTrades = listAttemptTrades;
 const readExperimentSummary = (experimentId, options) => defaultService.readExperimentSummary(experimentId, options);
 exports.readExperimentSummary = readExperimentSummary;
+const listSearchExperimentSummaries = (searchRunId, options) => defaultService.listSearchExperimentSummaries(searchRunId, options);
+exports.listSearchExperimentSummaries = listSearchExperimentSummaries;
+const scoreExperiment = (experimentId, input, options) => defaultService.scoreExperiment(experimentId, input, options);
+exports.scoreExperiment = scoreExperiment;
 const listExperimentTrades = (experimentId, page, options) => defaultService.listExperimentTrades(experimentId, page, options);
 exports.listExperimentTrades = listExperimentTrades;
 const verifyReplay = (experimentId, options) => defaultService.verifyReplay(experimentId, options);

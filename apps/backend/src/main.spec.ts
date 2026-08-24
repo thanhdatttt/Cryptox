@@ -3,8 +3,10 @@ import { BadRequestException, ConflictException, UnauthorizedException } from "@
 import { createAuthModule, createInMemoryAuthDependencies } from "modules/auth/api";
 import { createBacktestingService, createInMemoryBacktestingDependencies } from "modules/backtesting/api";
 import { createEvaluationModule } from "modules/evaluation/api/bootstrap";
+import { createBacktestingExperimentReader, createBacktestingScopeRepository, createInMemoryLeaderboardDependencies, createLeaderboardModule } from "modules/leaderboard/api/bootstrap";
+import { createInMemorySearchDependencies, createSearchModule } from "modules/search/api/bootstrap";
 import { createInMemoryStrategyDependencies, createStrategyModule } from "modules/strategy/api/bootstrap";
-import { AuthController, BacktestAttemptController, BacktestController, BacktestScopeController, ExperimentController, MarketController, NewsController, StrategyController } from "./app.module";
+import { AuthController, BacktestAttemptController, BacktestController, BacktestScopeController, ExperimentController, LeaderboardController, MarketController, NewsController, SearchController, StrategyController } from "./app.module";
 import { composeAllModules, type BackendModules } from "./compose";
 
 describe("backend composition", () => {
@@ -66,12 +68,16 @@ describe("backend composition", () => {
     const composite = { id: "composite-1", logicalFamilyKey: "composite:test", version: 1, method: "MAJORITY_VOTE" as const, components: [{ strategyDefinitionId: definition.id, weight: 0 }], createdAt: snapshot.createdAt };
     let id = 0;
     const backtesting = createBacktestingService({ ...createInMemoryBacktestingDependencies(), marketData: { readDatasetSnapshot: async () => ({ snapshot, candles }) }, strategy: { resolveStrategy: async () => ({ name: "test", category: "TREND", analyze: (context) => context.candles.length === 1 ? "BUY" : "HOLD" }), combineSignals: (_composite, signals) => signals[0]?.signal ?? "HOLD" }, evaluation: createEvaluationModule(), clock: { now: () => "2025-01-01T03:00:00.000Z" }, idGenerator: () => `id-${id++}` });
+    const leaderboard = createLeaderboardModule({ ...createInMemoryLeaderboardDependencies(), scopeRepository: createBacktestingScopeRepository(backtesting), experimentReader: createBacktestingExperimentReader(backtesting), clock: { now: () => "2025-01-01T03:00:00.000Z" } });
+    const search = createSearchModule({ ...createInMemorySearchDependencies(), backtestCoordinator: backtesting, leaderboardService: leaderboard, clock: { now: () => "2025-01-01T03:00:00.000Z" } });
     const modules = {
       auth,
       marketData: { createDatasetSnapshot: async () => snapshot },
       strategy: { readDefinitions: async () => [definition], readComposite: async () => composite },
       evaluation: createEvaluationModule(),
       backtesting,
+      leaderboard,
+      search,
     } as unknown as BackendModules;
     const scope = await new BacktestScopeController(modules).create(`Bearer ${token}`, "scope-key", { name: "fixture", pair: "BTCUSDT", timeframe: "1h", from: snapshot.range.from, to: snapshot.range.to, initialCapital: 1000, feeRatePercent: 0, slippageBps: 0 });
     const accepted = await new BacktestController(modules).start(`Bearer ${token}`, "submission-key", { leaderboardScopeId: scope.id, strategyDefinitionIds: [definition.id], compositeDefinitionId: composite.id, maxAttempts: 1 });
@@ -83,5 +89,33 @@ describe("backend composition", () => {
     expect(attempt).toMatchObject({ status: "COMPLETED", tradeCount: 1 });
     await expect(new BacktestAttemptController(modules).trades(`Bearer ${token}`, attempt.attemptId, "10")).resolves.toMatchObject({ items: [expect.objectContaining({ exitReason: "RANGE_END" })] });
     await expect(new ExperimentController(modules).trades(`Bearer ${token}`, experiment.id, "10")).resolves.toMatchObject({ items: [expect.objectContaining({ result: "WIN" })] });
+
+    const searchStarted = await new SearchController(modules).start(`Bearer ${token}`, { leaderboardScopeId: scope.id, strategyDefinitionIds: [definition.id], maxCandidates: 2, maxInFlight: 1 });
+    await expect(new SearchController(modules).status(`Bearer ${token}`, searchStarted.searchRunId)).resolves.toMatchObject({ state: "COMPLETED", candidatesTested: 2 });
+    await expect(new SearchController(modules).leaderboard(`Bearer ${token}`, searchStarted.searchRunId)).resolves.toHaveLength(2);
+    await expect(new LeaderboardController(modules).topK(`Bearer ${token}`, scope.id)).resolves.toHaveLength(2);
+  });
+
+  it("maps authenticated bounded Search lifecycle and scoped Top-K routes to public facades", async () => {
+    const calls: string[] = [];
+    const modules = {
+      auth: { verify: async () => ({ userId: "user-1" }) },
+      backtesting: { readBenchmarkScope: async () => ({ id: "scope-1" }) },
+      strategy: { readDefinitions: async (_owner: string, ids: string[]) => ids.map((id) => ({ id })) },
+      search: {
+        start: async (config: { generatorType: string; searchSpace: { availableStrategies: unknown[] } }) => { calls.push(`start:${config.generatorType}:${config.searchSpace.availableStrategies.length}`); return { searchRunId: "run-1" }; },
+        status: async () => ({ searchRunId: "run-1", state: "RUNNING" }),
+        pause: async () => { calls.push("pause"); }, resume: async () => { calls.push("resume"); }, cancel: async () => { calls.push("cancel"); }, leaderboard: async () => [{ rank: 1 }],
+      },
+      leaderboard: { topK: async () => [{ rank: 1 }] },
+    } as unknown as BackendModules;
+    const search = new SearchController(modules);
+
+    await expect(search.start("Bearer token", { leaderboardScopeId: "scope-1", strategyDefinitionIds: ["strategy-1"], maxCandidates: 2 })).resolves.toEqual({ searchRunId: "run-1" });
+    await expect(search.status("Bearer token", "run-1")).resolves.toMatchObject({ state: "RUNNING" });
+    await search.pause("Bearer token", "run-1"); await search.resume("Bearer token", "run-1"); await search.cancel("Bearer token", "run-1");
+    await expect(search.leaderboard("Bearer token", "run-1")).resolves.toEqual([{ rank: 1 }]);
+    await expect(new LeaderboardController(modules).topK("Bearer token", "scope-1")).resolves.toEqual([{ rank: 1 }]);
+    expect(calls).toEqual(["start:RANDOM:1", "pause", "resume", "cancel"]);
   });
 });

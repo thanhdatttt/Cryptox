@@ -10,7 +10,7 @@ const rankEntries = (entries) => [...entries]
     .sort((left, right) => right.score - left.score || left.addedAt.localeCompare(right.addedAt) || left.id.localeCompare(right.id))
     .map((entry, index) => ({ ...entry, rank: index + 1 }));
 exports.DEFAULT_SCORE_FORMULA = {
-    id: "MVP_SCORE_FORMULA_V1",
+    id: "MVP_MANUAL_V1",
     version: 1,
     name: "MVP Return / Win Rate / Risk",
     weights: { return: 0.5, winRate: 0.2, riskScore: 0.3 },
@@ -76,13 +76,11 @@ function createLeaderboardModule(dependencies = createInMemoryLeaderboardDepende
         return formula;
     };
     return {
-        score: (leaderboardScopeId, metrics) => {
-            const scope = scopeCache.get(leaderboardScopeId);
+        score: async (leaderboardScopeId, metrics) => {
+            const scope = scopeCache.get(leaderboardScopeId) ?? await dependencies.scopeRepository.getById(leaderboardScopeId);
             if (!scope)
-                throw new Error("SCOPE_NOT_CACHED");
-            const formula = formulaCache.get(scope.scoreFormulaId);
-            if (!formula)
-                throw new Error("SCOPE_NOT_CACHED");
+                throw new Error("SCOPE_NOT_FOUND");
+            const formula = await cacheScopeAndFormula(scope);
             return (0, ranking_1.scoreEvaluation)(leaderboardScopeId, formula, metrics);
         },
         topK: async (leaderboardScopeId) => {

@@ -56,9 +56,9 @@ async function createRuntime() {
 (0, vitest_1.describe)("leaderboard runtime", () => {
     (0, vitest_1.it)("scores finite metrics deterministically and excludes zero-trade results", async () => {
         const { runtime, scope } = await createRuntime();
-        (0, vitest_1.expect)(runtime.score(scope.id, metrics())).toEqual({ leaderboardScopeId: scope.id, scoreFormulaId: index_1.DEFAULT_SCORE_FORMULA.id, overallScore: 30, rankEligible: true });
-        (0, vitest_1.expect)(runtime.score(scope.id, metrics({ numberOfTrades: 0, totalReturnPercent: Number.NaN }))).toEqual({ leaderboardScopeId: scope.id, scoreFormulaId: index_1.DEFAULT_SCORE_FORMULA.id, overallScore: 0, rankEligible: false, rankExclusionReason: "NO_TRADES" });
-        (0, vitest_1.expect)(() => runtime.score(scope.id, metrics({ totalReturnPercent: Number.POSITIVE_INFINITY }))).toThrow("INVALID_SCORE");
+        await (0, vitest_1.expect)(runtime.score(scope.id, metrics())).resolves.toEqual({ leaderboardScopeId: scope.id, scoreFormulaId: index_1.DEFAULT_SCORE_FORMULA.id, overallScore: 30, rankEligible: true });
+        await (0, vitest_1.expect)(runtime.score(scope.id, metrics({ numberOfTrades: 0, totalReturnPercent: Number.NaN }))).resolves.toEqual({ leaderboardScopeId: scope.id, scoreFormulaId: index_1.DEFAULT_SCORE_FORMULA.id, overallScore: 0, rankEligible: false, rankExclusionReason: "NO_TRADES" });
+        await (0, vitest_1.expect)(runtime.score(scope.id, metrics({ totalReturnPercent: Number.POSITIVE_INFINITY }))).rejects.toThrow("INVALID_SCORE");
     });
     (0, vitest_1.it)("admits strictly better experiments, keeps only Top-10 active, and is idempotent", async () => {
         const { runtime, scope } = await createRuntime();

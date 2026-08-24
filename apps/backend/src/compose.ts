@@ -8,10 +8,12 @@ import type { BacktestLogApi } from "modules/backtesting/api";
 import { createBacktestingModule, createInMemoryBacktestingDependencies, createPostgresBacktestingDependencies } from "modules/backtesting/api/bootstrap";
 import { createEvaluationModule } from "modules/evaluation/api/bootstrap";
 import type { EvaluatorModulePublicApi } from "modules/evaluation/api";
-import { createLeaderboardModule } from "modules/leaderboard/api/bootstrap";
+import type { LeaderboardModulePublicApi } from "modules/leaderboard/api";
+import { createBacktestingExperimentReader, createBacktestingScopeRepository, createInMemoryLeaderboardDependencies, createLeaderboardModule, createPostgresLeaderboardDependencies } from "modules/leaderboard/api/bootstrap";
 import { createBinanceMarketDataAdapter, createMarketDataModule } from "modules/market-data/api/bootstrap";
 import { createNewsModule } from "modules/news/api/bootstrap";
-import { createSearchModule } from "modules/search/api/bootstrap";
+import type { SearchModulePublicApi } from "modules/search/api";
+import { createInMemorySearchDependencies, createPostgresSearchDependencies, createSearchModule } from "modules/search/api/bootstrap";
 import { createSentimentModule } from "modules/sentiment/api/bootstrap";
 import { createPostgresStrategyDependencies, createStrategyModule } from "modules/strategy/api/bootstrap";
 
@@ -22,6 +24,8 @@ export interface BackendModules extends Record<string, unknown> {
   strategy: StrategyModuleRuntime;
   backtesting: BacktestLogApi;
   evaluation: EvaluatorModulePublicApi;
+  leaderboard: LeaderboardModulePublicApi;
+  search: SearchModulePublicApi;
 }
 
 export function composeAllModules(): BackendModules {
@@ -36,13 +40,21 @@ export function composeAllModules(): BackendModules {
   const backtesting = postgres
     ? createBacktestingModule(createPostgresBacktestingDependencies(postgres, { marketData, strategy, evaluation, clock: { now: () => new Date().toISOString() } }))
     : createBacktestingModule({ ...createInMemoryBacktestingDependencies(), marketData, strategy, evaluation });
+  const scopeRepository = createBacktestingScopeRepository(backtesting);
+  const experimentReader = createBacktestingExperimentReader(backtesting);
+  const leaderboard = postgres
+    ? createLeaderboardModule(createPostgresLeaderboardDependencies(postgres, { scopeRepository, experimentReader, clock: { now: () => new Date().toISOString() } }))
+    : createLeaderboardModule({ ...createInMemoryLeaderboardDependencies(), scopeRepository, experimentReader, clock: { now: () => new Date().toISOString() } });
+  const search = postgres
+    ? createSearchModule(createPostgresSearchDependencies(postgres, { backtestCoordinator: backtesting, leaderboardService: leaderboard, clock: { now: () => new Date().toISOString() } }))
+    : createSearchModule({ ...createInMemorySearchDependencies(), backtestCoordinator: backtesting, leaderboardService: leaderboard, clock: { now: () => new Date().toISOString() } });
   const modules = {
     marketData,
     strategy,
-    search: createSearchModule(undefined as never),
+    search,
     backtesting,
     evaluation,
-    leaderboard: createLeaderboardModule(undefined as never),
+    leaderboard,
     news: createNewsModule(undefined as never),
     sentiment: createSentimentModule(undefined as never),
     auth: createConfiguredAuthModule(),

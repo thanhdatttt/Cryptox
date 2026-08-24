@@ -1,3 +1,4 @@
+import type { SearchReadOptions } from "../api";
 import type { SearchModuleDependencies } from "./ports";
 import type { LoopStatus, SearchRun, SearchRunRankingEntry, StopCondition } from "../domain/contracts";
 export interface SearchModuleRuntime {
@@ -7,14 +8,16 @@ export interface SearchModuleRuntime {
         generatorType: SearchRun["generatorType"];
         leaderboardScopeId: string;
         maxInFlight: number;
+    }, options: {
+        ownerUserId: string;
     }): Promise<{
         searchRunId: string;
     }>;
-    pause(searchRunId: string): Promise<void>;
-    resume(searchRunId: string): Promise<void>;
-    cancel(searchRunId: string): Promise<void>;
-    status(searchRunId: string): Promise<LoopStatus>;
-    leaderboard(searchRunId: string): Promise<SearchRunRankingEntry[]>;
+    pause(searchRunId: string, options?: SearchReadOptions): Promise<void>;
+    resume(searchRunId: string, options?: SearchReadOptions): Promise<void>;
+    cancel(searchRunId: string, options?: SearchReadOptions): Promise<void>;
+    status(searchRunId: string, options?: SearchReadOptions): Promise<LoopStatus>;
+    leaderboard(searchRunId: string, options?: SearchReadOptions): Promise<SearchRunRankingEntry[]>;
     onCandidateFinished(searchRunId: string): Promise<void>;
     fillAvailableSlots(searchRunId: string): Promise<void>;
 }

@@ -11,7 +11,7 @@ const rankEntries = (entries: LeaderboardEntry[]): LeaderboardEntry[] => [...ent
   .map((entry, index) => ({ ...entry, rank: index + 1 }));
 
 export const DEFAULT_SCORE_FORMULA: ScoreFormula = {
-  id: "MVP_SCORE_FORMULA_V1",
+  id: "MVP_MANUAL_V1",
   version: 1,
   name: "MVP Return / Win Rate / Risk",
   weights: { return: 0.5, winRate: 0.2, riskScore: 0.3 },
@@ -21,7 +21,7 @@ export const DEFAULT_SCORE_FORMULA: ScoreFormula = {
 };
 
 export interface LeaderboardModuleRuntime {
-  score(leaderboardScopeId: string, metrics: EvaluationMetrics): ScoredEvaluation;
+  score(leaderboardScopeId: string, metrics: EvaluationMetrics): Promise<ScoredEvaluation>;
   topK(leaderboardScopeId: string): Promise<LeaderboardEntry[]>;
   rankSearchRun(searchRunId: string): Promise<SearchRunRankingEntry[]>;
   submit(experiment: ExperimentResult, unitOfWork: import("modules/backtesting/api").CompletionUnitOfWork): Promise<LeaderboardSubmissionResult>;
@@ -84,11 +84,10 @@ export function createLeaderboardModule(dependencies: LeaderboardModuleDependenc
   };
 
   return {
-    score: (leaderboardScopeId, metrics) => {
-      const scope = scopeCache.get(leaderboardScopeId);
-      if (!scope) throw new Error("SCOPE_NOT_CACHED");
-      const formula = formulaCache.get(scope.scoreFormulaId);
-      if (!formula) throw new Error("SCOPE_NOT_CACHED");
+    score: async (leaderboardScopeId, metrics) => {
+      const scope = scopeCache.get(leaderboardScopeId) ?? await dependencies.scopeRepository.getById(leaderboardScopeId);
+      if (!scope) throw new Error("SCOPE_NOT_FOUND");
+      const formula = await cacheScopeAndFormula(scope);
       return scoreEvaluation(leaderboardScopeId, formula, metrics);
     },
     topK: async (leaderboardScopeId) => {

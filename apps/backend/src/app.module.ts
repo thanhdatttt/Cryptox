@@ -92,6 +92,14 @@ const backtestHttpError = (error: unknown): never => {
 };
 const positiveNumber = (value: unknown): number | undefined => value === undefined ? undefined : typeof value === "number" && Number.isFinite(value) && value > 0 ? value : undefined;
 const nonNegativeNumber = (value: unknown): number | undefined => value === undefined ? undefined : typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : undefined;
+const positiveInteger = (value: unknown): number | undefined => typeof value === "number" && Number.isInteger(value) && value > 0 ? value : undefined;
+const searchHttpError = (error: unknown): never => {
+  if (!(error instanceof Error)) throw error;
+  if (error.message.endsWith("_NOT_FOUND")) throw new NotFoundException(error.message);
+  if (error.message === "SEARCH_ACCESS_DENIED" || error.message === "BACKTEST_ACCESS_DENIED") throw new UnauthorizedException(error.message);
+  if (error.message.startsWith("INVALID_") || error.message === "EMPTY_SEARCH_SPACE" || error.message === "CANNOT_RESUME_FAILED_RUN") throw new BadRequestException(error.message);
+  throw error;
+};
 
 @Controller("strategies")
 export class StrategyController extends ProtectedController {
@@ -255,8 +263,51 @@ export class ExperimentController extends ProtectedController {
   async trades(@Headers("authorization") authorization: string | undefined, @Param("experimentId") experimentId: string, @Query("limit") limit?: string, @Query("cursor") cursor?: string) { const userId = await this.authenticate(authorization); const parsed = limit === undefined ? 100 : Number(limit); if (!Number.isInteger(parsed) || parsed < 1) throw new BadRequestException("limit must be a positive integer."); try { return await this.modules.backtesting.listExperimentTrades(experimentId, { limit: parsed, cursor }, { ownerUserId: userId }); } catch (error) { return backtestHttpError(error); } }
 }
 
+@Controller("search-runs")
+export class SearchController extends ProtectedController {
+  constructor(@Inject(BACKEND_MODULES) modules: BackendModules) { super(modules); }
+
+  @Post()
+  async start(
+    @Headers("authorization") authorization: string | undefined,
+    @Body() body: { leaderboardScopeId?: unknown; strategyDefinitionIds?: unknown; generatorType?: unknown; maxCandidates?: unknown; maxDurationSeconds?: unknown; noImprovementAfterIterations?: unknown; maxInFlight?: unknown; maxComponents?: unknown },
+  ) {
+    const userId = await this.authenticate(authorization);
+    if (typeof body?.leaderboardScopeId !== "string" || !Array.isArray(body.strategyDefinitionIds) || body.strategyDefinitionIds.length === 0 || body.strategyDefinitionIds.some((id) => typeof id !== "string")) throw new BadRequestException("leaderboardScopeId and strategyDefinitionIds are required.");
+    const generatorType = body.generatorType === undefined ? "RANDOM" : body.generatorType;
+    if (generatorType !== "RANDOM" && generatorType !== "DOMAIN_GUIDED" && generatorType !== "GENETIC") throw new BadRequestException("generatorType is invalid.");
+    const maxCandidates = positiveInteger(body.maxCandidates); const maxDurationSeconds = positiveInteger(body.maxDurationSeconds); const noImprovementAfterIterations = positiveInteger(body.noImprovementAfterIterations);
+    if (maxCandidates === undefined && maxDurationSeconds === undefined && noImprovementAfterIterations === undefined) throw new BadRequestException("one positive stop condition is required.");
+    const maxInFlight = body.maxInFlight === undefined ? 1 : positiveInteger(body.maxInFlight); const maxComponents = body.maxComponents === undefined ? undefined : positiveInteger(body.maxComponents);
+    if (maxInFlight === undefined || (body.maxComponents !== undefined && maxComponents === undefined)) throw new BadRequestException("maxInFlight and maxComponents must be positive integers.");
+    try {
+      await this.modules.backtesting.readBenchmarkScope(body.leaderboardScopeId, { ownerUserId: userId });
+      const availableStrategies = await this.modules.strategy.readDefinitions(userId, body.strategyDefinitionIds);
+      return await this.modules.search.start({ searchSpace: { availableStrategies, maxComponents }, stopCondition: { maxCandidates, maxDurationSeconds, noImprovementAfterIterations } as import("modules/search/api").StopCondition, generatorType, leaderboardScopeId: body.leaderboardScopeId, maxInFlight }, { ownerUserId: userId });
+    } catch (error) { return searchHttpError(error); }
+  }
+
+  @Get(":searchRunId")
+  async status(@Headers("authorization") authorization: string | undefined, @Param("searchRunId") searchRunId: string) { const userId = await this.authenticate(authorization); try { return await this.modules.search.status(searchRunId, { ownerUserId: userId }); } catch (error) { return searchHttpError(error); } }
+  @Post(":searchRunId/pause")
+  async pause(@Headers("authorization") authorization: string | undefined, @Param("searchRunId") searchRunId: string) { const userId = await this.authenticate(authorization); try { await this.modules.search.pause(searchRunId, { ownerUserId: userId }); } catch (error) { return searchHttpError(error); } }
+  @Post(":searchRunId/resume")
+  async resume(@Headers("authorization") authorization: string | undefined, @Param("searchRunId") searchRunId: string) { const userId = await this.authenticate(authorization); try { await this.modules.search.resume(searchRunId, { ownerUserId: userId }); } catch (error) { return searchHttpError(error); } }
+  @Post(":searchRunId/cancel")
+  async cancel(@Headers("authorization") authorization: string | undefined, @Param("searchRunId") searchRunId: string) { const userId = await this.authenticate(authorization); try { await this.modules.search.cancel(searchRunId, { ownerUserId: userId }); } catch (error) { return searchHttpError(error); } }
+  @Get(":searchRunId/leaderboard")
+  async leaderboard(@Headers("authorization") authorization: string | undefined, @Param("searchRunId") searchRunId: string) { const userId = await this.authenticate(authorization); try { return await this.modules.search.leaderboard(searchRunId, { ownerUserId: userId }); } catch (error) { return searchHttpError(error); } }
+}
+
+@Controller("leaderboards")
+export class LeaderboardController extends ProtectedController {
+  constructor(@Inject(BACKEND_MODULES) modules: BackendModules) { super(modules); }
+  @Get(":leaderboardScopeId")
+  async topK(@Headers("authorization") authorization: string | undefined, @Param("leaderboardScopeId") leaderboardScopeId: string) { const userId = await this.authenticate(authorization); try { await this.modules.backtesting.readBenchmarkScope(leaderboardScopeId, { ownerUserId: userId }); return await this.modules.leaderboard.topK(leaderboardScopeId); } catch (error) { return searchHttpError(error); } }
+}
+
 @Module({
-  controllers: [HealthController, AuthController, StrategyController, MarketController, NewsController, BacktestScopeController, BacktestController, BacktestAttemptController, ExperimentController],
+  controllers: [HealthController, AuthController, StrategyController, MarketController, NewsController, BacktestScopeController, BacktestController, BacktestAttemptController, ExperimentController, SearchController, LeaderboardController],
   providers: [{ provide: BACKEND_MODULES, useFactory: (): BackendModules => composeAllModules() }],
 })
 export class AppModule {}

@@ -19,6 +19,7 @@ export declare class BacktestingService implements BacktestLogApi {
         scopeIdempotencyKey: string;
         ownerUserId: string;
     }): Promise<BenchmarkScopeSummary>;
+    readBenchmarkScope(scopeId: string, options?: BacktestReadOptions): Promise<BenchmarkScopeSummary>;
     private compositeStrategy;
     private candidateRecord;
     private execute;
@@ -39,6 +40,11 @@ export declare class BacktestingService implements BacktestLogApi {
     readAttempt(attemptId: string, options?: BacktestReadOptions): Promise<BacktestAttemptAudit>;
     listAttemptTrades(attemptId: string, page: TradePageRequest, options?: BacktestReadOptions): Promise<TradePage>;
     readExperimentSummary(experimentId: string, options?: BacktestReadOptions): Promise<ExperimentResultSummary>;
+    listSearchExperimentSummaries(searchRunId: string, options?: BacktestReadOptions): Promise<ExperimentResultSummary[]>;
+    scoreExperiment(experimentId: string, input: {
+        overallScore: number;
+        rankEligible: boolean;
+    }, options?: BacktestReadOptions): Promise<ExperimentResultSummary>;
     listExperimentTrades(experimentId: string, page: TradePageRequest, options?: BacktestReadOptions): Promise<TradePage>;
     private pageTrades;
     verifyReplay(experimentId: string, options?: BacktestReadOptions): Promise<ReplayVerificationResult>;

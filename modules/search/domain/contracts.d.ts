@@ -80,6 +80,7 @@ export interface LoopStatus {
     lastError?: string;
 }
 export interface SearchRun extends LoopStatus {
+    ownerUserId: string;
     searchSpace: SearchSpaceConfig;
     generatorType: GeneratorType;
     leaderboardScopeId: string;

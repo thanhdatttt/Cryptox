@@ -43,6 +43,9 @@ class InMemoryBacktestingRepository {
     async listTrades(attemptId) { return clone(this.trades.get(attemptId) ?? []); }
     async readExperiment(experimentId) { const value = this.experiments.get(experimentId); return value ? clone(value) : undefined; }
     async findExperimentByCandidate(candidateId) { const value = [...this.experiments.values()].find((experiment) => experiment.candidateId === candidateId); return value ? clone(value) : undefined; }
+    async listExperimentsBySearchRun(searchRunId) { return [...this.experiments.values()].filter((experiment) => experiment.searchRunId === searchRunId).map(clone); }
+    async updateExperimentScore(experimentId, input) { const value = this.experiments.get(experimentId); if (!value)
+        return undefined; const updated = { ...value, ...input }; this.experiments.set(experimentId, clone(updated)); return clone(updated); }
 }
 function createInMemoryBacktestingDependencies() {
     return { marketData: (0, bootstrap_2.createMarketDataModule)(), strategy: (0, bootstrap_3.createStrategyModule)(), evaluation: (0, bootstrap_1.createEvaluationModule)(), repository: new InMemoryBacktestingRepository(), clock: { now }, idGenerator: node_crypto_1.randomUUID };
@@ -101,6 +104,7 @@ class BacktestingService {
         };
         return this.deps.repository.createScope(scope, options.scopeIdempotencyKey);
     }
+    async readBenchmarkScope(scopeId, options) { const scope = await this.scope(scopeId); this.assertOwner(options?.ownerUserId, scope.ownerUserId); return scope; }
     async compositeStrategy(definitions, composite) {
         const byId = new Map(definitions.map((definition) => [definition.id, definition]));
         if (composite.components.length === 0 || composite.components.some((component) => !byId.has(component.strategyDefinitionId)))
@@ -205,6 +209,11 @@ class BacktestingService {
     async listAttemptTrades(attemptId, page, options) { await this.readAttempt(attemptId, options); return this.pageTrades(await this.deps.repository.listTrades(attemptId), page); }
     async readExperimentSummary(experimentId, options) { const experiment = await this.deps.repository.readExperiment(experimentId); if (!experiment)
         throw new Error("EXPERIMENT_NOT_FOUND"); this.assertOwner(options?.ownerUserId, experiment.ownerUserId); return experiment; }
+    async listSearchExperimentSummaries(searchRunId, options) { const experiments = await this.deps.repository.listExperimentsBySearchRun(searchRunId); if (options?.ownerUserId)
+        experiments.forEach((experiment) => this.assertOwner(options.ownerUserId, experiment.ownerUserId)); return experiments; }
+    async scoreExperiment(experimentId, input, options) { if (!Number.isFinite(input.overallScore))
+        invalid("INVALID_SCORE"); await this.readExperimentSummary(experimentId, options); const updated = await this.deps.repository.updateExperimentScore(experimentId, input); if (!updated)
+        throw new Error("EXPERIMENT_NOT_FOUND"); return updated; }
     async listExperimentTrades(experimentId, page, options) { const experiment = await this.readExperimentSummary(experimentId, options); return this.pageTrades(experiment.trades, page); }
     pageTrades(trades, page) { if (!Number.isInteger(page.limit) || page.limit < 1)
         invalid("INVALID_PAGE"); const offset = page.cursor ? Number(page.cursor) : 0; if (!Number.isInteger(offset) || offset < 0)

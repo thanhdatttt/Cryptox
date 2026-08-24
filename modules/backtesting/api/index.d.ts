@@ -39,6 +39,7 @@ export interface BacktestLogApi {
         scopeIdempotencyKey: string;
         ownerUserId: string;
     }): Promise<BenchmarkScopeSummary>;
+    readBenchmarkScope(scopeId: string, options?: BacktestReadOptions): Promise<BenchmarkScopeSummary>;
     startManual(command: StartManualBacktestCommand, options: {
         ownerUserId: string;
         submissionIdempotencyKey?: string;
@@ -55,10 +56,16 @@ export interface BacktestLogApi {
     readAttempt(attemptId: string, options?: BacktestReadOptions): Promise<BacktestAttemptAudit>;
     listAttemptTrades(attemptId: string, page: TradePageRequest, options?: BacktestReadOptions): Promise<TradePage>;
     readExperimentSummary(experimentId: string, options?: BacktestReadOptions): Promise<ExperimentResultSummary>;
+    listSearchExperimentSummaries(searchRunId: string, options?: BacktestReadOptions): Promise<ExperimentResultSummary[]>;
+    scoreExperiment(experimentId: string, input: {
+        overallScore: number;
+        rankEligible: boolean;
+    }, options?: BacktestReadOptions): Promise<ExperimentResultSummary>;
     listExperimentTrades(experimentId: string, page: TradePageRequest, options?: BacktestReadOptions): Promise<TradePage>;
     verifyReplay(experimentId: string, options?: BacktestReadOptions): Promise<ReplayVerificationResult>;
 }
 export declare const createBenchmarkScope: BacktestLogApi["createBenchmarkScope"];
+export declare const readBenchmarkScope: BacktestLogApi["readBenchmarkScope"];
 export declare const startManual: BacktestLogApi["startManual"];
 export declare const submitSearchCandidate: BacktestLogApi["submitSearchCandidate"];
 export declare const status: BacktestLogApi["status"];
@@ -70,6 +77,8 @@ export declare const removePendingJobs: BacktestLogApi["removePendingJobs"];
 export declare const readAttempt: BacktestLogApi["readAttempt"];
 export declare const listAttemptTrades: BacktestLogApi["listAttemptTrades"];
 export declare const readExperimentSummary: BacktestLogApi["readExperimentSummary"];
+export declare const listSearchExperimentSummaries: BacktestLogApi["listSearchExperimentSummaries"];
+export declare const scoreExperiment: BacktestLogApi["scoreExperiment"];
 export declare const listExperimentTrades: BacktestLogApi["listExperimentTrades"];
 export declare const verifyReplay: BacktestLogApi["verifyReplay"];
 export { createBacktestingService, createInMemoryBacktestingDependencies } from "../application/service";

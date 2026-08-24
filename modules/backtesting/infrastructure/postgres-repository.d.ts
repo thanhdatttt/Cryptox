@@ -48,6 +48,11 @@ export declare class PostgresBacktestingRepository implements BacktestingReposit
     listTrades(attemptId: string): Promise<Trade[]>;
     readExperiment(experimentId: string): Promise<StoredExperiment | undefined>;
     findExperimentByCandidate(candidateId: string): Promise<StoredExperiment | undefined>;
+    listExperimentsBySearchRun(searchRunId: string): Promise<StoredExperiment[]>;
+    updateExperimentScore(experimentId: string, input: {
+        overallScore: number;
+        rankEligible: boolean;
+    }): Promise<StoredExperiment | undefined>;
     private experiment;
 }
 export declare const createPostgresBacktestingDependencies: (pool: TransactionPool, dependencies: Omit<import("../application/ports").BacktestingModuleDependencies, "repository">) => import("../application/ports").BacktestingModuleDependencies;

@@ -33,6 +33,8 @@ export interface BacktestingRepository {
   listTrades(attemptId: string): Promise<Trade[]>;
   readExperiment(experimentId: string): Promise<StoredExperiment | undefined>;
   findExperimentByCandidate(candidateId: string): Promise<StoredExperiment | undefined>;
+  listExperimentsBySearchRun(searchRunId: string): Promise<StoredExperiment[]>;
+  updateExperimentScore(experimentId: string, input: { overallScore: number; rankEligible: boolean }): Promise<StoredExperiment | undefined>;
 }
 
 export interface BacktestingModuleDependencies {
