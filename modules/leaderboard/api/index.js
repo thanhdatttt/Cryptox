@@ -1,7 +1,10 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.submit = exports.rankSearchRun = exports.topK = exports.score = void 0;
-exports.createLeaderboardModule = createLeaderboardModule;
+exports.submit = exports.rankSearchRun = exports.topK = exports.score = exports.DEFAULT_SCORE_FORMULA = exports.createInMemoryLeaderboardDependencies = exports.createLeaderboardModule = void 0;
+var service_1 = require("../application/service");
+Object.defineProperty(exports, "createLeaderboardModule", { enumerable: true, get: function () { return service_1.createLeaderboardModule; } });
+Object.defineProperty(exports, "createInMemoryLeaderboardDependencies", { enumerable: true, get: function () { return service_1.createInMemoryLeaderboardDependencies; } });
+Object.defineProperty(exports, "DEFAULT_SCORE_FORMULA", { enumerable: true, get: function () { return service_1.DEFAULT_SCORE_FORMULA; } });
 const notImplemented = () => { throw new Error("NOT_IMPLEMENTED"); };
 const score = () => notImplemented();
 exports.score = score;
@@ -11,4 +14,3 @@ const rankSearchRun = async () => notImplemented();
 exports.rankSearchRun = rankSearchRun;
 const submit = async () => notImplemented();
 exports.submit = submit;
-function createLeaderboardModule(_deps) { return { score: exports.score, topK: exports.topK, rankSearchRun: exports.rankSearchRun, submit: exports.submit, createLeaderboardScope: async () => notImplemented(), getLeaderboardScope: async () => notImplemented() }; }

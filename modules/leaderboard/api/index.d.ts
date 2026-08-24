@@ -1,7 +1,8 @@
 import type { CompletionUnitOfWork, ExperimentResult } from "modules/backtesting/api";
 import type { EvaluationMetrics } from "modules/evaluation/api";
-import type { LeaderboardModuleDependencies } from "./bootstrap";
-import type { LeaderboardEntry, LeaderboardScope, LeaderboardSubmissionResult, ScoredEvaluation, SearchRunRankingEntry, CreateLeaderboardScopeCommand } from "../domain/contracts";
+import type { LeaderboardEntry, LeaderboardSubmissionResult, ScoredEvaluation, SearchRunRankingEntry } from "../domain/contracts";
+export { createLeaderboardModule, createInMemoryLeaderboardDependencies, DEFAULT_SCORE_FORMULA } from "../application/service";
+export type { LeaderboardModuleRuntime } from "../application/service";
 export type { ScoreFormula, LeaderboardScope, ScoredEvaluation, LeaderboardEntry, SearchRunRankingEntry, LeaderboardSubmissionResult, CreateLeaderboardScopeCommand } from "../domain/contracts";
 export interface LeaderboardModulePublicApi {
     score(leaderboardScopeId: string, metrics: EvaluationMetrics): ScoredEvaluation;
@@ -13,7 +14,3 @@ export declare const score: LeaderboardModulePublicApi["score"];
 export declare const topK: LeaderboardModulePublicApi["topK"];
 export declare const rankSearchRun: LeaderboardModulePublicApi["rankSearchRun"];
 export declare const submit: LeaderboardModulePublicApi["submit"];
-export declare function createLeaderboardModule(_deps: LeaderboardModuleDependencies): LeaderboardModulePublicApi & {
-    createLeaderboardScope(command: CreateLeaderboardScopeCommand): Promise<LeaderboardScope>;
-    getLeaderboardScope(id: string): Promise<LeaderboardScope>;
-};

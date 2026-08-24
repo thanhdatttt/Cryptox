@@ -9,6 +9,7 @@ export interface ScoreFormulaRepository {
 }
 export interface LeaderboardEntryRepository {
     getActiveTopK(scopeId: string, k: number): Promise<LeaderboardEntry[]>;
+    getByExperimentResultId(experimentResultId: string): Promise<LeaderboardEntry | undefined>;
     insert(entry: Omit<LeaderboardEntry, "id" | "rank">): Promise<LeaderboardEntry>;
     deactivate(entryId: string): Promise<void>;
 }
@@ -32,4 +33,7 @@ export interface LeaderboardModuleDependencies {
     formulaRepository: ScoreFormulaRepository;
     experimentReader: ExperimentResultReader;
     clock: Clock;
+    initialScopes?: LeaderboardScope[];
+    initialFormulas?: ScoreFormula[];
+    idGenerator?: () => string;
 }
