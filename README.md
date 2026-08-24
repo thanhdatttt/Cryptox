@@ -33,7 +33,7 @@ Architectural Decision Records (ADRs) capture the reasoning behind the key desig
 - [Node.js](https://nodejs.org/) 22 LTS or newer (npm is included)
 - Git
 
-No environment file or external API credential is currently required for the local frontend and the composition-shell backend.
+No environment file or external API credential is currently required for the local frontend and the composition-shell backend. Before deploying the backend, set a strong `JWT_SECRET`; a development-only fallback is used locally so the Auth routes can run without a `.env` file.
 
 ### Install dependencies
 

@@ -3,9 +3,9 @@
 ## Current state
 
 - Branch: `implement`
-- Current feature: Auth, persistence, and HTTP composition (in progress)
+- Current feature: Persistence and remaining HTTP composition (in progress)
 - Next feature: Frontend application
-- Completed features: Strategy plugin runtime; Market data and normalized contracts; Evaluation metrics; Backtesting simulator; Leaderboard scoring and Top-K admission; Search orchestration; News and sentiment
+- Completed features: Strategy plugin runtime; Market data and normalized contracts; Evaluation metrics; Backtesting simulator; Leaderboard scoring and Top-K admission; Search orchestration; News and sentiment; Auth runtime and protected routes
 
 ## Baseline
 
@@ -27,6 +27,9 @@
 - News focused tests: passed; 3 tests covering normalized persistence before Sentiment invocation, exact-URL duplicate handling in the composition default, missing/degraded Sentiment reads, and malformed provider values.
 - Sentiment focused tests: passed; 3 tests covering append-only model provenance/latest selection, invalid inference-result rejection, and immutable content-hashed window snapshots with no future/carry-forward reads.
 - News/Sentiment workspace validation: `pnpm -r --if-present test`, `pnpm -r --if-present build`, and `pnpm -r --if-present lint` all passed for 13 workspace projects. Direct dependency-cruiser validation passed with 31 modules and 27 dependencies cruised and no violations.
+- Auth focused tests: passed; 3 tests covering bcrypt-only password storage, one-hour HS256 JWT claims/verification, duplicate/credential handling, and invalid or expired token rejection.
+- Backend Auth composition tests: passed; 2 tests covering nine-module composition plus `/auth/register`, `/auth/login`, and protected `/auth/me` controller mapping.
+- Auth workspace validation: `pnpm -r --if-present test`, `pnpm -r --if-present build`, and `pnpm -r --if-present lint` all passed for 13 workspace projects. Direct dependency-cruiser validation passed with 32 modules and 32 dependencies cruised and no violations.
 
 ## Commits
 
@@ -37,6 +40,7 @@ Backtesting simulator committed as `9d9645e` (`feat(backtesting): add determinis
 Leaderboard scoring and Top-K admission committed as `8f8364c` (`feat(leaderboard): add deterministic scoring and Top-K admission`).
 Search orchestration committed as `06b93e5` (`feat(search): add bounded strategy loop orchestration`).
 News and Sentiment runtime committed as `502e7e2` (`feat(news): add sentiment isolation and sealed snapshots`).
+Auth runtime and protected routes committed as `da4ca1c` (`feat(auth): add bcrypt jwt runtime and protected routes`).
 
 ## Decisions and conflicts
 
@@ -58,6 +62,7 @@ News and Sentiment runtime committed as `502e7e2` (`feat(news): add sentiment is
 - News accepts only canonical normalized `NewsItem` values from provider adapters, stores them before attempting Sentiment, and composes missing Sentiment rather than fabricating a neutral value on timeout/inference failure. The concrete RSS/API/crawler extraction and LLM-template implementations remain composition adapters because no external provider credentials or approved extraction contract are present yet.
 - Sentiment validates neutral input/result provenance, keeps model results append-only, selects latest by timestamp then insertion order in the in-memory adapter, and seals deterministic SHA-256 snapshot points. A point is readable only at its completed aggregation-window end; it never exposes a future point or carries a previous window across a missing one.
 - The worker's local placeholder now implements the expanded Sentiment repository shape without reaching into Sentiment internals.
+- Auth uses `bcryptjs` for bcrypt-compatible password hashes and `jsonwebtoken` for HS256 one-hour JWTs. The in-memory adapter supports local composition/tests; PostgreSQL user persistence remains the next incomplete portion of the composed feature. Backend composition reads `JWT_SECRET` when set and otherwise uses a documented development-only fallback that must not be used for deployment.
 
 ## Blockers
 
