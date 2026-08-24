@@ -3,9 +3,9 @@
 ## Current state
 
 - Branch: `implement`
-- Current feature: Search orchestration (in progress)
-- Next feature: News and sentiment
-- Completed features: Strategy plugin runtime; Market data and normalized contracts; Evaluation metrics; Backtesting simulator; Leaderboard scoring and Top-K admission
+- Current feature: News and sentiment (in progress)
+- Next feature: Auth, persistence, and HTTP composition
+- Completed features: Strategy plugin runtime; Market data and normalized contracts; Evaluation metrics; Backtesting simulator; Leaderboard scoring and Top-K admission; Search orchestration
 
 ## Baseline
 
@@ -21,6 +21,7 @@
 - Direct dependency-cruiser invocation with `.dependency-cruiser.js`: passed; 31 modules and 27 dependencies cruised with no violations.
 - The same focused and workspace validation set was rerun after the simulator's scientific-notation precision hardening and passed unchanged.
 - Leaderboard focused tests: passed; 3 tests covering deterministic scoring/zero-trade exclusion, strict Top-K admission and idempotency, and rank-eligible per-run ordering. The full workspace test/build/lint and dependency-cruiser checks passed after this module.
+- Search focused tests: passed; 3 tests covering bounded slot filling, drained max-candidate completion, idempotent cancellation, and isolated static facade behavior. The full workspace test/build/lint and dependency-cruiser checks passed after this module.
 
 ## Commits
 
@@ -29,6 +30,7 @@ Market-data runtime committed as `cd091a6` (`feat(market-data): normalize candle
 Evaluation runtime committed as `0d8f1f8` (`feat(evaluation): add deterministic finite metric policy`).
 Backtesting simulator committed as `9d9645e` (`feat(backtesting): add deterministic candle simulator`).
 Leaderboard scoring and Top-K admission committed as `8f8364c` (`feat(leaderboard): add deterministic scoring and Top-K admission`).
+Search orchestration committed as `06b93e5` (`feat(search): add bounded strategy loop orchestration`).
 
 ## Decisions and conflicts
 
@@ -44,8 +46,9 @@ Leaderboard scoring and Top-K admission committed as `8f8364c` (`feat(leaderboar
 - The simulator uses local fixed-decimal `bigint` arithmetic for the selected half-up rounding scales, applies fees/slippage separately at entry and exit, and records settlement asset plus equity-before/equity-after audit values on every Trade.
 - The network-approved pnpm repair rebuilt an incomplete virtual store. A temporary workspace manifest remains uncommitted because this repository declares npm workspaces but the available pnpm version requires its own workspace manifest.
 - Leaderboard scoring is pure and formula-versioned; scope/formula lookup is cached before synchronous scoring. Its factory uses injected ports and provides an in-memory default only for the existing composition shell and deterministic tests.
+- Search uses serialized per-run slot filling, only public Backtesting/Leaderboard ports, explicit bounded stop conditions, pause/resume/cancel state transitions, and durable repository-shaped run state. Its default in-memory adapter exists solely for the current composition shell and tests.
 - A temporary pnpm workspace manifest was used only for dependency installation and is not part of the implementation.
 
 ## Blockers
 
-- No active blocker. The next feature is Search orchestration.
+- No active blocker. The next feature is News and sentiment.
