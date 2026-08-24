@@ -12,7 +12,7 @@ The PDF and Markdown companion agree on the core product goals. Where the reposi
 ## Ordered features
 
 1. **Market data and normalized contracts** — historical closed candles, realtime tick/candle envelopes, adapter boundary, and deterministic merge/update behavior. Acceptance: market-data contracts and facade tests pass; no frontend/Binance coupling.
-2. **Strategy plugin runtime** — indicator primitives, MA/RSI/Bollinger/Support-Resistance plugins, descriptor registry, and composite majority/weighted voting. Acceptance: plugin registration, signal, parameter, and composite tests pass.
+2. **Strategy plugin runtime and definitions** — indicator primitives, MA/RSI/Bollinger/Support-Resistance plugins, descriptor registry, immutable user-owned definition/composite authoring, and composite majority/weighted voting. Acceptance: plugin registration, signal, parameter, definition-versioning, ownership, composite, and authenticated API tests pass.
 3. **Backtesting and evaluation** — deterministic OHLCV simulation, fills/risk policy, trade audit records, and finite metrics. Acceptance: deterministic backtests and metric edge-case tests pass.
 4. **Search and leaderboard** — bounded random/domain-guided generation, pause/resume/cancel lifecycle, ranking, and Top-K admission. Acceptance: stop conditions, lifecycle, ranking, and ownership tests pass.
 5. **News and sentiment** — provider-neutral news normalization, extraction/template boundary, sealed sentiment snapshots, and degraded behavior. Acceptance: provider adapter, normalization, and unavailable-sentiment tests pass.

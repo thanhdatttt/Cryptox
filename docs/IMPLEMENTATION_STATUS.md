@@ -5,7 +5,7 @@
 - Branch: `implement`
 - Current feature: Integration hardening (in progress)
 - Next feature: Final requirements review and delivery
-- Completed features: Strategy plugin runtime; Market data and normalized contracts; Evaluation metrics; Backtesting simulator; Leaderboard scoring and Top-K admission; Search orchestration; News and sentiment; Auth runtime and protected routes; Initial persistence and HTTP composition; Frontend application
+- Completed features: Strategy plugin runtime; Strategy definition authoring; Market data and normalized contracts; Evaluation metrics; Backtesting simulator; Leaderboard scoring and Top-K admission; Search orchestration; News and sentiment; Auth runtime and protected routes; Initial persistence and HTTP composition; Frontend application
 
 ## Baseline
 
@@ -35,6 +35,8 @@
 - Frontend focused tests: passed; 3 tests cover deterministic initial four-panel chart state, immutable panel updates, and the closed-versus-forming candle merge invariant. The frontend production build and TypeScript lint passed.
 - Frontend smoke test: the Vite development server responded with HTTP 200 and the root mount at `http://127.0.0.1:5174/`. The in-app browser connector could not initialize because of a host `AppData` permission error, so the check was limited to the production build and HTTP response rather than a browser screenshot.
 - Frontend workspace validation: `pnpm -r --if-present test`, `pnpm -r --if-present build`, and `pnpm -r --if-present lint` passed for all 13 workspace projects. Direct dependency-cruiser validation passed with 36 modules and 38 dependencies cruised and no violations.
+- Strategy definition focused tests: passed; 2 tests cover descriptor parameter validation, immutable family versioning, idempotent same-content creation, owner isolation, composite normalization, and weighted-composite validation. Backend composition tests: passed; the authenticated REST controller creates and rereads user-owned strategy/composite definitions.
+- Strategy definition workspace validation: `pnpm -r --if-present test`, `pnpm -r --if-present build`, and `pnpm -r --if-present lint` passed for all 13 workspace projects. Direct dependency-cruiser validation passed with 36 modules and 39 dependencies cruised and no violations.
 
 ## Commits
 
@@ -49,6 +51,7 @@ Auth runtime and protected routes committed as `da4ca1c` (`feat(auth): add bcryp
 PostgreSQL Auth persistence committed as `3e5d913` (`feat(auth): add PostgreSQL user persistence`).
 Initial authenticated backend facade routes committed as `36bee80` (`feat(backend): add authenticated public facade routes`).
 Frontend state and reference-screen application committed as `126e718` (`feat(frontend): add reference dashboard screens and state`).
+Strategy definition authoring committed as `40f7e59` (`feat(strategy): add owned definition authoring API`).
 
 ## Decisions and conflicts
 
@@ -74,7 +77,8 @@ Frontend state and reference-screen application committed as `126e718` (`feat(fr
 - `infra/db/migrations/002_create_users.js` creates the Auth-owned `users` table after the existing pgcrypto extension migration. Backend composition selects the PostgreSQL Auth repository when `DATABASE_URL` is configured and otherwise retains the local in-memory repository; `npm run db:migrate` is the documented migration entrypoint.
 - The composed REST surface is currently `GET /health`, Auth register/login/me, `GET /strategies`, `GET /market/candles`, and `GET /news`, all except health/Auth credentials requiring a verified bearer JWT. Backtest/Search/Leaderboard routes remain integration-hardening work because their static public facade functions are intentionally skeletal while their test runtimes are composition-specific.
 - The frontend provides the supplied Realtime, Strategy Engine, Discovery, Backtest, News Crawler, and Settings screens as a responsive local presentation shell. It keeps its four-chart configuration and merge behavior as tested UI state; displayed market/analysis values are explicitly labelled demo data until the remaining public facade routes are composed into live frontend transport.
+- Strategy authoring now validates descriptor-defined parameters (including MA period ordering and RSI threshold ordering), creates immutable versioned families, is idempotent for identical content, and restricts definition/composite reads to the authenticated user. The default composition uses the deterministic in-memory repository adapters; a PostgreSQL strategy-library adapter is still required for persistence across backend restarts.
 
 ## Blockers
 
-- No active blocker. Integration hardening will compose the remaining public Backtest/Search/Leaderboard facades and complete the final requirement review.
+- No active blocker. Integration hardening will compose the remaining public Backtest/Search/Leaderboard facades, persist the strategy library across restarts, and complete the final requirement review.
