@@ -32,7 +32,7 @@ The audit also found source-adjacent generated JavaScript/declaration files that
    - Make root install/build/development/start commands work, with a cross-platform backend launcher and no undeclared runtime tools.
    - Acceptance: `npm install`, `npm run build`, documented root development/start commands, and focused launcher smoke verification pass on Windows-compatible Node tooling.
 
-2. **Implement durable manual backtest execution and public API** *(completed in pending commit)*
+2. **Implement durable manual backtest execution and public API** *(completed in `4518930`)*
    - Replace the assignment-required Backtesting public `NOT_IMPLEMENTED` functions with an authenticated, synchronous manual-run vertical slice.
    - Add PostgreSQL migrations/repositories for Backtesting-owned copies of input snapshots/candles, benchmark scopes, candidates, attempts, trades, experiment results, and idempotency/audit data.
    - Acceptance: a saved strategy and market snapshot produce deterministic persisted trades and evaluation through the public API; scope, candidate, attempt, trade, and experiment reads enforce ownership.
