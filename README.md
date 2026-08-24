@@ -90,7 +90,7 @@ $env:JWT_SECRET = "replace-this-with-a-long-random-production-secret"
 npm run db:migrate
 ```
 
-The same `DATABASE_URL` and `JWT_SECRET` must be present in the backend process. The migration currently creates the `users` table used by registration and login.
+The same `DATABASE_URL` and `JWT_SECRET` must be present in the backend process. The migrations create the `users` table plus the versioned Strategy Library tables used by registration/login and saved strategy/composite definitions.
 
 The default frontend data is deliberately labelled as demo data. Set `MARKET_DATA_PROVIDER=BINANCE` when you want the backend market-data boundary to fetch and subscribe to Binance; browser clients still never consume Binance payloads directly.
 

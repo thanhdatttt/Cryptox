@@ -1,4 +1,5 @@
 import { createConfiguredAuthModule } from "modules/auth/api/bootstrap";
+import { Pool } from "pg";
 import type { AuthModulePublicApi } from "modules/auth/api";
 import type { MarketDataModulePublicApi } from "modules/market-data/api";
 import type { NewsModulePublicApi } from "modules/news/api";
@@ -10,7 +11,7 @@ import { createBinanceMarketDataAdapter, createMarketDataModule } from "modules/
 import { createNewsModule } from "modules/news/api/bootstrap";
 import { createSearchModule } from "modules/search/api/bootstrap";
 import { createSentimentModule } from "modules/sentiment/api/bootstrap";
-import { createStrategyModule } from "modules/strategy/api/bootstrap";
+import { createPostgresStrategyDependencies, createStrategyModule } from "modules/strategy/api/bootstrap";
 
 export interface BackendModules extends Record<string, unknown> {
   auth: AuthModulePublicApi;
@@ -23,9 +24,12 @@ export function composeAllModules(): BackendModules {
   const marketData = process.env.MARKET_DATA_PROVIDER === "BINANCE"
     ? createMarketDataModule({ providerRegistry: { defaultProvider: createBinanceMarketDataAdapter() } })
     : createMarketDataModule();
+  const strategy = process.env.DATABASE_URL
+    ? createStrategyModule(createPostgresStrategyDependencies(new Pool({ connectionString: process.env.DATABASE_URL })))
+    : createStrategyModule();
   const modules = {
     marketData,
-    strategy: createStrategyModule(undefined as never),
+    strategy,
     search: createSearchModule(undefined as never),
     backtesting: createBacktestingModule(undefined as never),
     evaluation: createEvaluationModule(),

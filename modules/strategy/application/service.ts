@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import type { CombinationMethod, CompositeStrategyDefinition, Signal, Strategy, StrategyDefinition, StrategyFactory, StrategyPluginDescriptor } from "../domain/contracts";
 import { builtInFactories } from "../domain/plugins";
 import type { CompositeDefinitionRepository, StrategyDefinitionRepository } from "./ports";
@@ -15,8 +15,6 @@ export interface StrategyModuleRuntime {
   defineComposite(userId: string, command: { method: CombinationMethod; components: Array<{ strategyDefinitionId: string; weight: number }>; thresholds?: { buy: number; sell: number } }): Promise<CompositeStrategyDefinition>;
   buildVisualization(definition: StrategyDefinition): [];
 }
-
-interface Stored<T> { ownerUserId: string; value: T; }
 
 const stable = (value: unknown): string => JSON.stringify(value, (_key, item) => item && typeof item === "object" && !Array.isArray(item) ? Object.fromEntries(Object.entries(item).sort(([left], [right]) => left.localeCompare(right))) : item);
 const digest = (value: unknown): string => createHash("sha256").update(stable(value)).digest("hex");
@@ -67,28 +65,31 @@ const validateParameters = (factory: StrategyFactory, parameters: Record<string,
 };
 
 export function createInMemoryStrategyDependencies(): StrategyModuleDependencies {
-  const definitions = new Map<string, StrategyDefinition>();
-  const composites = new Map<string, CompositeStrategyDefinition>();
+  const definitions = new Map<string, { ownerUserId: string; value: StrategyDefinition }>();
+  const composites = new Map<string, { ownerUserId: string; value: CompositeStrategyDefinition }>();
   const factories = new Map(builtInFactories.map((factory) => [`${factory.descriptor.name}:${factory.descriptor.implementationSha256}`, factory]));
   return {
     artifactResolver: { resolve: async (name, sha) => { const factory = factories.get(`${name}:${sha}`); if (!factory) throw new Error("STRATEGY_ARTIFACT_NOT_FOUND"); return factory; } },
-    definitionRepository: { insert: async (definition) => { definitions.set(definition.id, definition); return definition; }, listByIds: async (ids) => ids.flatMap((id) => { const definition = definitions.get(id); return definition ? [definition] : []; }) },
-    compositeRepository: { insert: async (composite) => { composites.set(composite.id, composite); return composite; }, get: async (id) => composites.get(id) },
+    definitionRepository: {
+      insert: async (ownerUserId, definition) => { definitions.set(definition.id, { ownerUserId, value: definition }); return definition; },
+      listByIds: async (ownerUserId, ids) => ids.flatMap((id) => { const definition = definitions.get(id); return definition?.ownerUserId === ownerUserId ? [definition.value] : []; }),
+      listByLogicalFamily: async (ownerUserId, logicalFamilyKey) => [...definitions.values()].filter((item) => item.ownerUserId === ownerUserId && item.value.logicalFamilyKey === logicalFamilyKey).map((item) => item.value),
+    },
+    compositeRepository: {
+      insert: async (ownerUserId, composite) => { composites.set(composite.id, { ownerUserId, value: composite }); return composite; },
+      get: async (ownerUserId, id) => { const composite = composites.get(id); return composite?.ownerUserId === ownerUserId ? composite.value : undefined; },
+      listByLogicalFamily: async (ownerUserId, logicalFamilyKey) => [...composites.values()].filter((item) => item.ownerUserId === ownerUserId && item.value.logicalFamilyKey === logicalFamilyKey).map((item) => item.value),
+    },
   };
 }
 
 export function createStrategyModule(dependencies: StrategyModuleDependencies = createInMemoryStrategyDependencies()): StrategyModuleRuntime {
-  const definitions = new Map<string, Stored<StrategyDefinition>>();
-  const composites = new Map<string, Stored<CompositeStrategyDefinition>>();
   const factories = new Map(builtInFactories.map((factory) => [factory.descriptor.name, factory]));
-  let sequence = 0;
-  const nextId = (kind: string): string => `${kind}-${++sequence}`;
-  const ownedDefinitions = (userId: string): StrategyDefinition[] => [...definitions.values()].filter((item) => item.ownerUserId === userId).map((item) => item.value);
-  const ownedComposites = (userId: string): CompositeStrategyDefinition[] => [...composites.values()].filter((item) => item.ownerUserId === userId).map((item) => item.value);
+  const nextId = (kind: string): string => `${kind}-${randomUUID()}`;
   const getDefinition = async (userId: string, id: string): Promise<StrategyDefinition> => {
-    const stored = definitions.get(id);
-    if (!stored || stored.ownerUserId !== userId) invalid("STRATEGY_DEFINITION_NOT_FOUND");
-    return stored!.value;
+    const definition = (await dependencies.definitionRepository.listByIds(userId, [id]))[0];
+    if (!definition) invalid("STRATEGY_DEFINITION_NOT_FOUND");
+    return definition;
   };
 
   return {
@@ -100,9 +101,9 @@ export function createStrategyModule(dependencies: StrategyModuleDependencies = 
     combineSignals: runtimeCombine,
     readDefinitions: async (userId, ids) => Promise.all(ids.map((id) => getDefinition(userId, id))),
     readComposite: async (userId, id) => {
-      const stored = composites.get(id);
-      if (!stored || stored.ownerUserId !== userId) invalid("COMPOSITE_STRATEGY_NOT_FOUND");
-      return stored!.value;
+      const composite = await dependencies.compositeRepository.get(userId, id);
+      if (!composite) invalid("COMPOSITE_STRATEGY_NOT_FOUND");
+      return composite!;
     },
     defineStrategy: async (userId, strategyName, parameters) => {
       if (!userId.trim()) invalid("INVALID_USER");
@@ -111,13 +112,11 @@ export function createStrategyModule(dependencies: StrategyModuleDependencies = 
       const normalized = validateParameters(factory!, parameters);
       const logicalFamilyKey = `strategy:${strategyName}`;
       const content = { strategyName, implementationSha256: factory!.descriptor.implementationSha256, parameters: normalized };
-      const prior = ownedDefinitions(userId).filter((definition) => definition.logicalFamilyKey === logicalFamilyKey);
+      const prior = await dependencies.definitionRepository.listByLogicalFamily(userId, logicalFamilyKey);
       const existing = prior.find((definition) => digest({ strategyName: definition.strategyName, implementationSha256: definition.implementationSha256, parameters: definition.parameters }) === digest(content));
       if (existing) return existing;
       const definition: StrategyDefinition = { id: nextId("strategy-definition"), logicalFamilyKey, familyName: factory!.descriptor.displayName, strategyName, implementationVersion: factory!.descriptor.implementationVersion, implementationSha256: factory!.descriptor.implementationSha256, version: Math.max(0, ...prior.map((item) => item.version)) + 1, parameters: normalized, createdAt: new Date().toISOString() };
-      const saved = await dependencies.definitionRepository.insert(definition);
-      definitions.set(saved.id, { ownerUserId: userId, value: saved });
-      return saved;
+      return dependencies.definitionRepository.insert(userId, definition);
     },
     defineComposite: async (userId, command) => {
       if (!userId.trim() || !command || !["MAJORITY_VOTE", "WEIGHTED_SCORE"].includes(command.method) || command.components.length === 0) invalid("INVALID_COMPOSITE_STRATEGY");
@@ -135,13 +134,11 @@ export function createStrategyModule(dependencies: StrategyModuleDependencies = 
       }
       const logicalFamilyKey = `composite:${command.method}:${components.map((component) => component.strategyDefinitionId).sort().join(",")}`;
       const content = { method: command.method, components, thresholds };
-      const prior = ownedComposites(userId).filter((composite) => composite.logicalFamilyKey === logicalFamilyKey);
+      const prior = await dependencies.compositeRepository.listByLogicalFamily(userId, logicalFamilyKey);
       const existing = prior.find((composite) => digest({ method: composite.method, components: composite.components, thresholds: composite.thresholds }) === digest(content));
       if (existing) return existing;
       const composite: CompositeStrategyDefinition = { id: nextId("composite-strategy"), logicalFamilyKey, version: Math.max(0, ...prior.map((item) => item.version)) + 1, method: command.method, components, thresholds, createdAt: new Date().toISOString() };
-      const saved = await dependencies.compositeRepository.insert(composite);
-      composites.set(saved.id, { ownerUserId: userId, value: saved });
-      return saved;
+      return dependencies.compositeRepository.insert(userId, composite);
     },
     buildVisualization: () => [],
   };

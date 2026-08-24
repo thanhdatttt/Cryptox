@@ -44,10 +44,16 @@ module.exports = {
       to: { path: "^modules/(search/domain|backtesting/infrastructure)" },
     },
     {
-      name: "news-sentiment-isolation",
+      name: "news-domain-no-sentiment-domain",
       severity: "error",
-      from: { path: "^modules/(news|sentiment)/domain" },
-      to: { path: "^modules/(news|sentiment)/domain" },
+      from: { path: "^modules/news/domain" },
+      to: { path: "^modules/sentiment/domain" },
+    },
+    {
+      name: "sentiment-domain-no-news-domain",
+      severity: "error",
+      from: { path: "^modules/sentiment/domain" },
+      to: { path: "^modules/news/domain" },
     }
   ],
   options: {

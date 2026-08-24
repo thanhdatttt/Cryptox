@@ -1,9 +1,11 @@
 import type { CompositeStrategyDefinition, StrategyDefinition } from "../domain/contracts";
 export interface StrategyDefinitionRepository {
-    insert(definition: StrategyDefinition): Promise<StrategyDefinition>;
-    listByIds(ids: string[]): Promise<StrategyDefinition[]>;
+    insert(ownerUserId: string, definition: StrategyDefinition): Promise<StrategyDefinition>;
+    listByIds(ownerUserId: string, ids: string[]): Promise<StrategyDefinition[]>;
+    listByLogicalFamily(ownerUserId: string, logicalFamilyKey: string): Promise<StrategyDefinition[]>;
 }
 export interface CompositeDefinitionRepository {
-    insert(definition: CompositeStrategyDefinition): Promise<CompositeStrategyDefinition>;
-    get(id: string): Promise<CompositeStrategyDefinition | undefined>;
+    insert(ownerUserId: string, definition: CompositeStrategyDefinition): Promise<CompositeStrategyDefinition>;
+    get(ownerUserId: string, id: string): Promise<CompositeStrategyDefinition | undefined>;
+    listByLogicalFamily(ownerUserId: string, logicalFamilyKey: string): Promise<CompositeStrategyDefinition[]>;
 }

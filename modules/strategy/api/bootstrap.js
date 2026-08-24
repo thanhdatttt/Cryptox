@@ -1,6 +1,10 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.createStrategyModule = exports.createInMemoryStrategyDependencies = void 0;
+exports.PostgresStrategyDefinitionRepository = exports.PostgresCompositeDefinitionRepository = exports.createPostgresStrategyDependencies = exports.createStrategyModule = exports.createInMemoryStrategyDependencies = void 0;
 var service_1 = require("../application/service");
 Object.defineProperty(exports, "createInMemoryStrategyDependencies", { enumerable: true, get: function () { return service_1.createInMemoryStrategyDependencies; } });
 Object.defineProperty(exports, "createStrategyModule", { enumerable: true, get: function () { return service_1.createStrategyModule; } });
+var postgres_repositories_1 = require("../infrastructure/postgres-repositories");
+Object.defineProperty(exports, "createPostgresStrategyDependencies", { enumerable: true, get: function () { return postgres_repositories_1.createPostgresStrategyDependencies; } });
+Object.defineProperty(exports, "PostgresCompositeDefinitionRepository", { enumerable: true, get: function () { return postgres_repositories_1.PostgresCompositeDefinitionRepository; } });
+Object.defineProperty(exports, "PostgresStrategyDefinitionRepository", { enumerable: true, get: function () { return postgres_repositories_1.PostgresStrategyDefinitionRepository; } });
