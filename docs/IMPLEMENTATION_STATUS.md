@@ -21,7 +21,7 @@
 
 Strategy plugin runtime committed as `97bd4f6` (`feat(strategy): add built-in plugin runtime and composite signals`). The required `implement` branch was created from `main`.
 Market-data runtime committed as `cd091a6` (`feat(market-data): normalize candles and seal snapshots`).
-Evaluation runtime is ready to commit after the passing validation above.
+Evaluation runtime committed as `0d8f1f8` (`feat(evaluation): add deterministic finite metric policy`).
 
 ## Decisions and conflicts
 
