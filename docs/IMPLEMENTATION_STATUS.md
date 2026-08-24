@@ -3,7 +3,7 @@
 ## Current state
 
 - Branch: `implement`
-- Current feature: Market data and normalized contracts
+- Current feature: Market data and normalized contracts (not started)
 - Next feature: Market data and normalized contracts
 - Completed features: Strategy plugin runtime
 
@@ -17,7 +17,7 @@
 
 ## Commits
 
-Strategy plugin runtime is ready to commit after the passing validation above. The required `implement` branch was created from `main`.
+Strategy plugin runtime committed as `97bd4f6` (`feat(strategy): add built-in plugin runtime and composite signals`). The required `implement` branch was created from `main`.
 
 ## Decisions and conflicts
 
