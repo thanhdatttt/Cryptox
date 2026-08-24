@@ -22,6 +22,8 @@
 - The same focused and workspace validation set was rerun after the simulator's scientific-notation precision hardening and passed unchanged.
 - Leaderboard focused tests: passed; 3 tests covering deterministic scoring/zero-trade exclusion, strict Top-K admission and idempotency, and rank-eligible per-run ordering. The full workspace test/build/lint and dependency-cruiser checks passed after this module.
 - Search focused tests: passed; 3 tests covering bounded slot filling, drained max-candidate completion, idempotent cancellation, and isolated static facade behavior. The full workspace test/build/lint and dependency-cruiser checks passed after this module.
+- README local-run instructions were reviewed against the root and workspace package scripts. The documentation-only change does not affect the previously passing implementation validation set.
+- Frontend local-run smoke test: the Vite development server responded with HTTP 200 at `http://127.0.0.1:5173/`.
 
 ## Commits
 
@@ -48,6 +50,7 @@ Search orchestration committed as `06b93e5` (`feat(search): add bounded strategy
 - Leaderboard scoring is pure and formula-versioned; scope/formula lookup is cached before synchronous scoring. Its factory uses injected ports and provides an in-memory default only for the existing composition shell and deterministic tests.
 - Search uses serialized per-run slot filling, only public Backtesting/Leaderboard ports, explicit bounded stop conditions, pause/resume/cancel state transitions, and durable repository-shaped run state. Its default in-memory adapter exists solely for the current composition shell and tests.
 - A temporary pnpm workspace manifest was used only for dependency installation and is not part of the implementation.
+- The README documents npm as the supported user-facing workflow because the repository declares npm workspaces. It includes a Windows PowerShell backend command because the current package start script uses POSIX `NODE_PATH=...` syntax.
 
 ## Blockers
 

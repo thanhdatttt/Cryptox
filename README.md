@@ -7,6 +7,7 @@
 ## 🔗 Table of Contents
 
 - [📍 Overview](#-overview)
+- [▶️ Run locally](#-run-locally)
 - [👥 Team members](#-team-members)
 - [📁 Target Project Structure](#-target-project-structure)
 - [👾 Features](#-features)
@@ -25,6 +26,70 @@ Architectural Decision Records (ADRs) capture the reasoning behind the key desig
 
 ---
 
+## ▶️ Run locally
+
+### Prerequisites
+
+- [Node.js](https://nodejs.org/) 22 LTS or newer (npm is included)
+- Git
+
+No environment file or external API credential is currently required for the local frontend and the composition-shell backend.
+
+### Install dependencies
+
+From the repository root:
+
+```bash
+npm install
+```
+
+### Start the frontend
+
+```bash
+npm run dev --workspace=@cryptox/frontend
+```
+
+Vite prints the local URL when it starts (normally `http://localhost:5173`). Use `npm run start --workspace=@cryptox/frontend` for the same server command without Vite's development alias.
+
+### Build and start the backend
+
+First build every workspace:
+
+```bash
+npm run build
+```
+
+On macOS or Linux, start the backend with:
+
+```bash
+npm run start --workspace=@cryptox/backend
+```
+
+The backend package's start script uses POSIX environment-variable syntax. On Windows PowerShell, use the following equivalent after the build:
+
+```powershell
+Set-Location apps/backend
+$env:NODE_PATH = (Resolve-Path dist)
+node .\dist\apps\backend\src\main.js
+```
+
+The application is still being implemented feature by feature. At this stage the frontend is a Vite shell and the backend is the Nest composition shell; live Binance/news integrations and the assignment screens are not yet complete.
+
+### Verify the project
+
+Run these commands from the repository root before contributing:
+
+```bash
+npm test
+npm run build
+npm run lint
+npm run arch:check
+```
+
+The architecture check enforces the module boundaries described below. If a package install becomes inconsistent, remove only `node_modules`, run `npm install` again, then rerun the verification commands.
+
+---
+
 # 👥 Team members
 
 | Fullname | Student ID | Role |
@@ -39,7 +104,7 @@ Architectural Decision Records (ADRs) capture the reasoning behind the key desig
 
 # 📁 Target Project Structure
 
-The repository currently contains the architecture/OpenSpec documents. The tree below is the **planned implementation layout**, not a claim that all folders and deployables already exist.
+The repository contains the implementation in progress alongside its architecture/OpenSpec documents. The tree below shows the intended module layout; some adapters, endpoints, and assignment screens remain to be completed.
 
 ```
 cryptox/                               ← Repository root
