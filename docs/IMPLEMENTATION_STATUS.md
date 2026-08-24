@@ -3,92 +3,53 @@
 ## Current state
 
 - Branch: `implement`
-- Current feature: Complete
-- Next feature: None
-- Completed features: Strategy plugin runtime; Strategy definition authoring and persistence; Market data and normalized contracts; Evaluation metrics; Backtesting simulator; Leaderboard scoring and Top-K admission; Search orchestration; News and sentiment; Auth runtime and protected routes; Initial persistence and HTTP composition; Frontend application; Binance adapter and architecture-check hardening
+- Project status: **Reopened — prior completion claim withdrawn on 2026-08-24**
+- Current feature: None — stopped after feature 1 as requested
+- Next feature: **2. Implement durable backtest execution and public API**
 
-## Baseline
+## Audit summary
 
-- Root npm wrapper scripts cannot run in this shell because `npm` is not on PATH; equivalent workspace commands were run through bundled pnpm.
-- `pnpm -r --if-present test`: passed; all existing module/app tests and the 2 strategy runtime tests passed.
-- `pnpm -r --if-present build`: passed; all 13 buildable workspaces compiled and the frontend production bundle was generated.
-- `pnpm -r --if-present lint`: passed; all 13 lintable workspaces type-checked.
-- Direct dependency-cruiser invocation with the repository config: passed; 31 modules and 27 dependencies cruised with no violations.
-- Market-data focused tests: passed; 5 tests covering validation order, default latest-1000 paging, gap reporting, and snapshot idempotency.
-- Evaluation focused tests: passed; 2 tests covering compounded metrics/provenance and zero-trade/invalid-input behavior.
-- Backtesting focused tests: passed; 5 tests covering next-open/no-look-ahead execution, stop-first OHLC exits, deterministic fee/slippage accounting, final-candle reversal suppression, and lifecycle-facade isolation.
-- After a network-enabled dependency repair, `pnpm -r --if-present test`: passed for all 13 workspace projects; `pnpm -r --if-present build`: passed; and `pnpm -r --if-present lint`: passed.
-- Direct dependency-cruiser invocation with `.dependency-cruiser.js`: passed; 31 modules and 27 dependencies cruised with no violations.
-- The same focused and workspace validation set was rerun after the simulator's scientific-notation precision hardening and passed unchanged.
-- Leaderboard focused tests: passed; 3 tests covering deterministic scoring/zero-trade exclusion, strict Top-K admission and idempotency, and rank-eligible per-run ordering. The full workspace test/build/lint and dependency-cruiser checks passed after this module.
-- Search focused tests: passed; 3 tests covering bounded slot filling, drained max-candidate completion, idempotent cancellation, and isolated static facade behavior. The full workspace test/build/lint and dependency-cruiser checks passed after this module.
-- README local-run instructions were reviewed against the root and workspace package scripts. The documentation-only change does not affect the previously passing implementation validation set.
-- Frontend local-run smoke test: the Vite development server responded with HTTP 200 at `http://127.0.0.1:5173/`.
-- News focused tests: passed; 3 tests covering normalized persistence before Sentiment invocation, exact-URL duplicate handling in the composition default, missing/degraded Sentiment reads, and malformed provider values.
-- Sentiment focused tests: passed; 3 tests covering append-only model provenance/latest selection, invalid inference-result rejection, and immutable content-hashed window snapshots with no future/carry-forward reads.
-- News/Sentiment workspace validation: `pnpm -r --if-present test`, `pnpm -r --if-present build`, and `pnpm -r --if-present lint` all passed for 13 workspace projects. Direct dependency-cruiser validation passed with 31 modules and 27 dependencies cruised and no violations.
-- Auth focused tests: passed; 3 tests covering bcrypt-only password storage, one-hour HS256 JWT claims/verification, duplicate/credential handling, and invalid or expired token rejection.
-- Backend Auth composition tests: passed; 2 tests covering nine-module composition plus `/auth/register`, `/auth/login`, and protected `/auth/me` controller mapping.
-- Auth workspace validation: `pnpm -r --if-present test`, `pnpm -r --if-present build`, and `pnpm -r --if-present lint` all passed for 13 workspace projects. Direct dependency-cruiser validation passed with 32 modules and 32 dependencies cruised and no violations.
-- Auth PostgreSQL repository tests: passed; 1 test covering parameterized insert/read SQL and storage-to-domain mapping. The full workspace test/build/lint/dependency-cruiser validation was rerun after the users migration and adapter and passed unchanged (32 modules and 32 dependencies cruised).
-- HTTP composition tests: passed; backend controller tests now cover authenticated strategy-list, market-candle, and News read mappings plus invalid market query and missing bearer handling. Full workspace test/build/lint passed, and dependency-cruiser passed with 34 modules and 36 dependencies cruised.
-- Frontend focused tests: passed; 3 tests cover deterministic initial four-panel chart state, immutable panel updates, and the closed-versus-forming candle merge invariant. The frontend production build and TypeScript lint passed.
-- Frontend smoke test: the Vite development server responded with HTTP 200 and the root mount at `http://127.0.0.1:5174/`. The in-app browser connector could not initialize because of a host `AppData` permission error, so the check was limited to the production build and HTTP response rather than a browser screenshot.
-- Frontend workspace validation: `pnpm -r --if-present test`, `pnpm -r --if-present build`, and `pnpm -r --if-present lint` passed for all 13 workspace projects. Direct dependency-cruiser validation passed with 36 modules and 38 dependencies cruised and no violations.
-- Strategy definition focused tests: passed; 2 tests cover descriptor parameter validation, immutable family versioning, idempotent same-content creation, owner isolation, composite normalization, and weighted-composite validation. Backend composition tests: passed; the authenticated REST controller creates and rereads user-owned strategy/composite definitions.
-- Strategy definition workspace validation: `pnpm -r --if-present test`, `pnpm -r --if-present build`, and `pnpm -r --if-present lint` passed for all 13 workspace projects. Direct dependency-cruiser validation passed with 36 modules and 39 dependencies cruised and no violations.
-- Binance adapter focused tests: passed; 2 tests cover REST kline query/normalization and combined-stream trade/candle normalization without leaking exchange payload shapes beyond the adapter.
-- Binance adapter workspace validation: `pnpm -r --if-present test`, `pnpm -r --if-present build`, and `pnpm -r --if-present lint` passed for all 13 workspace projects. Direct dependency-cruiser validation passed with 36 modules and 39 dependencies cruised and no violations.
-- PostgreSQL Strategy Library focused tests: passed; 1 repository test verifies parameterized owner-scoped definition/composite SQL, while the 2 definition-runtime tests preserve validation, versioning, idempotency, and ownership behavior. Backend focused test/build/lint passed after composition activates the PostgreSQL adapter when `DATABASE_URL` is set.
-- Final workspace validation: `pnpm -r --if-present test`, `pnpm -r --if-present build`, and `pnpm -r --if-present lint` passed for all 13 workspace projects. The architecture policy was rerun with pinned `dependency-cruiser@16.10.4` in a temporary pnpm environment after the local pnpm virtual-store symlink became inconsistent; it passed with 425 modules and 429 dependencies cruised and no violations.
+The previous final-validation claim did not establish the assignment-required product flow. Targeted source inspection found public Backtesting, Search, and Leaderboard APIs that throw `NOT_IMPLEMENTED`; a skeleton backtest worker and queue adapter; only partial PostgreSQL durability; no backend HTTP route chain for backtest/evaluate/leaderboard/search; and a frontend explicitly presenting hard-coded demo data. See `docs/IMPLEMENTATION_PLAN.md` for evidence and the ordered remediation plan.
 
-## Commits
+## Completed historical milestones (not evidence of full completion)
 
-Strategy plugin runtime committed as `97bd4f6` (`feat(strategy): add built-in plugin runtime and composite signals`). The required `implement` branch was created from `main`.
-Market-data runtime committed as `cd091a6` (`feat(market-data): normalize candles and seal snapshots`).
-Evaluation runtime committed as `0d8f1f8` (`feat(evaluation): add deterministic finite metric policy`).
-Backtesting simulator committed as `9d9645e` (`feat(backtesting): add deterministic candle simulator`).
-Leaderboard scoring and Top-K admission committed as `8f8364c` (`feat(leaderboard): add deterministic scoring and Top-K admission`).
-Search orchestration committed as `06b93e5` (`feat(search): add bounded strategy loop orchestration`).
-News and Sentiment runtime committed as `502e7e2` (`feat(news): add sentiment isolation and sealed snapshots`).
-Auth runtime and protected routes committed as `da4ca1c` (`feat(auth): add bcrypt jwt runtime and protected routes`).
-PostgreSQL Auth persistence committed as `3e5d913` (`feat(auth): add PostgreSQL user persistence`).
-Initial authenticated backend facade routes committed as `36bee80` (`feat(backend): add authenticated public facade routes`).
-Frontend state and reference-screen application committed as `126e718` (`feat(frontend): add reference dashboard screens and state`).
-Strategy definition authoring committed as `40f7e59` (`feat(strategy): add owned definition authoring API`).
-Binance Market Data adapter committed as `37fd18b` (`feat(market-data): add optional Binance adapter`).
-Persistent Strategy Library and architecture-check hardening committed as `4e8d686` (`feat(strategy): persist versioned library in PostgreSQL`).
+| Commit | Historical milestone | Current assessment |
+| --- | --- | --- |
+| `97bd4f6` | Strategy plugin runtime | Reusable domain implementation exists; not yet connected to a complete product flow. |
+| `cd091a6`, `37fd18b` | Market-data contracts and optional Binance adapter | Partial: no durable/live end-to-end composed flow. |
+| `0d8f1f8`, `9d9645e` | Evaluation and simulator | Domain logic exists; public durable worker path is incomplete. |
+| `8f8364c`, `06b93e5` | Leaderboard and Search runtimes | Internal test runtimes exist; required public APIs are `NOT_IMPLEMENTED`. |
+| `502e7e2` | News/Sentiment runtime | Boundary logic exists; concrete durable collection pipeline remains incomplete. |
+| `da4ca1c`, `3e5d913`, `36bee80` | Auth, user persistence, initial facade routes | Partial: routes do not expose backtest/search/leaderboard flow. |
+| `126e718` | Reference-screen frontend | Demo-only local presentation; must be replaced with live API flows. |
+| `40f7e59`, `4e8d686` | Strategy authoring and library persistence | PostgreSQL strategy library exists; is an input to, not completion of, the pipeline. |
+| `d9e9eaa` | Previous completion documentation | Superseded by this honest reopened status. |
+| `2070778` | Cross-platform npm developer workflow | Completed: npm lockfile/workspace workflow, root development/start scripts, Node-based backend launcher, and focused smoke checks. |
 
-## Decisions and conflicts
+## Latest validation
 
-- The PDF is authoritative over the Markdown companion and reference images.
-- The reference images are visual targets, not additional API contracts; existing OpenSpec module contracts remain the executable design detail.
-- Existing code is intentionally skeletal and existing skeleton tests are preserved unless a feature makes them obsolete.
-- Added built-in MA, RSI, Bollinger, and Support/Resistance plugin implementations plus majority/weighted composite logic.
-- The repository tracks source-adjacent generated JavaScript and declaration files. They were refreshed for the strategy API and plugin files so Vitest and the existing backend/worker composition tests resolve the same runtime implementation.
-- Market Data now validates canonical pairs/timeframes/candles, reports aligned gaps, returns latest bounded pages, supports normalized provider subscriptions, and seals content-addressed snapshots.
-- The PDF's four-chart dashboard limit remains a frontend concern; Market Data does not impose a four-subscription domain limit.
-- Evaluation is pure and separate from Strategy/Backtesting implementation; it owns the pinned `MVP_EVALUATION_V1` formulas and finite metric checks.
-- Backtesting implements `NEXT_OPEN_OHLC_STOP_FIRST_V2` semantics as a pure simulator: decisions only observe closed candles through the current close; entries/reversals fill at the next open; protective exits are stop-first and gap-aware; and final-candle entries are suppressed.
-- The simulator uses local fixed-decimal `bigint` arithmetic for the selected half-up rounding scales, applies fees/slippage separately at entry and exit, and records settlement asset plus equity-before/equity-after audit values on every Trade.
-- The network-approved pnpm repair rebuilt an incomplete virtual store. A temporary workspace manifest remains uncommitted because this repository declares npm workspaces but the available pnpm version requires its own workspace manifest.
-- Leaderboard scoring is pure and formula-versioned; scope/formula lookup is cached before synchronous scoring. Its factory uses injected ports and provides an in-memory default only for the existing composition shell and deterministic tests.
-- Search uses serialized per-run slot filling, only public Backtesting/Leaderboard ports, explicit bounded stop conditions, pause/resume/cancel state transitions, and durable repository-shaped run state. Its default in-memory adapter exists solely for the current composition shell and tests.
-- A temporary pnpm workspace manifest was used only for dependency installation and is not part of the implementation.
-- The README documents npm as the supported user-facing workflow because the repository declares npm workspaces. It includes a Windows PowerShell backend command because the current package start script uses POSIX `NODE_PATH=...` syntax.
-- News accepts only canonical normalized `NewsItem` values from provider adapters, stores them before attempting Sentiment, and composes missing Sentiment rather than fabricating a neutral value on timeout/inference failure. The concrete RSS/API/crawler extraction and LLM-template implementations remain composition adapters because no external provider credentials or approved extraction contract are present yet.
-- Sentiment validates neutral input/result provenance, keeps model results append-only, selects latest by timestamp then insertion order in the in-memory adapter, and seals deterministic SHA-256 snapshot points. A point is readable only at its completed aggregation-window end; it never exposes a future point or carries a previous window across a missing one.
-- The worker's local placeholder now implements the expanded Sentiment repository shape without reaching into Sentiment internals.
-- Auth uses `bcryptjs` for bcrypt-compatible password hashes and `jsonwebtoken` for HS256 one-hour JWTs. The in-memory adapter supports local composition/tests; PostgreSQL user persistence remains the next incomplete portion of the composed feature. Backend composition reads `JWT_SECRET` when set and otherwise uses a documented development-only fallback that must not be used for deployment.
-- `infra/db/migrations/002_create_users.js` creates the Auth-owned `users` table after the existing pgcrypto extension migration. Backend composition selects the PostgreSQL Auth repository when `DATABASE_URL` is configured and otherwise retains the local in-memory repository; `npm run db:migrate` is the documented migration entrypoint.
-- The composed REST surface is currently `GET /health`, Auth register/login/me, `GET /strategies`, `GET /market/candles`, and `GET /news`, all except health/Auth credentials requiring a verified bearer JWT. Backtest/Search/Leaderboard routes remain integration-hardening work because their static public facade functions are intentionally skeletal while their test runtimes are composition-specific.
-- The frontend provides the supplied Realtime, Strategy Engine, Discovery, Backtest, News Crawler, and Settings screens as a responsive local presentation shell. It keeps its four-chart configuration and merge behavior as tested UI state; displayed market/analysis values are explicitly labelled demo data until the remaining public facade routes are composed into live frontend transport.
-- Strategy authoring now validates descriptor-defined parameters (including MA period ordering and RSI threshold ordering), creates immutable versioned families, is idempotent for identical content, and restricts definition/composite reads to the authenticated user. The default composition uses the deterministic in-memory repository adapters; a PostgreSQL strategy-library adapter is still required for persistence across backend restarts.
-- `createBinanceMarketDataAdapter` keeps REST kline and combined-stream WebSocket payload interpretation inside Market Data infrastructure. Backend composition activates it only when `MARKET_DATA_PROVIDER=BINANCE`; otherwise it retains local/demo behavior. The frontend has no Binance dependency in either mode.
-- `infra/db/migrations/003_create_strategy_library.js` adds owner-scoped, versioned strategy and composite tables. Backend composition selects the PostgreSQL repositories together with the existing PostgreSQL Auth mode when `DATABASE_URL` is configured; the local in-memory repository remains the deliberate no-database development fallback.
-- The requirements map was corrected: PDF §§32-34 are architectural drivers, not a mandate to call an LLM or fetch arbitrary strategy URLs. The Prompt/URL fields remain in the reference-matched presentation; the source-of-truth functional requirement is validated, reviewable, versioned Strategy Library persistence from PDF §36.
-- The root `arch:check` script now invokes the actual `dependency-cruise` binary and excludes generated output/declarations. The previous script used an unsupported `--validate` token and its Windows-hostile regex quoting; the corrected equivalent policy was validated in the temporary pinned runtime.
+- `npm install`: passed from the repository root with npm 11.17.0; removed the obsolete `cross-env` dependency chain and refreshed the committed npm lockfile. npm reported its informational allow-scripts warning, but installation, compilation, and Vite all completed successfully.
+- `npm run test:workflow`: passed — 2 Node launcher tests validate compiled-entry resolution, platform-delimited `NODE_PATH`, and the pre-build error.
+- `npm run smoke:backend`: passed — compiled backend launched through the Node-based launcher and returned `GET /health` with `{ "status": "ok" }` on an isolated port.
+- `npm run smoke:dev`: passed — the root development launcher built the backend, served its health endpoint, served the Vite frontend on an isolated port, and stopped both processes cleanly.
+- `npm test`: passed — all workspace tests completed successfully (including the existing placeholder-oriented tests, which do not satisfy the reopened product requirements).
+- `npm run build`: passed — all workspaces compiled and the frontend production bundle was generated.
+- `npm run lint`: passed — all workspace TypeScript no-emit checks completed successfully.
+- `npm run arch:check`: passed — dependency-cruiser reported no violations across 470 modules and 551 dependencies.
+- Docker-backed validation is intentionally not run for this local-workflow feature; it remains a required final integration gate in feature 6.
 
-## Blockers
+## Current decisions and assumptions
 
-- No active blocker. The assignment requirement review is complete; the remaining operational limitation is that live Binance and PostgreSQL integration require the optional external services/environment values documented in `README.md`. A local pnpm v11 virtual-store symlink currently prevents its installed dependency-cruiser binary from resolving `semver`; the root `npm run arch:check` script has been corrected and its equivalent command was validated through a fresh pinned temporary runtime.
+- The PDF is authoritative; the Markdown companion and supplied images guide searchable details and visual acceptance respectively.
+- npm is the supported developer package manager because the root declares npm workspaces and the user explicitly requires `npm install` from the repository root. `package-lock.json` is the committed lockfile.
+- `ts-node` is not declared and will not be relied on. Shell-specific environment assignment is not an acceptable backend start mechanism.
+- The root `npm run dev` script builds the backend once, starts it through a Node-based launcher, and starts the frontend’s declared Vite workspace dependency. Backend TypeScript changes require restarting that command; Vite continues to provide frontend development serving.
+- The backend launcher sets `NODE_PATH` programmatically for its compiled child process using the operating system’s path delimiter. This keeps module-alias resolution portable across Windows, macOS, and Linux without relying on shell syntax.
+- Existing code/tests that assert `NOT_IMPLEMENTED` are treated as placeholders to replace when their required feature is implemented, not as completion evidence.
+- The repository’s OpenSpec apply skill was consulted, but the `openspec` CLI is not installed in this checkout. The durable plan/status documents remain the continuation record until that tooling is available.
+
+## Unresolved decisions and blockers
+
+- No product-scope blocker is known. The remaining work requires design/implementation of durable candidate/search/leaderboard records and a concrete worker/queue integration.
+- Docker-backed validation has not yet been performed successfully for the actual assignment flow and remains a final required gate.
+- The local Codex runtime exposes Node but not `npm` on `PATH`; a system npm executable was located at `C:\Program Files\nodejs\npm.cmd` for validation. The repository commands themselves must remain normal `npm ...` commands for developers.
