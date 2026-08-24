@@ -3,8 +3,8 @@
 ## Current state
 
 - Branch: `implement`
-- Current feature: Final requirements review and delivery (in progress)
-- Next feature: None after final validation and documentation commit
+- Current feature: Complete
+- Next feature: None
 - Completed features: Strategy plugin runtime; Strategy definition authoring and persistence; Market data and normalized contracts; Evaluation metrics; Backtesting simulator; Leaderboard scoring and Top-K admission; Search orchestration; News and sentiment; Auth runtime and protected routes; Initial persistence and HTTP composition; Frontend application; Binance adapter and architecture-check hardening
 
 ## Baseline
