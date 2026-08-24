@@ -1,4 +1,5 @@
 import { createAuthModule } from "modules/auth/api/bootstrap";
+import type { AuthModulePublicApi } from "modules/auth/api";
 import { createBacktestingModule } from "modules/backtesting/api/bootstrap";
 import { createEvaluationModule } from "modules/evaluation/api/bootstrap";
 import { createLeaderboardModule } from "modules/leaderboard/api/bootstrap";
@@ -8,7 +9,11 @@ import { createSearchModule } from "modules/search/api/bootstrap";
 import { createSentimentModule } from "modules/sentiment/api/bootstrap";
 import { createStrategyModule } from "modules/strategy/api/bootstrap";
 
-export function composeAllModules(): Record<string, unknown> {
+export interface BackendModules extends Record<string, unknown> {
+  auth: AuthModulePublicApi;
+}
+
+export function composeAllModules(): BackendModules {
   const modules = {
     marketData: createMarketDataModule(undefined as never),
     strategy: createStrategyModule(undefined as never),

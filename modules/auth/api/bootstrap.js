@@ -1,5 +1,5 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.createAuthModule = void 0;
-var index_1 = require("./index");
-Object.defineProperty(exports, "createAuthModule", { enumerable: true, get: function () { return index_1.createAuthModule; } });
+exports.createAuthModule = createAuthModule;
+const service_1 = require("../application/service");
+function createAuthModule(deps) { return (0, service_1.createAuthModule)(deps); }

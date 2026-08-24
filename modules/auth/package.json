@@ -1,1 +1,1 @@
-{"name":"@cryptox/auth","private":true,"scripts":{"build":"tsc -p tsconfig.json","test":"vitest run --passWithNoTests","lint":"tsc -p tsconfig.json --noEmit"}}
+{"name":"@cryptox/auth","private":true,"scripts":{"build":"tsc -p tsconfig.json","test":"vitest run --passWithNoTests","lint":"tsc -p tsconfig.json --noEmit"},"dependencies":{"bcryptjs":"^3.0.3","jsonwebtoken":"^9.0.3"},"devDependencies":{"@types/jsonwebtoken":"^9.0.10"}}

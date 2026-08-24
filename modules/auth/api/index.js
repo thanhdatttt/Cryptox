@@ -1,12 +1,16 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.verify = exports.login = exports.register = void 0;
-exports.createAuthModule = createAuthModule;
-const notImplemented = () => { throw new Error("NOT_IMPLEMENTED"); };
-const register = async () => notImplemented();
+exports.createInMemoryAuthDependencies = exports.createAuthModule = exports.verify = exports.login = exports.register = exports.AuthException = void 0;
+const service_1 = require("../application/service");
+var errors_1 = require("../domain/errors");
+Object.defineProperty(exports, "AuthException", { enumerable: true, get: function () { return errors_1.AuthException; } });
+const defaultService = (0, service_1.createAuthModule)((0, service_1.createInMemoryAuthDependencies)());
+const register = (email, password) => defaultService.register(email, password);
 exports.register = register;
-const login = async () => notImplemented();
+const login = (email, password) => defaultService.login(email, password);
 exports.login = login;
-const verify = async () => notImplemented();
+const verify = (token) => defaultService.verify(token);
 exports.verify = verify;
-function createAuthModule(_deps) { return { register: exports.register, login: exports.login, verify: exports.verify }; }
+var service_2 = require("../application/service");
+Object.defineProperty(exports, "createAuthModule", { enumerable: true, get: function () { return service_2.createAuthModule; } });
+Object.defineProperty(exports, "createInMemoryAuthDependencies", { enumerable: true, get: function () { return service_2.createInMemoryAuthDependencies; } });

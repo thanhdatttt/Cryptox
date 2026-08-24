@@ -1,5 +1,5 @@
 export type { AuthModuleDependencies } from "../application/ports";
 import type { AuthModuleDependencies } from "../application/ports";
 import type { AuthModulePublicApi } from "./index";
-import { login, register, verify } from "./index";
-export function createAuthModule(_deps: AuthModuleDependencies): AuthModulePublicApi { return { register, login, verify }; }
+import { createAuthModule as createRuntime } from "../application/service";
+export function createAuthModule(deps?: Partial<AuthModuleDependencies>): AuthModulePublicApi { return createRuntime(deps); }
