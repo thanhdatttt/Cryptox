@@ -2,10 +2,10 @@
 
 ## 1. Storage Strategy Recap
 
-| Store          | Role                                                                                                                                                                                                                                                                            |
-| -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **PostgreSQL** | Single source of truth for everything with ACID/versioning/reproducibility needs: candles, strategy & composite definitions, candidates, trades, experiment results, leaderboard, news, sentiment.                                                                              |
-| **Redis**      | (a) BullMQ-backed backtest work queue and completion/failure notifications, (b) latest-candle/latest-tick cache for realtime reads, and (c) ephemeral exchange connection status. Redis is not a general Event Bus and stores no authoritative Experiment or Leaderboard state. |
+| Store | Role |
+|---|---|
+| **PostgreSQL** | Single source of truth for everything with ACID/versioning/reproducibility needs: candles, strategy & composite definitions, candidates, trades, experiment results, leaderboard, news, sentiment. |
+| **Redis** | (a) BullMQ-backed backtest work queue and completion/failure notifications, (b) latest-candle/latest-tick cache for realtime reads, and (c) ephemeral exchange connection status. Redis is not a general Event Bus and stores no authoritative Experiment or Leaderboard state. |
 
 Schema ownership follows business-module ownership, even though the MVP uses one PostgreSQL database. The owning module defines the aggregate rules and repository ports; its `infrastructure` layer implements persistence. SQL migrations, seeds, and database bootstrap remain under `infra/db/migrations` and `infra/`, while deployable composition remains under `apps/`. This session changes documentation only and applies no migrations or runtime behavior; any newly stated planning invariant (such as version-family allocation) remains pending implementation.
 
@@ -138,6 +138,8 @@ erDiagram
         uuid score_formula_id FK
         text worker_runtime_version
         text worker_runtime_sha256
+        text simulator_version
+        text simulator_sha256
         text evaluation_runtime_version
         text evaluation_runtime_sha256
         numeric total_return_percent
@@ -166,12 +168,13 @@ erDiagram
     }
     LEADERBOARD_SCOPES {
         uuid id PK
+        uuid user_id FK
         text name
         int version
         uuid dataset_snapshot_id FK
         uuid sentiment_snapshot_id FK
-        text worker_runtime_version
-        text worker_runtime_sha256
+        text simulator_version
+        text simulator_sha256
         text evaluation_runtime_version
         text evaluation_runtime_sha256
         numeric initial_capital
@@ -267,13 +270,13 @@ erDiagram
 
 Owned by `modules/market-data`. Corresponds to brief §4 and `architecture.md` §1.3: the module normalizes and upserts candles, then serves them through REST and the market-only WebSocket boundary.
 
-| Column                                   | Type                                                | Notes                                                                                                                                                      |
-| ---------------------------------------- | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `pair`                                   | `text`                                              | Part of PK. Deliberately `text`, not an enum — brief §32.2/§44.3 requires adding pairs without a code change (mirrors the `Pair` contract type).           |
-| `timeframe`                              | `timeframe_enum` (`'1m','5m','15m','1h','4h','1d'`) | Part of PK. Matches the closed `Timeframe` union in the contract — extending it is a migration, which is acceptable since it's a small, brief-defined set. |
-| `timestamp`                              | `timestamptz`                                       | Part of PK. Candle open time.                                                                                                                              |
-| `open`, `high`, `low`, `close`, `volume` | `numeric`                                           | Per brief §1 example.                                                                                                                                      |
-| `is_closed`                              | `boolean`                                           | Mirrors `Candle.isClosed` — lets the same table hold the still-forming realtime candle as well as finalized ones.                                          |
+| Column | Type | Notes |
+|---|---|---|
+| `pair` | `text` | Part of PK. Deliberately `text`, not an enum — brief §32.2/§44.3 requires adding pairs without a code change (mirrors the `Pair` contract type). |
+| `timeframe` | `timeframe_enum` (`'1m','5m','15m','1h','4h','1d'`) | Part of PK. Matches the closed `Timeframe` union in the contract — extending it is a migration, which is acceptable since it's a small, brief-defined set. |
+| `timestamp` | `timestamptz` | Part of PK. Candle open time. |
+| `open`, `high`, `low`, `close`, `volume` | `numeric` | Per brief §1 example. |
+| `is_closed` | `boolean` | Mirrors `Candle.isClosed` — lets the same table hold the still-forming realtime candle as well as finalized ones. |
 
 ```sql
 CREATE TYPE timeframe_enum AS ENUM ('1m','5m','15m','1h','4h','1d');
@@ -293,7 +296,7 @@ CREATE TABLE candles (
 CREATE INDEX idx_candles_pair_tf_time ON candles (pair, timeframe, "timestamp" DESC);
 ```
 
-**Not persisted:** `MarketTick` (raw per-tick price) and `MarketDataConnectionStatus`. Both are pure realtime/ephemeral state — see §5 (Redis). Writing every tick to Postgres would fight the Realtime driver (§32.3) for no reproducibility benefit, since only _closed_ candles are ever backtested (brief §19).
+**Not persisted:** `MarketTick` (raw per-tick price) and `MarketDataConnectionStatus`. Both are pure realtime/ephemeral state — see §5 (Redis). Writing every tick to Postgres would fight the Realtime driver (§32.3) for no reproducibility benefit, since only *closed* candles are ever backtested (brief §19).
 
 **Growth note (brief §32.2):** this table is the one most likely to need partitioning once multiple pairs × 6 timeframes × months of history accumulate. Recommended path if/when it matters: monthly range partitions on `timestamp`, or move to TimescaleDB — noted as a scalability follow-up, not required for the MVP scope (brief §37).
 
@@ -367,20 +370,21 @@ Alignment uses half-open dataset range `[dataset_from, dataset_to)` and aggregat
 
 Owned by `modules/strategy`. Corresponds to `StrategyDefinition` in `component-contracts.md` §3, brief §36 (versioning).
 
-| Column                                            | Type                                 | Notes                                                                                                       |
-| ------------------------------------------------- | ------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
-| `id`                                              | `uuid PK`                            | Unique **per version** (Identity rule, §0 of the contracts file) — never reused.                            |
-| `logical_family_key`                              | `text NOT NULL`                      | Stable family identity used for atomic version allocation; not a display label.                             |
-| `family_name`                                     | `text NULL`                          | Display-only label (e.g. "MA-RSI Strategy"); **never a FK.**                                                |
-| `strategy_name`                                   | `text NOT NULL`                      | Matches `Strategy.name`, resolved via the runtime `StrategyRegistry` — not a FK to a DB table (see §3.2.1). |
-| `implementation_version`, `implementation_sha256` | `text`, `char(64)`                   | Pins the exact retained plugin build; parameter version alone cannot reproduce behavior after code changes. |
-| `version`                                         | `int NOT NULL`                       | Incremented on any parameter or implementation provenance change; rows are append-only, never updated.      |
-| `parameters`                                      | `jsonb NOT NULL`                     | e.g. `{ "fastPeriod": 20, "slowPeriod": 50 }`.                                                              |
-| `created_at`                                      | `timestamptz NOT NULL DEFAULT now()` |                                                                                                             |
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `uuid PK` | Unique **per version** (Identity rule, §0 of the contracts file) — never reused. |
+| `logical_family_key` | `text NOT NULL` | Stable family identity used for atomic version allocation; not a display label. |
+| `family_name` | `text NULL` | Display-only label (e.g. "MA-RSI Strategy"); **never a FK.** |
+| `strategy_name` | `text NOT NULL` | Matches `Strategy.name`, resolved via the runtime `StrategyRegistry` — not a FK to a DB table (see §3.2.1). |
+| `implementation_version`, `implementation_sha256` | `text`, `char(64)` | Pins the exact retained plugin build; parameter version alone cannot reproduce behavior after code changes. |
+| `version` | `int NOT NULL` | Incremented on any parameter or implementation provenance change; rows are append-only, never updated. |
+| `parameters` | `jsonb NOT NULL` | e.g. `{ "fastPeriod": 20, "slowPeriod": 50 }`. |
+| `created_at` | `timestamptz NOT NULL DEFAULT now()` | |
 
-````sql
+```sql
 CREATE TABLE strategy_definitions (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id       UUID NOT NULL REFERENCES users(id),
   logical_family_key TEXT NOT NULL,
   family_name   TEXT,
   strategy_name TEXT NOT NULL,
@@ -388,35 +392,12 @@ CREATE TABLE strategy_definitions (
   implementation_sha256 CHAR(64) NOT NULL,
   version       INT NOT NULL,
   parameters    JSONB NOT NULL,
-  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (user_id, logical_family_key, version),
+  UNIQUE (id, user_id)
 );
 CREATE INDEX idx_strategy_defs_name ON strategy_definitions (strategy_name);
----
-## 3.15 `composite_strategy_definitions` (add user ownership)
-
-Add a `user_id` foreign‑key column to tie each composite definition to its owner.
-
-```sql
-ALTER TABLE composite_strategy_definitions ADD COLUMN user_id UUID NOT NULL REFERENCES users(id);
-````
-
----
-
-## CREATE UNIQUE INDEX uq_strategy_defs_family_version
-
-## 3.14 `strategy_definitions` (add user ownership)
-
-Add a `user_id` foreign‑key column to tie each strategy definition to its owner.
-
-```sql
-ALTER TABLE strategy_definitions ADD COLUMN user_id UUID NOT NULL REFERENCES users(id);
 ```
-
----
-
-ON strategy_definitions (logical_family_key, version);
-
-````
 
 Version allocation is an application/repository invariant. `logical_family_key` is stable for the logical strategy family and is not a display label. Before inserting, `modules/strategy` atomically locks or serializes that family, verifies the next version, and guarantees that concurrent callers may never reuse a `(logical_family_key, version)` pair. A new version is required for parameter or implementation provenance changes. The same rule applies to Composite Definitions.
 
@@ -435,34 +416,23 @@ CREATE TYPE combination_method_enum AS ENUM ('MAJORITY_VOTE','WEIGHTED_SCORE');
 
 CREATE TABLE composite_strategy_definitions (
   id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id    UUID NOT NULL REFERENCES users(id),
   logical_family_key TEXT NOT NULL,
   version    INT NOT NULL,
   method     combination_method_enum NOT NULL,
   thresholds JSONB,              -- { buy: 0.3, sell: -0.3 }; only meaningful for WEIGHTED_SCORE
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (user_id, logical_family_key, version),
+  UNIQUE (id, user_id)
 );
-CREATE UNIQUE INDEX uq_composite_defs_family_version
----
-## 3.16 `search_runs` (add user ownership)
-
-Add a `user_id` foreign‑key column to tie each Search Run to its creator.
-
-```sql
-ALTER TABLE search_runs ADD COLUMN user_id UUID NOT NULL REFERENCES users(id);
-````
-
----
-
-ON composite_strategy_definitions (logical_family_key, version);
 
 CREATE TABLE composite_strategy_components (
-composite_definition_id UUID NOT NULL REFERENCES composite_strategy_definitions(id),
-strategy_definition_id UUID NOT NULL REFERENCES strategy_definitions(id),
-weight NUMERIC NOT NULL DEFAULT 0, -- ignored when method = MAJORITY_VOTE
-PRIMARY KEY (composite_definition_id, strategy_definition_id)
+  composite_definition_id UUID NOT NULL REFERENCES composite_strategy_definitions(id),
+  strategy_definition_id  UUID NOT NULL REFERENCES strategy_definitions(id),
+  weight                   NUMERIC NOT NULL DEFAULT 0,  -- ignored when method = MAJORITY_VOTE
+  PRIMARY KEY (composite_definition_id, strategy_definition_id)
 );
-
-````
+```
 
 Composite repository validation mirrors the public contract: at least one component is required; `WEIGHTED_SCORE` requires finite weights summing to `1` and thresholds with `buy > sell`; `MAJORITY_VOTE` stores normalized zero weights and documented default thresholds. A changed component set, weight, method, threshold, or referenced Strategy Definition creates the next version under the same logical-family allocation rule.
 
@@ -492,7 +462,7 @@ CREATE TABLE score_formulas (
   UNIQUE (name, version),
   CHECK (weight_return + weight_win_rate + weight_risk_score = 1)
 );
-````
+```
 
 Changing weights or risk calculation creates a new version; old rows are never updated. Database roles grant formula repositories `SELECT`/`INSERT` but not `UPDATE`/`DELETE`, and an append-only trigger rejects in-place changes as defense in depth. This turns the brief's example `0.5×Return + 0.2×WinRate + 0.3×RiskScore` into an auditable rule instead of a hard-coded constant.
 
@@ -500,36 +470,45 @@ Metric edge cases are part of this versioned scoring contract. No API or table s
 
 ### 3.5 `leaderboard_scopes`
 
-The assignment specifies Top-K behavior but not whether unrelated datasets may compete. Cryptox chooses a **persistent leaderboard per immutable benchmark scope**, because scores are comparable only when the content-hashed candle snapshot, optional sentiment/model snapshot, initial capital, fees, slippage, formula, simulator/indicator runtime, and evaluation runtime are identical. A changed benchmark input or runtime creates a new scope/version.
+The assignment specifies Top-K behavior but not whether unrelated datasets may compete. Cryptox chooses an **owner-scoped persistent leaderboard per immutable benchmark scope**, because scores are comparable only when the sealed candle/sentiment snapshots, normalized pair metadata, eligible trade range, warm-up capacity, capital, costs, formula, pure simulator artifact, and Evaluation policy/artifact are identical. Worker deployment hashes are audit provenance on Attempts/Experiments, not benchmark identity.
 
 ```sql
 CREATE TABLE leaderboard_scopes (
   id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id             UUID NOT NULL REFERENCES users(id),
   name                TEXT NOT NULL,
   version             INT NOT NULL CHECK (version > 0),
   dataset_snapshot_id UUID NOT NULL REFERENCES dataset_snapshots(id),
+  pair_metadata       JSONB NOT NULL,
+  trade_from          TIMESTAMPTZ NOT NULL,
+  trade_to            TIMESTAMPTZ NOT NULL,
+  warmup_capacity_candles INT NOT NULL CHECK (warmup_capacity_candles BETWEEN 0 AND 10000),
   sentiment_snapshot_id UUID REFERENCES sentiment_dataset_snapshots(id),
-  worker_runtime_version TEXT NOT NULL,
-  worker_runtime_sha256 CHAR(64) NOT NULL,
+  simulator_version   TEXT NOT NULL,
+  simulator_sha256    CHAR(64) NOT NULL,
   evaluation_runtime_version TEXT NOT NULL,
   evaluation_runtime_sha256 CHAR(64) NOT NULL,
+  evaluation_policy_id TEXT NOT NULL,
+  decimal_policy_id   TEXT NOT NULL,
   initial_capital     NUMERIC NOT NULL CHECK (initial_capital > 0),
-  fee_rate_percent    NUMERIC NOT NULL CHECK (fee_rate_percent >= 0),
-  slippage_bps        INT NOT NULL CHECK (slippage_bps >= 0),
+  fee_rate_percent    NUMERIC NOT NULL CHECK (fee_rate_percent BETWEEN 0 AND 10),
+  slippage_bps        NUMERIC NOT NULL CHECK (slippage_bps BETWEEN 0 AND 500),
   score_formula_id    UUID NOT NULL REFERENCES score_formulas(id),
   created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE (name, version),
+  UNIQUE (user_id, name, version),
+  UNIQUE (id, user_id),
+  CHECK (trade_to > trade_from),
   UNIQUE (
     id, score_formula_id,
-    worker_runtime_version, worker_runtime_sha256,
+    simulator_version, simulator_sha256,
     evaluation_runtime_version, evaluation_runtime_sha256
   )
 );
 ```
 
-Both Manual Backtest and Search Run select a scope. A scope combines immutable candle/sentiment inputs, capital/cost assumptions, a score-formula version, and exact worker/evaluation runtime hashes. Candidate submission inspects registered plugin descriptors: a composite containing category `INFORMATION` requires the scope's sentiment snapshot, matching coin and covering the candle snapshot range; candle-only composites may use a scope without it. The Coordinator copies the pinned worker runtime into the job, and both worker and evaluator reject a local runtime that does not match the scope. Scope repositories likewise have `SELECT`/`INSERT` only, and an append-only trigger rejects `UPDATE`/`DELETE`; changes always create a new version. Every non-cancelled Candidate whose pipeline succeeds becomes a permanent Experiment; only a rank-eligible Experiment that qualifies for that scope's fixed MVP Top-10 becomes a persistent `leaderboard_entries` row.
+Both Manual Backtest and Search Run select a scope. Candidate submission inspects registered plugin descriptors: a composite containing category `INFORMATION` requires a matching sentiment snapshot, and its maximum declared warm-up must not exceed the scope's `warmup_capacity_candles`; the sealed candle snapshot must contain that full capacity before `trade_from`. The worker resolves the pinned simulator artifact independently from its deployment build; Evaluation verifies its own policy/artifact. Scope repositories are append-only. Every non-cancelled successful Candidate becomes an Experiment; only a rank-eligible one qualifying for the scope's fixed Top-10 gets an active entry.
 
-### 3.6 `search_runs` _(additive)_
+### 3.6 `search_runs` *(additive)*
 
 Groups candidates by "one press of START SEARCH" (brief §46 step 3) and gives `LoopStatus` (contracts §5.1) a durable backing row instead of pure in-memory state. Owned by `modules/search`.
 
@@ -539,6 +518,7 @@ CREATE TYPE generator_type_enum AS ENUM ('RANDOM','DOMAIN_GUIDED','GENETIC');
 
 CREATE TABLE search_runs (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id         UUID NOT NULL REFERENCES users(id),
   leaderboard_scope_id UUID NOT NULL REFERENCES leaderboard_scopes(id),
   generator_type  generator_type_enum NOT NULL,
   search_space    JSONB NOT NULL,     -- snapshot of SearchSpaceConfig at start
@@ -564,8 +544,12 @@ CREATE TABLE search_runs (
       + infrastructure_failure_candidate_count
       + completion_processing_failure_candidate_count
   ),
+  UNIQUE (id, user_id),
   UNIQUE (id, leaderboard_scope_id),
-  UNIQUE (id, leaderboard_scope_id, generator_type)
+  UNIQUE (id, leaderboard_scope_id, generator_type),
+  UNIQUE (id, leaderboard_scope_id, generator_type, user_id),
+  FOREIGN KEY (leaderboard_scope_id, user_id)
+    REFERENCES leaderboard_scopes (id, user_id)
 );
 ```
 
@@ -583,11 +567,35 @@ For concurrency accounting, `CREATED`, `QUEUED`, `BACKTESTING`, `RETRY_WAIT`, `P
 
 All transactions that touch more than one lifecycle aggregate use one lock order: a Search Candidate takes `SearchRun → Candidate → LeaderboardScope`; a Manual Candidate takes `Candidate → LeaderboardScope`. Search cancel/fill begins with Search Run and calls Backtesting application ports for Candidate state; worker-only transitions lock Candidate, and Top-10 admission locks Scope last. Bounded retries for PostgreSQL deadlock/serialization codes `40P01`/`40001` repeat the same transaction without consuming a new completion claim.
 
-### 3.7 `candidate_strategies` _(additive)_
+### 3.7 `candidate_strategies` *(additive)*
 
 Owned by `modules/backtesting`. The Search module supplies metadata for Search candidates, while Manual candidates use the same lifecycle and queue boundary.
 
 ```sql
+CREATE TABLE scope_creation_requests (
+  user_id UUID NOT NULL REFERENCES users(id),
+  idempotency_key TEXT NOT NULL,
+  canonical_request JSONB NOT NULL,
+  request_sha256 CHAR(64) NOT NULL,
+  phase TEXT NOT NULL CHECK (phase IN ('INTENT_RECORDED','SNAPSHOT_PINNED','COMPLETED','FAILED')),
+  dataset_snapshot_ref JSONB,
+  dataset_snapshot_sha256 CHAR(64),
+  leaderboard_scope_id UUID,
+  failure_code TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, idempotency_key)
+);
+
+CREATE TABLE candidate_submission_keys (
+  user_id UUID NOT NULL REFERENCES users(id),
+  submission_idempotency_key TEXT NOT NULL,
+  request_sha256 CHAR(64) NOT NULL,
+  candidate_id UUID NOT NULL UNIQUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, submission_idempotency_key)
+);
+
 CREATE TYPE candidate_origin_enum AS ENUM ('MANUAL','SEARCH');
 CREATE TYPE candidate_status_enum AS ENUM (
   'CREATED','QUEUED','BACKTESTING','RETRY_WAIT','PROCESSING_RESULT',
@@ -596,21 +604,34 @@ CREATE TYPE candidate_status_enum AS ENUM (
 
 CREATE TABLE candidate_strategies (
   id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id                 UUID NOT NULL REFERENCES users(id),
   search_run_id           UUID REFERENCES search_runs(id),   -- NULL allowed: a candidate can be backtested ad-hoc, outside a search run
   composite_definition_id UUID NOT NULL REFERENCES composite_strategy_definitions(id),
   leaderboard_scope_id    UUID NOT NULL REFERENCES leaderboard_scopes(id),
   queue_job_id            TEXT NOT NULL UNIQUE,               -- deterministic BullMQ jobId; equal to this candidate id
   origin                  candidate_origin_enum NOT NULL,
+  selection_mode          TEXT NOT NULL CHECK (selection_mode IN ('SINGLE','COMPOSITE')),
+  execution_policy_id     TEXT NOT NULL CHECK (execution_policy_id = 'TWO_SIDED_ONE_X_V1'),
+  sizing_policy_id        TEXT NOT NULL CHECK (sizing_policy_id = 'FULL_CURRENT_EQUITY_FEE_AWARE_V1'),
+  fill_policy_id          TEXT NOT NULL CHECK (fill_policy_id = 'NEXT_OPEN_OHLC_STOP_FIRST_V2'),
+  opposite_signal_policy_id TEXT NOT NULL CHECK (opposite_signal_policy_id = 'CLOSE_AND_REVERSE_NEXT_OPEN_V1'),
+  stop_loss_percent       NUMERIC CHECK (stop_loss_percent IS NULL OR (stop_loss_percent > 0 AND stop_loss_percent < 100)),
+  take_profit_percent     NUMERIC CHECK (take_profit_percent IS NULL OR (take_profit_percent > 0 AND take_profit_percent < 100)),
+  warmup_candles          INT NOT NULL CHECK (warmup_candles BETWEEN 0 AND 10000),
+  execution_policy_sha256 CHAR(64) NOT NULL,
   generated_by            generator_type_enum,
   iteration_number        INT,
   max_attempts             INT NOT NULL CHECK (max_attempts > 0),
   active_attempt_number    INT CHECK (active_attempt_number > 0),
+  active_attempt_delivery_token UUID,
+  cancelled_audit_attempt_number INT CHECK (cancelled_audit_attempt_number IS NULL OR cancelled_audit_attempt_number > 0),
   completion_attempt_count INT NOT NULL DEFAULT 0,
   completion_max_attempts  INT NOT NULL DEFAULT 5 CHECK (completion_max_attempts = 5),
   completion_next_retry_at TIMESTAMPTZ,
   completion_lease_until   TIMESTAMPTZ,
   completion_claim_token   UUID,
   failure_kind             TEXT CHECK (failure_kind IN ('RETRY_EXHAUSTED','INFRASTRUCTURE','COMPLETION_PROCESSING')),
+  failure_code             TEXT,
   last_error               TEXT,
   status                  candidate_status_enum NOT NULL DEFAULT 'CREATED',
   created_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -641,10 +662,15 @@ CREATE TABLE candidate_strategies (
       AND completion_next_retry_at IS NULL AND completion_lease_until IS NULL AND completion_claim_token IS NULL)
   ),
   UNIQUE (search_run_id, iteration_number),
+  UNIQUE (id, user_id),
   UNIQUE (id, leaderboard_scope_id),
   UNIQUE (id, leaderboard_scope_id, queue_job_id),
-  FOREIGN KEY (search_run_id, leaderboard_scope_id, generated_by)
-    REFERENCES search_runs (id, leaderboard_scope_id, generator_type)
+  FOREIGN KEY (search_run_id, leaderboard_scope_id, generated_by, user_id)
+    REFERENCES search_runs (id, leaderboard_scope_id, generator_type, user_id),
+  FOREIGN KEY (composite_definition_id, user_id)
+    REFERENCES composite_strategy_definitions (id, user_id),
+  FOREIGN KEY (leaderboard_scope_id, user_id)
+    REFERENCES leaderboard_scopes (id, user_id)
 );
 CREATE INDEX idx_candidates_run ON candidate_strategies (search_run_id, iteration_number);
 CREATE INDEX idx_candidates_status ON candidate_strategies (status);
@@ -657,7 +683,7 @@ Application code updates the lifecycle directly. A normal success follows `CREAT
 
 `queue_job_id` is assigned deterministically as the Candidate UUID. The attempt's composite foreign key prevents a worker from recording an attempt under a job ID belonging to another Candidate. If enqueue succeeds but the process crashes before writing `QUEUED`, a reconciler can re-add the same BullMQ job ID without creating duplicate work. It periodically scans stale `CREATED` candidates and either confirms the job exists or enqueues it again. `UNIQUE (search_run_id, iteration_number)` also makes a restarted/concurrent Search Loop load the already-committed iteration instead of inserting a second one.
 
-For both Manual and Search submissions, the Coordinator first persists/verifies the complete immutable Strategy/Composite aggregate and Candidate in one PostgreSQL transaction. Generated IDs make retries idempotent; `ON CONFLICT` must compare the immutable content and reject an ID reused with different content. Enqueue begins only after this transaction commits, so `composite_definition_id` can never point at an in-memory-only generated object.
+For both Manual and Search submissions, Strategy first persists/returns the complete same-owner immutable Strategy/Composite aggregate through its public API. The Backtesting Coordinator then loads/verifies those committed references and persists only the Candidate plus immutable IDs/execution-policy snapshot in its own transaction. Strategy's idempotent creation rejects an identity reused with different content; Backtesting's submission identity rejects a changed reference set. Enqueue begins only after the Candidate transaction commits, so `composite_definition_id` can never point at an in-memory-only generated object.
 
 Completion processing has its own bounded, durable retry state and never consumes another backtest Attempt. Every transition into `PROCESSING_RESULT` or `TERMINAL_FAILURE_PENDING` sets `completion_next_retry_at = now()`. A due Candidate is claimed under a row lock/`SKIP LOCKED`: `completion_attempt_count` increments and the claim stores/returns both that generation and a fresh `completion_claim_token` with its lease. Every final write must match the original generation **and** token; an expired claimant cannot use a newer lease. Transient failures persist the fixed delays `5s`, `30s`, `2m`, `10m` (±20% jitter). On `PROCESSING_RESULT`, a permanent validation/runtime/non-finite-metric error or claim-five exhaustion terminalizes as `FAILED`/`COMPLETION_PROCESSING`, retains the successful Attempt/Trades, creates no Experiment, and releases the Search slot. On `TERMINAL_FAILURE_PENDING`, processing exhaustion still finalizes `FAILED` but preserves its existing `RETRY_EXHAUSTED` or `INFRASTRUCTURE` cause/counter. A crashed claim is retried after lease expiry; if claim five crashed, expiry terminalizes instead of issuing claim six. A successful or terminal transaction clears the retry timestamp/lease/token. The same post-commit Search callback runs for both failure paths, so a bad result cannot stall a long Search Run.
 
@@ -676,6 +702,13 @@ CREATE TABLE backtest_attempts (
   attempt_number INT NOT NULL CHECK (attempt_number > 0),
   worker_runtime_version TEXT NOT NULL,
   worker_runtime_sha256 CHAR(64) NOT NULL,
+  delivery_token UUID NOT NULL,
+  heartbeat_at TIMESTAMPTZ,
+  queue_lock_lost_at TIMESTAMPTZ,
+  failure_category TEXT CHECK (failure_category IN ('RETRYABLE','INFRASTRUCTURE','CANCELLED_AUDIT')),
+  failure_code TEXT,
+  failure_retryable BOOLEAN NOT NULL DEFAULT false,
+  audit_only BOOLEAN NOT NULL DEFAULT false,
   status         backtest_status_enum NOT NULL DEFAULT 'RUNNING',
   error_message  TEXT,                          -- populated only when status = FAILED
   started_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -695,7 +728,7 @@ CREATE INDEX idx_backtest_attempts_candidate ON backtest_attempts (candidate_id)
 CREATE INDEX idx_backtest_attempts_job ON backtest_attempts (queue_job_id, attempt_number);
 ```
 
-BullMQ owns retry timing/backoff. At the start of every delivery, the worker locks/reloads the Candidate and inspects its attempts. If a prior stalled delivery left an Attempt `RUNNING`, the worker first closes it as `FAILED` with the redelivery/stall reason. It then checks `MAX(attempt_number) < Candidate.max_attempts` before allocating the next number and storing it in `Candidate.active_attempt_number`; if the budget is already spent after stall/redelivery, it allocates nothing and moves to `TERMINAL_FAILURE_PENDING` with `failure_kind = INFRASTRUCTURE`, `last_error`, and immediate completion due time. It never leaves two `RUNNING` Attempts for one Candidate or exceeds the persisted attempt budget. Retries share `queue_job_id` but have distinct attempt numbers. Dataset details are hydrated through Candidate → Scope → immutable Snapshot rather than copied into this table. The worker verifies that its local runtime version/hash matches both the job and immutable scope. Its normal final writes are atomic in one PostgreSQL transaction under the Candidate lock:
+BullMQ owns retry timing/backoff. At the start of every delivery, the worker locks/reloads the Candidate and inspects its attempts. If a prior stalled delivery left an Attempt `RUNNING`, the worker first closes it as `FAILED` with the redelivery/stall reason. It then checks `MAX(attempt_number) < Candidate.max_attempts` before allocating the next number and storing it in `Candidate.active_attempt_number`; if the budget is already spent after stall/redelivery, it allocates nothing and moves to `TERMINAL_FAILURE_PENDING` with `failure_kind = INFRASTRUCTURE`, `last_error`, and immediate completion due time. It never leaves two `RUNNING` Attempts for one Candidate or exceeds the persisted attempt budget. Retries share `queue_job_id` but have distinct attempt numbers. Dataset details are hydrated through Candidate → Scope → immutable Snapshot rather than copied into this table. The worker resolves the exact scope/job simulator artifact and separately records its deployment version/hash on the Attempt. Its normal final writes are atomic in one PostgreSQL transaction under the Candidate lock:
 
 - Success: only if Attempt is still `RUNNING` and `active_attempt_number` still matches, insert Trades, set Attempt `COMPLETED`, conditionally move Candidate to `PROCESSING_RESULT`, and clear the active generation.
 - Retryable failure: under the same two fencing predicates, set Attempt `FAILED`, conditionally move Candidate to `RETRY_WAIT`, and clear the active generation.
@@ -705,7 +738,7 @@ If fencing fails because another delivery superseded this Attempt, the late work
 
 Before creating an Attempt, every delivery locks/reloads the Candidate. `CANCELLED` returns `IGNORED/CANCELLED`; `COMPLETED`/`FAILED` return `IGNORED/ALREADY_TERMINAL`; `TERMINAL_FAILURE_PENDING` returns `IGNORED/PENDING_COMPLETION`; and `PROCESSING_RESULT` returns the existing successful IDs so completion is woken again. A completed Attempt likewise returns its identifiers instead of rerunning. Only `CREATED`, `QUEUED`, `BACKTESTING` with a stale Attempt, or `RETRY_WAIT` may proceed to a new Attempt. A superseded worker returns `IGNORED/SUPERSEDED`; if its BullMQ lock is already gone, reconciliation—not that return—is the recovery mechanism. This covers a worker crash after the PostgreSQL commit but before BullMQ acknowledged completion.
 
-If the worker dies before creating an Attempt, or before its atomic final write, BullMQ may eventually declare the job terminal while the Candidate remains `CREATED`, `QUEUED`, `BACKTESTING`, or `RETRY_WAIT`. The Backtest Coordinator's terminal watchdog therefore compares **every non-terminal Candidate** with BullMQ, not only candidates that already have an Attempt. Under the Candidate lock it verifies terminal job state/no runnable retry; closes a stale `RUNNING` Attempt and clears its generation if one exists, otherwise inserts a synthetic `FAILED` Attempt carrying the scope-pinned worker runtime and queue failure reason/time; sets `TERMINAL_FAILURE_PENDING`, `failure_kind = INFRASTRUCTURE`, `last_error`, and immediate completion due time; and invokes the same idempotent failure completion transaction. The `CREATED` enqueue reconciler also routes an already-terminal job here instead of treating mere job existence as progress. Every raw `failed` observation is untrusted; it enters this path only after terminal-state/no-runnable-retry verification. Ordinary budget exhaustion is also woken by `retries-exhausted`, and duplicate wake-ups are harmless. Losing QueueEvents can therefore delay but never strand the Candidate.
+If the worker dies before creating an Attempt, or before its atomic final write, BullMQ may eventually declare the job terminal while the Candidate remains `CREATED`, `QUEUED`, `BACKTESTING`, or `RETRY_WAIT`. The Backtest Coordinator's terminal watchdog therefore compares **every non-terminal Candidate** with BullMQ, not only candidates that already have an Attempt. Under the Candidate lock it verifies terminal job state/no runnable retry; closes a stale `RUNNING` Attempt and clears its generation if one exists, otherwise inserts a synthetic `FAILED` Attempt carrying the watchdog worker build, pinned simulator reference, and queue failure reason/time; sets `TERMINAL_FAILURE_PENDING`, `failure_kind = INFRASTRUCTURE`, `last_error`, and immediate completion due time; and invokes the same idempotent failure completion transaction. The `CREATED` enqueue reconciler also routes an already-terminal job here instead of treating mere job existence as progress. Every raw `failed` observation is untrusted; it enters this path only after terminal-state/no-runnable-retry verification. Ordinary budget exhaustion is also woken by `retries-exhausted`, and duplicate wake-ups are harmless. Losing QueueEvents can therefore delay but never strand the Candidate.
 
 ### 3.9 `trades`
 
@@ -717,14 +750,32 @@ CREATE TYPE trade_signal_enum AS ENUM ('LONG','SHORT');
 CREATE TABLE trades (
   id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   backtest_attempt_id UUID NOT NULL REFERENCES backtest_attempts(id),
+  trade_sequence INT NOT NULL CHECK (trade_sequence > 0),
+  settlement_asset TEXT NOT NULL,
   entry_time     TIMESTAMPTZ NOT NULL,
+  market_entry_price NUMERIC NOT NULL,
   entry_price    NUMERIC NOT NULL,
+  stop_loss      NUMERIC CHECK (stop_loss > 0),
+  take_profit    NUMERIC CHECK (take_profit > 0),
   exit_time      TIMESTAMPTZ NOT NULL,
+  market_exit_price NUMERIC NOT NULL,
   exit_price     NUMERIC NOT NULL,
+  exit_reason    TEXT NOT NULL CHECK (exit_reason IN ('STOP_LOSS','TAKE_PROFIT','STRATEGY_CLOSE','RANGE_END')),
+  quantity       NUMERIC NOT NULL CHECK (quantity > 0),
+  notional_entry_value NUMERIC NOT NULL CHECK (notional_entry_value > 0),
+  equity_before_trade NUMERIC NOT NULL CHECK (equity_before_trade > 0),
+  equity_after_trade NUMERIC NOT NULL CHECK (equity_after_trade >= 0),
+  gross_profit   NUMERIC NOT NULL,
+  fee_amount     NUMERIC NOT NULL CHECK (fee_amount >= 0),
+  slippage_bps   NUMERIC NOT NULL CHECK (slippage_bps BETWEEN 0 AND 500),
+  slippage_amount NUMERIC NOT NULL CHECK (slippage_amount >= 0),
+  profit         NUMERIC NOT NULL,
   result_percent NUMERIC NOT NULL,
-  signal         trade_signal_enum NOT NULL DEFAULT 'LONG'  -- MVP only needs LONG (brief §37); SHORT reserved for brief §38 extension
+  signal         trade_signal_enum NOT NULL,
+  result         TEXT NOT NULL CHECK (result IN ('WIN','LOSS','BREAKEVEN')),
+  UNIQUE (backtest_attempt_id, trade_sequence)
 );
-CREATE INDEX idx_trades_attempt ON trades (backtest_attempt_id, entry_time);
+CREATE INDEX idx_trades_attempt ON trades (backtest_attempt_id, entry_time, trade_sequence, id);
 ```
 
 Only written for a `backtest_attempts` row that reaches `COMPLETED`; a failed attempt never produces trade rows. A Candidate may be `CANCELLED` while its in-flight Attempt completes for audit, but those Trades remain excluded from Experiment creation, scoring, ranking, and Search success counters. Referencing the attempt records exactly which retry produced the trades.
@@ -743,8 +794,12 @@ CREATE TABLE experiment_results (
   score_formula_id         UUID NOT NULL REFERENCES score_formulas(id),
   worker_runtime_version   TEXT NOT NULL,
   worker_runtime_sha256    CHAR(64) NOT NULL,
+  simulator_version        TEXT NOT NULL,
+  simulator_sha256         CHAR(64) NOT NULL,
   evaluation_runtime_version TEXT NOT NULL,
   evaluation_runtime_sha256 CHAR(64) NOT NULL,
+  evaluation_policy_id     TEXT NOT NULL,
+  execution_policy_sha256  CHAR(64) NOT NULL,
   total_return_percent     NUMERIC NOT NULL,
   win_rate_percent         NUMERIC NOT NULL CHECK (win_rate_percent BETWEEN 0 AND 100),
   number_of_trades         INT NOT NULL CHECK (number_of_trades >= 0),
@@ -753,6 +808,12 @@ CREATE TABLE experiment_results (
   profit_factor_status     TEXT NOT NULL CHECK (profit_factor_status IN ('FINITE','NO_TRADES','NO_LOSSES','NO_GROSS_MOVEMENT')),
   sharpe_ratio             NUMERIC NOT NULL,
   sharpe_ratio_status      TEXT NOT NULL CHECK (sharpe_ratio_status IN ('FINITE','INSUFFICIENT_OBSERVATIONS','ZERO_VARIANCE')),
+  total_profit_amount      NUMERIC NOT NULL,
+  ending_equity            NUMERIC NOT NULL CHECK (ending_equity >= 0),
+  max_drawdown_amount      NUMERIC NOT NULL CHECK (max_drawdown_amount >= 0),
+  wins                     INT NOT NULL CHECK (wins >= 0),
+  losses                   INT NOT NULL CHECK (losses >= 0),
+  breakevens               INT NOT NULL CHECK (breakevens >= 0),
   overall_score            NUMERIC NOT NULL,
   rank_eligible            BOOLEAN NOT NULL,
   rank_exclusion_reason    TEXT CHECK (rank_exclusion_reason IN ('NO_TRADES')),
@@ -785,16 +846,16 @@ CREATE TABLE experiment_results (
   UNIQUE (id, leaderboard_scope_id, score_formula_id),
   UNIQUE (
     id, leaderboard_scope_id, score_formula_id,
-    worker_runtime_version, worker_runtime_sha256,
+    simulator_version, simulator_sha256,
     evaluation_runtime_version, evaluation_runtime_sha256
   ),
   FOREIGN KEY (
     leaderboard_scope_id, score_formula_id,
-    worker_runtime_version, worker_runtime_sha256,
+    simulator_version, simulator_sha256,
     evaluation_runtime_version, evaluation_runtime_sha256
   ) REFERENCES leaderboard_scopes (
     id, score_formula_id,
-    worker_runtime_version, worker_runtime_sha256,
+    simulator_version, simulator_sha256,
     evaluation_runtime_version, evaluation_runtime_sha256
   )
 );
@@ -802,7 +863,7 @@ ALTER TABLE backtest_attempts
   ADD CONSTRAINT uq_backtest_attempt_candidate_scope_runtime
   UNIQUE (id, candidate_id, leaderboard_scope_id, worker_runtime_version, worker_runtime_sha256);
 ALTER TABLE candidate_strategies
-  ADD CONSTRAINT uq_candidate_composite UNIQUE (id, composite_definition_id);
+  ADD CONSTRAINT uq_candidate_composite_policy UNIQUE (id, composite_definition_id, execution_policy_sha256);
 ALTER TABLE experiment_results
   ADD CONSTRAINT fk_experiment_attempt_candidate
   FOREIGN KEY (
@@ -814,8 +875,8 @@ ALTER TABLE experiment_results
   );
 ALTER TABLE experiment_results
   ADD CONSTRAINT fk_experiment_candidate_composite
-  FOREIGN KEY (candidate_id, composite_definition_id)
-  REFERENCES candidate_strategies (id, composite_definition_id);
+  FOREIGN KEY (candidate_id, composite_definition_id, execution_policy_sha256)
+  REFERENCES candidate_strategies (id, composite_definition_id, execution_policy_sha256);
 ALTER TABLE experiment_results
   ADD CONSTRAINT fk_experiment_candidate_scope
   FOREIGN KEY (candidate_id, leaderboard_scope_id)
@@ -826,7 +887,7 @@ CREATE INDEX idx_experiment_results_scope_score
   WHERE rank_eligible;
 ```
 
-`candidate_id UNIQUE` encodes "one candidate produces at most one persisted experiment." Composite foreign keys ensure the Attempt, immutable scope, runtime provenance, and Composite Definition all belong to that Candidate. The Attempt→Experiment composite FK forces the Experiment's worker runtime to equal the runtime that actually produced its Trades; the Scope→Experiment FK forces both worker and evaluation runtimes to equal the immutable benchmark. This prevents rolling deployments from mixing implementations in one Top-10. Before inserting, the Completion Processor locks and verifies that the referenced Attempt is `COMPLETED`. For full idempotency, it applies every postcondition — Experiment, optional admitted Leaderboard entry, Search Run counters, and Candidate state — inside one PostgreSQL transaction. Redelivery after commit is a no-op.
+`candidate_id UNIQUE` encodes "one candidate produces at most one persisted experiment." Composite foreign keys ensure the Attempt, immutable scope, runtime provenance, and Composite Definition all belong to that Candidate. Attempt→Experiment forces worker audit provenance to match the Attempt that produced Trades; Scope→Experiment forces simulator and Evaluation provenance to match the benchmark. Pure Evaluation/scoring run before the final transaction; the final fenced transaction applies every persistence postcondition atomically. Redelivery after commit is a no-op.
 
 `EvaluationMetrics` fields are inlined here rather than kept in a separate 1:1 table. `overall_score` is stored for **every** successful Experiment, including a zero-trade audit result and one that does not qualify for persistent Top-10. Repository validation plus SQL checks reject all non-finite values. `GET /search-runs/{id}/leaderboard` filters `rank_eligible = true`; Experiment History does not.
 
@@ -877,7 +938,6 @@ Two read models are intentionally different:
 ### 3.12 `news_items` / `sentiment_results`
 
 ---
-
 ## 3.13 `users`
 
 Owned by `modules/auth`. Stores each registered user and a bcrypt‑hashed password. All other tables that represent user‑owned data reference this table via a `user_id` foreign key.
@@ -892,6 +952,7 @@ CREATE TABLE users (
 ```
 
 ---
+
 
 `modules/news` owns `news_items`; `modules/sentiment` owns `sentiment_results` and sentiment snapshot tables. They remain separate so swapping the sentiment model, or adding a `CrawlerProvider`, never touches the other's business ownership or schema.
 
@@ -920,7 +981,7 @@ CREATE TABLE sentiment_results (
 CREATE INDEX idx_sentiment_news ON sentiment_results (news_id, analyzed_at DESC);
 ```
 
-`sentiment_results` is deliberately **one-to-many** on `news_id`, not one-to-one: if the ML model changes (brief §40.6: _"if the sentiment model changes, is the Strategy Engine affected?"_), re-analyzing old news inserts a new row instead of overwriting — the same append-only, never-mutate-in-place spirit as `strategy_definitions`. `NewsSentimentStrategy` (contracts §9) reads the row with `MAX(analyzed_at)` per `news_id` — a `latest_sentiment` view is the natural place to put that:
+`sentiment_results` is deliberately **one-to-many** on `news_id`, not one-to-one: if the ML model changes (brief §40.6: *"if the sentiment model changes, is the Strategy Engine affected?"*), re-analyzing old news inserts a new row instead of overwriting — the same append-only, never-mutate-in-place spirit as `strategy_definitions`. `NewsSentimentStrategy` (contracts §9) reads the row with `MAX(analyzed_at)` per `news_id` — a `latest_sentiment` view is the natural place to put that:
 
 ```sql
 CREATE VIEW latest_sentiment AS
@@ -931,20 +992,20 @@ ORDER BY news_id, analyzed_at DESC, id DESC;
 
 `url UNIQUE` on `news_items` gives the multi-provider de-dup that brief §28 implies (RSS, NewsAPI, and a Crawler could all surface the same story) without any provider needing to know about the others.
 
-## 4. What is intentionally _not_ a table
+## 4. What is intentionally *not* a table
 
-| Contract type                                       | Where it actually lives                                                                                            | Why                                                                                                                                              |
-| --------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `MarketTick`                                        | Redis only (`ticks:latest:{pair}`)                                                                                 | Pure realtime state; never backtested, never reproducibility-relevant.                                                                           |
-| `MarketDataConnectionStatus`                        | Redis only (`connection:status:{provider}`)                                                                        | Ephemeral health state; brief §32.4 needs it pushed to the Frontend live, not queried historically.                                              |
-| `LoopStatus`                                        | Derived at REST read-time from `search_runs` + `candidate_strategies` + `backtest_attempts` + `experiment_results` | It is a read model, not a second source of truth. Its current top entry is scoped to that Search Run.                                            |
-| `StrategyPluginDescriptor` / registered plugin list | In-process `StrategyRegistry`, queried live                                                                        | See §3.2.1 — persisting it would create a second, driftable source of truth for something that is really just "what code is currently deployed." |
+| Contract type | Where it actually lives | Why |
+|---|---|---|
+| `MarketTick` | Redis only (`ticks:latest:{pair}`) | Pure realtime state; never backtested, never reproducibility-relevant. |
+| `MarketDataConnectionStatus` | Redis only (`connection:status:{provider}`) | Ephemeral health state; brief §32.4 needs it pushed to the Frontend live, not queried historically. |
+| `LoopStatus` | Derived at REST read-time from `search_runs` + `candidate_strategies` + `backtest_attempts` + `experiment_results` | It is a read model, not a second source of truth. Its current top entry is scoped to that Search Run. |
+| `StrategyPluginDescriptor` / registered plugin list | In-process `StrategyRegistry`, queried live | See §3.2.1 — persisting it would create a second, driftable source of truth for something that is really just "what code is currently deployed." |
 
 ## 5. Redis Key Design
 
-| Key pattern                         | Type                                                                                            | Written by                                                               | Read by                                           | Purpose                                                                                                                                      |
-| ----------------------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ | ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| `candles:latest:{pair}:{timeframe}` | List/JSON blob (bounded latest window; includes `schemaVersion`, `asOf`, and `completeThrough`) | `modules/market-data` after normalizing a candle                         | REST initial chart load, Market WebSocket Gateway | Fresh realtime/initial chart optimization; miss/stale/invalid falls back to PostgreSQL.                                                      |
-| `ticks:latest:{pair}`               | String (JSON; includes `schemaVersion` and `asOf`)                                              | `modules/market-data` on every tick                                      | WebSocket Gateway                                 | The sub-candle price stream (brief §4 example); never persisted, as noted in §4.                                                             |
-| `connection:status:{provider}`      | String (JSON)                                                                                   | `BinanceAdapter` (and future `OKXAdapter`, etc.)                         | WebSocket Gateway → Frontend warning banner       | Answers brief §40.7 ("if Binance WS disconnects, how does the system recover?") — Frontend shows `RECONNECTING` instead of freezing.         |
-| `bullmq:backtest:*`                 | BullMQ-managed                                                                                  | Backtest Coordinator (enqueue), Backtest Workers (consume/complete/fail) | Backtest Worker Pool and Completion Processor     | The only asynchronous messaging boundary. BullMQ owns dispatch, retry/backoff, and terminal notifications; PostgreSQL remains authoritative. |
+| Key pattern | Type | Written by | Read by | Purpose |
+|---|---|---|---|---|
+| `candles:latest:{pair}:{timeframe}` | List/JSON blob (bounded latest window; includes `schemaVersion`, `asOf`, and `completeThrough`) | `modules/market-data` after normalizing a candle | REST initial chart load, Market WebSocket Gateway | Fresh realtime/initial chart optimization; miss/stale/invalid falls back to PostgreSQL. |
+| `ticks:latest:{pair}` | String (JSON; includes `schemaVersion` and `asOf`) | `modules/market-data` on every tick | WebSocket Gateway | The sub-candle price stream (brief §4 example); never persisted, as noted in §4. |
+| `connection:status:{provider}` | String (JSON) | `BinanceAdapter` (and future `OKXAdapter`, etc.) | WebSocket Gateway → Frontend warning banner | Answers brief §40.7 ("if Binance WS disconnects, how does the system recover?") — Frontend shows `RECONNECTING` instead of freezing. |
+| `bullmq:backtest:*` | BullMQ-managed | Backtest Coordinator (enqueue), Backtest Workers (consume/complete/fail) | Backtest Worker Pool and Completion Processor | The only asynchronous messaging boundary. BullMQ owns dispatch, retry/backoff, and terminal notifications; PostgreSQL remains authoritative. |

@@ -34,16 +34,16 @@ Out of scope (owned by other modules or composition roots):
 
 ### Actors
 
-| Actor                            | Interaction                                                                                                                                        |
-| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Backend Scheduler / REST command | Invokes the News public `collect()` facade; owns the process-level trigger, not News business rules.                                               |
-| `modules/news` Collector         | Coordinates providers, normalization, persistence, and the Sentiment boundary.                                                                     |
-| `NewsProvider` adapter           | Fetches from one external source and returns the canonical `NewsItem` shape.                                                                       |
-| `modules/sentiment`              | Receives neutral `SentimentInput`, persists successful `SentimentResult` values, and exposes available sentiment projections and sealed snapshots. |
-| Backend REST API                 | Calls `readNews()` and maps its result to the documented `GET /news` response.                                                                     |
-| Frontend                         | Renders normalized News and available sentiment; it contains no News or Sentiment business logic.                                                  |
-| Backtesting / scope composition  | Requires a sealed, time-aligned sentiment snapshot when an `INFORMATION` strategy is used; it does not import News internals.                      |
-| PostgreSQL                       | Authoritative persistence for `news_items`, Sentiment results, and sealed datasets.                                                                |
+| Actor | Interaction |
+|---|---|
+| Backend Scheduler / REST command | Invokes the News public `collect()` facade; owns the process-level trigger, not News business rules. |
+| `modules/news` Collector | Coordinates providers, normalization, persistence, and the Sentiment boundary. |
+| `NewsProvider` adapter | Fetches from one external source and returns the canonical `NewsItem` shape. |
+| `modules/sentiment` | Receives neutral `SentimentInput`, persists successful `SentimentResult` values, and exposes available sentiment projections and sealed snapshots. |
+| Backend REST API | Calls `readNews()` and maps its result to the documented `GET /news` response. |
+| Frontend | Renders normalized News and available sentiment; it contains no News or Sentiment business logic. |
+| Backtesting / scope composition | Requires a sealed, time-aligned sentiment snapshot when an `INFORMATION` strategy is used; it does not import News internals. |
+| PostgreSQL | Authoritative persistence for `news_items`, Sentiment results, and sealed datasets. |
 
 ### Source interpretation and precedence
 
@@ -53,19 +53,19 @@ The supplied project brief and architecture slides are requirements/reference ma
 
 ### 2.1 Functional requirements
 
-| ID    | Requirement                                                                                                                                                                                                                                          |
-| ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| FR-1  | The module must support multiple registered `NewsProvider` implementations, including RSS, News API, and crawler adapters, without changing downstream News, Sentiment, or Frontend logic.                                                           |
-| FR-2  | Every provider result crossing the provider boundary must conform to the canonical `NewsItem` contract; provider-specific payloads must remain inside the adapter.                                                                                   |
-| FR-3  | The module must validate normalized News items before persistence and persist the News item in `news_items`.                                                                                                                                         |
-| FR-4  | The module must enforce the documented exact `url` uniqueness constraint so repeated observations of the same exact URL cannot create two `news_items` rows. URL canonicalization and caller-facing duplicate handling are not defined by this spec. |
-| FR-5  | The module must persist a News item before requesting Sentiment analysis for that item.                                                                                                                                                              |
-| FR-6  | Sentiment analysis must be invoked through a neutral `SentimentInput` and an explicit `modules/sentiment/api` contract; News must not depend on a concrete model implementation.                                                                     |
-| FR-7  | A persisted News item must remain readable when Sentiment inference times out or fails; the read projection must represent unavailable sentiment as missing rather than fabricating `NEUTRAL`.                                                       |
-| FR-8  | The module must expose normalized News and any available sentiment projection through `readNews`, with the documented external read surface `GET /news`.                                                                                             |
-| FR-9  | Sentiment provenance visible through a composed read projection must include the result's model name, model version, label, score, and analysis timestamp. Sealed snapshots additionally carry model and content hashes under Sentiment ownership.   |
-| FR-10 | The module must not write Sentiment-owned tables, publish News/Sentiment domain events, or expose provider/model-specific payloads through its public API.                                                                                           |
-| FR-11 | The News/Sentiment failure boundary must preserve the availability of market charts, strategy configuration, Search Runs, ordinary backtesting, and already persisted News.                                                                          |
+| ID | Requirement |
+|---|---|
+| FR-1 | The module must support multiple registered `NewsProvider` implementations, including RSS, News API, and crawler adapters, without changing downstream News, Sentiment, or Frontend logic. |
+| FR-2 | Every provider result crossing the provider boundary must conform to the canonical `NewsItem` contract; provider-specific payloads must remain inside the adapter. |
+| FR-3 | The module must validate normalized News items before persistence and persist the News item in `news_items`. |
+| FR-4 | The module must enforce the documented exact `url` uniqueness constraint so repeated observations of the same exact URL cannot create two `news_items` rows. URL canonicalization and caller-facing duplicate handling are not defined by this spec. |
+| FR-5 | The module must persist a News item before requesting Sentiment analysis for that item. |
+| FR-6 | Sentiment analysis must be invoked through a neutral `SentimentInput` and an explicit `modules/sentiment/api` contract; News must not depend on a concrete model implementation. |
+| FR-7 | A persisted News item must remain readable when Sentiment inference times out or fails; the read projection must represent unavailable sentiment as missing rather than fabricating `NEUTRAL`. |
+| FR-8 | The module must expose normalized News and any available sentiment projection through `readNews`, with the documented external read surface `GET /news`. |
+| FR-9 | Sentiment provenance visible through a composed read projection must include the result's model name, model version, label, score, and analysis timestamp. Sealed snapshots additionally carry model and content hashes under Sentiment ownership. |
+| FR-10 | The module must not write Sentiment-owned tables, publish News/Sentiment domain events, or expose provider/model-specific payloads through its public API. |
+| FR-11 | The News/Sentiment failure boundary must preserve the availability of market charts, strategy configuration, Search Runs, ordinary backtesting, and already persisted News. |
 
 ### 2.2 Business rules
 
@@ -249,17 +249,17 @@ Snapshot alignment is deterministic: the dataset range is half-open `[from, to)`
 
 ### 3.7 Error / edge cases
 
-| Case                                 | Trigger                                                                  | Result                                                                                                                                                                                 |
-| ------------------------------------ | ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Provider returns a malformed value   | Provider output does not satisfy the canonical `NewsItem` contract       | The value must not be persisted as a News item. Exact batch/report behavior is an application decision not defined here.                                                               |
-| Provider failure                     | Provider timeout, HTTP error, or adapter exception                       | Provider-specific retry, partial-success, and all-or-nothing semantics are not defined by this spec; the failure must not leak a provider-specific payload across the module boundary. |
-| Exact duplicate URL                  | A second item has the same exact `url` as a persisted row                | Database uniqueness prevents a second `news_items` row. Caller-facing duplicate handling is not defined here.                                                                          |
-| URL normalization question           | Two URL strings are semantically equivalent but not byte-for-byte equal  | No canonicalization is promised; only the exact `UNIQUE(url)` rule is normative.                                                                                                       |
-| Sentiment timeout or inference error | Sentiment rejects or times out after News persistence                    | Keep the News item readable, expose missing sentiment, record logs/metrics, and do not create a fabricated result.                                                                     |
-| Invalid Sentiment score              | A result or snapshot point is outside `[-1, 1]`                          | Reject the invalid result/point at the Sentiment boundary; News does not coerce it.                                                                                                    |
-| Missing snapshot point               | `INFORMATION` backtest has no aligned point for a required candle window | Backtesting rejects the candidate/scope; News does not provide a live or future substitute.                                                                                            |
-| News/Sentiment unavailable           | Auxiliary capability cannot be reached                                   | News/Sentiment views may degrade, but market charts, strategy configuration, Search Runs, ordinary backtesting, and saved News remain operational.                                     |
-| Event request                        | A consumer asks for `NewsCollected` or `SentimentAnalyzed`               | No such MVP event is published; use the synchronous public APIs.                                                                                                                       |
+| Case | Trigger | Result |
+|---|---|---|
+| Provider returns a malformed value | Provider output does not satisfy the canonical `NewsItem` contract | The value must not be persisted as a News item. Exact batch/report behavior is an application decision not defined here. |
+| Provider failure | Provider timeout, HTTP error, or adapter exception | Provider-specific retry, partial-success, and all-or-nothing semantics are not defined by this spec; the failure must not leak a provider-specific payload across the module boundary. |
+| Exact duplicate URL | A second item has the same exact `url` as a persisted row | Database uniqueness prevents a second `news_items` row. Caller-facing duplicate handling is not defined here. |
+| URL normalization question | Two URL strings are semantically equivalent but not byte-for-byte equal | No canonicalization is promised; only the exact `UNIQUE(url)` rule is normative. |
+| Sentiment timeout or inference error | Sentiment rejects or times out after News persistence | Keep the News item readable, expose missing sentiment, record logs/metrics, and do not create a fabricated result. |
+| Invalid Sentiment score | A result or snapshot point is outside `[-1, 1]` | Reject the invalid result/point at the Sentiment boundary; News does not coerce it. |
+| Missing snapshot point | `INFORMATION` backtest has no aligned point for a required candle window | Backtesting rejects the candidate/scope; News does not provide a live or future substitute. |
+| News/Sentiment unavailable | Auxiliary capability cannot be reached | News/Sentiment views may degrade, but market charts, strategy configuration, Search Runs, ordinary backtesting, and saved News remain operational. |
+| Event request | A consumer asks for `NewsCollected` or `SentimentAnalyzed` | No such MVP event is published; use the synchronous public APIs. |
 
 ## 4. Contracts
 
@@ -307,7 +307,7 @@ export interface NewsItem {
   content: string;
   source: string;
   publishedAt: string; // ISO-8601 UTC
-  crawledAt: string; // ISO-8601 UTC
+  crawledAt: string;   // ISO-8601 UTC
   relatedCoins: string[];
   url: string;
 }
@@ -343,7 +343,10 @@ export interface NewsRepository {
 }
 
 export interface NewsObservability {
-  recordSentimentFailure(input: { newsId: string; reason: "TIMEOUT" | "INFERENCE_ERROR" }): void;
+  recordSentimentFailure(input: {
+    newsId: string;
+    reason: "TIMEOUT" | "INFERENCE_ERROR";
+  }): void;
 }
 ```
 

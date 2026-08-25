@@ -4,7 +4,7 @@
 
 - All timestamps are ISO-8601 strings in UTC (`"2026-08-12T09:10:03.000Z"`), never epoch millis on the wire, to avoid unit-mismatch bugs between services written at different times.
 - All money/price/percentage values are `number` (float), except where noted; the brief does not require fixed-point precision (this is an architecture exercise, not a real trading system — see brief §47).
-- Every contract that can be **generated multiple times with different behavior** (`StrategyDefinition`, `CompositeStrategyDefinition`) carries a `version` field. This is not optional — brief §36 makes versioning + reproducibility a hard requirement: _"Experiment #122 must always know exactly which strategy version it used."_
+- Every contract that can be **generated multiple times with different behavior** (`StrategyDefinition`, `CompositeStrategyDefinition`) carries a `version` field. This is not optional — brief §36 makes versioning + reproducibility a hard requirement: *"Experiment #122 must always know exactly which strategy version it used."*
 - **Identity rule (resolves an ambiguity in brief §36's own example):** `id` on any versioned contract (`StrategyDefinition`, `CompositeStrategyDefinition`) is **unique per version, not per logical strategy**. Each definition has a required stable `logicalFamilyKey`; editing parameters, implementation provenance, components, weights, thresholds, or combination method never updates a row in place — it inserts a new row with `version = previous + 1`. A separate optional `familyName` is display-only and never a foreign key. Anything that references a `strategyDefinitionId` or `compositeDefinitionId` is therefore automatically version-pinned and replayable without silently changing underneath it.
 - Enums are written as TypeScript string union types so they serialize identically in REST responses, market WebSocket messages, and backtest queue payloads without a mapping layer.
 - A contract is owned by the module that defines its business meaning. The code examples below show the intended public API location; they are not instructions to put every domain type in one global package.
@@ -30,10 +30,10 @@ export type SentimentLabel = "POSITIVE" | "NEUTRAL" | "NEGATIVE"; // brief §29
 // A strategy plugin declares which category it belongs to; the generator
 // uses this to build composites like "1 Trend + 1 Momentum + 1 Structure".
 export type StrategyCategory =
-  | "TREND" // MA, MACD
-  | "MOMENTUM" // RSI, Stochastic
-  | "VOLATILITY" // Bollinger, ATR
-  | "STRUCTURE" // Support/Resistance, SMC, Wyckoff
+  | "TREND"        // MA, MACD
+  | "MOMENTUM"     // RSI, Stochastic
+  | "VOLATILITY"   // Bollinger, ATR
+  | "STRUCTURE"    // Support/Resistance, SMC, Wyckoff
   | "INFORMATION"; // News Sentiment
 
 export type CombinationMethod = "MAJORITY_VOTE" | "WEIGHTED_SCORE"; // brief §13-14
@@ -51,13 +51,13 @@ Owned by `modules/market-data`. Corresponds to brief §4 (Realtime Market Data) 
 export interface Candle {
   pair: Pair;
   timeframe: Timeframe;
-  timestamp: string; // candle open time, ISO-8601
+  timestamp: string;   // candle open time, ISO-8601
   open: number;
   high: number;
   low: number;
   close: number;
   volume: number;
-  isClosed: boolean; // false while the candle is still forming (realtime), true once finalized
+  isClosed: boolean;   // false while the candle is still forming (realtime), true once finalized
 }
 
 // Immutable, content-addressed candle set used by backtests. A new exchange
@@ -118,7 +118,7 @@ export interface StrategyCandle {
 export interface StrategyContext {
   pair: Pair;
   timeframe: Timeframe;
-  candles: StrategyCandle[]; // most recent N candles, N decided by the caller, not by the strategy
+  candles: StrategyCandle[];    // most recent N candles, N decided by the caller, not by the strategy
   currentPrice: number;
   indicators: Record<string, number | number[]>;
   // pre-computed values, e.g. { "MA20": 118023.4, "RSI14": 42.1 }.
@@ -127,13 +127,13 @@ export interface StrategyContext {
   // indicator (e.g. two MA-based strategies) don't recompute it twice.
   sentiment?: {
     label: SentimentLabel;
-    averageScore: number; // deterministic projection over aligned SentimentResult.score values
+    averageScore: number;       // deterministic projection over aligned SentimentResult.score values
   };
 }
 
 // The interface every strategy plugin implements — brief §6, verbatim shape.
 export interface Strategy {
-  readonly name: string; // e.g. "MA", "RSI", "MACD"
+  readonly name: string;              // e.g. "MA", "RSI", "MACD"
   readonly category: StrategyCategory;
   analyze(context: StrategyContext): Signal;
 }
@@ -141,13 +141,13 @@ export interface Strategy {
 // A concrete, versioned configuration of a Strategy — what actually gets
 // stored, referenced by an ExperimentResult, and never overwritten (brief §36).
 export interface StrategyDefinition {
-  id: string; // unique per version — see the Identity rule in §0
-  logicalFamilyKey: string; // required stable identity used for version allocation
-  familyName?: string; // display-only label, never a foreign key
-  strategyName: string; // matches Strategy.name, resolved via the Registry
+  id: string;                    // unique per version — see the Identity rule in §0
+  logicalFamilyKey: string;      // required stable identity used for version allocation
+  familyName?: string;           // display-only label, never a foreign key
+  strategyName: string;         // matches Strategy.name, resolved via the Registry
   implementationVersion: string; // plugin code version, independent of parameter/config version
-  implementationSha256: string; // exact retained build artifact used to replay this definition
-  version: number; // incremented on any parameter or implementation provenance change — never mutate in place
+  implementationSha256: string;  // exact retained build artifact used to replay this definition
+  version: number;               // incremented on any parameter or implementation provenance change — never mutate in place
   parameters: Record<string, number | string>;
   // e.g. MA: { fastPeriod: 20, slowPeriod: 50 }
   //      RSI: { period: 14, buyThreshold: 30, sellThreshold: 70 }
@@ -218,12 +218,12 @@ Owned by `modules/strategy`. Corresponds to brief §13-14 (Composite Strategy, W
 
 export interface CompositeStrategyDefinition {
   id: string;
-  logicalFamilyKey: string; // required stable identity used for version allocation
+  logicalFamilyKey: string;       // required stable identity used for version allocation
   version: number;
   method: CombinationMethod;
   components: Array<{
-    strategyDefinitionId: string; // references a StrategyDefinition.id
-    weight: number; // used only when method === "WEIGHTED_SCORE"; ignored for MAJORITY_VOTE
+    strategyDefinitionId: string;   // references a StrategyDefinition.id
+    weight: number;                  // used only when method === "WEIGHTED_SCORE"; ignored for MAJORITY_VOTE
   }>;
   // Weighted-score thresholds, only relevant when method === "WEIGHTED_SCORE".
   // Defaults match the brief's own example (§14): buy > 0.3, sell < -0.3.
@@ -236,12 +236,12 @@ export interface CompositeStrategyDefinition {
 export interface CombinationEngine {
   combine(
     definition: CompositeStrategyDefinition,
-    signals: Array<{ strategyDefinitionId: string; signal: Signal }>,
+    signals: Array<{ strategyDefinitionId: string; signal: Signal }>
   ): Signal;
 }
 ```
 
-**Boundary rule:** the Combination Engine only ever sees `Signal` values plus the `weight`/`method` from the definition — brief §44 explicitly forbids it from knowing _why_ a sub-strategy produced BUY vs. SELL (no `if MA && RSI` branching, no reading another strategy's internal state).
+**Boundary rule:** the Combination Engine only ever sees `Signal` values plus the `weight`/`method` from the definition — brief §44 explicitly forbids it from knowing *why* a sub-strategy produced BUY vs. SELL (no `if MA && RSI` branching, no reading another strategy's internal state).
 
 ## 5. Search Module Contracts
 
@@ -251,8 +251,13 @@ Owned by `modules/search`. Search owns Search Runs, generators, stop conditions,
 // modules/search/api/contracts.ts
 
 export interface GeneratedCandidate {
-  strategyDefinitions: StrategyDefinition[]; // complete immutable versions referenced below
+  strategyDefinitions: StrategyDefinition[];       // complete immutable versions referenced below
   compositeDefinition: CompositeStrategyDefinition;
+  executionPolicyIntent: {
+    mode: "TWO_SIDED_ONE_X_V1";
+    stopLossPercent?: number;
+    takeProfitPercent?: number;
+  };
   generatedBy: GeneratorType;
 }
 
@@ -312,7 +317,7 @@ export interface LoopStatus {
   completionProcessingFailureCandidateCount: number;
   failedAttemptCount: number;
   averageBacktestDurationMs: number;
-  currentTopEntry?: SearchRunRankingEntry; // best completed Experiment in this Search Run
+  currentTopEntry?: SearchRunRankingEntry;      // best completed Experiment in this Search Run
   createdAt: string;
   startedAt?: string;
   updatedAt: string;
@@ -323,23 +328,23 @@ export interface LoopStatus {
 }
 
 export interface ContinuousLoopOrchestrator {
-  start(config: {
+  start(auth: AuthContext, config: {
     searchSpace: SearchSpaceConfig;
     stopCondition: StopCondition;
     generatorType: GeneratorType;
     leaderboardScopeId: string;
     maxInFlight: number;
   }): Promise<{ searchRunId: string }>;
-  pause(searchRunId: string): Promise<void>;
-  resume(searchRunId: string): Promise<void>;
-  cancel(searchRunId: string): Promise<void>;
-  status(searchRunId: string): Promise<LoopStatus>;
+  pause(auth: AuthContext, searchRunId: string): Promise<void>;
+  resume(auth: AuthContext, searchRunId: string): Promise<void>;
+  cancel(auth: AuthContext, searchRunId: string): Promise<void>;
+  status(auth: AuthContext, searchRunId: string): Promise<LoopStatus>;
   onCandidateFinished(searchRunId: string): Promise<void>; // internal callback; delegates to reconcile/fill
-  fillAvailableSlots(searchRunId: string): Promise<void>; // serialized, idempotent recovery use case
+  fillAvailableSlots(searchRunId: string): Promise<void>;  // serialized, idempotent recovery use case
 }
 ```
 
-**Persistence rule:** generated IDs are allocated before submission. The Backtest Coordinator atomically inserts/verifies every generated `StrategyDefinition`, the `CompositeStrategyDefinition` plus component rows, and only then its Candidate. Repeating the same generated IDs is idempotent (`ON CONFLICT` must verify identical immutable content); a conflicting body for an existing ID is rejected. The Manual path applies the same rule to the user's validated configuration. Therefore no Candidate can reference an in-memory-only definition.
+**Persistence rule:** Strategy's owner-aware public API persists/verifies every generated `StrategyDefinition`, `CompositeStrategyDefinition`, and component row first. The Backtesting Coordinator then reloads the committed same-owner IDs and atomically persists only its Candidate plus immutable references/execution snapshot. Each owner API is idempotent and rejects conflicting content. Therefore no Candidate can reference an in-memory-only definition.
 
 `FAILED` with `stopReason = ERROR` is reserved for an unrecoverable Search orchestration/configuration failure. It stops new candidate generation and records the error, but does not silently rewrite already committed Candidate lifecycles; those Candidates continue through Backtesting reconciliation and may finish for audit/Experiment purposes. `CANCELLED` remains the explicit user-stop path.
 
@@ -351,7 +356,7 @@ export interface ContinuousLoopOrchestrator {
 
 `fillAvailableSlots` locks the Search Run row (or holds an equivalent per-run lease), obtains Candidate counts/projections through the Backtesting public API, checks every stop condition, and submits at most the missing number of iterations through `BacktestCoordinator.submitSearchCandidate`. Search never queries Candidate tables or repositories directly. Once a normal stop condition is met it creates no more candidates; after the last in-flight Candidate becomes terminal it marks the run `COMPLETED`, sets `stopReason`/`endedAt`, and returns. It is invoked after `start`, `resume`, every completion callback, and at backend startup/periodically for every `RUNNING` run. This makes the callback an optimization rather than a single point of progress and prevents concurrent completions from exceeding `maxInFlight` or `maxCandidates`.
 
-`cancel(searchRunId)` locks the Search Run and, through the Backtesting public API, asks Backtesting to cancel all non-terminal Candidates for that run and clear their active-attempt/completion-retry fields. The Search Run transition and Candidate cancellation participate in one process-level application unit of work; the unit of work is an opaque transaction port, never a database handle exposed across the boundary. Search never queries or writes Candidate tables and never imports `modules/backtesting/infrastructure/queue`. After commit, Search Loop calls `BacktestCoordinator.removePendingJobs(candidateIds)`; the Coordinator best-effort removes waiting/delayed jobs only. Running workers may finish their current simulation. A late worker may finish its own Attempt as `COMPLETED` and persist Trades for audit, but fenced/conditional state writes and the Completion Processor never change the Candidate back or create an Experiment/rank. Manual cancellation applies the same Candidate cleanup after verifying `origin = MANUAL`.
+`cancel(searchRunId)` locks the Search Run and, through the Backtesting public API, asks Backtesting to cancel all non-terminal Candidates for that run and clear their active-attempt/completion-retry fields. The Search Run transition and Candidate cancellation participate in one process-level application unit of work; the unit of work is an opaque transaction port, never a database handle exposed across the boundary. Search never queries or writes Candidate tables and never imports `modules/backtesting/infrastructure/queue`. After commit, Search Loop calls `BacktestCoordinator.removePendingJobs(candidateIds)`; the Coordinator best-effort removes waiting/delayed jobs only. Running workers may finish their current simulation. A late worker may finish its own Attempt as `COMPLETED` and persist Trades for audit, but fenced/conditional state writes and the Completion Processor never change the Candidate back or create an Experiment/rank. Manual cancellation verifies `origin = MANUAL` and owns one short Candidate transaction; it does not use the Search cancellation UoW.
 
 An unrecoverable Search orchestration/configuration error transitions a `RUNNING` or `PAUSED` Search Run immediately to terminal `FAILED` with `stopReason = ERROR`, `lastError`, and `endedAt`. It stops generation but does not rewrite committed Candidates; their Backtesting lifecycles may still finish for audit/Experiment purposes. Completion callbacks may update counters and projections for a failed run, but can never change `FAILED` to `COMPLETED`; `resume` rejects a failed run and `cancel` is an idempotent no-op after the error is recorded. User cancellation wins only when its transaction acquires the Search Run lock before the error transition.
 
@@ -377,10 +382,20 @@ export type CandidateStatus =
   | "FAILED"
   | "CANCELLED";
 
+export type BacktestFailureCode =
+  | "INVALID_REQUEST" | "INVALID_CURSOR" | "NOT_FOUND" | "WRONG_ORIGIN"
+  | "SCOPE_SNAPSHOT_CONTENT_CHANGED" | "MISSING_SNAPSHOT" | "SNAPSHOT_INCOMPLETE"
+  | "IMPLEMENTATION_ARTIFACT_UNAVAILABLE" | "WORKER_RUNTIME_MISMATCH"
+  | "WORKER_CRASH" | "QUEUE_ANOMALY" | "STRATEGY_TIMEOUT"
+  | "STRATEGY_EXECUTION_ERROR" | "RETRY_EXHAUSTED" | "EVALUATOR_EXCEPTION"
+  | "INVALID_EVALUATOR_OUTPUT" | "CANCELLED_AUDIT_INTERRUPTED" | "SUPERSEDED";
+
 interface CandidateBase {
   id: string;
-  leaderboardScopeId: string; // immutable benchmark used for fair scoring/ranking
-  compositeDefinition: CompositeStrategyDefinition;
+  leaderboardScopeId: string;          // immutable benchmark used for fair scoring/ranking
+  compositeDefinitionId: string;
+  selectionMode: "SINGLE" | "COMPOSITE";
+  executionPolicy: ExecutionPolicySnapshot;
   maxAttempts: number;
   status: CandidateStatus;
   createdAt: string;
@@ -405,6 +420,8 @@ export interface BacktestAttemptProgress {
   status: "RUNNING" | "COMPLETED" | "FAILED";
   startedAt: string;
   completedAt?: string;
+  failureCategory?: "RETRYABLE" | "INFRASTRUCTURE" | "CANCELLED_AUDIT";
+  failureCode?: BacktestFailureCode;
   errorMessage?: string;
 }
 
@@ -413,9 +430,11 @@ export interface BacktestAttemptProgress {
 export interface CandidateProgress {
   candidateId: string;
   origin: "MANUAL" | "SEARCH";
+  selectionMode: "SINGLE" | "COMPOSITE";
   searchRunId?: string;
   iterationNumber?: number;
   leaderboardScopeId: string;
+  executionPolicy: ExecutionPolicySnapshot;
   status: CandidateStatus;
   attempts: BacktestAttemptProgress[];
   maxAttempts: number;
@@ -425,6 +444,7 @@ export interface CandidateProgress {
   completionNextRetryAt?: string;
   experimentResultId?: string;
   failureKind?: "RETRY_EXHAUSTED" | "INFRASTRUCTURE" | "COMPLETION_PROCESSING";
+  failureCode?: BacktestFailureCode;
   lastError?: string;
   createdAt: string;
   updatedAt: string;
@@ -443,8 +463,8 @@ Queue payloads use an explicit `schemaVersion` discriminator. Version `1` is the
 // modules/backtesting/api/contracts.ts
 
 export interface BacktestRequest {
-  candidateId: string; // references CandidateStrategy.id
-  leaderboardScopeId: string; // worker reloads immutable pair/timeframe/dataset/cost settings from this scope
+  candidateId: string;               // references CandidateStrategy.id
+  leaderboardScopeId: string;        // worker reloads immutable pair/timeframe/dataset/cost settings from this scope
 }
 
 // packages/contracts/queue/backtesting.ts — canonical cross-process wire schema
@@ -452,18 +472,68 @@ export interface BacktestQueueJob {
   schemaVersion: 1;
   candidateId: string;
   leaderboardScopeId: string;
-  jobId: string; // deterministic: jobId === candidateId
+  jobId: string;       // deterministic: jobId === candidateId
   maxAttempts: number; // same immutable value is configured in BullMQ attempts and persisted on Candidate
-  workerRuntimeVersion: string; // copied from immutable scope; worker rejects a different local runtime
-  workerRuntimeSha256: string;
+  simulatorVersion: string; // copied from immutable scope; worker resolves this retained artifact
+  simulatorSha256: string;
   enqueuedAt: string;
 }
 
 export interface StartManualBacktestCommand {
   leaderboardScopeId: string;
-  strategyDefinitions: StrategyDefinition[];
-  compositeDefinition: CompositeStrategyDefinition;
+  strategyDefinitionIds: string[];
+  compositeDefinitionId: string;
+  executionPolicy: ExecutionPolicyInput;
   maxAttempts: number;
+}
+
+export interface CreateSentimentSnapshotCommand {
+  relatedCoin: string;
+  range: { from: string; to: string };
+  aggregationWindowSeconds: number;
+  modelName: string;
+  modelVersion: string;
+  modelSha256: string;
+}
+
+export interface CreateBenchmarkScopeRequest {
+  name: string;
+  pair: Pair;
+  timeframe: Timeframe;
+  tradeRange: { from: string; to: string };
+  warmupCapacityCandles?: number;
+  initialCapital: number;
+  feeRatePercent: number;
+  slippageBps?: number;
+  scoreFormulaId: string;
+  sentimentDatasetSnapshot?: SentimentDatasetSnapshotRef;
+  sentimentCreate?: CreateSentimentSnapshotCommand;
+}
+
+export type BenchmarkScopeSummary = Omit<LeaderboardScope, "userId"> & {
+  pair: Pair;
+  timeframe: Timeframe;
+  snapshotRange: { from: string; to: string };
+  datasetSnapshotId: string;
+  datasetSnapshotSha256: string;
+};
+
+export interface ExecutionPolicyInput {
+  policyId?: "TWO_SIDED_ONE_X_V1";
+  stopLossPercent?: number;
+  takeProfitPercent?: number;
+}
+
+export interface ExecutionPolicySnapshot {
+  policyId: "TWO_SIDED_ONE_X_V1";
+  positionPolicyId: "TWO_SIDED_ONE_X_V1";
+  sizingPolicyId: "FULL_CURRENT_EQUITY_FEE_AWARE_V1";
+  fillPolicyId: "NEXT_OPEN_OHLC_STOP_FIRST_V2";
+  oppositeSignalPolicyId: "CLOSE_AND_REVERSE_NEXT_OPEN_V1";
+  stopLossPercent?: number;
+  takeProfitPercent?: number;
+  warmupCandles: number;
+  sha256: string;
 }
 
 // Backtesting-owned neutral submission command. Search maps its
@@ -473,9 +543,10 @@ export interface SubmitSearchCandidateCommand {
   leaderboardScopeId: string;
   iterationNumber: number;
   maxAttempts: number;
-  strategyDefinitions: StrategyDefinition[];
-  compositeDefinition: CompositeStrategyDefinition;
-  generatedBy: string;
+  strategyDefinitionIds: string[];
+  compositeDefinitionId: string;
+  executionPolicy: ExecutionPolicySnapshot;
+  generatedBy: GeneratorType;
 }
 
 export interface BacktestSubmissionAccepted {
@@ -489,38 +560,29 @@ export interface BacktestSubmissionAccepted {
 // database client and cannot be used to open a second transaction.
 export interface CancellationUnitOfWork {
   readonly kind: "SEARCH_CANCELLATION";
+  readonly id: string;
 }
 
-// The only typed in-process gateway into the asynchronous backtest boundary.
+export interface AuthContext { userId: string }
+
+// The protected application gateway into the asynchronous backtest boundary.
 export interface BacktestCoordinator {
-  createBenchmarkScope(command: {
-    name: string;
-    datasetSnapshot: DatasetSnapshotRef;
-    sentiment?: { relatedCoin: string; range: { from: string; to: string } };
-    initialCapital: number;
-    feeRatePercent: number;
-    slippageBps: number;
-    scoreFormulaId: string;
-    workerRuntimeVersion: string;
-    workerRuntimeSha256: string;
-    evaluationRuntimeVersion: string;
-    evaluationRuntimeSha256: string;
-  }): Promise<LeaderboardScope>;
-  startManual(command: StartManualBacktestCommand): Promise<BacktestSubmissionAccepted>;
-  submitSearchCandidate(command: SubmitSearchCandidateCommand): Promise<BacktestSubmissionAccepted>;
-  status(candidateId: string): Promise<CandidateProgress>;
-  summarizeSearchCandidates(searchRunId: string): Promise<{
+  createBenchmarkScope(auth: AuthContext, request: CreateBenchmarkScopeRequest, options: { scopeIdempotencyKey: string }): Promise<BenchmarkScopeSummary>;
+  startManual(auth: AuthContext, command: StartManualBacktestCommand, options?: { submissionIdempotencyKey?: string }): Promise<BacktestSubmissionAccepted>;
+  submitSearchCandidate(auth: AuthContext, command: SubmitSearchCandidateCommand): Promise<BacktestSubmissionAccepted>;
+  status(auth: AuthContext, candidateId: string): Promise<CandidateProgress>;
+  summarizeSearchCandidates(auth: AuthContext, searchRunId: string): Promise<{
     active: CandidateProgress[];
     queuedCount: number;
     runningCount: number;
     candidatesTested: number;
   }>;
-  cancelSearchCandidates(
-    searchRunId: string,
-    unitOfWork: CancellationUnitOfWork,
-  ): Promise<{ candidateIds: string[] }>;
-  cancelManualCandidate(candidateId: string, unitOfWork: CancellationUnitOfWork): Promise<void>; // requires origin=MANUAL; Search IDs return 409 and use run cancellation
-  removePendingJobs(candidateIds: string[]): Promise<void>; // internal, best-effort; waiting/delayed jobs only
+  cancelSearchCandidates(auth: AuthContext, searchRunId: string, unitOfWork: CancellationUnitOfWork): Promise<{ candidateIds: string[] }>;
+  cancelManualCandidate(auth: AuthContext, candidateId: string): Promise<void>; // short Candidate transaction; cross-owner is concealed 404
+}
+
+export interface BacktestInternalApi {
+  removePendingJobs(candidateIds: string[]): Promise<void>;  // internal, best-effort; waiting/delayed jobs only
 }
 
 export interface BacktestCompletionProcessor {
@@ -531,14 +593,31 @@ export interface BacktestCompletionProcessor {
 
 export interface Trade {
   id: string;
+  sequence: number;
+  pair: Pair;
+  settlementAsset: string;
   backtestAttemptId: string;
+  signal: "LONG" | "SHORT";
   entryTime: string;
+  marketEntryPrice: number;
   entryPrice: number;
+  stopLoss?: number;
+  takeProfit?: number;
   exitTime: string;
+  marketExitPrice: number;
   exitPrice: number;
-  resultPercent: number; // e.g. +1.85, -0.90 — matches the Trade Detail table in brief §26
-  signal: "LONG" | "SHORT"; // MVP only needs LONG; SHORT is listed here for the
-  // brief §38 extension ("Long/Short, Stop Loss, Take Profit")
+  exitReason: "STOP_LOSS" | "TAKE_PROFIT" | "STRATEGY_CLOSE" | "RANGE_END";
+  quantity: number;
+  notionalEntryValue: number;
+  equityBeforeTrade: number;
+  equityAfterTrade: number;
+  grossProfit: number;
+  feeAmount: number;
+  slippageBps: number;
+  slippageAmount: number;
+  profit: number;
+  resultPercent: number;
+  result: "WIN" | "LOSS" | "BREAKEVEN";
 }
 
 interface BacktestResultBase {
@@ -603,36 +682,40 @@ export type BacktestQueueTerminalSignal =
       jobId: string;
       status: "COMPLETED";
       returnValue: BacktestQueueReturn;
-    }
+  }
   | {
       schemaVersion: 1;
       jobId: string;
       status: "RETRIES_EXHAUSTED";
       attemptsMade: number;
-    }
+  }
   | {
       schemaVersion: 1;
       jobId: string;
       status: "VERIFIED_TERMINAL_FAILED"; // backtesting queue adapter confirmed current BullMQ state=failed and no retry can run
       failedReason: string;
     };
+
 ```
 
 The Completion Processor consumes `BacktestQueueTerminalSignal` directly, derives `candidateId = jobId`, reloads the authoritative Attempt/Candidate state, and performs its own internal normalization. There is intentionally no second exported `BacktestCompletionNotification` contract that could diverge from the canonical queue signal.
 
 ## 7. Evaluation Contracts
 
-Owned by `modules/evaluation`. Corresponds to brief §20-21 — the explicit requirement that _"Strategy Evaluation must be separate from Strategy Implementation."_
+Owned by `modules/evaluation`. Corresponds to brief §20-21 — the explicit requirement that *"Strategy Evaluation must be separate from Strategy Implementation."*
 
 ```typescript
 // modules/evaluation/api/contracts.ts
 
 export interface EvaluationMetrics {
   candidateId: string;
+  evaluationPolicyId: "MVP_EVALUATION_V1";
+  evaluationRuntimeVersion: string;
+  evaluationRuntimeSha256: string;
   totalReturnPercent: number;
   winRatePercent: number;
   numberOfTrades: number;
-  maxDrawdownPercent: number; // non-negative loss magnitude: 18 means an 18% drawdown, never -18
+  maxDrawdownPercent: number;  // non-negative loss magnitude: 18 means an 18% drawdown, never -18
   profitFactor: number | null;
   profitFactorStatus: "FINITE" | "NO_TRADES" | "NO_LOSSES" | "NO_GROSS_MOVEMENT";
   sharpeRatio: number;
@@ -650,23 +733,25 @@ export interface Evaluator {
 
 ### 7.1 Experiment Result — the Persisted Aggregate
 
-Brief §35 lists **Experiment** as its own top-level data group — _Combination, Dataset, Timeframe, Parameters, Result_ — distinct from `Strategy` and separate from whatever the Leaderboard stores. `CandidateStrategy`, `BacktestRequest`, `BacktestResult`, and `EvaluationMetrics` above are the pipeline's working data; `ExperimentResult` is the single row that gets persisted as the **canonical aggregate** once the pipeline finishes successfully, and it is what brief §36/§40.8 actually mean by _"Experiment #122"_. (`CandidateStrategy` and `BacktestResult` are additionally kept as durable audit rows in the data model — see `data-model.md` — purely so `Trade`/`ExperimentResult` have a real foreign key to reference and so failed attempts stay queryable; this does not change either shape below or make either of them a second source of truth for a completed experiment.)
+Brief §35 lists **Experiment** as its own top-level data group — *Combination, Dataset, Timeframe, Parameters, Result* — distinct from `Strategy` and separate from whatever the Leaderboard stores. `CandidateStrategy`, `BacktestRequest`, `BacktestResult`, and `EvaluationMetrics` above are the pipeline's working data; `ExperimentResult` is the single row that gets persisted as the **canonical aggregate** once the pipeline finishes successfully, and it is what brief §36/§40.8 actually mean by *"Experiment #122"*. (`CandidateStrategy` and `BacktestResult` are additionally kept as durable audit rows in the data model — see `data-model.md` — purely so `Trade`/`ExperimentResult` have a real foreign key to reference and so failed attempts stay queryable; this does not change either shape below or make either of them a second source of truth for a completed experiment.)
 
 ```typescript
 // modules/backtesting/api/experiment.ts
 
 interface ExperimentResultBase {
-  id: string; // this is "Experiment #122"
-  candidateId: string; // -> CandidateStrategy.id
-  backtestAttemptId: string; // exact successful attempt that produced the trades
-  compositeDefinitionId: string; // -> CompositeStrategyDefinition.id (version-pinned, see §0 Identity rule)
-  leaderboardScopeId: string; // exact immutable benchmark used by this run
-  scoreFormulaId: string; // exact immutable formula version used for scoring
-  workerRuntimeVersion: string; // simulator/indicator runtime provenance
+  id: string;                              // this is "Experiment #122"
+  candidateId: string;                     // -> CandidateStrategy.id
+  backtestAttemptId: string;               // exact successful attempt that produced the trades
+  compositeDefinitionId: string;           // -> CompositeStrategyDefinition.id (version-pinned, see §0 Identity rule)
+  leaderboardScopeId: string;              // exact immutable benchmark used by this run
+  scoreFormulaId: string;                  // exact immutable formula version used for scoring
+  workerRuntimeVersion: string;            // operational worker deployment audit
   workerRuntimeSha256: string;
-  evaluationRuntimeVersion: string; // metric implementation provenance
+  simulatorVersion: string;                // pure execution semantics, pinned by scope
+  simulatorSha256: string;
+  evaluationRuntimeVersion: string;        // metric implementation provenance
   evaluationRuntimeSha256: string;
-  datasetSnapshot: DatasetSnapshotRef; // hydrated from the immutable scope/snapshot relation
+  datasetSnapshot: DatasetSnapshotRef;     // hydrated from the immutable scope/snapshot relation
   sentimentDatasetSnapshot?: SentimentDatasetSnapshotRef; // required when the composite uses INFORMATION
   trades: Trade[];
   metrics: EvaluationMetrics;
@@ -674,14 +759,13 @@ interface ExperimentResultBase {
   createdAt: string;
 }
 
-export type ExperimentResult = ExperimentResultBase &
-  (
-    | { rankEligible: true; rankExclusionReason?: never }
-    | { rankEligible: false; rankExclusionReason: "NO_TRADES" }
-  );
+export type ExperimentResult = ExperimentResultBase & (
+  | { rankEligible: true; rankExclusionReason?: never }
+  | { rankEligible: false; rankExclusionReason: "NO_TRADES" }
+);
 ```
 
-Owned by `modules/backtesting` for the MVP aggregate. The Completion Processor loads the persisted `BacktestResult`, calls `modules/evaluation`'s `Evaluator`, asks `modules/leaderboard`'s scoring API to apply the selected immutable formula, then saves this aggregate and applies Top-10 admission in the same transaction. The `experiment_results` row is the persistence record; `ExperimentResult.trades` is hydrated from child `trades` rows for the public read/aggregate shape. This is the row `LeaderboardEntry` references and the fixed chain used to answer brief §40.8: _experiment → composite version → component strategy versions_.
+Owned by `modules/backtesting` for the MVP aggregate. The Completion Processor loads immutable Trades, calls pure Evaluation and pure Leaderboard scoring outside the final write transaction, then opens one short fenced transaction to ensure the Experiment, apply Top-10 admission/Search terminal facts, and terminalize the Candidate. The `experiment_results` row is the persistence record; internal aggregate hydration may include child Trades, but the public REST summary is bounded and Trade Detail is paginated separately. This is the row `LeaderboardEntry` references and the fixed chain used to answer brief §40.8: *experiment → composite version → component strategy versions*.
 
 ## 8. Leaderboard Contracts
 
@@ -723,24 +807,30 @@ export interface ScoreFormula {
     winRate: number;
     riskScore: number;
   };
-  riskScoreMethod: string; // MVP default documented below; other methods create a new version
+  riskScoreMethod: string;                  // MVP default documented below; other methods create a new version
   riskScoreParameters: Record<string, number>;
   createdAt: string;
 }
 
 // A persistent leaderboard compares only like-for-like experiments. Scope rows
 // are immutable: changing data snapshots, capital/costs, formula, or either
-// runtime hash creates another version/scope instead of rewriting history.
+// simulator/Evaluation hash creates another version/scope instead of rewriting history.
 export interface LeaderboardScope {
   id: string;
+  userId: string;
   name: string;
   version: number;
   datasetSnapshot: DatasetSnapshotRef;
+  pairMetadata: MarketPairMetadata;
+  tradeRange: { from: string; to: string };
+  warmupCapacityCandles: number;
   sentimentDatasetSnapshot?: SentimentDatasetSnapshotRef;
-  workerRuntimeVersion: string;
-  workerRuntimeSha256: string;
+  simulatorVersion: string;
+  simulatorSha256: string;
   evaluationRuntimeVersion: string;
   evaluationRuntimeSha256: string;
+  evaluationPolicyId: string;
+  decimalPolicyId: string;
   initialCapital: number;
   feeRatePercent: number;
   slippageBps: number;
@@ -754,11 +844,10 @@ interface ScoredEvaluationBase {
   overallScore: number;
 }
 
-export type ScoredEvaluation = ScoredEvaluationBase &
-  (
-    | { rankEligible: true; rankExclusionReason?: never }
-    | { rankEligible: false; rankExclusionReason: "NO_TRADES" }
-  );
+export type ScoredEvaluation = ScoredEvaluationBase & (
+  | { rankEligible: true; rankExclusionReason?: never }
+  | { rankEligible: false; rankExclusionReason: "NO_TRADES" }
+);
 
 // Opaque process-level transaction supplied by the Backtesting Completion
 // Processor. It is not a database client and cannot be used to open another
@@ -769,12 +858,9 @@ export interface CompletionUnitOfWork {
 
 export interface LeaderboardService {
   score(leaderboardScopeId: string, metrics: EvaluationMetrics): ScoredEvaluation;
-  topK(leaderboardScopeId: string): LeaderboardEntry[];
-  rankSearchRun(searchRunId: string): SearchRunRankingEntry[];
-  submit(
-    experiment: ExperimentResult,
-    unitOfWork: CompletionUnitOfWork,
-  ): LeaderboardSubmissionResult;
+  topK(userId: string, leaderboardScopeId: string): Promise<LeaderboardEntry[]>;
+  rankSearchRun(userId: string, searchRunId: string): Promise<SearchRunRankingEntry[]>;
+  submit(experiment: ExperimentResult, unitOfWork: CompletionUnitOfWork): LeaderboardSubmissionResult;
 }
 
 export interface LeaderboardSubmissionResult {
@@ -808,7 +894,7 @@ export interface NewsItem {
   source: string;
   publishedAt: string;
   crawledAt: string;
-  relatedCoins: string[]; // e.g. ["BTC"]
+  relatedCoins: string[];   // e.g. ["BTC"]
   url: string;
 }
 
@@ -824,9 +910,9 @@ export interface NewsProvider {
 // modules/sentiment/api/contracts.ts
 
 export interface SentimentResult {
-  newsId: string; // -> NewsItem.id
+  newsId: string;         // -> NewsItem.id
   label: SentimentLabel;
-  score: number; // e.g. 0.82, per brief §29's example
+  score: number;           // e.g. 0.82, per brief §29's example
   modelName: string;
   modelVersion: string;
   analyzedAt: string;
@@ -859,9 +945,9 @@ export interface SentimentDatasetSnapshotRef {
 }
 
 export interface SentimentSnapshotPoint {
-  timestamp: string; // end of an aggregation window
+  timestamp: string;             // end of an aggregation window
   label: SentimentLabel;
-  averageScore: number; // normalized to [-1, 1]
+  averageScore: number;          // normalized to [-1, 1]
 }
 
 export interface SentimentSnapshotReader {
@@ -885,12 +971,12 @@ Snapshot alignment is deterministic: `dataset_from` is inclusive and `dataset_to
 
 There is no generic `EventEnvelope`, `EventPayloads`, or Event Bus contract. The assignment's event list is optional; this architecture chooses simpler direct collaboration except for the backtest workload.
 
-| Boundary                  | Contract                                             | Rule                                                                                                                          |
-| ------------------------- | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| Frontend commands/queries | REST DTOs composed from the contracts above          | Starting asynchronous work returns `202 Accepted` plus `candidateId`/`jobId` or `searchRunId`                                 |
-| Market realtime           | `MarketTick`, `Candle`, `MarketDataConnectionStatus` | WebSocket only; messages are normalized before leaving Market Data                                                            |
-| Backtest dispatch         | `BacktestQueueJob`                                   | Durable BullMQ work queue; one worker per job                                                                                 |
-| Backtest terminal signal  | `BacktestQueueTerminalSignal`                        | `completed`, `retries-exhausted`, or verified terminal `failed` wake-up; Completion Processor reloads state and is idempotent |
+| Boundary | Contract | Rule |
+|---|---|---|
+| Frontend commands/queries | REST DTOs composed from the contracts above | Starting asynchronous work returns `202 Accepted` plus `candidateId`/`jobId` or `searchRunId` |
+| Market realtime | `MarketTick`, `Candle`, `MarketDataConnectionStatus` | WebSocket only; messages are normalized before leaving Market Data |
+| Backtest dispatch | `BacktestQueueJob` | Durable BullMQ work queue; one worker per job |
+| Backtest terminal signal | `BacktestQueueTerminalSignal` | `completed`, `retries-exhausted`, or verified terminal `failed` wake-up; Completion Processor reloads state and is idempotent |
 
 **Terminal-event mapping:** the thin adapter forwards every native `completed(jobId, returnvalue)`, including typed `IGNORED` outcomes, and native `retries-exhausted(jobId, attemptsMade)`. At its transport edge it JSON-parses/schema-validates BullMQ's string `returnvalue` and parses/validates the string `attemptsMade` as a positive integer; malformed fields are logged and left for PostgreSQL/BullMQ reconciliation instead of guessed. Every native `failed` is only an untrusted observation: `VERIFIED_TERMINAL_FAILED` is emitted only after the Backtesting queue adapter confirms that the job's current BullMQ state is `failed` and no retry can run. `retries-exhausted` and a verified `failed` observation may both wake the processor for one job; idempotency makes the duplicate harmless. Failure detail in PostgreSQL is authoritative; transport fields are hints/wake-ups. `IGNORED` never drives a state transition from its payload: the processor reloads PostgreSQL and either processes a durable pending state or no-ops.
 
@@ -902,38 +988,40 @@ For a normal exhausted simulation retry the processor accepts `TERMINAL_FAILURE_
 
 Minimum REST surface for the frontend:
 
-| Method and path                                               | Purpose                                                                                                                                                       |
-| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `POST /backtests`                                             | Start one manual candidate under a `leaderboardScopeId`; return `202` plus identifiers                                                                        |
-| `GET /backtests/{candidateId}`                                | Poll a typed `CandidateProgress` response                                                                                                                     |
-| `POST /backtests/{candidateId}/cancel`                        | Idempotently cancel one Manual candidate after locking/checking `origin=MANUAL`; a Search candidate returns `409` and must use its Search Run cancel endpoint |
-| `GET /market/candles?pair=...&timeframe=...`                  | Load initial normalized chart history                                                                                                                         |
-| `GET /strategies`                                             | List registered strategy plugins and parameter metadata                                                                                                       |
-| `GET /leaderboard-scopes`                                     | List immutable comparable benchmark scopes available to Manual/Search runs                                                                                    |
-| `POST /leaderboard-scopes`                                    | Create a new scope/version when benchmark inputs or score formula change                                                                                      |
-| `POST /search-runs`                                           | Start a bounded background Search Run under one `leaderboardScopeId`; return `202` plus `searchRunId`                                                         |
-| `GET /search-runs/{searchRunId}`                              | Poll `LoopStatus`                                                                                                                                             |
-| `GET /search-runs/{searchRunId}/candidates`                   | Read candidate progress/history for a run                                                                                                                     |
-| `GET /search-runs/{searchRunId}/leaderboard`                  | Rank all rank-eligible successful Experiments produced by the current run                                                                                     |
-| `POST /search-runs/{searchRunId}/pause`, `/resume`, `/cancel` | Control generation of work                                                                                                                                    |
-| `GET /leaderboard?scopeId=...`                                | Read persistent Top-10 for one comparable benchmark scope                                                                                                     |
-| `GET /experiments/{experimentId}`                             | Read reproducible result and Trade Detail                                                                                                                     |
-| `GET /news`                                                   | Read normalized news and available sentiment                                                                                                                  |
+| Method and path | Purpose |
+|---|---|
+| `POST /backtests` | Start one manual candidate under a `leaderboardScopeId`; return `202` plus identifiers |
+| `GET /backtests/{candidateId}` | Poll a typed `CandidateProgress` response |
+| `POST /backtests/{candidateId}/cancel` | Idempotently cancel one Manual candidate after locking/checking `origin=MANUAL`; a Search candidate returns `409` and must use its Search Run cancel endpoint |
+| `GET /market/candles?pair=...&timeframe=...` | Load initial normalized chart history |
+| `GET /strategies` | List registered strategy plugins and parameter metadata |
+| `GET /leaderboard-scopes` | List immutable comparable benchmark scopes available to Manual/Search runs |
+| `POST /leaderboard-scopes` | Create a new scope/version when benchmark inputs or score formula change |
+| `POST /search-runs` | Start a bounded background Search Run under one `leaderboardScopeId`; return `202` plus `searchRunId` |
+| `GET /search-runs/{searchRunId}` | Poll `LoopStatus` |
+| `GET /search-runs/{searchRunId}/candidates` | Read candidate progress/history for a run |
+| `GET /search-runs/{searchRunId}/leaderboard` | Rank all rank-eligible successful Experiments produced by the current run |
+| `POST /search-runs/{searchRunId}/pause`, `/resume`, `/cancel` | Control generation of work |
+| `GET /leaderboard?scopeId=...` | Read persistent Top-10 for one comparable benchmark scope |
+| `GET /experiments/{experimentId}` | Read bounded reproducible summary/metrics/provenance |
+| `GET /experiments/{experimentId}/trades` | Read owner-scoped paginated Trade Detail with total count |
+| `GET /experiments/{experimentId}/visualization` | Read exact sealed OHLCV, generic overlays, and Trade-linked markers |
+| `GET /news` | Read normalized news and available sentiment |
 
 ## 11. Contract Ownership and Transport Mapping
 
 Business contracts belong to the module that owns the behavior. Only shapes that cross a process or public transport boundary are candidates for `packages/contracts`.
 
-| Contract group                                    | Business owner                             | Transport/shared location when needed                                                                                 |
-| ------------------------------------------------- | ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
-| Market data normalization and snapshot references | `modules/market-data`                      | `packages/contracts/websocket/market-data.ts` for market WebSocket messages                                           |
-| Strategy, Registry, Composite                     | `modules/strategy`                         | Public module API; REST DTO projections may be shared under `packages/contracts/rest/`                                |
-| Search, Generator, Loop status                    | `modules/search`                           | REST DTO projections under `packages/contracts/rest/`                                                                 |
-| Candidates, Attempts, Trades, Experiment Result   | `modules/backtesting`                      | Queue messages under `packages/contracts/queue/backtesting.ts`; REST DTO projections under `packages/contracts/rest/` |
-| Evaluation metrics                                | `modules/evaluation`                       | REST DTO projection only when exposed externally                                                                      |
-| Score formulas and Leaderboard entries            | `modules/leaderboard`                      | REST DTO projection only when exposed externally                                                                      |
-| News items and provider ports                     | `modules/news`                             | REST DTO projection only when exposed externally                                                                      |
-| Sentiment results and snapshots                   | `modules/sentiment`                        | REST DTO projection only when exposed externally                                                                      |
-| Cross-boundary primitives/enums                   | Owning module where the meaning is defined | Re-export only the minimal serialized form needed by REST, WebSocket, or queue protocols                              |
+| Contract group | Business owner | Transport/shared location when needed |
+|---|---|---|
+| Market data normalization and snapshot references | `modules/market-data` | `packages/contracts/websocket/market-data.ts` for market WebSocket messages |
+| Strategy, Registry, Composite | `modules/strategy` | Public module API; REST DTO projections may be shared under `packages/contracts/rest/` |
+| Search, Generator, Loop status | `modules/search` | REST DTO projections under `packages/contracts/rest/` |
+| Candidates, Attempts, Trades, Experiment Result | `modules/backtesting` | Queue messages under `packages/contracts/queue/backtesting.ts`; REST DTO projections under `packages/contracts/rest/` |
+| Evaluation metrics | `modules/evaluation` | REST DTO projection only when exposed externally |
+| Score formulas and Leaderboard entries | `modules/leaderboard` | REST DTO projection only when exposed externally |
+| News items and provider ports | `modules/news` | REST DTO projection only when exposed externally |
+| Sentiment results and snapshots | `modules/sentiment` | REST DTO projection only when exposed externally |
+| Cross-boundary primitives/enums | Owning module where the meaning is defined | Re-export only the minimal serialized form needed by REST, WebSocket, or queue protocols |
 
 There is no single global barrel for all domain contracts. Consumers import a module's public entrypoint, for example `import { BacktestCoordinator } from "@cryptox/backtesting"` or `import { Strategy } from "@cryptox/strategy"`; deployable processes import transport contracts only where a process boundary requires them.
