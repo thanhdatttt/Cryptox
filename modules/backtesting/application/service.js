@@ -39,6 +39,7 @@ class InMemoryBacktestingRepository {
     async createScope(scope, idempotencyKey) { this.scopes.set(scope.id, clone(scope)); this.scopeIdempotency.set(`${scope.ownerUserId}|${idempotencyKey}`, scope.id); return clone(scope); }
     async findScopeByIdempotency(ownerUserId, idempotencyKey) { const id = this.scopeIdempotency.get(`${ownerUserId}|${idempotencyKey}`); const value = id ? this.scopes.get(id) : undefined; return value ? clone(value) : undefined; }
     async readScope(scopeId) { const value = this.scopes.get(scopeId); return value ? clone(value) : undefined; }
+    async listScopesByOwner(ownerUserId) { return [...this.scopes.values()].filter((scope) => scope.ownerUserId === ownerUserId).sort((left, right) => left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id)).map(clone); }
     async createCandidate(candidate, key) { this.candidates.set(candidate.candidateId, clone(candidate)); if (key)
         this.candidateIdempotency.set(`${candidate.ownerUserId}|${key}`, candidate.candidateId); return clone(candidate); }
     async createQueuedSubmission(input) {
@@ -188,6 +189,10 @@ class BacktestingService {
     now() { return this.deps.clock.now(); }
     assertOwner(ownerUserId, actualOwnerUserId) { if (ownerUserId && ownerUserId !== actualOwnerUserId)
         invalid("BACKTEST_ACCESS_DENIED"); }
+    progress(candidate, attempts) {
+        const { ownerUserId: _ownerUserId, strategyDefinitions: _strategyDefinitions, compositeDefinition: _compositeDefinition, queueJobId: _queueJobId, executionGeneration: _executionGeneration, activeFenceToken: _activeFenceToken, activeLeaseExpiresAt: _activeLeaseExpiresAt, activeCompletionClaimToken: _activeCompletionClaimToken, activeCompletionLeaseExpiresAt: _activeCompletionLeaseExpiresAt, completionGeneration: _completionGeneration, ...projection } = candidate;
+        return { ...clone(projection), attempts: clone(attempts) };
+    }
     async scope(scopeId) { const scope = await this.deps.repository.readScope(scopeId); if (!scope)
         throw new Error("BACKTEST_SCOPE_NOT_FOUND"); return scope; }
     async candidate(candidateId, options) { const candidate = await this.deps.repository.readCandidate(candidateId); if (!candidate)
@@ -206,10 +211,12 @@ class BacktestingService {
         invalid("INVALID_BENCHMARK_SCOPE"); const existing = await this.deps.repository.findScopeByIdempotency(options.ownerUserId, options.scopeIdempotencyKey); if (existing)
         return existing; this.validateScope(command); const captured = await this.captureSnapshot(command.datasetSnapshot.id); const createdAt = this.now(); const scope = { id: this.id(), ownerUserId: options.ownerUserId, name: command.name, version: 1, datasetSnapshot: captured.snapshot, sentimentDatasetSnapshot: command.sentimentDatasetSnapshot, workerRuntimeVersion: command.workerRuntimeVersion, workerRuntimeSha256: command.workerRuntimeSha256, evaluationRuntimeVersion: command.evaluationRuntimeVersion, evaluationRuntimeSha256: command.evaluationRuntimeSha256, pair: captured.snapshot.pair, timeframe: captured.snapshot.timeframe, datasetRange: captured.snapshot.range, datasetSnapshotId: captured.snapshot.id, datasetSnapshotSha256: captured.snapshot.sha256, initialCapital: command.initialCapital, feeRatePercent: command.feeRatePercent, slippageBps: command.slippageBps, riskPolicy: command.riskPolicy, decimalPolicyId: "MVP_DECIMAL_HALF_UP_V1", evaluationPolicyId: "MVP_EVALUATION_V1", scoreFormulaId: command.scoreFormulaId, createdAt }; return this.deps.repository.createScope(scope, options.scopeIdempotencyKey); }
     async readBenchmarkScope(scopeId, options) { const scope = await this.scope(scopeId); this.assertOwner(options?.ownerUserId, scope.ownerUserId); return scope; }
+    async listBenchmarkScopes(options) { if (!options.ownerUserId?.trim())
+        invalid("INVALID_BACKTEST_SCOPE_LIST"); return this.deps.repository.listScopesByOwner(options.ownerUserId); }
     async compositeStrategy(definitions, composite) { const byId = new Map(definitions.map((definition) => [definition.id, definition])); if (composite.components.length === 0 || composite.components.some((component) => !byId.has(component.strategyDefinitionId)))
         invalid("INVALID_COMPOSITE_STRATEGY"); const resolved = await Promise.all(definitions.map(async (definition) => [definition.id, await this.deps.strategy.resolveStrategy(definition)])); const strategies = new Map(resolved); return { name: `composite:${composite.id}`, category: "TREND", analyze: (context) => this.deps.strategy.combineSignals(composite, composite.components.map((component) => ({ strategyDefinitionId: component.strategyDefinitionId, signal: strategies.get(component.strategyDefinitionId).analyze(context) }))) }; }
     candidateRecord(input) { const createdAt = this.now(); const search = input.origin === "SEARCH" ? input.command : undefined; if (!Number.isInteger(input.command.maxAttempts) || input.command.maxAttempts < 1)
-        invalid("INVALID_BACKTEST_SUBMISSION"); return { candidateId: input.candidateId, ownerUserId: input.ownerUserId, origin: input.origin, selectionMode: "COMPOSITE", searchRunId: search?.searchRunId, iterationNumber: search?.iterationNumber, leaderboardScopeId: input.scope.id, status: "QUEUED", attempts: [], maxAttempts: input.command.maxAttempts, completionAttemptCount: 0, completionMaxAttempts: 5, executionGeneration: 0, completionGeneration: 0, strategyDefinitions: clone(input.command.strategyDefinitions), compositeDefinition: clone(input.command.compositeDefinition), queueJobId: input.candidateId, createdAt, updatedAt: createdAt }; }
+        invalid("INVALID_BACKTEST_SUBMISSION"); const single = input.command.strategyDefinitions.length === 1 && input.command.compositeDefinition.components.length === 1 && input.command.compositeDefinition.components[0]?.strategyDefinitionId === input.command.strategyDefinitions[0]?.id && input.command.compositeDefinition.components[0]?.weight === 1; return { candidateId: input.candidateId, ownerUserId: input.ownerUserId, origin: input.origin, selectionMode: single ? "SINGLE" : "COMPOSITE", searchRunId: search?.searchRunId, iterationNumber: search?.iterationNumber, leaderboardScopeId: input.scope.id, status: "QUEUED", attempts: [], maxAttempts: input.command.maxAttempts, completionAttemptCount: 0, completionMaxAttempts: 5, executionGeneration: 0, completionGeneration: 0, strategyDefinitions: clone(input.command.strategyDefinitions), compositeDefinition: clone(input.command.compositeDefinition), queueJobId: input.candidateId, createdAt, updatedAt: createdAt }; }
     dispatchRecord(candidate, scope) { const createdAt = this.now(); return { job: { schemaVersion: 1, jobId: candidate.candidateId, candidateId: candidate.candidateId, leaderboardScopeId: scope.id, maxAttempts: candidate.maxAttempts, workerRuntimeVersion: scope.workerRuntimeVersion, workerRuntimeSha256: scope.workerRuntimeSha256, enqueuedAt: createdAt }, state: "PENDING", dispatchAttempts: 0, createdAt, updatedAt: createdAt }; }
     async dispatchOne(dispatch) { if (dispatch.state === "CANCELLED")
         return false; try {
@@ -323,11 +330,11 @@ class BacktestingService {
         }
         return { processed, pending: ids.length - processed };
     }
-    async status(candidateId, options) { const candidate = await this.candidate(candidateId, options); return { ...candidate, attempts: await this.deps.repository.listAttempts(candidateId) }; }
-    async summarizeSearchCandidates(searchRunId) { const candidates = await this.deps.repository.listCandidatesBySearchRun(searchRunId); const active = candidates.filter((candidate) => !terminal(candidate.status)); const attempts = (await Promise.all(candidates.map((candidate) => this.deps.repository.listAttempts(candidate.candidateId)))).flat(); const failed = candidates.filter((candidate) => candidate.status === "FAILED" || candidate.status === "TERMINAL_FAILURE_PENDING"); return { searchRunId, active, queuedCount: candidates.filter((candidate) => candidate.status === "QUEUED").length, runningCount: candidates.filter((candidate) => ["BACKTESTING", "RETRY_WAIT", "PROCESSING_RESULT"].includes(candidate.status)).length, candidatesTested: candidates.length, failedCandidateCount: failed.length, retryExhaustedCandidateCount: failed.filter((candidate) => candidate.failureKind === "RETRY_EXHAUSTED").length, infrastructureFailureCandidateCount: failed.filter((candidate) => candidate.failureKind === "INFRASTRUCTURE").length, completionProcessingFailureCandidateCount: failed.filter((candidate) => candidate.failureKind === "COMPLETION_PROCESSING").length, failedAttemptCount: attempts.filter((attempt) => attempt.status === "FAILED").length, averageBacktestDurationMs: null }; }
+    async status(candidateId, options) { const candidate = await this.candidate(candidateId, options); return this.progress(candidate, await this.deps.repository.listAttempts(candidateId)); }
+    async summarizeSearchCandidates(searchRunId) { const candidates = await this.deps.repository.listCandidatesBySearchRun(searchRunId); const attemptsByCandidate = await Promise.all(candidates.map(async (candidate) => [candidate, await this.deps.repository.listAttempts(candidate.candidateId)])); const active = attemptsByCandidate.filter(([candidate]) => !terminal(candidate.status)).map(([candidate, attempts]) => this.progress(candidate, attempts)); const attempts = attemptsByCandidate.flatMap(([, candidateAttempts]) => candidateAttempts); const failed = candidates.filter((candidate) => candidate.status === "FAILED" || candidate.status === "TERMINAL_FAILURE_PENDING"); return { searchRunId, active, queuedCount: candidates.filter((candidate) => candidate.status === "QUEUED").length, runningCount: candidates.filter((candidate) => ["BACKTESTING", "RETRY_WAIT", "PROCESSING_RESULT"].includes(candidate.status)).length, candidatesTested: candidates.length, failedCandidateCount: failed.length, retryExhaustedCandidateCount: failed.filter((candidate) => candidate.failureKind === "RETRY_EXHAUSTED").length, infrastructureFailureCandidateCount: failed.filter((candidate) => candidate.failureKind === "INFRASTRUCTURE").length, completionProcessingFailureCandidateCount: failed.filter((candidate) => candidate.failureKind === "COMPLETION_PROCESSING").length, failedAttemptCount: attempts.filter((attempt) => attempt.status === "FAILED").length, averageBacktestDurationMs: null }; }
     async listSearchCandidates(searchRunId, page) { if (!Number.isInteger(page.limit) || page.limit < 1)
         invalid("INVALID_PAGE"); const items = (await this.deps.repository.listCandidatesBySearchRun(searchRunId)).sort((left, right) => left.createdAt.localeCompare(right.createdAt)); const offset = page.cursor ? Number(page.cursor) : 0; if (!Number.isInteger(offset) || offset < 0)
-        invalid("INVALID_PAGE"); const selected = items.slice(offset, offset + page.limit); return { items: selected, nextCursor: offset + page.limit < items.length ? String(offset + page.limit) : undefined }; }
+        invalid("INVALID_PAGE"); const selected = items.slice(offset, offset + page.limit); return { items: await Promise.all(selected.map(async (candidate) => this.progress(candidate, await this.deps.repository.listAttempts(candidate.candidateId)))), nextCursor: offset + page.limit < items.length ? String(offset + page.limit) : undefined }; }
     async cancelSearchCandidates(searchRunId) { const candidates = await this.deps.repository.listCandidatesBySearchRun(searchRunId); const cancelled = []; for (const candidate of candidates)
         if (!terminal(candidate.status)) {
             candidate.status = "CANCELLED";
@@ -338,7 +345,9 @@ class BacktestingService {
             await this.deps.repository.markDispatchCancelled(candidate.queueJobId, candidate.updatedAt);
             cancelled.push(candidate.candidateId);
         } return { candidateIds: cancelled }; }
-    async cancelManualCandidate(candidateId) { const candidate = await this.candidate(candidateId); if (!terminal(candidate.status)) {
+    async cancelManualCandidate(candidateId, unitOfWork, options) { if (unitOfWork.kind !== "CANCELLATION" || !unitOfWork.id)
+        invalid("INVALID_CANCELLATION"); const candidate = await this.candidate(candidateId, options); if (candidate.origin !== "MANUAL")
+        invalid("BACKTEST_CANDIDATE_NOT_MANUAL"); if (!terminal(candidate.status)) {
         candidate.status = "CANCELLED";
         candidate.activeFenceToken = undefined;
         candidate.activeLeaseExpiresAt = undefined;
@@ -368,6 +377,27 @@ class BacktestingService {
         invalid("INVALID_SCORE"); await this.readExperimentSummary(experimentId, options); const updated = await this.deps.repository.updateExperimentScore(experimentId, input); if (!updated)
         throw new Error("EXPERIMENT_NOT_FOUND"); return updated; }
     async listExperimentTrades(experimentId, page, options) { const experiment = await this.readExperimentSummary(experimentId, options); return this.pageTrades(experiment.trades, page); }
+    async readExperimentVisualization(experimentId, page, options) {
+        if (!Number.isInteger(page.limit) || page.limit < 1)
+            invalid("INVALID_VISUALIZATION_PAGE");
+        const experiment = await this.readExperimentSummary(experimentId, options);
+        const input = await this.snapshot(experiment.datasetSnapshot.id);
+        const from = page.from ?? input.snapshot.range.from;
+        const to = page.to ?? input.snapshot.range.to;
+        if (!Number.isFinite(Date.parse(from)) || !Number.isFinite(Date.parse(to)) || Date.parse(from) < Date.parse(input.snapshot.range.from) || Date.parse(to) > Date.parse(input.snapshot.range.to) || Date.parse(from) >= Date.parse(to))
+            invalid("INVALID_VISUALIZATION_PAGE");
+        if (page.highlightTradeId && !experiment.trades.some((trade) => trade.id === page.highlightTradeId))
+            invalid("TRADE_NOT_FOUND");
+        const offset = page.cursor ? Number(page.cursor) : 0;
+        if (!Number.isInteger(offset) || offset < 0)
+            invalid("INVALID_VISUALIZATION_PAGE");
+        const allCandles = input.candles.filter((candle) => candle.isClosed && candle.timestamp >= from && candle.timestamp < to);
+        const candles = allCandles.slice(offset, offset + page.limit);
+        const marker = (trade, kind, time, price) => ({ id: `${trade.id}:${kind}`, tradeId: trade.id, sequence: trade.sequence, kind, time, price, highlighted: trade.id === page.highlightTradeId });
+        const order = { ENTRY: 0, STOP_LOSS: 1, TAKE_PROFIT: 2, EXIT: 3 };
+        const markers = experiment.trades.flatMap((trade) => [marker(trade, "ENTRY", trade.entryTime, trade.entryPrice), ...(trade.stopLoss === null ? [] : [marker(trade, "STOP_LOSS", trade.entryTime, trade.stopLoss)]), ...(trade.takeProfit === null ? [] : [marker(trade, "TAKE_PROFIT", trade.entryTime, trade.takeProfit)]), marker(trade, "EXIT", trade.exitTime, trade.exitPrice)]).filter((item) => item.time >= from && item.time < to).sort((left, right) => left.time.localeCompare(right.time) || left.sequence - right.sequence || order[left.kind] - order[right.kind] || left.id.localeCompare(right.id));
+        return { experimentId, datasetSnapshot: input.snapshot, candles, overlays: [], markers, nextCursor: offset + page.limit < allCandles.length ? String(offset + page.limit) : undefined };
+    }
     pageTrades(trades, page) { if (!Number.isInteger(page.limit) || page.limit < 1)
         invalid("INVALID_PAGE"); const offset = page.cursor ? Number(page.cursor) : 0; if (!Number.isInteger(offset) || offset < 0)
         invalid("INVALID_PAGE"); const items = trades.slice(offset, offset + page.limit); return { items, nextCursor: offset + page.limit < trades.length ? String(offset + page.limit) : undefined }; }

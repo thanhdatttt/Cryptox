@@ -1,8 +1,10 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.combineSignals = exports.resolveStrategy = exports.listStrategies = void 0;
+exports.defineComposite = exports.defineStrategy = exports.readComposite = exports.listComposites = exports.readDefinitions = exports.listDefinitions = exports.combineSignals = exports.resolveStrategy = exports.listStrategies = void 0;
 const plugins_1 = require("../domain/plugins");
+const service_1 = require("../application/service");
 const factories = new Map(plugins_1.builtInFactories.map((factory) => [factory.descriptor.name, factory]));
+const defaultRuntime = (0, service_1.createStrategyModule)();
 const listStrategies = () => plugins_1.builtInFactories.map((factory) => factory.descriptor);
 exports.listStrategies = listStrategies;
 const resolveStrategy = async (definition) => {
@@ -34,3 +36,15 @@ const combineSignals = (definition, signals) => {
     return "HOLD";
 };
 exports.combineSignals = combineSignals;
+const listDefinitions = (userId) => defaultRuntime.listDefinitions(userId);
+exports.listDefinitions = listDefinitions;
+const readDefinitions = (userId, ids) => defaultRuntime.readDefinitions(userId, ids);
+exports.readDefinitions = readDefinitions;
+const listComposites = (userId) => defaultRuntime.listComposites(userId);
+exports.listComposites = listComposites;
+const readComposite = (userId, id) => defaultRuntime.readComposite(userId, id);
+exports.readComposite = readComposite;
+const defineStrategy = (userId, strategyName, parameters) => defaultRuntime.defineStrategy(userId, strategyName, parameters);
+exports.defineStrategy = defineStrategy;
+const defineComposite = (userId, command) => defaultRuntime.defineComposite(userId, command);
+exports.defineComposite = defineComposite;

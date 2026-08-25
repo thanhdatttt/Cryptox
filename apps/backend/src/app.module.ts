@@ -4,6 +4,7 @@ import { AuthException, type AuthModulePublicApi } from "modules/auth/api";
 import { BACKTEST_RUNTIME_SHA256, BACKTEST_RUNTIME_VERSION } from "modules/backtesting/api/bootstrap";
 import type { Timeframe } from "modules/market-data/api";
 import { composeAllModules, type BackendModules } from "./compose";
+import { MarketGateway } from "./market.gateway";
 
 export const BACKEND_MODULES = "BACKEND_MODULES";
 
@@ -86,7 +87,8 @@ const strategyHttpError = (error: unknown): never => {
 const backtestHttpError = (error: unknown): never => {
   if (!(error instanceof Error)) throw error;
   if (error.message.endsWith("_NOT_FOUND")) throw new NotFoundException(error.message);
-  if (error.message === "BACKTEST_ACCESS_DENIED") throw new UnauthorizedException(error.message);
+  if (error.message === "BACKTEST_ACCESS_DENIED") throw new NotFoundException(error.message);
+  if (error.message === "BACKTEST_CANDIDATE_NOT_MANUAL") throw new ConflictException(error.message);
   if (error.message.startsWith("INVALID_") || error.message.includes("DATASET") || error.message.includes("STRATEGY")) throw new BadRequestException(error.message);
   throw error;
 };
@@ -103,7 +105,7 @@ const positiveInteger = (value: unknown): number | undefined => typeof value ===
 const searchHttpError = (error: unknown): never => {
   if (!(error instanceof Error)) throw error;
   if (error.message.endsWith("_NOT_FOUND")) throw new NotFoundException(error.message);
-  if (error.message === "SEARCH_ACCESS_DENIED" || error.message === "BACKTEST_ACCESS_DENIED") throw new UnauthorizedException(error.message);
+  if (error.message === "SEARCH_ACCESS_DENIED" || error.message === "BACKTEST_ACCESS_DENIED") throw new NotFoundException(error.message);
   if (error.message.startsWith("INVALID_") || error.message === "EMPTY_SEARCH_SPACE" || error.message === "CANNOT_RESUME_FAILED_RUN") throw new BadRequestException(error.message);
   throw error;
 };
@@ -143,12 +145,17 @@ export class StrategyController extends ProtectedController {
   @Get("definitions")
   async definitions(@Headers("authorization") authorization: string | undefined, @Query("ids") ids?: string) {
     const userId = await this.authenticate(authorization);
-    if (!ids) throw new BadRequestException("ids is required.");
     try {
-      return await this.modules.strategy.readDefinitions(userId, ids.split(",").filter(Boolean));
+      return ids ? await this.modules.strategy.readDefinitions(userId, ids.split(",").filter(Boolean)) : await this.modules.strategy.listDefinitions(userId);
     } catch (error) {
       return strategyHttpError(error);
     }
+  }
+
+  @Get("composites")
+  async composites(@Headers("authorization") authorization: string | undefined) {
+    const userId = await this.authenticate(authorization);
+    return this.modules.strategy.listComposites(userId);
   }
 
   @Get("composites/:id")
@@ -172,6 +179,11 @@ export class MarketController extends ProtectedController {
     @Query("pair") pair: string | undefined,
     @Query("timeframe") timeframe: string | undefined,
     @Query("limit") limit?: string,
+    @Query("from") from?: string,
+    @Query("to") to?: string,
+    @Query("cursor") cursor?: string,
+    @Query("includeForming") includeForming?: string,
+    @Query("completeness") completeness?: string,
   ) {
     await this.authenticate(authorization);
     if (!pair || !timeframe) throw new BadRequestException("pair and timeframe are required.");
@@ -180,8 +192,11 @@ export class MarketController extends ProtectedController {
       parsedLimit = Number(limit);
       if (!Number.isInteger(parsedLimit) || parsedLimit <= 0) throw new BadRequestException("limit must be a positive integer.");
     }
+    if ((from === undefined) !== (to === undefined)) throw new BadRequestException("from and to must be supplied together.");
+    if (includeForming !== undefined && includeForming !== "true" && includeForming !== "false") throw new BadRequestException("includeForming must be true or false.");
+    if (completeness !== undefined && completeness !== "ALLOW_PARTIAL" && completeness !== "REQUIRE_COMPLETE") throw new BadRequestException("completeness is invalid.");
     try {
-      return await this.modules.marketData.readCandles({ pair, timeframe: timeframe as Timeframe, limit: parsedLimit });
+      return await this.modules.marketData.readCandles({ pair, timeframe: timeframe as Timeframe, limit: parsedLimit, range: from && to ? { from, to } : undefined, cursor, includeForming: includeForming === "true", completeness: completeness as "ALLOW_PARTIAL" | "REQUIRE_COMPLETE" | undefined });
     } catch (error) {
       if (error instanceof Error && "code" in error) throw new BadRequestException(error.message);
       throw error;
@@ -263,7 +278,7 @@ export class SentimentController extends ProtectedController {
   }
 }
 
-@Controller("backtest-scopes")
+@Controller(["leaderboard-scopes", "backtest-scopes"])
 export class BacktestScopeController extends ProtectedController {
   constructor(@Inject(BACKEND_MODULES) modules: BackendModules) { super(modules); }
 
@@ -275,7 +290,7 @@ export class BacktestScopeController extends ProtectedController {
   ) {
     const userId = await this.authenticate(authorization);
     if (typeof body?.name !== "string" || typeof body?.pair !== "string" || typeof body?.timeframe !== "string" || typeof body?.from !== "string" || typeof body?.to !== "string") throw new BadRequestException("name, pair, timeframe, from, and to are required.");
-    const initialCapital = positiveNumber(body.initialCapital); const feeRatePercent = nonNegativeNumber(body.feeRatePercent); const slippageBps = nonNegativeNumber(body.slippageBps) ?? 0;
+    const initialCapital = positiveNumber(body.initialCapital); const feeRatePercent = nonNegativeNumber(body.feeRatePercent); const slippageBps = nonNegativeNumber(body.slippageBps) ?? 5;
     if (initialCapital === undefined || feeRatePercent === undefined || !Number.isInteger(slippageBps)) throw new BadRequestException("initialCapital, feeRatePercent, and integer slippageBps are required.");
     const stopLossPercent = positiveNumber(body.stopLossPercent); const takeProfitPercent = positiveNumber(body.takeProfitPercent);
     if ((body.stopLossPercent !== undefined && stopLossPercent === undefined) || (body.takeProfitPercent !== undefined && takeProfitPercent === undefined)) throw new BadRequestException("risk percentages must be positive numbers.");
@@ -284,6 +299,12 @@ export class BacktestScopeController extends ProtectedController {
       return await this.modules.backtesting.createBenchmarkScope({ name: body.name, datasetSnapshot, initialCapital, feeRatePercent, slippageBps, riskPolicy: stopLossPercent === undefined && takeProfitPercent === undefined ? undefined : { stopLossPercent, takeProfitPercent }, scoreFormulaId: typeof body.scoreFormulaId === "string" && body.scoreFormulaId.trim() ? body.scoreFormulaId : "MVP_MANUAL_V1", workerRuntimeVersion: BACKTEST_RUNTIME_VERSION, workerRuntimeSha256: BACKTEST_RUNTIME_SHA256, evaluationRuntimeVersion: this.modules.evaluation.runtimeVersion, evaluationRuntimeSha256: this.modules.evaluation.runtimeSha256 }, { ownerUserId: userId, scopeIdempotencyKey: idempotencyKey?.trim() || randomUUID() });
     } catch (error) { return backtestHttpError(error); }
   }
+
+  @Get()
+  async list(@Headers("authorization") authorization: string | undefined) {
+    const userId = await this.authenticate(authorization);
+    try { return await this.modules.backtesting.listBenchmarkScopes({ ownerUserId: userId }); } catch (error) { return backtestHttpError(error); }
+  }
 }
 
 @Controller("backtests")
@@ -291,7 +312,7 @@ export class BacktestController extends ProtectedController {
   constructor(@Inject(BACKEND_MODULES) modules: BackendModules) { super(modules); }
 
   @Post()
-  @HttpCode(201)
+  @HttpCode(202)
   async start(
     @Headers("authorization") authorization: string | undefined,
     @Headers("idempotency-key") idempotencyKey: string | undefined,
@@ -306,6 +327,13 @@ export class BacktestController extends ProtectedController {
       const compositeDefinition = await this.modules.strategy.readComposite(userId, body.compositeDefinitionId);
       return await this.modules.backtesting.startManual({ leaderboardScopeId: body.leaderboardScopeId, strategyDefinitions, compositeDefinition, maxAttempts }, { ownerUserId: userId, submissionIdempotencyKey: idempotencyKey?.trim() || undefined });
     } catch (error) { return backtestHttpError(error); }
+  }
+
+  @Post(":candidateId/cancel")
+  @HttpCode(204)
+  async cancel(@Headers("authorization") authorization: string | undefined, @Param("candidateId") candidateId: string) {
+    const userId = await this.authenticate(authorization);
+    try { await this.modules.backtesting.cancelManualCandidate(candidateId, { kind: "CANCELLATION", id: randomUUID() }, { ownerUserId: userId }); } catch (error) { return backtestHttpError(error); }
   }
 
   @Get(":candidateId")
@@ -331,6 +359,10 @@ export class ExperimentController extends ProtectedController {
   async read(@Headers("authorization") authorization: string | undefined, @Param("experimentId") experimentId: string) { const userId = await this.authenticate(authorization); try { return await this.modules.backtesting.readExperimentSummary(experimentId, { ownerUserId: userId }); } catch (error) { return backtestHttpError(error); } }
   @Get(":experimentId/trades")
   async trades(@Headers("authorization") authorization: string | undefined, @Param("experimentId") experimentId: string, @Query("limit") limit?: string, @Query("cursor") cursor?: string) { const userId = await this.authenticate(authorization); const parsed = limit === undefined ? 100 : Number(limit); if (!Number.isInteger(parsed) || parsed < 1) throw new BadRequestException("limit must be a positive integer."); try { return await this.modules.backtesting.listExperimentTrades(experimentId, { limit: parsed, cursor }, { ownerUserId: userId }); } catch (error) { return backtestHttpError(error); } }
+  @Get(":experimentId/visualization")
+  async visualization(@Headers("authorization") authorization: string | undefined, @Param("experimentId") experimentId: string, @Query("limit") limit?: string, @Query("cursor") cursor?: string, @Query("from") from?: string, @Query("to") to?: string, @Query("highlightTradeId") highlightTradeId?: string) { const userId = await this.authenticate(authorization); const parsed = limit === undefined ? 1000 : Number(limit); if (!Number.isInteger(parsed) || parsed < 1) throw new BadRequestException("limit must be a positive integer."); try { return await this.modules.backtesting.readExperimentVisualization(experimentId, { limit: parsed, cursor, from, to, highlightTradeId }, { ownerUserId: userId }); } catch (error) { return backtestHttpError(error); } }
+  @Post(":experimentId/replay")
+  async replay(@Headers("authorization") authorization: string | undefined, @Param("experimentId") experimentId: string) { const userId = await this.authenticate(authorization); try { return await this.modules.backtesting.verifyReplay(experimentId, { ownerUserId: userId }); } catch (error) { return backtestHttpError(error); } }
 }
 
 @Controller("search-runs")
@@ -365,19 +397,24 @@ export class SearchController extends ProtectedController {
   async resume(@Headers("authorization") authorization: string | undefined, @Param("searchRunId") searchRunId: string) { const userId = await this.authenticate(authorization); try { await this.modules.search.resume(searchRunId, { ownerUserId: userId }); } catch (error) { return searchHttpError(error); } }
   @Post(":searchRunId/cancel")
   async cancel(@Headers("authorization") authorization: string | undefined, @Param("searchRunId") searchRunId: string) { const userId = await this.authenticate(authorization); try { await this.modules.search.cancel(searchRunId, { ownerUserId: userId }); } catch (error) { return searchHttpError(error); } }
+  @Get(":searchRunId/candidates")
+  async candidates(@Headers("authorization") authorization: string | undefined, @Param("searchRunId") searchRunId: string, @Query("limit") limit?: string, @Query("cursor") cursor?: string) { const userId = await this.authenticate(authorization); const parsed = limit === undefined ? 100 : Number(limit); if (!Number.isInteger(parsed) || parsed < 1) throw new BadRequestException("limit must be a positive integer."); try { await this.modules.search.status(searchRunId, { ownerUserId: userId }); return await this.modules.backtesting.listSearchCandidates(searchRunId, { limit: parsed, cursor }); } catch (error) { return searchHttpError(error); } }
   @Get(":searchRunId/leaderboard")
   async leaderboard(@Headers("authorization") authorization: string | undefined, @Param("searchRunId") searchRunId: string) { const userId = await this.authenticate(authorization); try { return await this.modules.search.leaderboard(searchRunId, { ownerUserId: userId }); } catch (error) { return searchHttpError(error); } }
 }
 
-@Controller("leaderboards")
+@Controller(["leaderboard", "leaderboards"])
 export class LeaderboardController extends ProtectedController {
   constructor(@Inject(BACKEND_MODULES) modules: BackendModules) { super(modules); }
+  @Get()
+  async list(@Headers("authorization") authorization: string | undefined, @Query("scopeId") scopeId?: string) { if (!scopeId) throw new BadRequestException("scopeId is required."); return this.readTopK(authorization, scopeId); }
   @Get(":leaderboardScopeId")
-  async topK(@Headers("authorization") authorization: string | undefined, @Param("leaderboardScopeId") leaderboardScopeId: string) { const userId = await this.authenticate(authorization); try { await this.modules.backtesting.readBenchmarkScope(leaderboardScopeId, { ownerUserId: userId }); return await this.modules.leaderboard.topK(leaderboardScopeId); } catch (error) { return searchHttpError(error); } }
+  async topK(@Headers("authorization") authorization: string | undefined, @Param("leaderboardScopeId") leaderboardScopeId: string) { return this.readTopK(authorization, leaderboardScopeId); }
+  private async readTopK(authorization: string | undefined, leaderboardScopeId: string) { const userId = await this.authenticate(authorization); try { await this.modules.backtesting.readBenchmarkScope(leaderboardScopeId, { ownerUserId: userId }); return await this.modules.leaderboard.topK(leaderboardScopeId); } catch (error) { return searchHttpError(error); } }
 }
 
 @Module({
   controllers: [HealthController, AuthController, StrategyController, MarketController, NewsController, SentimentController, BacktestScopeController, BacktestController, BacktestAttemptController, ExperimentController, SearchController, LeaderboardController],
-  providers: [{ provide: BACKEND_MODULES, useFactory: (): BackendModules => composeAllModules() }],
+  providers: [MarketGateway, { provide: BACKEND_MODULES, useFactory: (): BackendModules => composeAllModules() }],
 })
 export class AppModule {}

@@ -53,15 +53,16 @@ The audit also found source-adjacent generated JavaScript/declaration files that
    - Make configured Binance access real without fabricating a provider success on failure; supply a concrete local/demo news provider and deterministic sentiment fallback with model/version provenance.
    - Expose the required authenticated REST commands and reads and prove collect → normalize → persist → analyze and snapshot retrieval with integration fixtures.
 
-6. **Implement durable Backtesting completion, ranking, and Search advancement** *(completed; commit pending)*
+6. **Implement durable Backtesting completion, ranking, and Search advancement** *(completed in `956b1c5`)*
    - Move evaluation, experiment persistence, scoring, and Top-K admission out of the worker completion path into a durable completion processor.
    - Add the BullMQ terminal-notification adapter, terminal-failure/retry recovery, and startup reconciliation required by ADR-003.
    - On each idempotent terminal completion/failure, release the corresponding Search slot and advance its bounded deterministic loop.
    - Acceptance: integration tests prove queued generate → worker → completion processor → evaluate → rank → next slot, duplicate terminal notifications, and exhausted retry handling.
 
-7. **Close remaining backend REST transport and facade gaps**
+7. **Close remaining backend REST transport and facade gaps** *(in progress)*
    - Complete and verify all authenticated Strategy, Market Data, Backtesting, Search, Leaderboard, News, and Sentiment transport surfaces; remove or replace any remaining assignment-required facade or adapter placeholder found by the post-completion audit.
-   - Acceptance: module-boundary REST integration tests prove the full authenticated backend flow without controller-owned domain logic or undeclared external credentials.
+   - Add the normalized authenticated Market WebSocket transport using the declared npm Nest/socket.io dependencies and the shared versioned market message contract.
+   - Acceptance: module-boundary REST/WebSocket integration tests prove the full authenticated backend flow without controller-owned domain logic or undeclared external credentials.
 
 8. **Docker-backed backend integration and final traceability**
    - Make Docker Compose run PostgreSQL, Redis, backend, and the backtest worker; apply migrations and execute a real end-to-end validation.

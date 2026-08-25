@@ -1,8 +1,8 @@
-import type { BacktestAttemptAudit, BacktestSubmissionAccepted, BenchmarkScopeSummary, CandidateProgress, CancellationUnitOfWork, CreateLeaderboardScopeCommand, ExperimentResultSummary, ReplayVerificationResult, StartManualBacktestCommand, SubmitSearchCandidateCommand, Trade } from "../domain/contracts";
+import type { BacktestAttemptAudit, BacktestSubmissionAccepted, BenchmarkScopeSummary, CandidateProgress, CancellationUnitOfWork, CreateLeaderboardScopeCommand, ExperimentResultSummary, ExperimentVisualization, ReplayVerificationResult, StartManualBacktestCommand, SubmitSearchCandidateCommand, Trade } from "../domain/contracts";
 import type { BacktestQueueJob, BacktestQueueReturn, BacktestQueueTerminalSignal } from "@cryptox/contracts/queue";
 export { simulateBacktest } from "../domain/simulator";
 export type { SimulationInput } from "../domain/simulator";
-export type { CandidateStatus, BacktestSubmissionAccepted, CancellationUnitOfWork, CompletionUnitOfWork, Trade, CompletedBacktestResult, GeneratorType, CreateLeaderboardScopeCommand, StartManualBacktestCommand, SubmitSearchCandidateCommand, BenchmarkScopeSummary, ReplayVerificationResult, CandidateProgress, BacktestAttemptProgress, BacktestAttemptAudit, ExperimentResult, ExperimentResultSummary } from "../domain/contracts";
+export type { CandidateStatus, BacktestSubmissionAccepted, CancellationUnitOfWork, CompletionUnitOfWork, Trade, CompletedBacktestResult, GeneratorType, CreateLeaderboardScopeCommand, StartManualBacktestCommand, SubmitSearchCandidateCommand, BenchmarkScopeSummary, ReplayVerificationResult, CandidateProgress, BacktestAttemptProgress, BacktestAttemptAudit, ExperimentResult, ExperimentResultSummary, ExperimentVisualization, ExperimentVisualizationMarker } from "../domain/contracts";
 export interface SearchCandidateSummary {
     searchRunId: string;
     active: CandidateProgress[];
@@ -32,6 +32,13 @@ export interface TradePage {
     items: Trade[];
     nextCursor?: string;
 }
+export interface ExperimentVisualizationPageRequest {
+    limit: number;
+    cursor?: string;
+    from?: string;
+    to?: string;
+    highlightTradeId?: string;
+}
 export interface BacktestReadOptions {
     ownerUserId?: string;
 }
@@ -41,6 +48,7 @@ export interface BacktestLogApi {
         ownerUserId: string;
     }): Promise<BenchmarkScopeSummary>;
     readBenchmarkScope(scopeId: string, options?: BacktestReadOptions): Promise<BenchmarkScopeSummary>;
+    listBenchmarkScopes(options: Required<BacktestReadOptions>): Promise<BenchmarkScopeSummary[]>;
     startManual(command: StartManualBacktestCommand, options: {
         ownerUserId: string;
         submissionIdempotencyKey?: string;
@@ -73,7 +81,7 @@ export interface BacktestLogApi {
     cancelSearchCandidates(searchRunId: string, unitOfWork: CancellationUnitOfWork): Promise<{
         candidateIds: string[];
     }>;
-    cancelManualCandidate(candidateId: string, unitOfWork: CancellationUnitOfWork): Promise<void>;
+    cancelManualCandidate(candidateId: string, unitOfWork: CancellationUnitOfWork, options?: BacktestReadOptions): Promise<void>;
     removePendingJobs(candidateIds: string[]): Promise<void>;
     readAttempt(attemptId: string, options?: BacktestReadOptions): Promise<BacktestAttemptAudit>;
     listAttemptTrades(attemptId: string, page: TradePageRequest, options?: BacktestReadOptions): Promise<TradePage>;
@@ -84,10 +92,12 @@ export interface BacktestLogApi {
         rankEligible: boolean;
     }, options?: BacktestReadOptions): Promise<ExperimentResultSummary>;
     listExperimentTrades(experimentId: string, page: TradePageRequest, options?: BacktestReadOptions): Promise<TradePage>;
+    readExperimentVisualization(experimentId: string, page: ExperimentVisualizationPageRequest, options?: BacktestReadOptions): Promise<ExperimentVisualization>;
     verifyReplay(experimentId: string, options?: BacktestReadOptions): Promise<ReplayVerificationResult>;
 }
 export declare const createBenchmarkScope: BacktestLogApi["createBenchmarkScope"];
 export declare const readBenchmarkScope: BacktestLogApi["readBenchmarkScope"];
+export declare const listBenchmarkScopes: BacktestLogApi["listBenchmarkScopes"];
 export declare const startManual: BacktestLogApi["startManual"];
 export declare const submitSearchCandidate: BacktestLogApi["submitSearchCandidate"];
 export declare const reconcileQueue: BacktestLogApi["reconcileQueue"];
@@ -108,5 +118,6 @@ export declare const readExperimentSummary: BacktestLogApi["readExperimentSummar
 export declare const listSearchExperimentSummaries: BacktestLogApi["listSearchExperimentSummaries"];
 export declare const scoreExperiment: BacktestLogApi["scoreExperiment"];
 export declare const listExperimentTrades: BacktestLogApi["listExperimentTrades"];
+export declare const readExperimentVisualization: BacktestLogApi["readExperimentVisualization"];
 export declare const verifyReplay: BacktestLogApi["verifyReplay"];
 export { createBacktestingService, createInMemoryBacktestingDependencies } from "../application/service";

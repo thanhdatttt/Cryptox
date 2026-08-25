@@ -1,5 +1,5 @@
 import type { CompositeStrategyDefinition, StrategyDefinition } from "modules/strategy/api";
-import type { DatasetSnapshotRef, Pair, Timeframe } from "modules/market-data/api";
+import type { Candle, DatasetSnapshotRef, Pair, Timeframe } from "modules/market-data/api";
 import type { SentimentDatasetSnapshotRef } from "modules/sentiment/api";
 export type CandidateStatus = "CREATED" | "QUEUED" | "BACKTESTING" | "RETRY_WAIT" | "PROCESSING_RESULT" | "TERMINAL_FAILURE_PENDING" | "COMPLETED" | "FAILED" | "CANCELLED";
 export interface BacktestSubmissionAccepted {
@@ -189,4 +189,21 @@ export interface ExperimentResultSummary extends ExperimentResult {
     metrics: import("modules/evaluation/api").EvaluationMetrics;
     trades: Trade[];
     createdAt: string;
+}
+export interface ExperimentVisualizationMarker {
+    id: string;
+    tradeId: string;
+    sequence: number;
+    kind: "ENTRY" | "STOP_LOSS" | "TAKE_PROFIT" | "EXIT";
+    time: string;
+    price: number;
+    highlighted: boolean;
+}
+export interface ExperimentVisualization {
+    experimentId: string;
+    datasetSnapshot: DatasetSnapshotRef;
+    candles: Candle[];
+    overlays: [];
+    markers: ExperimentVisualizationMarker[];
+    nextCursor?: string;
 }

@@ -71,11 +71,13 @@ function createInMemoryStrategyDependencies() {
                 throw new Error("STRATEGY_ARTIFACT_NOT_FOUND"); return factory; } },
         definitionRepository: {
             insert: async (ownerUserId, definition) => { definitions.set(definition.id, { ownerUserId, value: definition }); return definition; },
+            list: async (ownerUserId) => [...definitions.values()].filter((item) => item.ownerUserId === ownerUserId).map((item) => item.value).sort((left, right) => left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id)),
             listByIds: async (ownerUserId, ids) => ids.flatMap((id) => { const definition = definitions.get(id); return definition?.ownerUserId === ownerUserId ? [definition.value] : []; }),
             listByLogicalFamily: async (ownerUserId, logicalFamilyKey) => [...definitions.values()].filter((item) => item.ownerUserId === ownerUserId && item.value.logicalFamilyKey === logicalFamilyKey).map((item) => item.value),
         },
         compositeRepository: {
             insert: async (ownerUserId, composite) => { composites.set(composite.id, { ownerUserId, value: composite }); return composite; },
+            list: async (ownerUserId) => [...composites.values()].filter((item) => item.ownerUserId === ownerUserId).map((item) => item.value).sort((left, right) => left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id)),
             get: async (ownerUserId, id) => { const composite = composites.get(id); return composite?.ownerUserId === ownerUserId ? composite.value : undefined; },
             listByLogicalFamily: async (ownerUserId, logicalFamilyKey) => [...composites.values()].filter((item) => item.ownerUserId === ownerUserId && item.value.logicalFamilyKey === logicalFamilyKey).map((item) => item.value),
         },
@@ -97,7 +99,9 @@ function createStrategyModule(dependencies = createInMemoryStrategyDependencies(
             return runtimeResolve(definition);
         },
         combineSignals: runtimeCombine,
+        listDefinitions: async (userId) => dependencies.definitionRepository.list(userId),
         readDefinitions: async (userId, ids) => Promise.all(ids.map((id) => getDefinition(userId, id))),
+        listComposites: async (userId) => dependencies.compositeRepository.list(userId),
         readComposite: async (userId, id) => {
             const composite = await dependencies.compositeRepository.get(userId, id);
             if (!composite)

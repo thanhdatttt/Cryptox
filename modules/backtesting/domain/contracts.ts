@@ -1,5 +1,5 @@
 import type { CompositeStrategyDefinition, StrategyDefinition } from "modules/strategy/api";
-import type { DatasetSnapshotRef, Pair, Timeframe } from "modules/market-data/api";
+import type { Candle, DatasetSnapshotRef, Pair, Timeframe } from "modules/market-data/api";
 import type { SentimentDatasetSnapshotRef } from "modules/sentiment/api";
 export type CandidateStatus = "CREATED" | "QUEUED" | "BACKTESTING" | "RETRY_WAIT" | "PROCESSING_RESULT" | "TERMINAL_FAILURE_PENDING" | "COMPLETED" | "FAILED" | "CANCELLED";
 export interface BacktestSubmissionAccepted { candidateId: string; jobId: string; status: CandidateStatus; }
@@ -18,3 +18,5 @@ export interface BacktestAttemptProgress { attemptId: string; attemptNumber: num
 export interface BacktestAttemptAudit extends BacktestAttemptProgress { candidateId: string; queueJobId: string; workerRuntimeVersion: string; workerRuntimeSha256: string; tradeCount: number; auditOnly: boolean; fenceToken?: string; leaseExpiresAt?: string; }
 export interface ExperimentResult { id: string; candidateId: string; searchRunId?: string; leaderboardScopeId: string; scoreFormulaId: string; overallScore: number; rankEligible: boolean; }
 export interface ExperimentResultSummary extends ExperimentResult { backtestAttemptId: string; compositeDefinitionId: string; compositeDefinition: CompositeStrategyDefinition; datasetSnapshot: DatasetSnapshotRef; sentimentDatasetSnapshot?: SentimentDatasetSnapshotRef; strategyDefinitions: StrategyDefinition[]; metrics: import("modules/evaluation/api").EvaluationMetrics; trades: Trade[]; createdAt: string; }
+export interface ExperimentVisualizationMarker { id: string; tradeId: string; sequence: number; kind: "ENTRY" | "STOP_LOSS" | "TAKE_PROFIT" | "EXIT"; time: string; price: number; highlighted: boolean; }
+export interface ExperimentVisualization { experimentId: string; datasetSnapshot: DatasetSnapshotRef; candles: Candle[]; overlays: []; markers: ExperimentVisualizationMarker[]; nextCursor?: string; }

@@ -14,6 +14,10 @@ class PostgresStrategyDefinitionRepository {
         const result = await this.pool.query("INSERT INTO strategy_definitions (id, user_id, logical_family_key, family_name, strategy_name, implementation_version, implementation_sha256, version, parameters, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, $10) RETURNING id, logical_family_key, family_name, strategy_name, implementation_version, implementation_sha256, version, parameters, created_at", [value.id, ownerUserId, value.logicalFamilyKey, value.familyName ?? null, value.strategyName, value.implementationVersion, value.implementationSha256, value.version, JSON.stringify(value.parameters), value.createdAt]);
         return definition(result.rows[0]);
     }
+    async list(ownerUserId) {
+        const result = await this.pool.query("SELECT id, logical_family_key, family_name, strategy_name, implementation_version, implementation_sha256, version, parameters, created_at FROM strategy_definitions WHERE user_id = $1 ORDER BY created_at ASC, id ASC", [ownerUserId]);
+        return result.rows.map(definition);
+    }
     async listByIds(ownerUserId, ids) {
         if (ids.length === 0)
             return [];
@@ -35,6 +39,10 @@ class PostgresCompositeDefinitionRepository {
     async insert(ownerUserId, value) {
         const result = await this.pool.query("INSERT INTO composite_strategy_definitions (id, user_id, logical_family_key, version, method, components, thresholds, created_at) VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8) RETURNING id, logical_family_key, version, method, components, thresholds, created_at", [value.id, ownerUserId, value.logicalFamilyKey, value.version, value.method, JSON.stringify(value.components), JSON.stringify(value.thresholds ?? null), value.createdAt]);
         return composite(result.rows[0]);
+    }
+    async list(ownerUserId) {
+        const result = await this.pool.query("SELECT id, logical_family_key, version, method, components, thresholds, created_at FROM composite_strategy_definitions WHERE user_id = $1 ORDER BY created_at ASC, id ASC", [ownerUserId]);
+        return result.rows.map(composite);
     }
     async get(ownerUserId, id) {
         const result = await this.pool.query("SELECT id, logical_family_key, version, method, components, thresholds, created_at FROM composite_strategy_definitions WHERE user_id = $1 AND id = $2 LIMIT 1", [ownerUserId, id]);

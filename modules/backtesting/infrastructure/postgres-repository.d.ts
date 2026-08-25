@@ -26,6 +26,7 @@ export declare class PostgresBacktestingRepository implements BacktestingReposit
     private scopeRows;
     findScopeByIdempotency(ownerUserId: string, idempotencyKey: string): Promise<StoredBenchmarkScope | undefined>;
     readScope(scopeId: string): Promise<StoredBenchmarkScope | undefined>;
+    listScopesByOwner(ownerUserId: string): Promise<StoredBenchmarkScope[]>;
     private candidateFrom;
     private candidateSql;
     createCandidate(input: StoredCandidate, key?: string): Promise<StoredCandidate>;

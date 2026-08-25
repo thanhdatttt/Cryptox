@@ -7,6 +7,7 @@ import { createBacktestingExperimentReader, createBacktestingScopeRepository, cr
 import { createInMemorySearchDependencies, createSearchModule } from "modules/search/api/bootstrap";
 import { createInMemoryStrategyDependencies, createStrategyModule } from "modules/strategy/api/bootstrap";
 import { AuthController, BacktestAttemptController, BacktestController, BacktestScopeController, ExperimentController, LeaderboardController, MarketController, NewsController, SearchController, SentimentController, StrategyController } from "./app.module";
+import { MarketGateway } from "./market.gateway";
 import { composeAllModules, type BackendModules } from "./compose";
 
 describe("backend composition", () => {
@@ -34,7 +35,7 @@ describe("backend composition", () => {
     } as unknown as BackendModules;
 
     await expect(new StrategyController(modules).list("Bearer token")).resolves.toEqual([{ name: "MA" }]);
-    await expect(new MarketController(modules).candles("Bearer token", "BTCUSDT", "1h", "2")).resolves.toEqual({ query: { pair: "BTCUSDT", timeframe: "1h", limit: 2 } });
+    await expect(new MarketController(modules).candles("Bearer token", "BTCUSDT", "1h", "2")).resolves.toEqual({ query: { pair: "BTCUSDT", timeframe: "1h", limit: 2, range: undefined, cursor: undefined, includeForming: false, completeness: undefined } });
     await expect(new MarketController(modules).pairMetadata("Bearer token", "BTCUSDT")).resolves.toEqual({ pair: "BTCUSDT" });
     await expect(new MarketController(modules).createSnapshot("Bearer token", { pair: "BTCUSDT", timeframe: "1h", from: "2025-01-01T00:00:00.000Z", to: "2025-01-01T01:00:00.000Z" })).resolves.toHaveProperty("command");
     await expect(new MarketController(modules).readSnapshot("Bearer token", "snapshot-1", undefined, "10")).resolves.toEqual({ query: { snapshotId: "snapshot-1", cursor: undefined, limit: 10 } });
@@ -59,6 +60,8 @@ describe("backend composition", () => {
     const composite = await controller.defineComposite(`Bearer ${token}`, { method: "WEIGHTED_SCORE", components: [{ strategyDefinitionId: ma.id, weight: 0.4 }, { strategyDefinitionId: rsi.id, weight: 0.6 }], thresholds: { buy: 0.2, sell: -0.2 } });
 
     await expect(controller.definitions(`Bearer ${token}`, `${ma.id},${rsi.id}`)).resolves.toHaveLength(2);
+    await expect(controller.definitions(`Bearer ${token}`)).resolves.toHaveLength(2);
+    await expect(controller.composites(`Bearer ${token}`)).resolves.toHaveLength(1);
     await expect(controller.composite(`Bearer ${token}`, composite.id)).resolves.toMatchObject({ id: composite.id, method: "WEIGHTED_SCORE" });
     await expect(controller.define(`Bearer ${token}`, { strategyName: "MA", parameters: { fastPeriod: 50, slowPeriod: 20 } })).rejects.toBeInstanceOf(BadRequestException);
   });
@@ -126,6 +129,57 @@ describe("backend composition", () => {
     await search.pause("Bearer token", "run-1"); await search.resume("Bearer token", "run-1"); await search.cancel("Bearer token", "run-1");
     await expect(search.leaderboard("Bearer token", "run-1")).resolves.toEqual([{ rank: 1 }]);
     await expect(new LeaderboardController(modules).topK("Bearer token", "scope-1")).resolves.toEqual([{ rank: 1 }]);
+    await expect(new LeaderboardController(modules).list("Bearer token", "scope-1")).resolves.toEqual([{ rank: 1 }]);
     expect(calls).toEqual(["start:RANDOM:1", "pause", "resume", "cancel"]);
+  });
+
+  it("maps the remaining authenticated Backtesting, Search, Leaderboard, and Market transport reads without controller-owned domain logic", async () => {
+    const calls: unknown[] = [];
+    const modules = {
+      auth: { verify: async () => ({ userId: "user-1" }) },
+      backtesting: {
+        listBenchmarkScopes: async (options: unknown) => { calls.push(["scopes", options]); return [{ id: "scope-1" }]; },
+        cancelManualCandidate: async (...args: unknown[]) => { calls.push(["cancel", args]); },
+        listSearchCandidates: async (searchRunId: string, page: unknown) => { calls.push(["candidates", searchRunId, page]); return { items: [{ candidateId: "candidate-1" }] }; },
+        readExperimentVisualization: async (experimentId: string, page: unknown, options: unknown) => { calls.push(["visualization", experimentId, page, options]); return { experimentId, candles: [], overlays: [], markers: [] }; },
+        verifyReplay: async (experimentId: string, options: unknown) => { calls.push(["replay", experimentId, options]); return { experimentId, status: "MATCH" }; },
+        readBenchmarkScope: async () => ({ id: "scope-1" }),
+      },
+      search: { status: async () => ({ searchRunId: "run-1", state: "RUNNING" }) },
+      leaderboard: { topK: async () => [{ rank: 1 }] },
+      marketData: { readCandles: async (query: unknown) => { calls.push(["candles", query]); return { candles: [] }; } },
+    } as unknown as BackendModules;
+
+    await expect(new BacktestScopeController(modules).list("Bearer token")).resolves.toEqual([{ id: "scope-1" }]);
+    await expect(new BacktestController(modules).cancel("Bearer token", "candidate-1")).resolves.toBeUndefined();
+    await expect(new SearchController(modules).candidates("Bearer token", "run-1", "20", "cursor-1")).resolves.toEqual({ items: [{ candidateId: "candidate-1" }] });
+    await expect(new ExperimentController(modules).visualization("Bearer token", "experiment-1", "10", "cursor-1")).resolves.toMatchObject({ experimentId: "experiment-1" });
+    await expect(new ExperimentController(modules).replay("Bearer token", "experiment-1")).resolves.toMatchObject({ status: "MATCH" });
+    await expect(new LeaderboardController(modules).topK("Bearer token", "scope-1")).resolves.toEqual([{ rank: 1 }]);
+    await expect(new MarketController(modules).candles("Bearer token", "BTCUSDT", "1h", undefined, "2025-01-01T00:00:00.000Z", "2025-01-01T02:00:00.000Z", "cursor-2", "true", "REQUIRE_COMPLETE")).resolves.toEqual({ candles: [] });
+
+    expect(calls).toContainEqual(["scopes", { ownerUserId: "user-1" }]);
+    expect(calls).toContainEqual(["candidates", "run-1", { limit: 20, cursor: "cursor-1" }]);
+    expect(calls).toContainEqual(["visualization", "experiment-1", { limit: 10, cursor: "cursor-1", from: undefined, to: undefined, highlightTradeId: undefined }, { ownerUserId: "user-1" }]);
+    expect(calls).toContainEqual(["replay", "experiment-1", { ownerUserId: "user-1" }]);
+    expect(calls).toContainEqual(["candles", { pair: "BTCUSDT", timeframe: "1h", limit: undefined, range: { from: "2025-01-01T00:00:00.000Z", to: "2025-01-01T02:00:00.000Z" }, cursor: "cursor-2", includeForming: true, completeness: "REQUIRE_COMPLETE" }]);
+  });
+
+  it("authenticates and forwards only normalized Market Data WebSocket messages", async () => {
+    const emitted: Array<[string, unknown]> = [];
+    let sink: ((update: { kind: "TICK"; payload: { pair: string; price: number; timestamp: string } }) => void) | undefined;
+    const modules = {
+      auth: { verify: async (token: string) => token === "token" ? { userId: "user-1" } : Promise.reject(new Error("INVALID_TOKEN")) },
+      marketData: { subscribeMarketData: async (_subscriptions: unknown, next: typeof sink) => { sink = next; return async () => undefined; } },
+    } as unknown as BackendModules;
+    const socket = { id: "socket-1", handshake: { auth: { token: "token" }, headers: {} }, data: {}, emit: (event: string, payload: unknown) => emitted.push([event, payload]), disconnect: () => undefined };
+    const gateway = new MarketGateway(modules);
+
+    await gateway.handleConnection(socket);
+    await gateway.command(socket, { schemaVersion: 1, action: "SUBSCRIBE", requestId: "request-1", subscriptions: [{ pair: "BTCUSDT", timeframe: "1h" }] });
+    sink?.({ kind: "TICK", payload: { pair: "BTCUSDT", price: 100, timestamp: "2025-01-01T00:00:00.000Z" } });
+
+    expect(emitted).toContainEqual(["market", expect.objectContaining({ type: "SUBSCRIPTION_ACK", requestId: "request-1" })]);
+    expect(emitted).toContainEqual(["market", expect.objectContaining({ type: "MARKET_TICK", payload: { pair: "BTCUSDT", price: 100, timestamp: "2025-01-01T00:00:00.000Z" } })]);
   });
 });

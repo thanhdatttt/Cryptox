@@ -1,8 +1,10 @@
 import type { StrategyArtifactResolver, StrategyCategory, StrategyDefinition, CompositeStrategyDefinition, Strategy, Signal, StrategyPluginDescriptor, CombinationMethod } from "../domain/contracts";
 import { builtInFactories } from "../domain/plugins";
+import { createStrategyModule } from "../application/service";
 export type { Signal, StrategyCategory, CombinationMethod, Strategy, StrategyDefinition, CompositeStrategyDefinition, StrategyContext, StrategyCandle, StrategyPluginDescriptor, StrategyFactory, StrategyArtifactResolver, StrategyParameterDescriptor } from "../domain/contracts";
-export interface StrategyModulePublicApi { listStrategies(): StrategyPluginDescriptor[]; resolveStrategy(definition: StrategyDefinition): Promise<Strategy>; combineSignals(definition: CompositeStrategyDefinition, signals: Array<{ strategyDefinitionId: string; signal: Signal }>): Signal; readDefinitions(userId: string, ids: string[]): Promise<StrategyDefinition[]>; readComposite(userId: string, id: string): Promise<CompositeStrategyDefinition>; }
+export interface StrategyModulePublicApi { listStrategies(): StrategyPluginDescriptor[]; resolveStrategy(definition: StrategyDefinition): Promise<Strategy>; combineSignals(definition: CompositeStrategyDefinition, signals: Array<{ strategyDefinitionId: string; signal: Signal }>): Signal; listDefinitions(userId: string): Promise<StrategyDefinition[]>; readDefinitions(userId: string, ids: string[]): Promise<StrategyDefinition[]>; listComposites(userId: string): Promise<CompositeStrategyDefinition[]>; readComposite(userId: string, id: string): Promise<CompositeStrategyDefinition>; defineStrategy(userId: string, strategyName: string, parameters: Record<string, number | string>): Promise<StrategyDefinition>; defineComposite(userId: string, command: { method: CombinationMethod; components: Array<{ strategyDefinitionId: string; weight: number }>; thresholds?: { buy: number; sell: number } }): Promise<CompositeStrategyDefinition>; }
 const factories = new Map(builtInFactories.map((factory) => [factory.descriptor.name, factory]));
+const defaultRuntime = createStrategyModule();
 export const listStrategies = (): StrategyPluginDescriptor[] => builtInFactories.map((factory) => factory.descriptor);
 export const resolveStrategy = async (definition: StrategyDefinition): Promise<Strategy> => {
   const factory = factories.get(definition.strategyName);
@@ -25,3 +27,9 @@ export const combineSignals = (definition: CompositeStrategyDefinition, signals:
   if (score < thresholds.sell) return "SELL";
   return "HOLD";
 };
+export const listDefinitions: StrategyModulePublicApi["listDefinitions"] = (userId) => defaultRuntime.listDefinitions(userId);
+export const readDefinitions: StrategyModulePublicApi["readDefinitions"] = (userId, ids) => defaultRuntime.readDefinitions(userId, ids);
+export const listComposites: StrategyModulePublicApi["listComposites"] = (userId) => defaultRuntime.listComposites(userId);
+export const readComposite: StrategyModulePublicApi["readComposite"] = (userId, id) => defaultRuntime.readComposite(userId, id);
+export const defineStrategy: StrategyModulePublicApi["defineStrategy"] = (userId, strategyName, parameters) => defaultRuntime.defineStrategy(userId, strategyName, parameters);
+export const defineComposite: StrategyModulePublicApi["defineComposite"] = (userId, command) => defaultRuntime.defineComposite(userId, command);

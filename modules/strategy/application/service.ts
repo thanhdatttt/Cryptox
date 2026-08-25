@@ -9,7 +9,9 @@ export interface StrategyModuleRuntime {
   listStrategies(): StrategyPluginDescriptor[];
   resolveStrategy(definition: StrategyDefinition): Promise<Strategy>;
   combineSignals(definition: CompositeStrategyDefinition, signals: Array<{ strategyDefinitionId: string; signal: Signal }>): Signal;
+  listDefinitions(userId: string): Promise<StrategyDefinition[]>;
   readDefinitions(userId: string, ids: string[]): Promise<StrategyDefinition[]>;
+  listComposites(userId: string): Promise<CompositeStrategyDefinition[]>;
   readComposite(userId: string, id: string): Promise<CompositeStrategyDefinition>;
   defineStrategy(userId: string, strategyName: string, parameters: Record<string, number | string>): Promise<StrategyDefinition>;
   defineComposite(userId: string, command: { method: CombinationMethod; components: Array<{ strategyDefinitionId: string; weight: number }>; thresholds?: { buy: number; sell: number } }): Promise<CompositeStrategyDefinition>;
@@ -72,11 +74,13 @@ export function createInMemoryStrategyDependencies(): StrategyModuleDependencies
     artifactResolver: { resolve: async (name, sha) => { const factory = factories.get(`${name}:${sha}`); if (!factory) throw new Error("STRATEGY_ARTIFACT_NOT_FOUND"); return factory; } },
     definitionRepository: {
       insert: async (ownerUserId, definition) => { definitions.set(definition.id, { ownerUserId, value: definition }); return definition; },
+      list: async (ownerUserId) => [...definitions.values()].filter((item) => item.ownerUserId === ownerUserId).map((item) => item.value).sort((left, right) => left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id)),
       listByIds: async (ownerUserId, ids) => ids.flatMap((id) => { const definition = definitions.get(id); return definition?.ownerUserId === ownerUserId ? [definition.value] : []; }),
       listByLogicalFamily: async (ownerUserId, logicalFamilyKey) => [...definitions.values()].filter((item) => item.ownerUserId === ownerUserId && item.value.logicalFamilyKey === logicalFamilyKey).map((item) => item.value),
     },
     compositeRepository: {
       insert: async (ownerUserId, composite) => { composites.set(composite.id, { ownerUserId, value: composite }); return composite; },
+      list: async (ownerUserId) => [...composites.values()].filter((item) => item.ownerUserId === ownerUserId).map((item) => item.value).sort((left, right) => left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id)),
       get: async (ownerUserId, id) => { const composite = composites.get(id); return composite?.ownerUserId === ownerUserId ? composite.value : undefined; },
       listByLogicalFamily: async (ownerUserId, logicalFamilyKey) => [...composites.values()].filter((item) => item.ownerUserId === ownerUserId && item.value.logicalFamilyKey === logicalFamilyKey).map((item) => item.value),
     },
@@ -99,7 +103,9 @@ export function createStrategyModule(dependencies: StrategyModuleDependencies = 
       return runtimeResolve(definition);
     },
     combineSignals: runtimeCombine,
+    listDefinitions: async (userId) => dependencies.definitionRepository.list(userId),
     readDefinitions: async (userId, ids) => Promise.all(ids.map((id) => getDefinition(userId, id))),
+    listComposites: async (userId) => dependencies.compositeRepository.list(userId),
     readComposite: async (userId, id) => {
       const composite = await dependencies.compositeRepository.get(userId, id);
       if (!composite) invalid("COMPOSITE_STRATEGY_NOT_FOUND");

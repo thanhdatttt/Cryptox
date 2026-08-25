@@ -1,7 +1,7 @@
 import type { BacktestQueueJob, BacktestQueueReturn, BacktestQueueTerminalSignal } from "@cryptox/contracts/queue";
 import type { CompositeStrategyDefinition, StrategyDefinition } from "modules/strategy/api";
-import type { BacktestLogApi, BacktestReadOptions, SearchCandidatePage, SearchCandidatePageRequest, SearchCandidateSummary, TradePage, TradePageRequest } from "../api";
-import type { BacktestAttemptAudit, BacktestSubmissionAccepted, BenchmarkScopeSummary, CandidateProgress, CompletedBacktestResult, CreateLeaderboardScopeCommand, ExperimentResultSummary, ReplayVerificationResult, StartManualBacktestCommand, SubmitSearchCandidateCommand, Trade } from "../domain/contracts";
+import type { BacktestLogApi, BacktestReadOptions, ExperimentVisualizationPageRequest, SearchCandidatePage, SearchCandidatePageRequest, SearchCandidateSummary, TradePage, TradePageRequest } from "../api";
+import type { BacktestAttemptAudit, BacktestSubmissionAccepted, BenchmarkScopeSummary, CandidateProgress, CompletedBacktestResult, CreateLeaderboardScopeCommand, ExperimentResultSummary, ExperimentVisualization, ReplayVerificationResult, StartManualBacktestCommand, SubmitSearchCandidateCommand, Trade } from "../domain/contracts";
 import type { BacktestDispatch, BacktestQueuePort, BacktestingModuleDependencies, BacktestingRepository, StoredBenchmarkScope, StoredCandidate, StoredExperiment, WorkerAttemptClaim } from "./ports";
 export declare const BACKTEST_RUNTIME_VERSION = "1.0.0";
 export declare const BACKTEST_RUNTIME_SHA256 = "c7d208d3db06e01df73733b91ed928fbd78d06f0d6d978f5821547c8ee6af75b";
@@ -28,6 +28,7 @@ export declare class InMemoryBacktestingRepository implements BacktestingReposit
     createScope(scope: StoredBenchmarkScope, idempotencyKey: string): Promise<StoredBenchmarkScope>;
     findScopeByIdempotency(ownerUserId: string, idempotencyKey: string): Promise<StoredBenchmarkScope | undefined>;
     readScope(scopeId: string): Promise<StoredBenchmarkScope | undefined>;
+    listScopesByOwner(ownerUserId: string): Promise<StoredBenchmarkScope[]>;
     createCandidate(candidate: StoredCandidate, key?: string): Promise<StoredCandidate>;
     createQueuedSubmission(input: {
         candidate: StoredCandidate;
@@ -160,6 +161,7 @@ export declare class BacktestingService implements BacktestLogApi {
     private id;
     private now;
     private assertOwner;
+    private progress;
     private scope;
     private candidate;
     private snapshot;
@@ -170,6 +172,7 @@ export declare class BacktestingService implements BacktestLogApi {
         ownerUserId: string;
     }): Promise<BenchmarkScopeSummary>;
     readBenchmarkScope(scopeId: string, options?: BacktestReadOptions): Promise<BenchmarkScopeSummary>;
+    listBenchmarkScopes(options: Required<BacktestReadOptions>): Promise<BenchmarkScopeSummary[]>;
     private compositeStrategy;
     private candidateRecord;
     private dispatchRecord;
@@ -208,7 +211,7 @@ export declare class BacktestingService implements BacktestLogApi {
     cancelSearchCandidates(searchRunId: string): Promise<{
         candidateIds: string[];
     }>;
-    cancelManualCandidate(candidateId: string): Promise<void>;
+    cancelManualCandidate(candidateId: string, unitOfWork: import("../domain/contracts").CancellationUnitOfWork, options?: BacktestReadOptions): Promise<void>;
     removePendingJobs(candidateIds: string[]): Promise<void>;
     readAttempt(attemptId: string, options?: BacktestReadOptions): Promise<BacktestAttemptAudit>;
     listAttemptTrades(attemptId: string, page: TradePageRequest, options?: BacktestReadOptions): Promise<TradePage>;
@@ -219,6 +222,7 @@ export declare class BacktestingService implements BacktestLogApi {
         rankEligible: boolean;
     }, options?: BacktestReadOptions): Promise<ExperimentResultSummary>;
     listExperimentTrades(experimentId: string, page: TradePageRequest, options?: BacktestReadOptions): Promise<TradePage>;
+    readExperimentVisualization(experimentId: string, page: ExperimentVisualizationPageRequest, options?: BacktestReadOptions): Promise<ExperimentVisualization>;
     private pageTrades;
     verifyReplay(experimentId: string, options?: BacktestReadOptions): Promise<ReplayVerificationResult>;
 }

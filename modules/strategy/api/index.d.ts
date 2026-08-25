@@ -1,4 +1,4 @@
-import type { StrategyDefinition, CompositeStrategyDefinition, Strategy, Signal, StrategyPluginDescriptor } from "../domain/contracts";
+import type { StrategyDefinition, CompositeStrategyDefinition, Strategy, Signal, StrategyPluginDescriptor, CombinationMethod } from "../domain/contracts";
 export type { Signal, StrategyCategory, CombinationMethod, Strategy, StrategyDefinition, CompositeStrategyDefinition, StrategyContext, StrategyCandle, StrategyPluginDescriptor, StrategyFactory, StrategyArtifactResolver, StrategyParameterDescriptor } from "../domain/contracts";
 export interface StrategyModulePublicApi {
     listStrategies(): StrategyPluginDescriptor[];
@@ -7,8 +7,22 @@ export interface StrategyModulePublicApi {
         strategyDefinitionId: string;
         signal: Signal;
     }>): Signal;
+    listDefinitions(userId: string): Promise<StrategyDefinition[]>;
     readDefinitions(userId: string, ids: string[]): Promise<StrategyDefinition[]>;
+    listComposites(userId: string): Promise<CompositeStrategyDefinition[]>;
     readComposite(userId: string, id: string): Promise<CompositeStrategyDefinition>;
+    defineStrategy(userId: string, strategyName: string, parameters: Record<string, number | string>): Promise<StrategyDefinition>;
+    defineComposite(userId: string, command: {
+        method: CombinationMethod;
+        components: Array<{
+            strategyDefinitionId: string;
+            weight: number;
+        }>;
+        thresholds?: {
+            buy: number;
+            sell: number;
+        };
+    }): Promise<CompositeStrategyDefinition>;
 }
 export declare const listStrategies: () => StrategyPluginDescriptor[];
 export declare const resolveStrategy: (definition: StrategyDefinition) => Promise<Strategy>;
@@ -16,3 +30,9 @@ export declare const combineSignals: (definition: CompositeStrategyDefinition, s
     strategyDefinitionId: string;
     signal: Signal;
 }>) => Signal;
+export declare const listDefinitions: StrategyModulePublicApi["listDefinitions"];
+export declare const readDefinitions: StrategyModulePublicApi["readDefinitions"];
+export declare const listComposites: StrategyModulePublicApi["listComposites"];
+export declare const readComposite: StrategyModulePublicApi["readComposite"];
+export declare const defineStrategy: StrategyModulePublicApi["defineStrategy"];
+export declare const defineComposite: StrategyModulePublicApi["defineComposite"];

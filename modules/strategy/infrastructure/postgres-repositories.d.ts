@@ -10,6 +10,7 @@ export declare class PostgresStrategyDefinitionRepository implements StrategyDef
     private readonly pool;
     constructor(pool: StrategySqlQueryClient);
     insert(ownerUserId: string, value: StrategyDefinition): Promise<StrategyDefinition>;
+    list(ownerUserId: string): Promise<StrategyDefinition[]>;
     listByIds(ownerUserId: string, ids: string[]): Promise<StrategyDefinition[]>;
     listByLogicalFamily(ownerUserId: string, logicalFamilyKey: string): Promise<StrategyDefinition[]>;
 }
@@ -17,6 +18,7 @@ export declare class PostgresCompositeDefinitionRepository implements CompositeD
     private readonly pool;
     constructor(pool: StrategySqlQueryClient);
     insert(ownerUserId: string, value: CompositeStrategyDefinition): Promise<CompositeStrategyDefinition>;
+    list(ownerUserId: string): Promise<CompositeStrategyDefinition[]>;
     get(ownerUserId: string, id: string): Promise<CompositeStrategyDefinition | undefined>;
     listByLogicalFamily(ownerUserId: string, logicalFamilyKey: string): Promise<CompositeStrategyDefinition[]>;
 }

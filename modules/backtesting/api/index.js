@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.createInMemoryBacktestingDependencies = exports.createBacktestingService = exports.verifyReplay = exports.listExperimentTrades = exports.scoreExperiment = exports.listSearchExperimentSummaries = exports.readExperimentSummary = exports.listAttemptTrades = exports.readAttempt = exports.removePendingJobs = exports.cancelManualCandidate = exports.cancelSearchCandidates = exports.listSearchCandidates = exports.summarizeSearchCandidates = exports.status = exports.processQueueTerminalSignal = exports.processCompletion = exports.processQueueJob = exports.reconcileCompletions = exports.listQueueRecoveryCandidates = exports.reconcileQueue = exports.submitSearchCandidate = exports.startManual = exports.readBenchmarkScope = exports.createBenchmarkScope = exports.simulateBacktest = void 0;
+exports.createInMemoryBacktestingDependencies = exports.createBacktestingService = exports.verifyReplay = exports.readExperimentVisualization = exports.listExperimentTrades = exports.scoreExperiment = exports.listSearchExperimentSummaries = exports.readExperimentSummary = exports.listAttemptTrades = exports.readAttempt = exports.removePendingJobs = exports.cancelManualCandidate = exports.cancelSearchCandidates = exports.listSearchCandidates = exports.summarizeSearchCandidates = exports.status = exports.processQueueTerminalSignal = exports.processCompletion = exports.processQueueJob = exports.reconcileCompletions = exports.listQueueRecoveryCandidates = exports.reconcileQueue = exports.submitSearchCandidate = exports.startManual = exports.listBenchmarkScopes = exports.readBenchmarkScope = exports.createBenchmarkScope = exports.simulateBacktest = void 0;
 const service_1 = require("../application/service");
 var simulator_1 = require("../domain/simulator");
 Object.defineProperty(exports, "simulateBacktest", { enumerable: true, get: function () { return simulator_1.simulateBacktest; } });
@@ -9,6 +9,8 @@ const createBenchmarkScope = (command, options) => defaultService.createBenchmar
 exports.createBenchmarkScope = createBenchmarkScope;
 const readBenchmarkScope = (scopeId, options) => defaultService.readBenchmarkScope(scopeId, options);
 exports.readBenchmarkScope = readBenchmarkScope;
+const listBenchmarkScopes = (options) => defaultService.listBenchmarkScopes(options);
+exports.listBenchmarkScopes = listBenchmarkScopes;
 const startManual = (command, options) => defaultService.startManual(command, options);
 exports.startManual = startManual;
 const submitSearchCandidate = (command) => defaultService.submitSearchCandidate(command);
@@ -33,7 +35,7 @@ const listSearchCandidates = (searchRunId, page) => defaultService.listSearchCan
 exports.listSearchCandidates = listSearchCandidates;
 const cancelSearchCandidates = (searchRunId, unitOfWork) => defaultService.cancelSearchCandidates(searchRunId, unitOfWork);
 exports.cancelSearchCandidates = cancelSearchCandidates;
-const cancelManualCandidate = (candidateId, unitOfWork) => defaultService.cancelManualCandidate(candidateId, unitOfWork);
+const cancelManualCandidate = (candidateId, unitOfWork, options) => defaultService.cancelManualCandidate(candidateId, unitOfWork, options);
 exports.cancelManualCandidate = cancelManualCandidate;
 const removePendingJobs = (candidateIds) => defaultService.removePendingJobs(candidateIds);
 exports.removePendingJobs = removePendingJobs;
@@ -49,6 +51,8 @@ const scoreExperiment = (experimentId, input, options) => defaultService.scoreEx
 exports.scoreExperiment = scoreExperiment;
 const listExperimentTrades = (experimentId, page, options) => defaultService.listExperimentTrades(experimentId, page, options);
 exports.listExperimentTrades = listExperimentTrades;
+const readExperimentVisualization = (experimentId, page, options) => defaultService.readExperimentVisualization(experimentId, page, options);
+exports.readExperimentVisualization = readExperimentVisualization;
 const verifyReplay = (experimentId, options) => defaultService.verifyReplay(experimentId, options);
 exports.verifyReplay = verifyReplay;
 var service_2 = require("../application/service");

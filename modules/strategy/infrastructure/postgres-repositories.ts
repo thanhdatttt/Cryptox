@@ -41,6 +41,14 @@ export class PostgresStrategyDefinitionRepository implements StrategyDefinitionR
     return definition(result.rows[0]!);
   }
 
+  async list(ownerUserId: string): Promise<StrategyDefinition[]> {
+    const result = await this.pool.query<DefinitionRow>(
+      "SELECT id, logical_family_key, family_name, strategy_name, implementation_version, implementation_sha256, version, parameters, created_at FROM strategy_definitions WHERE user_id = $1 ORDER BY created_at ASC, id ASC",
+      [ownerUserId],
+    );
+    return result.rows.map(definition);
+  }
+
   async listByIds(ownerUserId: string, ids: string[]): Promise<StrategyDefinition[]> {
     if (ids.length === 0) return [];
     const result = await this.pool.query<DefinitionRow>(
@@ -69,6 +77,14 @@ export class PostgresCompositeDefinitionRepository implements CompositeDefinitio
       [value.id, ownerUserId, value.logicalFamilyKey, value.version, value.method, JSON.stringify(value.components), JSON.stringify(value.thresholds ?? null), value.createdAt],
     );
     return composite(result.rows[0]!);
+  }
+
+  async list(ownerUserId: string): Promise<CompositeStrategyDefinition[]> {
+    const result = await this.pool.query<CompositeRow>(
+      "SELECT id, logical_family_key, version, method, components, thresholds, created_at FROM composite_strategy_definitions WHERE user_id = $1 ORDER BY created_at ASC, id ASC",
+      [ownerUserId],
+    );
+    return result.rows.map(composite);
   }
 
   async get(ownerUserId: string, id: string): Promise<CompositeStrategyDefinition | undefined> {
