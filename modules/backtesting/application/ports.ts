@@ -54,7 +54,7 @@ export interface BacktestCompletionServices {
 }
 
 export interface BacktestingRepository {
-  createInputSnapshot(snapshot: DatasetSnapshotRef, candles: Candle[]): Promise<void>;
+  createInputSnapshot(snapshot: DatasetSnapshotRef, candles: Candle[]): Promise<DatasetSnapshotRef>;
   readInputSnapshot(snapshotId: string): Promise<{ snapshot: DatasetSnapshotRef; candles: Candle[] } | undefined>;
   createScope(scope: StoredBenchmarkScope, idempotencyKey: string): Promise<StoredBenchmarkScope>;
   findScopeByIdempotency(ownerUserId: string, idempotencyKey: string): Promise<StoredBenchmarkScope | undefined>;

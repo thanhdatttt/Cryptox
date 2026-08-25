@@ -33,8 +33,8 @@ class InMemoryBacktestingRepository {
     trades = new Map();
     experiments = new Map();
     dispatches = new Map();
-    async createInputSnapshot(snapshot, candles) { if (!this.snapshots.has(snapshot.id))
-        this.snapshots.set(snapshot.id, { snapshot: clone(snapshot), candles: clone(candles) }); }
+    async createInputSnapshot(snapshot, candles) { const existing = [...this.snapshots.values()].find((entry) => entry.snapshot.id === snapshot.id || entry.snapshot.sha256 === snapshot.sha256); if (existing)
+        return clone(existing.snapshot); this.snapshots.set(snapshot.id, { snapshot: clone(snapshot), candles: clone(candles) }); return clone(snapshot); }
     async readInputSnapshot(snapshotId) { const value = this.snapshots.get(snapshotId); return value ? clone(value) : undefined; }
     async createScope(scope, idempotencyKey) { this.scopes.set(scope.id, clone(scope)); this.scopeIdempotency.set(`${scope.ownerUserId}|${idempotencyKey}`, scope.id); return clone(scope); }
     async findScopeByIdempotency(ownerUserId, idempotencyKey) { const id = this.scopeIdempotency.get(`${ownerUserId}|${idempotencyKey}`); const value = id ? this.scopes.get(id) : undefined; return value ? clone(value) : undefined; }
@@ -203,7 +203,7 @@ class BacktestingService {
         const page = await this.deps.marketData.readDatasetSnapshot({ snapshotId, cursor, limit: 1000 });
         candles.push(...page.candles);
         cursor = page.nextCursor;
-    } await this.deps.repository.createInputSnapshot(first.snapshot, candles); return { snapshot: first.snapshot, candles }; }
+    } const snapshot = await this.deps.repository.createInputSnapshot(first.snapshot, candles); return { snapshot, candles }; }
     validateScope(command) { if (!command.name.trim() || !command.scoreFormulaId.trim() || !Number.isFinite(command.initialCapital) || command.initialCapital <= 0 || !Number.isFinite(command.feeRatePercent) || command.feeRatePercent < 0 || !Number.isInteger(command.slippageBps) || command.slippageBps < 0)
         invalid("INVALID_BENCHMARK_SCOPE"); if (!/^[a-f0-9]{64}$/i.test(command.workerRuntimeSha256) || !/^[a-f0-9]{64}$/i.test(command.evaluationRuntimeSha256))
         invalid("INVALID_BENCHMARK_SCOPE"); }

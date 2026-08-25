@@ -17,7 +17,7 @@ export declare class PostgresBacktestingRepository implements BacktestingReposit
     private readonly pool;
     constructor(pool: TransactionPool);
     private transaction;
-    createInputSnapshot(input: DatasetSnapshotRef, candles: Candle[]): Promise<void>;
+    createInputSnapshot(input: DatasetSnapshotRef, candles: Candle[]): Promise<DatasetSnapshotRef>;
     readInputSnapshot(snapshotId: string): Promise<{
         snapshot: DatasetSnapshotRef;
         candles: Candle[];

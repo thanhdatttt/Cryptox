@@ -20,7 +20,7 @@ export declare class InMemoryBacktestingRepository implements BacktestingReposit
     private readonly trades;
     private readonly experiments;
     private readonly dispatches;
-    createInputSnapshot(snapshot: import("modules/market-data/api").DatasetSnapshotRef, candles: import("modules/market-data/api").Candle[]): Promise<void>;
+    createInputSnapshot(snapshot: import("modules/market-data/api").DatasetSnapshotRef, candles: import("modules/market-data/api").Candle[]): Promise<import("modules/market-data/api").DatasetSnapshotRef>;
     readInputSnapshot(snapshotId: string): Promise<{
         snapshot: import("modules/market-data/api").DatasetSnapshotRef;
         candles: import("modules/market-data/api").Candle[];
