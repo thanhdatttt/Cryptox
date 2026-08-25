@@ -1,2 +1,3 @@
-This layer will contain exchange adapters, repositories, cache adapters, and
-snapshot persistence. It is intentionally unimplemented in the skeleton.
+This layer contains normalized exchange adapters and PostgreSQL repositories
+for mutable candles plus sealed historical dataset snapshots. Exchange access
+remains optional; persistence never fabricates missing provider data.

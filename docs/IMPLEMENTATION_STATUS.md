@@ -4,12 +4,12 @@
 
 - Branch: `implement`
 - Project status: **Reopened — prior completion claim withdrawn on 2026-08-24**
-- Current feature: **5. Complete durable Market Data, News, and Sentiment backend flows** *(in progress)*
+- Current feature: **No feature in progress — feature 5 is ready to commit**
 - Next feature: **6. Close remaining backend transport and end-to-end composition gaps**
 
 ## Audit summary
 
-The previous final-validation claim did not establish the assignment-required product flow. The resumed backend audit confirms that Backtesting still runs inline: `apps/backtest-worker/src/main.ts` is a skeleton, `apps/backtest-worker/src/compose.ts` contains `NOT_IMPLEMENTED` adapters, and `modules/backtesting/infrastructure/queue/adapter.ts` is a placeholder. It also confirms later backend gaps: Market Data, News, and Sentiment lack their required PostgreSQL persistence/real compositions, and backend composition currently injects `undefined as never` for News and Sentiment. The queue slice is being repaired first; later gaps remain explicitly open in the plan.
+The previous final-validation claim did not establish the assignment-required product flow. The reopened audit findings for the Backtesting queue and for `undefined as never` News/Sentiment composition have now been repaired in features 4 and 5. Remaining work is queued Search completion-to-ranking orchestration, any transport gaps found by the next audit, and the required real Docker validation.
 
 ## Completed historical milestones (not evidence of full completion)
 
@@ -28,6 +28,7 @@ The previous final-validation claim did not establish the assignment-required pr
 | `4518930` | Durable manual Backtesting runtime and API | Completed and validated: authenticated benchmark scope/manual-run/read routes, deterministic simulator execution, PostgreSQL repositories/migration for all records created by this slice, and ownership/idempotency/audit behavior. The worker/queue path remains explicitly incomplete. |
 | `745dc18` | Deterministic Search and Leaderboard flow | Completed and validated: authenticated bounded Search lifecycle/Top-K routes, offline deterministic generation over saved strategy definitions, Backtesting/Evaluation scoring handoff, durable Search runs and Leaderboard entries, and persisted Backtesting candidate/experiment scores. |
 | `d168167` | Durable Backtesting BullMQ worker and recovery | Completed and validated: PostgreSQL dispatch/fence migration, transactional candidate-plus-dispatch persistence, Redis/BullMQ dispatch with bounded exponential retry, worker consumption, database claim fencing, worker-side result/retry persistence, restart reconciliation of pending dispatches, and portable worker startup. |
+| pending | Durable Market Data, News, and Sentiment flows | Ready to commit: migration `007`, PostgreSQL repositories for normalized candles/snapshots, news, analyses, and sentiment snapshots; offline demo News provider; deterministic `LOCAL_LEXICON` Sentiment adapter with model/version provenance; authenticated Market, News, and Sentiment REST routes. |
 
 ## Latest validation
 
@@ -65,6 +66,15 @@ The previous final-validation claim did not establish the assignment-required pr
 - `npm run lint`: passed — all workspace TypeScript no-emit checks complete.
 - `npm run arch:check`: passed — dependency-cruiser reported no violations across 709 modules and 920 dependencies.
 - `npm run smoke:backend`: passed — compiled backend started and passed `GET /health`; startup queue reconciliation is safe when Redis is not configured.
+- `npm test --workspace=@cryptox/market-data`: passed — 8 tests, including PostgreSQL candle/snapshot SQL coverage.
+- `npm test --workspace=@cryptox/news`: passed — 5 tests, including deterministic local-news collection and provider failure behavior.
+- `npm test --workspace=@cryptox/sentiment`: passed — 4 tests, including model-versioned result and sealed-snapshot SQL persistence.
+- `npm test --workspace=@cryptox/backend`: passed — 6 tests, including authenticated Market snapshot, News collect, and Sentiment transport mappings.
+- `npm test`: passed — 55 tests across all workspaces.
+- `npm run build`: passed — all workspaces compile and the frontend production bundle completes.
+- `npm run lint`: passed — all workspace TypeScript no-emit checks complete.
+- `npm run arch:check`: passed — dependency-cruiser reported no violations across 746 modules and 995 dependencies.
+- `npm run smoke:backend`: passed — compiled Nest backend registered the Market snapshot, News collect, and Sentiment routes and passed `GET /health`.
 
 ## Current decisions and assumptions
 
@@ -81,11 +91,12 @@ The previous final-validation claim did not establish the assignment-required pr
 - Queue dispatch uses `jobId = candidateId`. A `backtest_queue_dispatches` row and `QUEUED` Candidate are committed in the same PostgreSQL transaction before BullMQ publication. If publication fails or the process dies before acknowledgement, backend and worker startup reconciliation re-enqueue the durable pending record using the same job ID.
 - BullMQ uses the Candidate's bounded `maxAttempts` and a one-second exponential backoff. Each delivery takes a PostgreSQL fence/lease; late or duplicate deliveries cannot persist trades, experiments, or a candidate transition after the active fence has changed. Worker failures persist `RETRY_WAIT` or `TERMINAL_FAILURE_PENDING` before they are rethrown to BullMQ.
 - The worker app imports only Backtesting and Strategy public APIs. Its Backtesting runtime processes persisted Backtesting snapshots and strategy definitions; it does not call scope creation or configure provider adapters. Durable Market/News/Sentiment provider composition remains explicitly open in feature 5.
+- Market Data, News, and Sentiment now compose concrete PostgreSQL repositories whenever `DATABASE_URL` is configured. With no configured News provider, News uses the explicit local `LOCAL_DEMO` provider; requesting an unsupported configured provider raises an explicit provider error rather than reporting a false success. Sentiment uses deterministic `LOCAL_LEXICON` version `1.0.0` with a stable model fingerprint, so core flows do not require LLM credentials.
 - `MVP_MANUAL_V1` is the shared default score-formula identity for benchmark scopes and the deterministic Leaderboard formula, preventing an unscorable default scope.
 - The repository’s OpenSpec apply skill was consulted, but the `openspec` CLI is not installed in this checkout. The durable plan/status documents remain the continuation record until that tooling is available.
 
 ## Unresolved decisions and blockers
 
-- Feature 4 has passed its repository validations and is awaiting its focused commit. Search now correctly leaves queued candidates running; backend-driven completion-to-rank orchestration remains part of feature 6.
+- Search correctly leaves queued candidates running; backend-driven completion-to-rank orchestration remains part of feature 6.
 - Docker-backed validation has not yet been performed successfully for the actual assignment flow and remains a final required gate (feature 7).
 - The local Codex runtime exposes Node but not `npm` on `PATH`; a system npm executable was located at `C:\Program Files\nodejs\npm.cmd` for validation. The repository commands themselves must remain normal `npm ...` commands for developers.

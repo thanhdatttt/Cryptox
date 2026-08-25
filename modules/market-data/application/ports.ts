@@ -12,7 +12,7 @@ export interface MarketDataProviderAdapter {
 }
 export interface ProviderRegistry { getDefault?(): Promise<MarketDataProviderAdapter | undefined> | MarketDataProviderAdapter | undefined; get?(id: string): Promise<MarketDataProviderAdapter | undefined> | MarketDataProviderAdapter | undefined; defaultProvider?: MarketDataProviderAdapter; }
 export interface CandleRepository { read(query: { pair: Pair; timeframe: Timeframe; includeForming?: boolean }): Promise<Candle[]>; upsert(candle: Candle): Promise<void>; }
-export interface SnapshotRepository { read(query: unknown): Promise<unknown>; create(command: unknown): Promise<DatasetSnapshotRef>; }
+export interface SnapshotRepository { read(query: { snapshotId: string }): Promise<{ snapshot: DatasetSnapshotRef; candles: Candle[] } | undefined>; create(command: { snapshot: DatasetSnapshotRef; candles: Candle[] }): Promise<DatasetSnapshotRef>; }
 export interface LatestValueCache { get?(key: string): Promise<unknown>; set?(key: string, value: unknown): Promise<void>; delete?(key: string): Promise<void>; }
 export interface Clock { now(): string; }
 export interface MarketDataObservability { record(event: string): void; }

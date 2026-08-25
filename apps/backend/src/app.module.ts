@@ -90,6 +90,13 @@ const backtestHttpError = (error: unknown): never => {
   if (error.message.startsWith("INVALID_") || error.message.includes("DATASET") || error.message.includes("STRATEGY")) throw new BadRequestException(error.message);
   throw error;
 };
+
+const auxiliaryHttpError = (error: unknown): never => {
+  if (!(error instanceof Error)) throw error;
+  if (error.message.includes("NOT_FOUND")) throw new NotFoundException(error.message);
+  if ("code" in error || error.message.startsWith("INVALID_")) throw new BadRequestException(error.message);
+  throw error;
+};
 const positiveNumber = (value: unknown): number | undefined => value === undefined ? undefined : typeof value === "number" && Number.isFinite(value) && value > 0 ? value : undefined;
 const nonNegativeNumber = (value: unknown): number | undefined => value === undefined ? undefined : typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : undefined;
 const positiveInteger = (value: unknown): number | undefined => typeof value === "number" && Number.isInteger(value) && value > 0 ? value : undefined;
@@ -180,6 +187,31 @@ export class MarketController extends ProtectedController {
       throw error;
     }
   }
+
+  @Get("pairs/:pair")
+  async pairMetadata(@Headers("authorization") authorization: string | undefined, @Param("pair") pair: string) {
+    await this.authenticate(authorization);
+    try { return await this.modules.marketData.readPairMetadata(pair); } catch (error) { return auxiliaryHttpError(error); }
+  }
+
+  @Post("snapshots")
+  async createSnapshot(@Headers("authorization") authorization: string | undefined, @Body() body: { pair?: unknown; timeframe?: unknown; from?: unknown; to?: unknown }) {
+    await this.authenticate(authorization);
+    if (typeof body.pair !== "string" || typeof body.timeframe !== "string" || typeof body.from !== "string" || typeof body.to !== "string") throw new BadRequestException("pair, timeframe, from, and to are required.");
+    try { return await this.modules.marketData.createDatasetSnapshot({ pair: body.pair, timeframe: body.timeframe as Timeframe, range: { from: body.from, to: body.to } }); } catch (error) { return auxiliaryHttpError(error); }
+  }
+
+  @Get("snapshots/:snapshotId")
+  async readSnapshot(@Headers("authorization") authorization: string | undefined, @Param("snapshotId") snapshotId: string, @Query("cursor") cursor?: string, @Query("limit") limit?: string) {
+    await this.authenticate(authorization);
+    let parsedLimit: number | undefined;
+    if (limit !== undefined) {
+      const parsed = Number(limit);
+      if (!Number.isInteger(parsed) || parsed <= 0) throw new BadRequestException("limit must be a positive integer.");
+      parsedLimit = parsed;
+    }
+    try { return await this.modules.marketData.readDatasetSnapshot({ snapshotId, cursor, limit: parsedLimit }); } catch (error) { return auxiliaryHttpError(error); }
+  }
 }
 
 @Controller("news")
@@ -190,6 +222,44 @@ export class NewsController extends ProtectedController {
   async list(@Headers("authorization") authorization?: string) {
     await this.authenticate(authorization);
     return this.modules.news.readNews();
+  }
+
+  @Post("collect")
+  @HttpCode(202)
+  async collect(@Headers("authorization") authorization?: string): Promise<void> {
+    await this.authenticate(authorization);
+    try { await this.modules.news.collect(); } catch (error) { return auxiliaryHttpError(error); }
+  }
+}
+
+@Controller("sentiment")
+export class SentimentController extends ProtectedController {
+  constructor(@Inject(BACKEND_MODULES) modules: BackendModules) { super(modules); }
+
+  @Post("analyze")
+  async analyze(@Headers("authorization") authorization: string | undefined, @Body() body: { newsId?: unknown; title?: unknown; content?: unknown; source?: unknown; publishedAt?: unknown; relatedCoins?: unknown }) {
+    await this.authenticate(authorization);
+    if (typeof body.newsId !== "string" || typeof body.title !== "string" || typeof body.content !== "string" || typeof body.source !== "string" || typeof body.publishedAt !== "string" || !Array.isArray(body.relatedCoins) || body.relatedCoins.some((coin) => typeof coin !== "string")) throw new BadRequestException("normalized sentiment input is required.");
+    try { return await this.modules.sentiment.analyze({ newsId: body.newsId, title: body.title, content: body.content, source: body.source, publishedAt: body.publishedAt, relatedCoins: body.relatedCoins }); } catch (error) { return auxiliaryHttpError(error); }
+  }
+
+  @Get("news/:newsId")
+  async latest(@Headers("authorization") authorization: string | undefined, @Param("newsId") newsId: string) {
+    await this.authenticate(authorization);
+    try { return await this.modules.sentiment.readLatestForNews(newsId); } catch (error) { return auxiliaryHttpError(error); }
+  }
+
+  @Post("snapshots")
+  async createSnapshot(@Headers("authorization") authorization: string | undefined, @Body() body: { relatedCoin?: unknown; from?: unknown; to?: unknown; aggregationWindowSeconds?: unknown; modelName?: unknown; modelVersion?: unknown; modelSha256?: unknown }) {
+    await this.authenticate(authorization);
+    if (typeof body.relatedCoin !== "string" || typeof body.from !== "string" || typeof body.to !== "string" || typeof body.aggregationWindowSeconds !== "number" || typeof body.modelName !== "string" || typeof body.modelVersion !== "string" || typeof body.modelSha256 !== "string") throw new BadRequestException("complete sentiment snapshot input is required.");
+    try { return await this.modules.sentiment.createSnapshot({ relatedCoin: body.relatedCoin, range: { from: body.from, to: body.to }, aggregationWindowSeconds: body.aggregationWindowSeconds, modelName: body.modelName, modelVersion: body.modelVersion, modelSha256: body.modelSha256 }); } catch (error) { return auxiliaryHttpError(error); }
+  }
+
+  @Get("snapshots/:snapshotId")
+  async snapshot(@Headers("authorization") authorization: string | undefined, @Param("snapshotId") snapshotId: string) {
+    await this.authenticate(authorization);
+    try { return await this.modules.sentiment.getSnapshotRef(snapshotId); } catch (error) { return auxiliaryHttpError(error); }
   }
 }
 
@@ -307,7 +377,7 @@ export class LeaderboardController extends ProtectedController {
 }
 
 @Module({
-  controllers: [HealthController, AuthController, StrategyController, MarketController, NewsController, BacktestScopeController, BacktestController, BacktestAttemptController, ExperimentController, SearchController, LeaderboardController],
+  controllers: [HealthController, AuthController, StrategyController, MarketController, NewsController, SentimentController, BacktestScopeController, BacktestController, BacktestAttemptController, ExperimentController, SearchController, LeaderboardController],
   providers: [{ provide: BACKEND_MODULES, useFactory: (): BackendModules => composeAllModules() }],
 })
 export class AppModule {}

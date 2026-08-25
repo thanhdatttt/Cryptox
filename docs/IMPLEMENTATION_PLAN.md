@@ -48,12 +48,12 @@ The audit also found source-adjacent generated JavaScript/declaration files that
    - Use a database lease/fencing token at worker execution and completion so duplicate broker deliveries cannot duplicate trades or experiments. Configure bounded retries with deterministic backoff and durable retry/terminal state.
    - Acceptance: a queued submission is durable before Redis publication, can be recovered after dispatch failure, is processed at most once under a valid fence, records retry/terminal outcomes, and completes normal attempt/trade/result records through the worker process.
 
-5. **Complete durable Market Data, News, and Sentiment backend flows** *(in progress)*
+5. **Complete durable Market Data, News, and Sentiment backend flows** *(completed in pending commit)*
    - Add PostgreSQL migrations/repositories for normalized market candles/snapshots, news, sentiment analyses, and sentiment snapshots.
    - Make configured Binance access real without fabricating a provider success on failure; supply a concrete local/demo news provider and deterministic sentiment fallback with model/version provenance.
    - Expose the required authenticated REST commands and reads and prove collect → normalize → persist → analyze and snapshot retrieval with integration fixtures.
 
-6. **Close remaining backend transport and end-to-end composition gaps**
+6. **Close remaining backend transport and end-to-end composition gaps** *(next)*
    - Replace remaining backend/worker public placeholders, compose all modules without `undefined as never`, and complete authenticated Strategy, Market Data, Backtesting, Search, Leaderboard, News, and Sentiment transport surfaces.
    - Make the Search lifecycle work over queued Backtesting: generate → persist → dispatch → worker execute → evaluate → rank → retrieve, including lifecycle/recovery visibility.
    - Acceptance: module-boundary integration tests prove the full authenticated backend flow without controller-owned domain logic or undeclared external credentials.

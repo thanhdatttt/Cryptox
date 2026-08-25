@@ -5,3 +5,5 @@ export function createMarketDataModule(deps?: Partial<MarketDataModuleDependenci
 export { createMarketDataSnapshotReader } from "./snapshot-reader";
 export { createBinanceMarketDataAdapter } from "../infrastructure/binance-adapter";
 export type { BinanceAdapterOptions } from "../infrastructure/binance-adapter";
+export { PostgresCandleRepository, PostgresSnapshotRepository } from "../infrastructure/postgres-repositories";
+export type { MarketDataSqlClient } from "../infrastructure/postgres-repositories";

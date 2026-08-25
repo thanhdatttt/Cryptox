@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createNewsModule } from "./bootstrap";
+import { createConfiguredNewsProviders, createDemoNewsProvider } from "../infrastructure/demo-provider";
+import { createDeterministicSentimentAdapter, createSentimentModule } from "modules/sentiment/api/bootstrap";
 import type { NewsItem } from "./index";
 
 const item = (id: string, minute: number): NewsItem => ({
@@ -80,5 +82,13 @@ describe("news runtime", () => {
 
     await expect(runtime.collect()).rejects.toMatchObject({ code: "INVALID_NEWS_ITEM" });
     expect(persisted).toBe(false);
+  });
+
+  it("collects concrete local-demo News with deterministic local Sentiment and fails unsupported configured providers explicitly", async () => {
+    const sentiment = createSentimentModule({ analysis: createDeterministicSentimentAdapter({ now: () => "2025-01-01T01:00:00.000Z" }) });
+    const runtime = createNewsModule({ providers: [createDemoNewsProvider({ now: () => "2025-01-01T01:00:00.000Z" })], sentiment });
+    await runtime.collect();
+    await expect(runtime.readNews()).resolves.toEqual(expect.arrayContaining([expect.objectContaining({ source: "LOCAL_DEMO", sentiment: expect.objectContaining({ modelName: "LOCAL_LEXICON", modelVersion: "1.0.0" }) })]));
+    await expect(createConfiguredNewsProviders({ provider: "RSS" })[0]!.fetch()).rejects.toThrow("NEWS_PROVIDER_RSS_NOT_CONFIGURED");
   });
 });

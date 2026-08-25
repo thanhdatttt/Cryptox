@@ -2,6 +2,8 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const vitest_1 = require("vitest");
 const bootstrap_1 = require("./bootstrap");
+const demo_provider_1 = require("../infrastructure/demo-provider");
+const bootstrap_2 = require("modules/sentiment/api/bootstrap");
 const item = (id, minute) => ({
     id,
     title: `Headline ${id}`,
@@ -74,5 +76,12 @@ const item = (id, minute) => ({
         });
         await (0, vitest_1.expect)(runtime.collect()).rejects.toMatchObject({ code: "INVALID_NEWS_ITEM" });
         (0, vitest_1.expect)(persisted).toBe(false);
+    });
+    (0, vitest_1.it)("collects concrete local-demo News with deterministic local Sentiment and fails unsupported configured providers explicitly", async () => {
+        const sentiment = (0, bootstrap_2.createSentimentModule)({ analysis: (0, bootstrap_2.createDeterministicSentimentAdapter)({ now: () => "2025-01-01T01:00:00.000Z" }) });
+        const runtime = (0, bootstrap_1.createNewsModule)({ providers: [(0, demo_provider_1.createDemoNewsProvider)({ now: () => "2025-01-01T01:00:00.000Z" })], sentiment });
+        await runtime.collect();
+        await (0, vitest_1.expect)(runtime.readNews()).resolves.toEqual(vitest_1.expect.arrayContaining([vitest_1.expect.objectContaining({ source: "LOCAL_DEMO", sentiment: vitest_1.expect.objectContaining({ modelName: "LOCAL_LEXICON", modelVersion: "1.0.0" }) })]));
+        await (0, vitest_1.expect)((0, demo_provider_1.createConfiguredNewsProviders)({ provider: "RSS" })[0].fetch()).rejects.toThrow("NEWS_PROVIDER_RSS_NOT_CONFIGURED");
     });
 });

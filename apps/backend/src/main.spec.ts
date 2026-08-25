@@ -6,7 +6,7 @@ import { createEvaluationModule } from "modules/evaluation/api/bootstrap";
 import { createBacktestingExperimentReader, createBacktestingScopeRepository, createInMemoryLeaderboardDependencies, createLeaderboardModule } from "modules/leaderboard/api/bootstrap";
 import { createInMemorySearchDependencies, createSearchModule } from "modules/search/api/bootstrap";
 import { createInMemoryStrategyDependencies, createStrategyModule } from "modules/strategy/api/bootstrap";
-import { AuthController, BacktestAttemptController, BacktestController, BacktestScopeController, ExperimentController, LeaderboardController, MarketController, NewsController, SearchController, StrategyController } from "./app.module";
+import { AuthController, BacktestAttemptController, BacktestController, BacktestScopeController, ExperimentController, LeaderboardController, MarketController, NewsController, SearchController, SentimentController, StrategyController } from "./app.module";
 import { composeAllModules, type BackendModules } from "./compose";
 
 describe("backend composition", () => {
@@ -28,13 +28,22 @@ describe("backend composition", () => {
     const modules = {
       auth: { register: async () => undefined, login: async () => ({ token: "token" }), verify: async () => ({ userId: "user-1" }) },
       strategy: { listStrategies: () => [{ name: "MA" }], resolveStrategy: async () => { throw new Error("unused"); }, combineSignals: () => "HOLD" },
-      marketData: { readCandles: async (query: unknown) => ({ query }), readPairMetadata: async () => { throw new Error("unused"); }, createDatasetSnapshot: async () => { throw new Error("unused"); }, readDatasetSnapshot: async () => { throw new Error("unused"); }, subscribeMarketData: async () => async () => undefined, shutdown: async () => undefined },
+      marketData: { readCandles: async (query: unknown) => ({ query }), readPairMetadata: async (pair: string) => ({ pair }), createDatasetSnapshot: async (command: unknown) => ({ command }), readDatasetSnapshot: async (query: unknown) => ({ query }), subscribeMarketData: async () => async () => undefined, shutdown: async () => undefined },
       news: { collect: async () => undefined, readNews: async () => [{ id: "news-1" }] },
+      sentiment: { analyze: async (input: unknown) => ({ input }), readLatestForNews: async (newsId: string) => ({ newsId }), createSnapshot: async (input: unknown) => ({ input }), getSnapshotRef: async (snapshotId: string) => ({ snapshotId }), readSnapshot: async () => ({ readAt: () => undefined }) },
     } as unknown as BackendModules;
 
     await expect(new StrategyController(modules).list("Bearer token")).resolves.toEqual([{ name: "MA" }]);
     await expect(new MarketController(modules).candles("Bearer token", "BTCUSDT", "1h", "2")).resolves.toEqual({ query: { pair: "BTCUSDT", timeframe: "1h", limit: 2 } });
+    await expect(new MarketController(modules).pairMetadata("Bearer token", "BTCUSDT")).resolves.toEqual({ pair: "BTCUSDT" });
+    await expect(new MarketController(modules).createSnapshot("Bearer token", { pair: "BTCUSDT", timeframe: "1h", from: "2025-01-01T00:00:00.000Z", to: "2025-01-01T01:00:00.000Z" })).resolves.toHaveProperty("command");
+    await expect(new MarketController(modules).readSnapshot("Bearer token", "snapshot-1", undefined, "10")).resolves.toEqual({ query: { snapshotId: "snapshot-1", cursor: undefined, limit: 10 } });
     await expect(new NewsController(modules).list("Bearer token")).resolves.toEqual([{ id: "news-1" }]);
+    await expect(new NewsController(modules).collect("Bearer token")).resolves.toBeUndefined();
+    await expect(new SentimentController(modules).analyze("Bearer token", { newsId: "news-1", title: "Title", content: "Body", source: "LOCAL_DEMO", publishedAt: "2025-01-01T00:00:00.000Z", relatedCoins: ["BTC"] })).resolves.toHaveProperty("input");
+    await expect(new SentimentController(modules).latest("Bearer token", "news-1")).resolves.toEqual({ newsId: "news-1" });
+    await expect(new SentimentController(modules).createSnapshot("Bearer token", { relatedCoin: "BTC", from: "2025-01-01T00:00:00.000Z", to: "2025-01-01T01:00:00.000Z", aggregationWindowSeconds: 300, modelName: "LOCAL_LEXICON", modelVersion: "1.0.0", modelSha256: "a".repeat(64) })).resolves.toHaveProperty("input");
+    await expect(new SentimentController(modules).snapshot("Bearer token", "snapshot-1")).resolves.toEqual({ snapshotId: "snapshot-1" });
     await expect(new MarketController(modules).candles("Bearer token", "BTCUSDT", "1h", "0")).rejects.toBeInstanceOf(BadRequestException);
     await expect(new NewsController(modules).list()).rejects.toBeInstanceOf(UnauthorizedException);
   });
