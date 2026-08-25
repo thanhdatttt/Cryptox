@@ -53,16 +53,16 @@ Out of scope:
 
 ### Ownership and actors
 
-| Actor                                   | Allowed interaction                                                                                                                                                      |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `apps/backend` REST adapter             | Calls `readCandles`; maps the result to the existing historical REST contract.                                                                                           |
-| `apps/backend` market WebSocket gateway | Calls `subscribeMarketData`; forwards only normalized market messages.                                                                                                   |
-| `apps/backend` composition root         | Calls `createMarketDataModule` and supplies concrete infrastructure adapters through the bootstrap boundary.                                                             |
-| `modules/backtesting`                   | Calls the public snapshot creation/read contract; it never reads the `candles` or snapshot tables directly.                                                              |
-| `apps/backtest-worker`                  | Reads sealed snapshot data through `createMarketDataSnapshotReader` when the worker process requires it; it never imports Market Data repositories or provider adapters. |
-| `modules/strategy`                      | Receives caller-mapped `StrategyCandle` values; it does not depend on Market Data domain or infrastructure internals.                                                    |
-| Frontend                                | Uses Backend REST for historical data and the market-only WebSocket for normalized realtime data; it never calls Binance.                                                |
-| Provider adapter (Binance first)        | The only component allowed to know its provider's REST/WebSocket payload shapes, symbol mappings, stream names, and provider error details.                              |
+| Actor | Allowed interaction |
+|---|---|
+| `apps/backend` REST adapter | Calls `readCandles`; maps the result to the existing historical REST contract. |
+| `apps/backend` market WebSocket gateway | Calls `subscribeMarketData`; forwards only normalized market messages. |
+| `apps/backend` composition root | Calls `createMarketDataModule` and supplies concrete infrastructure adapters through the bootstrap boundary. |
+| `modules/backtesting` | Calls the public snapshot creation/read contract; it never reads the `candles` or snapshot tables directly. |
+| `apps/backtest-worker` | Reads sealed snapshot data through `createMarketDataSnapshotReader` when the worker process requires it; it never imports Market Data repositories or provider adapters. |
+| `modules/strategy` | Receives caller-mapped `StrategyCandle` values; it does not depend on Market Data domain or infrastructure internals. |
+| Frontend | Uses Backend REST for historical data and the market-only WebSocket for normalized realtime data; it never calls Binance. |
+| Provider adapter (Binance first) | The only component allowed to know its provider's REST/WebSocket payload shapes, symbol mappings, stream names, and provider error details. |
 
 ### Module boundary
 
@@ -97,23 +97,23 @@ timestamp field may cross the public Market Data boundary.
 The PDF contains both requirements and teaching examples. The classifications
 below prevent examples from becoming accidental hard-coded contracts.
 
-| Source idea                                                                   | Class                                                 | Market Data interpretation                                                                                                                              |
-| ----------------------------------------------------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Obtain cryptocurrency market data from Binance                                | MUST                                                  | Binance historical and realtime adapters are required for the MVP.                                                                                      |
-| Show realtime candlestick data and avoid repeated price polling               | MUST                                                  | Historical bootstrap uses REST; subsequent normalized market updates use the market-only WebSocket.                                                     |
-| Support up to four charts with independently changeable timeframes            | MUST for the dashboard use case                       | The dashboard may maintain at most four chart subscriptions. Market Data itself does not impose a four-subscription domain limit.                       |
-| Keep the frontend independent from Binance payloads                           | MUST                                                  | Frontend consumes canonical REST/WebSocket contracts only.                                                                                              |
-| Add another provider without rewriting downstream components                  | SHOULD                                                | A provider is added through adapter registration and capability mapping; existing canonical contracts remain stable.                                    |
-| Reconnect, retry, and recover missed candles after Binance disconnects        | SHOULD and required for reliability                   | The provider connection state machine and reconciliation flow are normative in this spec.                                                               |
-| Preserve data for historical analysis and backtesting                         | MUST                                                  | Closed candles are authoritative in PostgreSQL; snapshots are sealed and content-addressed.                                                             |
-| Handle scale and low-latency realtime delivery                                | SHOULD                                                | Bounded caches, asynchronous provider I/O, and observable reconciliation are required; no unapproved SLA is invented.                                   |
-| OKX, Bybit, Coinbase, multiple exchanges, or future timeframes                | MAY                                                   | The adapter boundary supports them, but only Binance and the current canonical timeframe set are MVP scope.                                             |
-| Exact symbols such as `BTCUSDT`                                               | ILLUSTRATIVE                                          | Used as a valid example, not an allowlist. Pair validation is capability-based.                                                                         |
-| The sample set `1m`, `5m`, `15m`, `1h`, `4h`, `1d`                            | ILLUSTRATIVE in the PDF, canonical in this repository | The current project contract intentionally defines these six `Timeframe` values. Extending them requires a coordinated contract and migration decision. |
-| Four-chart layout and the exact order `5m`, `15m`, `1h`, `4h`                 | ILLUSTRATIVE                                          | Layout and selected values belong to the dashboard use case.                                                                                            |
-| `GET /price` polling, exact Binance routes, raw payload examples              | ILLUSTRATIVE                                          | The existing repository REST surface is `GET /market/candles`; external Binance routes remain adapter internals.                                        |
-| `MarketPriceUpdated`, `CandleClosed`, `LEADERBOARD_UPDATED`, or similar names | ILLUSTRATIVE                                          | No domain events are introduced. WebSocket transport messages are scoped to market delivery and are not an Event Bus.                                   |
-| MA, RSI, Bollinger, Support/Resistance, and chart overlays                    | Out of scope for Market Data                          | Market Data supplies candles/ticks only; Strategy and Frontend own their respective behavior.                                                           |
+| Source idea | Class | Market Data interpretation |
+|---|---|---|
+| Obtain cryptocurrency market data from Binance | MUST | Binance historical and realtime adapters are required for the MVP. |
+| Show realtime candlestick data and avoid repeated price polling | MUST | Historical bootstrap uses REST; subsequent normalized market updates use the market-only WebSocket. |
+| Support up to four charts with independently changeable timeframes | MUST for the dashboard use case | The dashboard may maintain at most four chart subscriptions. Market Data itself does not impose a four-subscription domain limit. |
+| Keep the frontend independent from Binance payloads | MUST | Frontend consumes canonical REST/WebSocket contracts only. |
+| Add another provider without rewriting downstream components | SHOULD | A provider is added through adapter registration and capability mapping; existing canonical contracts remain stable. |
+| Reconnect, retry, and recover missed candles after Binance disconnects | SHOULD and required for reliability | The provider connection state machine and reconciliation flow are normative in this spec. |
+| Preserve data for historical analysis and backtesting | MUST | Closed candles are authoritative in PostgreSQL; snapshots are sealed and content-addressed. |
+| Handle scale and low-latency realtime delivery | SHOULD | Bounded caches, asynchronous provider I/O, and observable reconciliation are required; no unapproved SLA is invented. |
+| OKX, Bybit, Coinbase, multiple exchanges, or future timeframes | MAY | The adapter boundary supports them, but only Binance and the current canonical timeframe set are MVP scope. |
+| Exact symbols such as `BTCUSDT` | ILLUSTRATIVE | Used as a valid example, not an allowlist. Pair validation is capability-based. |
+| The sample set `1m`, `5m`, `15m`, `1h`, `4h`, `1d` | ILLUSTRATIVE in the PDF, canonical in this repository | The current project contract intentionally defines these six `Timeframe` values. Extending them requires a coordinated contract and migration decision. |
+| Four-chart layout and the exact order `5m`, `15m`, `1h`, `4h` | ILLUSTRATIVE | Layout and selected values belong to the dashboard use case. |
+| `GET /price` polling, exact Binance routes, raw payload examples | ILLUSTRATIVE | The existing repository REST surface is `GET /market/candles`; external Binance routes remain adapter internals. |
+| `MarketPriceUpdated`, `CandleClosed`, `LEADERBOARD_UPDATED`, or similar names | ILLUSTRATIVE | No domain events are introduced. WebSocket transport messages are scoped to market delivery and are not an Event Bus. |
+| MA, RSI, Bollinger, Support/Resistance, and chart overlays | Out of scope for Market Data | Market Data supplies candles/ticks only; Strategy and Frontend own their respective behavior. |
 
 ## 3. Terminology
 
@@ -163,14 +163,14 @@ snapshot.
 
 The current project mapping is:
 
-| Timeframe |       Duration | Candle interval          |
-| --------- | -------------: | ------------------------ |
-| `1m`      |     60 seconds | `[open, open + 60s)`     |
-| `5m`      |    300 seconds | `[open, open + 300s)`    |
-| `15m`     |    900 seconds | `[open, open + 900s)`    |
-| `1h`      |  3,600 seconds | `[open, open + 3,600s)`  |
-| `4h`      | 14,400 seconds | `[open, open + 14,400s)` |
-| `1d`      | 86,400 seconds | `[open, open + 86,400s)` |
+| Timeframe | Duration | Candle interval |
+|---|---:|---|
+| `1m` | 60 seconds | `[open, open + 60s)` |
+| `5m` | 300 seconds | `[open, open + 300s)` |
+| `15m` | 900 seconds | `[open, open + 900s)` |
+| `1h` | 3,600 seconds | `[open, open + 3,600s)` |
+| `4h` | 14,400 seconds | `[open, open + 14,400s)` |
+| `1d` | 86,400 seconds | `[open, open + 86,400s)` |
 
 All timestamps in public contracts are ISO-8601 UTC strings. A candle's
 `timestamp` is its interval open time. Its exclusive interval end is derived
@@ -388,11 +388,11 @@ historical completeness and snapshots.
 
 The module MUST maintain the existing cache responsibilities:
 
-| Cache key                           | Content                                                                          | Authority                   |
-| ----------------------------------- | -------------------------------------------------------------------------------- | --------------------------- |
-| `ticks:latest:{pair}`               | Latest normalized tick plus `schemaVersion` and `asOf`                           | Ephemeral optimization only |
+| Cache key | Content | Authority |
+|---|---|---|
+| `ticks:latest:{pair}` | Latest normalized tick plus `schemaVersion` and `asOf` | Ephemeral optimization only |
 | `candles:latest:{pair}:{timeframe}` | Bounded latest candle window plus `schemaVersion`, `asOf`, and `completeThrough` | Ephemeral optimization only |
-| `connection:status:{provider}`      | Latest normalized provider status                                                | Ephemeral optimization only |
+| `connection:status:{provider}` | Latest normalized provider status | Ephemeral optimization only |
 
 The module MUST treat a candle cache entry as fresh only when its `asOf` is no
 older than `2 x timeframe interval` and it declares `completeThrough`, the
@@ -773,6 +773,13 @@ export type Pair = string;
 
 export type Timeframe = "1m" | "5m" | "15m" | "1h" | "4h" | "1d";
 
+export interface MarketPairMetadata {
+  pair: Pair;              // opaque canonical symbol
+  baseAsset: string;       // e.g. BTC
+  quoteAsset: string;      // e.g. USDT
+  settlementAsset: string; // accounting currency used by the simulator/UI
+}
+
 // Extensible provider identifier. It is not a raw adapter or an enum that
 // forces Frontend changes when another provider is registered.
 export type ProviderId = string;
@@ -781,18 +788,18 @@ export interface Candle {
   pair: Pair;
   timeframe: Timeframe;
   timestamp: string; // ISO-8601 UTC interval open time
-  open: number; // finite positive quote-currency price
-  high: number; // finite positive quote-currency price
-  low: number; // finite positive quote-currency price
-  close: number; // finite positive quote-currency price
-  volume: number; // finite non-negative base-asset volume
+  open: number;      // finite positive quote-currency price
+  high: number;      // finite positive quote-currency price
+  low: number;       // finite positive quote-currency price
+  close: number;     // finite positive quote-currency price
+  volume: number;    // finite non-negative base-asset volume
   isClosed: boolean;
 }
 
 export interface MarketTick {
   pair: Pair;
-  price: number; // finite positive quote-currency price
-  timestamp: string; // ISO-8601 UTC provider event time
+  price: number;     // finite positive quote-currency price
+  timestamp: string;  // ISO-8601 UTC provider event time
 }
 
 export interface MarketDataConnectionStatus {
@@ -802,13 +809,14 @@ export interface MarketDataConnectionStatus {
 }
 
 export interface DatasetSnapshotRef {
-  id: string; // opaque UUID string; required, non-empty
+  id: string;                         // opaque UUID string; required, non-empty
   pair: Pair;
+  pairMetadata: MarketPairMetadata;   // normalized by Market Data; consumers never parse Pair
   timeframe: Timeframe;
   range: { from: string; to: string }; // UTC, half-open [from, to)
-  candleCount: number; // positive count of closed candles
-  sha256: string; // lowercase 64-character hex digest
-  createdAt: string; // ISO-8601 UTC commit time
+  candleCount: number;                 // positive count of closed candles
+  sha256: string;                      // lowercase 64-character hex digest
+  createdAt: string;                   // ISO-8601 UTC commit time
 }
 ```
 
@@ -819,25 +827,26 @@ this is an intentional contract decision recorded in Section 12.
 
 Canonical field semantics:
 
-| Contract field                           | Type / allowed range                                               | Requiredness, unit, and timezone                                             | Producer                                   | Consumer                                          |
-| ---------------------------------------- | ------------------------------------------------------------------ | ---------------------------------------------------------------------------- | ------------------------------------------ | ------------------------------------------------- |
-| `Pair`                                   | non-empty uppercase ASCII string; no whitespace/control characters | Required; exchange-independent symbol, no unit/timezone                      | Market Data API caller and adapter mapping | REST, WebSocket, Strategy/Backtesting projections |
-| `Timeframe`                              | `1m\|5m\|15m\|1h\|4h\|1d`                                          | Required; fixed UTC grid duration                                            | Market Data domain                         | All candle queries and consumers                  |
-| `Candle.pair` / `.timeframe`             | `Pair` / `Timeframe`                                               | Required; identifies the market and interval                                 | Market Data application                    | REST, WebSocket, snapshot reader                  |
-| `Candle.timestamp`                       | UTC ISO-8601 string, timeframe-grid aligned                        | Required; interval open time, not interval end                               | Market Data normalizer                     | REST, WebSocket, snapshot reader                  |
-| `Candle.open/high/low/close`             | finite `number`, strictly `> 0`                                    | Required; quote-currency price                                               | Market Data normalizer                     | Charts, snapshot reader, Strategy context-builder |
-| `Candle.volume`                          | finite `number`, `>= 0`                                            | Required; base-asset volume                                                  | Market Data normalizer                     | Charts, snapshot reader, Strategy context-builder |
-| `Candle.isClosed`                        | `boolean`                                                          | Required; `false` is forming, `true` is closed                               | Market Data application                    | REST, WebSocket, consumers                        |
-| `MarketTick.pair` / `.price`             | `Pair` / finite `number > 0`                                       | Required; price is quote-currency value                                      | Market Data normalizer                     | Market WebSocket and chart gateway                |
-| `MarketTick.timestamp`                   | UTC ISO-8601 string, not future under clock policy                 | Required; provider event time                                                | Market Data normalizer                     | Market WebSocket consumers                        |
-| `MarketDataConnectionStatus.provider`    | `ProviderId` matching `[A-Z0-9][A-Z0-9_-]*`                        | Required; provider identity, no raw adapter data                             | Market Data connection manager             | Market WebSocket consumers, observability         |
-| `MarketDataConnectionStatus.status`      | `CONNECTED\|RECONNECTING\|DISCONNECTED`                            | Required; provider-level connection state                                    | Market Data connection manager             | Market WebSocket consumers                        |
-| `MarketDataConnectionStatus.lastEventAt` | UTC ISO-8601 string                                                | Required; latest provider frame, or state-transition time before first frame | Market Data connection manager             | Market WebSocket consumers                        |
-| `DatasetSnapshotRef.id`                  | opaque non-empty UUID string                                       | Required; immutable snapshot identity                                        | Market Data snapshot repository            | Backtesting/worker                                |
-| `DatasetSnapshotRef.range`               | UTC aligned `{from,to}` with `from < to`                           | Required; half-open `[from,to)`                                              | Market Data snapshot repository            | Backtesting benchmark scope                       |
-| `DatasetSnapshotRef.candleCount`         | positive integer                                                   | Required; exact closed child-row count                                       | Market Data snapshot repository            | Backtesting/verification                          |
-| `DatasetSnapshotRef.sha256`              | lowercase 64-hex string                                            | Required; content address, no unit/timezone                                  | Market Data snapshot repository            | Backtesting/reproducibility checks                |
-| `DatasetSnapshotRef.createdAt`           | UTC ISO-8601 string                                                | Required; commit time of the sealed snapshot                                 | Market Data snapshot repository            | Backtesting/audit                                 |
+| Contract field | Type / allowed range | Requiredness, unit, and timezone | Producer | Consumer |
+|---|---|---|---|---|
+| `Pair` | non-empty uppercase ASCII string; no whitespace/control characters | Required; exchange-independent symbol, no unit/timezone | Market Data API caller and adapter mapping | REST, WebSocket, Strategy/Backtesting projections |
+| `Timeframe` | `1m\|5m\|15m\|1h\|4h\|1d` | Required; fixed UTC grid duration | Market Data domain | All candle queries and consumers |
+| `Candle.pair` / `.timeframe` | `Pair` / `Timeframe` | Required; identifies the market and interval | Market Data application | REST, WebSocket, snapshot reader |
+| `Candle.timestamp` | UTC ISO-8601 string, timeframe-grid aligned | Required; interval open time, not interval end | Market Data normalizer | REST, WebSocket, snapshot reader |
+| `Candle.open/high/low/close` | finite `number`, strictly `> 0` | Required; quote-currency price | Market Data normalizer | Charts, snapshot reader, Strategy context-builder |
+| `Candle.volume` | finite `number`, `>= 0` | Required; base-asset volume | Market Data normalizer | Charts, snapshot reader, Strategy context-builder |
+| `Candle.isClosed` | `boolean` | Required; `false` is forming, `true` is closed | Market Data application | REST, WebSocket, consumers |
+| `MarketTick.pair` / `.price` | `Pair` / finite `number > 0` | Required; price is quote-currency value | Market Data normalizer | Market WebSocket and chart gateway |
+| `MarketTick.timestamp` | UTC ISO-8601 string, not future under clock policy | Required; provider event time | Market Data normalizer | Market WebSocket consumers |
+| `MarketDataConnectionStatus.provider` | `ProviderId` matching `[A-Z0-9][A-Z0-9_-]*` | Required; provider identity, no raw adapter data | Market Data connection manager | Market WebSocket consumers, observability |
+| `MarketDataConnectionStatus.status` | `CONNECTED\|RECONNECTING\|DISCONNECTED` | Required; provider-level connection state | Market Data connection manager | Market WebSocket consumers |
+| `MarketDataConnectionStatus.lastEventAt` | UTC ISO-8601 string | Required; latest provider frame, or state-transition time before first frame | Market Data connection manager | Market WebSocket consumers |
+| `DatasetSnapshotRef.id` | opaque non-empty UUID string | Required; immutable snapshot identity | Market Data snapshot repository | Backtesting/worker |
+| `DatasetSnapshotRef.pairMetadata` | canonical pair/base/quote/settlement strings | Required; copied from the provider-independent pair registry and immutable with the snapshot | Market Data pair registry | Backtesting/Frontend; consumers never parse `Pair` |
+| `DatasetSnapshotRef.range` | UTC aligned `{from,to}` with `from < to` | Required; half-open `[from,to)` | Market Data snapshot repository | Backtesting benchmark scope |
+| `DatasetSnapshotRef.candleCount` | positive integer | Required; exact closed child-row count | Market Data snapshot repository | Backtesting/verification |
+| `DatasetSnapshotRef.sha256` | lowercase 64-hex string | Required; content address, no unit/timezone | Market Data snapshot repository | Backtesting/reproducibility checks |
+| `DatasetSnapshotRef.createdAt` | UTC ISO-8601 string | Required; commit time of the sealed snapshot | Market Data snapshot repository | Backtesting/audit |
 
 ### 6.2 Public in-process Market Data API
 
@@ -859,11 +868,11 @@ export interface HistoricalCandlePage {
   pair: Pair;
   timeframe: Timeframe;
   range: { from: string; to: string };
-  candles: Candle[]; // ordered by timestamp ascending
+  candles: Candle[];              // ordered by timestamp ascending
   complete: boolean;
   missingRanges: Array<{ from: string; to: string }>;
-  formingIncluded: boolean; // true only when requested forming tail is present
-  asOf: string; // ISO-8601 UTC module-clock read watermark
+  formingIncluded: boolean;        // true only when requested forming tail is present
+  asOf: string;                    // ISO-8601 UTC module-clock read watermark
   nextCursor?: string;
 }
 
@@ -875,7 +884,7 @@ export interface DatasetSnapshotCreateCommand {
 
 export interface DatasetSnapshotPage {
   snapshot: DatasetSnapshotRef;
-  candles: Candle[]; // always isClosed=true, ordered ascending
+  candles: Candle[];               // always isClosed=true, ordered ascending
   nextCursor?: string;
 }
 
@@ -896,24 +905,28 @@ export type MarketDataUpdate =
   | { kind: "CONNECTION_STATUS"; payload: MarketDataConnectionStatus };
 
 export interface MarketDataModulePublicApi {
+  readPairMetadata(pair: Pair): Promise<MarketPairMetadata>;
   readCandles(query: HistoricalCandleQuery): Promise<HistoricalCandlePage>;
   createDatasetSnapshot(command: DatasetSnapshotCreateCommand): Promise<DatasetSnapshotRef>;
   readDatasetSnapshot(query: DatasetSnapshotReadQuery): Promise<DatasetSnapshotPage>;
   subscribeMarketData(
     subscriptions: MarketSubscription[],
-    sink: (update: MarketDataUpdate) => void,
+    sink: (update: MarketDataUpdate) => void
   ): Promise<() => Promise<void>>;
   shutdown(): Promise<void>;
 }
 
-export type MarketDataSnapshotReader = Pick<MarketDataModulePublicApi, "readDatasetSnapshot">;
+export type MarketDataSnapshotReader = Pick<
+  MarketDataModulePublicApi,
+  "readDatasetSnapshot"
+>;
 
 export function createMarketDataSnapshotReader(
-  deps: Pick<MarketDataModuleDependencies, "snapshotRepository" | "clock" | "observability">,
+  deps: Pick<MarketDataModuleDependencies, "snapshotRepository" | "clock" | "observability">
 ): MarketDataSnapshotReader;
 
 export function createMarketDataModule(
-  deps: MarketDataModuleDependencies,
+  deps: MarketDataModuleDependencies
 ): MarketDataModulePublicApi;
 ```
 
@@ -933,15 +946,15 @@ the public runtime API. The composition root owns the lifecycle and invokes
 Dependency responsibilities are fixed even though concrete TypeScript names
 are implementation-specific:
 
-| Dependency          | Responsibility                                                        | May expose raw provider data?                |
-| ------------------- | --------------------------------------------------------------------- | -------------------------------------------- |
-| Provider registry   | Select registered adapters and capabilities                           | No; adapters map before the application port |
-| Candle repository   | Authoritative live/closed candle reads and writes                     | No                                           |
-| Snapshot repository | Atomic snapshot create/read, count/hash verification, logical sealing | No                                           |
-| Latest-value cache  | Redis latest tick/candle/status optimization                          | No; cache payloads are validated wrappers    |
-| Clock               | UTC now and deterministic test time                                   | No                                           |
-| Reconnect policy    | Bounded, cancellable delay/attempt decisions                          | No                                           |
-| Observability sink  | Structured logs, metrics, and safe audit records                      | No unbounded raw payloads                    |
+| Dependency | Responsibility | May expose raw provider data? |
+|---|---|---|
+| Provider registry | Select registered adapters and capabilities | No; adapters map before the application port |
+| Candle repository | Authoritative live/closed candle reads and writes | No |
+| Snapshot repository | Atomic snapshot create/read, count/hash verification, logical sealing | No |
+| Latest-value cache | Redis latest tick/candle/status optimization | No; cache payloads are validated wrappers |
+| Clock | UTC now and deterministic test time | No |
+| Reconnect policy | Bounded, cancellable delay/attempt decisions | No |
+| Observability sink | Structured logs, metrics, and safe audit records | No unbounded raw payloads |
 
 `subscribeMarketData` is an in-process delivery port used by the Backend
 market WebSocket gateway. It is not a general event publisher: it accepts only
@@ -999,7 +1012,10 @@ interface MarketDataProviderAdapter {
     pairs: Pair[];
     timeframes: Timeframe[];
   }>;
-  getClosedThrough(input: { pair: Pair; timeframe: Timeframe }): Promise<string>; // aligned UTC exclusive boundary; not a raw provider field
+  getClosedThrough(input: {
+    pair: Pair;
+    timeframe: Timeframe;
+  }): Promise<string>; // aligned UTC exclusive boundary; not a raw provider field
   compareOrder?(left: string, right: string): -1 | 0 | 1;
   fetchHistorical(command: {
     pair: Pair;
@@ -1040,16 +1056,16 @@ GET /market/candles
 
 Query fields:
 
-| Field            | Type                                | Requiredness and semantics                                                                                                |
-| ---------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `pair`           | string                              | Required canonical pair. Invalid syntax is `INVALID_PAIR`; unsupported provider pair is `UNSUPPORTED_PAIR`.               |
-| `timeframe`      | `Timeframe`                         | Required canonical timeframe; malformed input is `INVALID_TIMEFRAME`, non-canonical input is `UNSUPPORTED_TIMEFRAME`.     |
-| `from`           | ISO-8601 UTC string                 | Required when `to` is present; absent together with `to` for a limit-only query; included in the aligned half-open range. |
-| `to`             | ISO-8601 UTC string                 | Required when `from` is present; absent together with `from` for a limit-only query; excluded from the aligned range.     |
-| `limit`          | positive integer                    | Required when `from` and `to` are both absent; optional with a range; subject to configured server bounds.                |
-| `cursor`         | opaque string                       | Optional continuation token bound to the original query fingerprint; invalid/mismatched values return `INVALID_CURSOR`.   |
-| `includeForming` | boolean                             | Optional, default `false`; may include only the current forming tail, and reports `formingIncluded`.                      |
-| `completeness`   | `ALLOW_PARTIAL \| REQUIRE_COMPLETE` | Optional, default `ALLOW_PARTIAL`; snapshot creation is always `REQUIRE_COMPLETE`.                                        |
+| Field | Type | Requiredness and semantics |
+|---|---|---|
+| `pair` | string | Required canonical pair. Invalid syntax is `INVALID_PAIR`; unsupported provider pair is `UNSUPPORTED_PAIR`. |
+| `timeframe` | `Timeframe` | Required canonical timeframe; malformed input is `INVALID_TIMEFRAME`, non-canonical input is `UNSUPPORTED_TIMEFRAME`. |
+| `from` | ISO-8601 UTC string | Required when `to` is present; absent together with `to` for a limit-only query; included in the aligned half-open range. |
+| `to` | ISO-8601 UTC string | Required when `from` is present; absent together with `from` for a limit-only query; excluded from the aligned range. |
+| `limit` | positive integer | Required when `from` and `to` are both absent; optional with a range; subject to configured server bounds. |
+| `cursor` | opaque string | Optional continuation token bound to the original query fingerprint; invalid/mismatched values return `INVALID_CURSOR`. |
+| `includeForming` | boolean | Optional, default `false`; may include only the current forming tail, and reports `formingIncluded`. |
+| `completeness` | `ALLOW_PARTIAL \| REQUIRE_COMPLETE` | Optional, default `ALLOW_PARTIAL`; snapshot creation is always `REQUIRE_COMPLETE`. |
 
 The caller MUST provide either both `from` and `to` or a valid `limit`, but not
 an incomplete range. A response contains `HistoricalCandlePage`. It MUST be
@@ -1085,9 +1101,14 @@ Server envelope:
 ```typescript
 export type MarketWebSocketServerMessage = {
   schemaVersion: 1;
-  type: "MARKET_TICK" | "CANDLE" | "CONNECTION_STATUS" | "SUBSCRIPTION_ACK" | "ERROR";
-  sentAt: string; // ISO-8601 UTC gateway send time
-  requestId?: string; // present for command acknowledgement/error
+  type:
+    | "MARKET_TICK"
+    | "CANDLE"
+    | "CONNECTION_STATUS"
+    | "SUBSCRIPTION_ACK"
+    | "ERROR";
+  sentAt: string;       // ISO-8601 UTC gateway send time
+  requestId?: string;   // present for command acknowledgement/error
   payload:
     | MarketTick
     | Candle
@@ -1152,7 +1173,7 @@ export interface MarketDataError {
     | "PROVIDER_PAYLOAD_INVALID"
     | "MARKET_DATA_UNAVAILABLE"
     | "INTERNAL_ERROR";
-  message: string; // safe human-readable description
+  message: string;       // safe human-readable description
   retryable: boolean;
   details?: Record<
     string,
@@ -1170,16 +1191,16 @@ and shutdown errors are non-retryable by the caller. Provider availability,
 rate-limit, database availability, and incomplete-history errors may be
 retryable only when the corresponding failure matrix policy says so.
 
-| Error class                                                                                                        | REST behavior                                                                                                                               |
-| ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| Invalid request, invalid cursor, or unsupported pair/timeframe                                                     | `400`                                                                                                                                       |
-| No data for a valid but empty range                                                                                | `200` with `candles=[]`, `complete=false`, and `missingRanges=[requested range]` for `ALLOW_PARTIAL`; `404 NO_DATA` for `REQUIRE_COMPLETE`. |
-| Known incomplete history for `REQUIRE_COMPLETE` without an active provider outage                                  | `409 HISTORY_INCOMPLETE` with missing ranges                                                                                                |
-| Provider unavailable/rate limited, database unavailable, or required history unavailable because of infrastructure | `503` with `retryable=true`                                                                                                                 |
-| Snapshot not found                                                                                                 | `404 DATASET_NOT_FOUND`                                                                                                                     |
-| Snapshot not sealed                                                                                                | `409 DATASET_NOT_SEALED`                                                                                                                    |
-| Snapshot hash/count/child-row integrity failure                                                                    | `500 DATASET_INTEGRITY_FAILURE` and an integrity alert; never silently fetch replacement data.                                              |
-| Unexpected internal failure                                                                                        | `500`                                                                                                                                       |
+| Error class | REST behavior |
+|---|---|
+| Invalid request, invalid cursor, or unsupported pair/timeframe | `400` |
+| No data for a valid but empty range | `200` with `candles=[]`, `complete=false`, and `missingRanges=[requested range]` for `ALLOW_PARTIAL`; `404 NO_DATA` for `REQUIRE_COMPLETE`. |
+| Known incomplete history for `REQUIRE_COMPLETE` without an active provider outage | `409 HISTORY_INCOMPLETE` with missing ranges |
+| Provider unavailable/rate limited, database unavailable, or required history unavailable because of infrastructure | `503` with `retryable=true` |
+| Snapshot not found | `404 DATASET_NOT_FOUND` |
+| Snapshot not sealed | `409 DATASET_NOT_SEALED` |
+| Snapshot hash/count/child-row integrity failure | `500 DATASET_INTEGRITY_FAILURE` and an integrity alert; never silently fetch replacement data. |
+| Unexpected internal failure | `500` |
 
 Because sealing is transaction-commit based, a create interrupted before commit
 normally presents as `DATASET_NOT_FOUND`; `DATASET_NOT_SEALED` is reserved for
@@ -1237,11 +1258,11 @@ is not a visible snapshot.
 
 ### 7.1 Provider connection state
 
-| State          | Meaning                                                                                    | Allowed next states                                   |
-| -------------- | ------------------------------------------------------------------------------------------ | ----------------------------------------------------- |
+| State | Meaning | Allowed next states |
+|---|---|---|
 | `DISCONNECTED` | No active provider stream, not yet connected, exhausted recovery, or intentionally stopped | `RECONNECTING`, `CONNECTED` for an explicit new start |
-| `RECONNECTING` | Recovering or reconciling after a provider failure                                         | `CONNECTED`, `RECONNECTING`, `DISCONNECTED`           |
-| `CONNECTED`    | Stream established and required missed-data reconciliation completed                       | `RECONNECTING`, `DISCONNECTED`                        |
+| `RECONNECTING` | Recovering or reconciling after a provider failure | `CONNECTED`, `RECONNECTING`, `DISCONNECTED` |
+| `CONNECTED` | Stream established and required missed-data reconciliation completed | `RECONNECTING`, `DISCONNECTED` |
 
 `CONNECTED` MUST NOT be published as the recovered state before reconciliation
 has completed for every accepted subscription on that provider. The status is
@@ -1371,28 +1392,28 @@ boundaries or appear in normal logs.
 
 ## 9. Failure and edge-case matrix
 
-| ID        | Failure or edge case                        | Required behavior                                                                                                                                                                | Retryable?                                                                |
-| --------- | ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| FE-MD-001 | Binance REST unavailable                    | Keep database history readable; return partial data or `HISTORY_UNAVAILABLE` according to completeness mode; record provider failure.                                            | Yes when provider policy allows.                                          |
-| FE-MD-002 | Binance WebSocket disconnects               | Publish `RECONNECTING`, preserve last durable boundaries, reconnect with bounded backoff, then reconcile.                                                                        | Yes.                                                                      |
-| FE-MD-003 | Reconnect succeeds but messages were missed | Reconcile every accepted subscription to adapter `closedThrough`; publish provider-level `CONNECTED` only after all succeed.                                                     | Yes if reconciliation can retry.                                          |
-| FE-MD-004 | Duplicate message                           | Treat identical observation as an idempotent no-op; do not duplicate rows or correction metrics.                                                                                 | No.                                                                       |
-| FE-MD-005 | Out-of-order forming message                | Ignore if it would reopen/regress a closed candle; otherwise apply only when the opaque order key proves it is current; uncertain differences trigger reconciliation.            | No; wait for reconciliation if data is uncertain.                         |
-| FE-MD-006 | Malformed provider payload                  | Reject before normalization escapes adapter; log safe reason and increment invalid-payload metric.                                                                               | Only if the provider response is transiently malformed and policy allows. |
-| FE-MD-007 | Invalid OHLCV                               | Reject/quarantine; never persist or broadcast; do not fabricate values.                                                                                                          | No for the payload; historical reconciliation may retry the range.        |
-| FE-MD-008 | Closed-candle correction                    | Apply only through explicit authoritative correction path, invalidate cache, audit, and keep sealed snapshots unchanged.                                                         | Usually no; provider fetch may retry.                                     |
-| FE-MD-009 | Unsupported pair                            | Return `UNSUPPORTED_PAIR` before provider I/O.                                                                                                                                   | No.                                                                       |
-| FE-MD-010 | Unsupported timeframe                       | Return `UNSUPPORTED_TIMEFRAME` before provider I/O.                                                                                                                              | No.                                                                       |
-| FE-MD-011 | Empty historical range                      | Return `INVALID_RANGE` when `to <= from`; return `NO_DATA` for a valid range with no rows, and `404 NO_DATA` for an empty limit-only page.                                       | No.                                                                       |
-| FE-MD-012 | Partial historical response                 | Persist validated rows, mark `complete=false` and `missingRanges`, or return `HISTORY_INCOMPLETE` for `REQUIRE_COMPLETE`.                                                        | Yes if provider can continue.                                             |
-| FE-MD-013 | Cache miss                                  | Read authoritative PostgreSQL data for closed history; for latest ticks, report no cached tick because the accepted model does not persist ticks.                                | Not a cache failure.                                                      |
-| FE-MD-014 | Stale/invalid cache                         | Ignore cache, record metric, and fall back to PostgreSQL.                                                                                                                        | No; cache repopulation may be asynchronous.                               |
-| FE-MD-015 | Database unavailable                        | Do not claim closed-candle persistence or successful snapshot sealing; return a retryable availability error, withhold closed delivery, and keep provider status provider-level. | Yes.                                                                      |
-| FE-MD-016 | Snapshot creation interrupted               | Roll back metadata/child rows; expose no snapshot reference; a later identical request may retry.                                                                                | Yes.                                                                      |
-| FE-MD-017 | Provider future timestamp                   | Reject or quarantine the observation using the configured clock-skew policy; do not persist or broadcast.                                                                        | No for the observation.                                                   |
-| FE-MD-018 | Snapshot missing/unsealed/corrupt           | Return the specific snapshot integrity error; never read mutable candles or fetch a replacement silently.                                                                        | No without operator/data repair.                                          |
-| FE-MD-019 | Provider rate limited                       | Return `PROVIDER_RATE_LIMITED`, use adapter retry/backoff policy, preserve known history, and avoid a thundering herd.                                                           | Yes.                                                                      |
-| FE-MD-020 | Controlled shutdown during reconnect        | Idempotent `shutdown()` cancels timers and provider connection, stops new subscriptions, flushes validated writes, and requires a new module instance before restart.            | No after shutdown.                                                        |
+| ID | Failure or edge case | Required behavior | Retryable? |
+|---|---|---|---|
+| FE-MD-001 | Binance REST unavailable | Keep database history readable; return partial data or `HISTORY_UNAVAILABLE` according to completeness mode; record provider failure. | Yes when provider policy allows. |
+| FE-MD-002 | Binance WebSocket disconnects | Publish `RECONNECTING`, preserve last durable boundaries, reconnect with bounded backoff, then reconcile. | Yes. |
+| FE-MD-003 | Reconnect succeeds but messages were missed | Reconcile every accepted subscription to adapter `closedThrough`; publish provider-level `CONNECTED` only after all succeed. | Yes if reconciliation can retry. |
+| FE-MD-004 | Duplicate message | Treat identical observation as an idempotent no-op; do not duplicate rows or correction metrics. | No. |
+| FE-MD-005 | Out-of-order forming message | Ignore if it would reopen/regress a closed candle; otherwise apply only when the opaque order key proves it is current; uncertain differences trigger reconciliation. | No; wait for reconciliation if data is uncertain. |
+| FE-MD-006 | Malformed provider payload | Reject before normalization escapes adapter; log safe reason and increment invalid-payload metric. | Only if the provider response is transiently malformed and policy allows. |
+| FE-MD-007 | Invalid OHLCV | Reject/quarantine; never persist or broadcast; do not fabricate values. | No for the payload; historical reconciliation may retry the range. |
+| FE-MD-008 | Closed-candle correction | Apply only through explicit authoritative correction path, invalidate cache, audit, and keep sealed snapshots unchanged. | Usually no; provider fetch may retry. |
+| FE-MD-009 | Unsupported pair | Return `UNSUPPORTED_PAIR` before provider I/O. | No. |
+| FE-MD-010 | Unsupported timeframe | Return `UNSUPPORTED_TIMEFRAME` before provider I/O. | No. |
+| FE-MD-011 | Empty historical range | Return `INVALID_RANGE` when `to <= from`; return `NO_DATA` for a valid range with no rows, and `404 NO_DATA` for an empty limit-only page. | No. |
+| FE-MD-012 | Partial historical response | Persist validated rows, mark `complete=false` and `missingRanges`, or return `HISTORY_INCOMPLETE` for `REQUIRE_COMPLETE`. | Yes if provider can continue. |
+| FE-MD-013 | Cache miss | Read authoritative PostgreSQL data for closed history; for latest ticks, report no cached tick because the accepted model does not persist ticks. | Not a cache failure. |
+| FE-MD-014 | Stale/invalid cache | Ignore cache, record metric, and fall back to PostgreSQL. | No; cache repopulation may be asynchronous. |
+| FE-MD-015 | Database unavailable | Do not claim closed-candle persistence or successful snapshot sealing; return a retryable availability error, withhold closed delivery, and keep provider status provider-level. | Yes. |
+| FE-MD-016 | Snapshot creation interrupted | Roll back metadata/child rows; expose no snapshot reference; a later identical request may retry. | Yes. |
+| FE-MD-017 | Provider future timestamp | Reject or quarantine the observation using the configured clock-skew policy; do not persist or broadcast. | No for the observation. |
+| FE-MD-018 | Snapshot missing/unsealed/corrupt | Return the specific snapshot integrity error; never read mutable candles or fetch a replacement silently. | No without operator/data repair. |
+| FE-MD-019 | Provider rate limited | Return `PROVIDER_RATE_LIMITED`, use adapter retry/backoff policy, preserve known history, and avoid a thundering herd. | Yes. |
+| FE-MD-020 | Controlled shutdown during reconnect | Idempotent `shutdown()` cancels timers and provider connection, stops new subscriptions, flushes validated writes, and requires a new module instance before restart. | No after shutdown. |
 
 ## 10. Acceptance criteria
 
@@ -1486,11 +1507,10 @@ the behavior can be verified deterministically without Binance network access.
 13. **Missed candle reconciliation**
     - Given a disconnect causes one or more closed intervals to be absent
     - When the stream reconnects
-
-- Then the module obtains the adapter's `closedThrough`, fetches the missing
-  historical range, persists valid candles idempotently, and publishes
-  provider-level `CONNECTED` only after every accepted subscription is
-  complete.
+   - Then the module obtains the adapter's `closedThrough`, fetches the missing
+     historical range, persists valid candles idempotently, and publishes
+     provider-level `CONNECTED` only after every accepted subscription is
+     complete.
 
 14. **Reconciliation failure remains visible**
     - Given reconnect succeeds but historical reconciliation remains unavailable
@@ -1517,10 +1537,9 @@ the behavior can be verified deterministically without Binance network access.
 17. **Snapshot is immutable and idempotent**
     - Given a complete aligned range of closed candles
     - When snapshot creation runs twice with unchanged content
-
-- Then one sealed content hash/reference is returned for both calls, the
-  hash is computed from the exact version-1 canonical byte serialization,
-  and all child rows are committed atomically.
+   - Then one sealed content hash/reference is returned for both calls, the
+     hash is computed from the exact version-1 canonical byte serialization,
+     and all child rows are committed atomically.
 
 18. **Snapshot correction isolation**
     - Given a sealed snapshot and a later correction to a live candle
@@ -1531,10 +1550,9 @@ the behavior can be verified deterministically without Binance network access.
 19. **Snapshot integrity**
     - Given a missing, unsealed, or hash-inconsistent snapshot ID
     - When a worker requests snapshot data
-
-- Then the public API returns a specific integrity error and never falls
-  back to mutable live candles, Redis, or provider history; the worker uses
-  the approved snapshot reader rather than a direct table query.
+   - Then the public API returns a specific integrity error and never falls
+     back to mutable live candles, Redis, or provider history; the worker uses
+     the approved snapshot reader rather than a direct table query.
 
 ### Boundary and extensibility behavior
 
@@ -1555,87 +1573,79 @@ the behavior can be verified deterministically without Binance network access.
     - Given the repository's no-General-Event-Bus rule
     - When market data is delivered to the browser or consumed by another
       module
-
-- Then delivery uses the public Market Data API or market-only WebSocket;
-  no `MarketPriceUpdated`, `CandleClosed`, or generic domain event is
-  published.
+   - Then delivery uses the public Market Data API or market-only WebSocket;
+     no `MarketPriceUpdated`, `CandleClosed`, or generic domain event is
+     published.
 
 23. **Range, limit, and cursor contract**
-
-- Given a request with only one range endpoint, an unaligned endpoint, a
-  non-positive/over-limit `limit`, or a cursor bound to another query
-- When `readCandles` or `GET /market/candles` is called
-- Then it returns `INVALID_RANGE`, `RANGE_TOO_LARGE`, or `INVALID_CURSOR`
-  respectively before provider I/O; a limit-only page has deterministic
-  ascending ordering and an effective response range.
+   - Given a request with only one range endpoint, an unaligned endpoint, a
+     non-positive/over-limit `limit`, or a cursor bound to another query
+   - When `readCandles` or `GET /market/candles` is called
+   - Then it returns `INVALID_RANGE`, `RANGE_TOO_LARGE`, or `INVALID_CURSOR`
+     respectively before provider I/O; a limit-only page has deterministic
+     ascending ordering and an effective response range.
 
 24. **Subscription acknowledgement and idempotency**
-
-- Given repeated `SUBSCRIBE` and `UNSUBSCRIBE` commands with the same
-  `requestId`/subscription identity
-- When the market WebSocket processes them
-- Then each command receives a correlated acknowledgement, duplicate
-  subscribe does not duplicate provider streams, duplicate unsubscribe is
-  `ABSENT`, and an empty accepted set does not keep a provider stream alive.
+   - Given repeated `SUBSCRIBE` and `UNSUBSCRIBE` commands with the same
+     `requestId`/subscription identity
+   - When the market WebSocket processes them
+   - Then each command receives a correlated acknowledgement, duplicate
+     subscribe does not duplicate provider streams, duplicate unsubscribe is
+     `ABSENT`, and an empty accepted set does not keep a provider stream alive.
 
 25. **Database failure does not masquerade as provider failure**
-
-- Given a valid closed candle but a failed PostgreSQL commit
-- When the close is ingested
-- Then no closed message is broadcast, a retryable module error/metric is
-  recorded, and provider connection status remains provider-level rather
-  than being changed to `DISCONNECTED` solely for the database error.
+   - Given a valid closed candle but a failed PostgreSQL commit
+   - When the close is ingested
+   - Then no closed message is broadcast, a retryable module error/metric is
+     recorded, and provider connection status remains provider-level rather
+     than being changed to `DISCONNECTED` solely for the database error.
 
 26. **Future tick rejection**
-
-- Given a provider tick whose timestamp is beyond the injected clock-skew
-  policy
-- When the adapter delivers it
-- Then it is rejected/quarantined, not cached or broadcast, and the invalid
-  observation metric records the provider and safe pair context.
+   - Given a provider tick whose timestamp is beyond the injected clock-skew
+     policy
+   - When the adapter delivers it
+   - Then it is rejected/quarantined, not cached or broadcast, and the invalid
+     observation metric records the provider and safe pair context.
 
 27. **Controlled shutdown**
-
-- Given reconnect timers, active subscriptions, and pending validated
-  closed-candle writes
-- When `shutdown()` is called once or repeatedly
-- Then timers and provider streams stop, pending writes are flushed or
-  reported before resolution, no new subscription is accepted, and no
-  reconnect attempt occurs after resolution.
+   - Given reconnect timers, active subscriptions, and pending validated
+     closed-candle writes
+   - When `shutdown()` is called once or repeatedly
+   - Then timers and provider streams stop, pending writes are flushed or
+     reported before resolution, no new subscription is accepted, and no
+     reconnect attempt occurs after resolution.
 
 28. **Worker and cross-module boundary**
-
-- Given an implementation architecture check
-- When Backtesting or `apps/backtest-worker` reads a snapshot
-- Then it calls the public snapshot contract/reader only, never imports
-  Market Data domain/infrastructure or reads PostgreSQL tables directly.
+   - Given an implementation architecture check
+   - When Backtesting or `apps/backtest-worker` reads a snapshot
+   - Then it calls the public snapshot contract/reader only, never imports
+     Market Data domain/infrastructure or reads PostgreSQL tables directly.
 
 29. **Provider boundary and reconciliation evidence**
-
-- Given a second adapter with a different raw payload and a disconnect
-- When it is registered and reconnects
-- Then the adapter emits canonical observations plus an internal
-  `closedThrough` boundary and, when the provider supplies reliable order,
-  an order key/comparator; the same reconciliation rules apply, and no
-  provider-specific field reaches REST, WebSocket, Strategy, or Backtesting.
+   - Given a second adapter with a different raw payload and a disconnect
+   - When it is registered and reconnects
+   - Then the adapter emits canonical observations plus an internal
+     `closedThrough` boundary and, when the provider supplies reliable order,
+     an order key/comparator; the same reconciliation rules apply, and no
+     provider-specific field reaches REST, WebSocket, Strategy, or Backtesting.
 
 ## 11. Traceability matrix
 
-| PDF source                                                                         | Classified requirement                                                                                                     | Spec coverage                                                                 | Acceptance coverage     |
-| ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- | ----------------------- |
-| Brief section 4, Realtime Market Data                                              | MUST: Binance historical and realtime market data                                                                          | FR-MD-004, FR-MD-005, UC-MD-001 to UC-MD-004                                  | AC 1, 5, 8, 9           |
-| Brief section 5, architecture requirement                                          | MUST: frontend must not depend on Binance shape                                                                            | FR-MD-001, FR-MD-006, NFR-MD-006                                              | AC 4, 21                |
-| Brief section 6, Multi-Timeframe Chart                                             | MUST for dashboard: independent chart timeframe selection                                                                  | FR-MD-003, UC-MD-002                                                          | AC 3, 20                |
-| Brief sections 32.3-32.4                                                           | SHOULD: low-latency realtime and recovery after disconnect                                                                 | FR-MD-016 to FR-MD-020, NFR-MD-001                                            | AC 12 to 15, 25, 27     |
-| Brief section 35, database groups                                                  | MUST: candles with pair/timeframe/timestamp/OHLCV                                                                          | FR-MD-009, FR-MD-012, Section 6.1, Section 7                                  | AC 5, 9, 11, 25         |
-| Brief section 36                                                                   | MUST: reproducible versioned results                                                                                       | FR-MD-021, FR-MD-022, Section 7.4, Section 6.8                                | AC 17 to 19, 28         |
-| Brief section 37, MVP                                                              | MUST: Binance, candlestick, realtime, up to four dashboard timeframes                                                      | Section 2, FR-MD-004 to FR-MD-010                                             | AC 1, 5, 9, 20          |
-| Brief section 40.3                                                                 | SHOULD: provider replacement without Frontend rewrite                                                                      | FR-MD-001, FR-MD-006, FR-MD-023, UC-MD-010                                    | AC 20, 21, 29           |
-| Brief section 40.7                                                                 | SHOULD: WebSocket disconnect recovery                                                                                      | FR-MD-016 to FR-MD-019                                                        | AC 12 to 15             |
-| Brief section 44 anti-patterns                                                     | SHOULD: no God Service, raw Binance coupling, frontend business logic                                                      | Scope, boundary, NFR-MD-006                                                   | AC 21, 22               |
-| Brief sections 39-43, central architecture questions                               | SHOULD: prove modifiability, reliability, maintainability, observability, and scalable boundaries rather than copy samples | Overview, NFR-MD-001 to NFR-MD-006, D-MD-001 to D-MD-016                      | AC 20 to 29             |
-| Brief sections 45-46 deliverables/demo                                             | MUST for project delivery, not Market Data runtime behavior                                                                | This spec supplies the Market Data portion of architecture/demo/test evidence | AC 5, 9, 12, 20, 21, 28 |
-| PDF sample `BTCUSDT`, exact four chart values, named events, exact exchange routes | ILLUSTRATIVE                                                                                                               | Section 2 prevents hard-coding them as universal requirements                 | AC 3, 20, 22            |
+| PDF source | Classified requirement | Spec coverage | Acceptance coverage |
+|---|---|---|---|
+| Brief section 4, Realtime Market Data | MUST: Binance historical and realtime market data | FR-MD-004, FR-MD-005, UC-MD-001 to UC-MD-004 | AC 1, 5, 8, 9 |
+| Brief section 5, architecture requirement | MUST: frontend must not depend on Binance shape | FR-MD-001, FR-MD-006, NFR-MD-006 | AC 4, 21 |
+| Brief section 6, Multi-Timeframe Chart | MUST for dashboard: independent chart timeframe selection | FR-MD-003, UC-MD-002 | AC 3, 20 |
+| Brief sections 32.3-32.4 | SHOULD: low-latency realtime and recovery after disconnect | FR-MD-016 to FR-MD-020, NFR-MD-001 | AC 12 to 15, 25, 27 |
+| Brief section 35, database groups | MUST: candles with pair/timeframe/timestamp/OHLCV | FR-MD-009, FR-MD-012, Section 6.1, Section 7 | AC 5, 9, 11, 25 |
+| Brief section 36 | MUST: reproducible versioned results | FR-MD-021, FR-MD-022, Section 7.4, Section 6.8 | AC 17 to 19, 28 |
+| Brief section 37, MVP | MUST: Binance, candlestick, realtime, up to four dashboard timeframes | Section 2, FR-MD-004 to FR-MD-010 | AC 1, 5, 9, 20 |
+| Brief section 40.3 | SHOULD: provider replacement without Frontend rewrite | FR-MD-001, FR-MD-006, FR-MD-023, UC-MD-010 | AC 20, 21, 29 |
+| Brief section 40.7 | SHOULD: WebSocket disconnect recovery | FR-MD-016 to FR-MD-019 | AC 12 to 15 |
+| Brief section 44 anti-patterns | SHOULD: no God Service, raw Binance coupling, frontend business logic | Scope, boundary, NFR-MD-006 | AC 21, 22 |
+| Brief sections 39-43, central architecture questions | SHOULD: prove modifiability, reliability, maintainability, observability, and scalable boundaries rather than copy samples | Overview, NFR-MD-001 to NFR-MD-006, D-MD-001 to D-MD-016 | AC 20 to 29 |
+| Brief sections 45-46 deliverables/demo | MUST for project delivery, not Market Data runtime behavior | This spec supplies the Market Data portion of architecture/demo/test evidence | AC 5, 9, 12, 20, 21, 28 |
+| PDF sample `BTCUSDT`, exact four chart values, named events, exact exchange routes | ILLUSTRATIVE | Section 2 prevents hard-coding them as universal requirements | AC 3, 20, 22 |
 
 ## 12. Decisions, assumptions, and open issues
 
@@ -1759,18 +1769,18 @@ fabricating a value.
 
 ### Adjudicated review findings
 
-| ID        | Severity | Evidence                                                           | Problem                                                                                          | Consequence                                                            | Required refinement / decision                                                                                        |
-| --------- | -------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| P1-MD-001 | P1       | §6.3 previously exposed `unknown` payload callbacks                | Raw exchange values could cross the adapter/application seam                                     | Provider coupling and boundary-test failure                            | Fixed by normalized observation types, source marker, and opaque order key; see D-MD-009.                             |
-| P1-MD-002 | P1       | §§4.7-4.8 and §6.4                                                 | Optional range, limit-only reads, cursor binding, and defaults were underspecified               | Agents could return different pages or completeness flags              | Fixed with explicit range/page rules, default `ALLOW_PARTIAL`, `RANGE_TOO_LARGE`, and `INVALID_CURSOR`; see D-MD-011. |
-| P1-MD-003 | P1       | §§4.16-4.18 and §7.1                                               | Provider-level status was phrased as if it were per-stream health                                | Partial recovery could be reported as healthy                          | Fixed: `CONNECTED` requires all accepted subscriptions; status remains provider-level.                                |
-| P1-MD-004 | P1       | §§4.21, 6.8, and 7.4                                               | Snapshot hash bytes and seal boundary were not exact and did not match the existing schema shape | Backtest reproducibility and interrupted-create behavior could diverge | Fixed with version-1 canonical serialization and logical commit seal; see D-MD-010.                                   |
-| P1-MD-005 | P1       | §1 actors vs `docs/design/project-structure.md` worker composition | Separate worker could be interpreted as direct table reader or in-process backend caller         | Raw persistence coupling or impossible process integration             | Fixed with explicit read-only public snapshot reader; see D-MD-013.                                                   |
-| P1-MD-006 | P1       | §4.20 and §6.2                                                     | Shutdown was required but absent from the public lifecycle contract                              | Reconnect timers and subscriptions could outlive application shutdown  | Fixed with idempotent public `shutdown()` and acceptance test 27.                                                     |
-| P1-MD-007 | P1       | §4.10 and existing `data-model.md`                                 | Generic cache fallback wording conflicted with non-persisted ticks                               | Agent might fabricate a tick or write an unauthorized tick table       | Fixed by limiting PostgreSQL fallback to closed history and making tick-cache miss explicit; see D-MD-014.            |
-| P1-MD-008 | P1       | ADR-001 plus §6.5                                                  | Subscription acknowledgements/errors could be misread as an Event Bus or non-market push channel | WebSocket boundary could expand beyond the accepted transport decision | Fixed by classifying them as per-connection transport-control responses; only tick/candle/status are market pushes.   |
-| P2-MD-001 | P2       | §§4.3 and 6.6                                                      | `INVALID_TIMEFRAME` existed without a malformed-input rule                                       | HTTP validation mapping could diverge                                  | Fixed by separating malformed from unsupported timeframe.                                                             |
-| P2-MD-002 | P2       | §6.5                                                               | Subscription acknowledgement did not identify action/state                                       | Duplicate unsubscribe/subscribe behavior was not machine-verifiable    | Fixed with correlated action/state acknowledgement and acceptance test 24.                                            |
+| ID | Severity | Evidence | Problem | Consequence | Required refinement / decision |
+|---|---|---|---|---|---|
+| P1-MD-001 | P1 | §6.3 previously exposed `unknown` payload callbacks | Raw exchange values could cross the adapter/application seam | Provider coupling and boundary-test failure | Fixed by normalized observation types, source marker, and opaque order key; see D-MD-009. |
+| P1-MD-002 | P1 | §§4.7-4.8 and §6.4 | Optional range, limit-only reads, cursor binding, and defaults were underspecified | Agents could return different pages or completeness flags | Fixed with explicit range/page rules, default `ALLOW_PARTIAL`, `RANGE_TOO_LARGE`, and `INVALID_CURSOR`; see D-MD-011. |
+| P1-MD-003 | P1 | §§4.16-4.18 and §7.1 | Provider-level status was phrased as if it were per-stream health | Partial recovery could be reported as healthy | Fixed: `CONNECTED` requires all accepted subscriptions; status remains provider-level. |
+| P1-MD-004 | P1 | §§4.21, 6.8, and 7.4 | Snapshot hash bytes and seal boundary were not exact and did not match the existing schema shape | Backtest reproducibility and interrupted-create behavior could diverge | Fixed with version-1 canonical serialization and logical commit seal; see D-MD-010. |
+| P1-MD-005 | P1 | §1 actors vs `docs/design/project-structure.md` worker composition | Separate worker could be interpreted as direct table reader or in-process backend caller | Raw persistence coupling or impossible process integration | Fixed with explicit read-only public snapshot reader; see D-MD-013. |
+| P1-MD-006 | P1 | §4.20 and §6.2 | Shutdown was required but absent from the public lifecycle contract | Reconnect timers and subscriptions could outlive application shutdown | Fixed with idempotent public `shutdown()` and acceptance test 27. |
+| P1-MD-007 | P1 | §4.10 and existing `data-model.md` | Generic cache fallback wording conflicted with non-persisted ticks | Agent might fabricate a tick or write an unauthorized tick table | Fixed by limiting PostgreSQL fallback to closed history and making tick-cache miss explicit; see D-MD-014. |
+| P1-MD-008 | P1 | ADR-001 plus §6.5 | Subscription acknowledgements/errors could be misread as an Event Bus or non-market push channel | WebSocket boundary could expand beyond the accepted transport decision | Fixed by classifying them as per-connection transport-control responses; only tick/candle/status are market pushes. |
+| P2-MD-001 | P2 | §§4.3 and 6.6 | `INVALID_TIMEFRAME` existed without a malformed-input rule | HTTP validation mapping could diverge | Fixed by separating malformed from unsupported timeframe. |
+| P2-MD-002 | P2 | §6.5 | Subscription acknowledgement did not identify action/state | Duplicate unsubscribe/subscribe behavior was not machine-verifiable | Fixed with correlated action/state acknowledgement and acceptance test 24. |
 
 ### Assumptions
 

@@ -6,13 +6,13 @@ This design affects `modules/auth`, `modules/strategy`, `modules/search`, `modul
 
 The canonical documentation to update during application is:
 
-| Item                            | Primary files                                                                                        | Downstream files                                                                                |
-| ------------------------------- | ---------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
-| 1. Authentication and ownership | `openspec/specs/auth-spec.md`, `docs/design/data-model.md`, `docs/design/component-contracts.md`     | `strategy-spec.md`, `search-spec.md`, `ranking-spec.md`                                         |
-| 2. AI-generated Strategy        | `openspec/specs/strategy-spec.md`, `docs/design/component-contracts.md`, `docs/design/data-model.md` | `search-spec.md` only to distinguish user-requested generation from Search candidate generation |
-| 3. Trade risk fields            | `docs/design/component-contracts.md`, `docs/design/data-model.md`                                    | Backtesting queue/result and Experiment REST projections documented there                       |
-| 4. Historical candle default    | `openspec/specs/market-data-spec.md`, `docs/design/component-contracts.md`                           | None; snapshot/range semantics remain unchanged                                                 |
-| 5. LLM crawler parsing          | `openspec/specs/news-spec.md`, `docs/design/component-contracts.md`                                  | Sentiment contract is unchanged because it still receives normalized News                       |
+| Item | Primary files | Downstream files |
+|---|---|---|
+| 1. Authentication and ownership | `openspec/specs/auth-spec.md`, `docs/design/data-model.md`, `docs/design/component-contracts.md` | `strategy-spec.md`, `search-spec.md`, `ranking-spec.md` |
+| 2. AI-generated Strategy | `openspec/specs/strategy-spec.md`, `docs/design/component-contracts.md`, `docs/design/data-model.md` | `search-spec.md` only to distinguish user-requested generation from Search candidate generation |
+| 3. Trade risk fields | `docs/design/component-contracts.md`, `docs/design/data-model.md` | Backtesting queue/result and Experiment REST projections documented there |
+| 4. Historical candle default | `openspec/specs/market-data-spec.md`, `docs/design/component-contracts.md` | None; snapshot/range semantics remain unchanged |
+| 5. LLM crawler parsing | `openspec/specs/news-spec.md`, `docs/design/component-contracts.md` | Sentiment contract is unchanged because it still receives normalized News |
 
 ## Goals / Non-Goals
 
@@ -89,13 +89,13 @@ The proposal is mapped through the existing `defineStrategy(userId, ...)` and `d
 
 Persist a minimal `strategy_generation_requests` audit row:
 
-| Field                                                              | Purpose                                         |
-| ------------------------------------------------------------------ | ----------------------------------------------- |
-| `id`, `user_id`, `source_type`                                     | Identity and ownership                          |
-| `source_text` / `source_url`                                       | Exactly one original input; no fetched raw HTML |
-| `model_name`, `model_version`, `prompt_version`                    | Generation provenance                           |
-| `output_kind`, `strategy_definition_id`, `composite_definition_id` | Exactly one successful result reference         |
-| `created_at`                                                       | Audit timestamp                                 |
+| Field | Purpose |
+|---|---|
+| `id`, `user_id`, `source_type` | Identity and ownership |
+| `source_text` / `source_url` | Exactly one original input; no fetched raw HTML |
+| `model_name`, `model_version`, `prompt_version` | Generation provenance |
+| `output_kind`, `strategy_definition_id`, `composite_definition_id` | Exactly one successful result reference |
+| `created_at` | Audit timestamp |
 
 Only successful generations are persisted in the MVP. Invalid input, fetch failure, model timeout, malformed output, unknown plugin, or Strategy validation failure returns an error and writes no definitions or generation row. Definitions/components and the audit row are committed atomically.
 

@@ -75,9 +75,11 @@ sequenceDiagram
     participant W as Backtest Worker
 
     U->>FE: Configure fixed strategy and benchmark scope; click Run
+    FE->>API: Commit/select immutable Strategy/Composite and benchmark scope first
     FE->>API: POST /backtests
     API->>BC: Start manual candidate
-    BC->>PG: Transaction: insert/verify immutable Strategy + Composite versions, then Candidate(CREATED)
+    BC->>BC: Load/verify same-owner immutable refs through Strategy/Leaderboard APIs
+    BC->>PG: Transaction: insert Candidate(CREATED) with committed refs only
     BC->>Q: Idempotent enqueue with deterministic jobId
     BC->>PG: Conditional CREATED -> QUEUED
     BC-->>API: candidateId, jobId
@@ -87,7 +89,7 @@ sequenceDiagram
     alt Candidate already CANCELLED
         W->>Q: Return IGNORED/CANCELLED; Completion Processor reloads and no-ops
     else Candidate is runnable
-        W->>PG: Verify scope-pinned runtime; close stale Attempt; check budget; allocate active attempt generation
+        W->>PG: Verify scope-pinned simulator artifact; record worker build; close stale Attempt; check budget; allocate generation
         W->>W: Simulate trades (cancellation may race)
         alt Simulation succeeds
             W->>PG: One transaction if active generation: trades + Attempt=COMPLETED + PROCESSING_RESULT
@@ -103,7 +105,7 @@ sequenceDiagram
     end
 ```
 
-Before Candidate commit, the Coordinator validates plugin parameters from registry descriptors and verifies all definition FKs. A composite containing an `INFORMATION` plugin additionally requires the selected scope to pin a sealed, time-aligned sentiment/model snapshot. The job copies the scope's worker runtime hash and the worker rejects a different local build. The frontend then polls `GET /backtests/{candidateId}`. A retry creates another durable attempt but never exceeds `maxAttempts`. The active-attempt generation fences overlapping stalled deliveries: a superseded worker cannot close its Attempt or move the Candidate. If cancellation wins before work starts, no simulation runs. If it wins during simulation, the worker may finish its own Attempt as `COMPLETED` and persist Trades for audit, but cannot overwrite `CANCELLED` or create an Experiment/rank. `POST /backtests/{candidateId}/cancel` gives Manual runs the same idempotent DB-first cancellation; only the Coordinator performs best-effort waiting/delayed-job cleanup. If a job is redelivered after a successful PostgreSQL commit, the worker finds the completed attempt and returns its IDs instead of simulating again.
+Before Candidate commit, the Coordinator verifies same-owner immutable definition references, plugin-declared warm-up, and the normalized execution-policy snapshot. An `INFORMATION` composite additionally requires a sealed time-aligned sentiment snapshot. The job copies the scope's simulator artifact hash; the worker resolves that exact artifact and separately records its deployment build for audit. The frontend then polls status. Retries never exceed `maxAttempts`, and generation/token fencing makes overlapping deliveries harmless. Cancellation is DB-first; an in-flight worker may retain audit Trades but cannot overwrite `CANCELLED` or create an Experiment/rank. Redelivery after a successful PostgreSQL commit returns existing IDs instead of simulating again.
 
 ## 5. Continuous Search Run
 
@@ -181,13 +183,13 @@ sequenceDiagram
     opt Completed attempt
         BC->>E: evaluate(CompletedBacktestResult) outside write transaction
         E-->>BC: Finite normalized EvaluationMetrics
+        BC->>L: score(scopeId, metrics) outside write transaction
+        L-->>BC: scoreFormulaId + finite score + rank eligibility
     end
     BC->>PG: BEGIN; Search locks Run→Candidate→Scope, Manual Candidate→Scope; match generation + token
     alt Candidate is CANCELLED
         BC->>PG: Preserve audit rows; commit no Experiment/rank
     else Completed and Candidate is PROCESSING_RESULT
-        BC->>L: score(scopeId, metrics)
-        L-->>BC: scoreFormulaId + finite score + rank eligibility
         BC->>PG: Ensure scored ExperimentResult
         BC->>L: submit(experiment)
         L->>L: Decide persistent scoped Top-10 admission
