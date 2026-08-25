@@ -80,7 +80,7 @@ abstract class ProtectedController {
 const strategyHttpError = (error: unknown): never => {
   if (!(error instanceof Error)) throw error;
   if (error.message.endsWith("_NOT_FOUND")) throw new NotFoundException(error.message);
-  if (error.message.startsWith("INVALID_") || error.message === "STRATEGY_NOT_REGISTERED") throw new BadRequestException(error.message);
+  if (error.message.startsWith("INVALID_") || error.message === "VALIDATION_ERROR" || error.message === "STRATEGY_NOT_REGISTERED") throw new BadRequestException(error.message);
   throw error;
 };
 
@@ -166,6 +166,24 @@ export class StrategyController extends ProtectedController {
     } catch (error) {
       return strategyHttpError(error);
     }
+  }
+}
+
+@Controller("strategy-generations")
+export class StrategyGenerationController extends ProtectedController {
+  constructor(@Inject(BACKEND_MODULES) modules: BackendModules) { super(modules); }
+
+  @Post()
+  @HttpCode(201)
+  async generate(@Headers("authorization") authorization: string | undefined, @Body() body: { sourceType?: unknown; text?: unknown; url?: unknown }) {
+    const userId = await this.authenticate(authorization);
+    if (body?.sourceType === "TEXT" && typeof body.text === "string" && body.text.trim()) {
+      try { return await this.modules.strategy.generateStrategy(userId, { sourceType: "TEXT", text: body.text }); } catch (error) { return strategyHttpError(error); }
+    }
+    if (body?.sourceType === "URL" && typeof body.url === "string" && body.url.trim()) {
+      try { return await this.modules.strategy.generateStrategy(userId, { sourceType: "URL", url: body.url }); } catch (error) { return strategyHttpError(error); }
+    }
+    throw new BadRequestException("sourceType and a non-empty text or URL are required.");
   }
 }
 
@@ -414,7 +432,7 @@ export class LeaderboardController extends ProtectedController {
 }
 
 @Module({
-  controllers: [HealthController, AuthController, StrategyController, MarketController, NewsController, SentimentController, BacktestScopeController, BacktestController, BacktestAttemptController, ExperimentController, SearchController, LeaderboardController],
+  controllers: [HealthController, AuthController, StrategyController, StrategyGenerationController, MarketController, NewsController, SentimentController, BacktestScopeController, BacktestController, BacktestAttemptController, ExperimentController, SearchController, LeaderboardController],
   providers: [MarketGateway, { provide: BACKEND_MODULES, useFactory: (): BackendModules => composeAllModules() }],
 })
 export class AppModule {}

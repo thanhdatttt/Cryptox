@@ -6,7 +6,7 @@ import { createEvaluationModule } from "modules/evaluation/api/bootstrap";
 import { createBacktestingExperimentReader, createBacktestingScopeRepository, createInMemoryLeaderboardDependencies, createLeaderboardModule } from "modules/leaderboard/api/bootstrap";
 import { createInMemorySearchDependencies, createSearchModule } from "modules/search/api/bootstrap";
 import { createInMemoryStrategyDependencies, createStrategyModule } from "modules/strategy/api/bootstrap";
-import { AuthController, BacktestAttemptController, BacktestController, BacktestScopeController, ExperimentController, LeaderboardController, MarketController, NewsController, SearchController, SentimentController, StrategyController } from "./app.module";
+import { AuthController, BacktestAttemptController, BacktestController, BacktestScopeController, ExperimentController, LeaderboardController, MarketController, NewsController, SearchController, SentimentController, StrategyController, StrategyGenerationController } from "./app.module";
 import { MarketGateway } from "./market.gateway";
 import { composeAllModules, type BackendModules } from "./compose";
 
@@ -64,6 +64,10 @@ describe("backend composition", () => {
     await expect(controller.composites(`Bearer ${token}`)).resolves.toHaveLength(1);
     await expect(controller.composite(`Bearer ${token}`, composite.id)).resolves.toMatchObject({ id: composite.id, method: "WEIGHTED_SCORE" });
     await expect(controller.define(`Bearer ${token}`, { strategyName: "MA", parameters: { fastPeriod: 50, slowPeriod: 20 } })).rejects.toBeInstanceOf(BadRequestException);
+
+    const generated = await new StrategyGenerationController(modules).generate(`Bearer ${token}`, { sourceType: "TEXT", text: "Use RSI to identify oversold conditions." });
+    expect(generated).toMatchObject({ kind: "SINGLE", modelName: "LOCAL_DETERMINISTIC", strategyDefinition: { strategyName: "RSI" } });
+    await expect(new StrategyGenerationController(modules).generate(`Bearer ${token}`, { sourceType: "URL", url: "file:///unsafe" })).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it("maps authenticated scope, manual backtest, attempt, and experiment routes to the Backtesting public API", async () => {

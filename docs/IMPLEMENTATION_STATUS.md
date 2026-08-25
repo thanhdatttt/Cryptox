@@ -5,7 +5,7 @@
 - Branch: `implement`
 - Project status: **Frontend live backend integration in progress — first integration slice implemented on 2026-08-25**
 - Current feature: **Frontend API client, authentication, market transport, strategy/library, backtest, Search, Leaderboard, News, and Settings screens wired to public backend contracts**
-- Next feature: **browser/Compose validation and remaining contract gap review**
+- Next feature: **browser/Compose validation and runtime contract review**
 
 ## Frontend integration audit (2026-08-25)
 
@@ -24,13 +24,13 @@ The former `apps/frontend/src/main.tsx` was a reference-screen presentation with
 
 The frontend now also renders candidate history and authoritative Search pause/resume/cancel controls, Experiment metrics and paginated Trade Detail, sealed visualization markers, replay status, and explicit unavailable SL/TP values. Focused frontend transport tests cover bearer persistence, 401 clearing, empty 201/202 responses, and Socket.IO namespace framing.
 
-### Remaining backend contract gap
+### Backend contract limitation
 
-The frontend specification includes `POST /strategy-generations` for authenticated text/URL generation, but the current backend has no controller, application port, source loader, generation adapter, or persistence table for that contract. `GenerationPanel` calls this endpoint and exposes the backend error without inventing local strategy logic; it cannot claim successful generation until the backend contract is implemented. This is the only known required endpoint mismatch and is intentionally recorded here rather than hidden behind demo data.
+`POST /strategy-generations` is now implemented and authenticated. It validates text/HTTP(S) URL input and persists the generated definition through the existing strategy facade. The current adapter is intentionally deterministic (`LOCAL_DETERMINISTIC`, version `1.0.0`) and selects a registered plugin from source keywords; it does not yet fetch remote source content, call an external model, or persist a full generation-audit record. The frontend shows the returned provenance and backend errors instead of silently falling back to demo data.
 
 The backend bootstrap now explicitly enables bearer-token CORS for the separately served Vite frontend, and the Market Gateway enables the matching Socket.IO origin policy. Without these narrow transport fixes, a browser could reach the API from the Compose/local frontend origin but the browser would block HTTP or WebSocket responses.
 
-Known gaps to validate next: browser-level Compose flow and the backend-owned strategy-generation contract above. These are recorded rather than hidden behind demo fallbacks; the UI displays backend empty/error states when records are absent.
+Known gaps to validate next: browser-level Compose flow and the assignment-required worker-backed completed backtest flow. These are recorded rather than hidden behind demo fallbacks; the UI displays backend empty/error states when records are absent.
 
 ### Frontend runtime evidence (local launcher, 2026-08-25)
 

@@ -4,6 +4,8 @@ import { builtInFactories } from "../domain/plugins";
 import type { CompositeDefinitionRepository, StrategyDefinitionRepository } from "./ports";
 
 export interface StrategyModuleDependencies { artifactResolver: import("../domain/contracts").StrategyArtifactResolver; definitionRepository: StrategyDefinitionRepository; compositeRepository: CompositeDefinitionRepository; }
+export type StrategyGenerationSource = { sourceType: "TEXT"; text: string } | { sourceType: "URL"; url: string };
+export interface StrategyGenerationResult { generationId: string; kind: "SINGLE"; strategyDefinition: StrategyDefinition; modelName: "LOCAL_DETERMINISTIC"; modelVersion: "1.0.0"; promptVersion: "1"; }
 
 export interface StrategyModuleRuntime {
   listStrategies(): StrategyPluginDescriptor[];
@@ -15,6 +17,7 @@ export interface StrategyModuleRuntime {
   readComposite(userId: string, id: string): Promise<CompositeStrategyDefinition>;
   defineStrategy(userId: string, strategyName: string, parameters: Record<string, number | string>): Promise<StrategyDefinition>;
   defineComposite(userId: string, command: { method: CombinationMethod; components: Array<{ strategyDefinitionId: string; weight: number }>; thresholds?: { buy: number; sell: number } }): Promise<CompositeStrategyDefinition>;
+  generateStrategy(userId: string, source: StrategyGenerationSource): Promise<StrategyGenerationResult>;
   buildVisualization(definition: StrategyDefinition): [];
 }
 
@@ -95,6 +98,20 @@ export function createStrategyModule(dependencies: StrategyModuleDependencies = 
     if (!definition) invalid("STRATEGY_DEFINITION_NOT_FOUND");
     return definition;
   };
+  const defineStrategy = async (userId: string, strategyName: string, parameters: Record<string, number | string>): Promise<StrategyDefinition> => {
+    if (!userId.trim()) invalid("INVALID_USER");
+    const factory = factories.get(strategyName);
+    if (!factory) invalid("STRATEGY_NOT_REGISTERED");
+    const registeredFactory = factory as StrategyFactory;
+    const normalized = validateParameters(registeredFactory, parameters);
+    const logicalFamilyKey = `strategy:${strategyName}`;
+    const content = { strategyName, implementationSha256: registeredFactory.descriptor.implementationSha256, parameters: normalized };
+    const prior = await dependencies.definitionRepository.listByLogicalFamily(userId, logicalFamilyKey);
+    const existing = prior.find((definition) => digest({ strategyName: definition.strategyName, implementationSha256: definition.implementationSha256, parameters: definition.parameters }) === digest(content));
+    if (existing) return existing;
+    const definition: StrategyDefinition = { id: nextId("strategy-definition"), logicalFamilyKey, familyName: registeredFactory.descriptor.displayName, strategyName, implementationVersion: registeredFactory.descriptor.implementationVersion, implementationSha256: registeredFactory.descriptor.implementationSha256, version: Math.max(0, ...prior.map((item) => item.version)) + 1, parameters: normalized, createdAt: new Date().toISOString() };
+    return dependencies.definitionRepository.insert(userId, definition);
+  };
 
   return {
     listStrategies: runtimeList,
@@ -111,19 +128,7 @@ export function createStrategyModule(dependencies: StrategyModuleDependencies = 
       if (!composite) invalid("COMPOSITE_STRATEGY_NOT_FOUND");
       return composite!;
     },
-    defineStrategy: async (userId, strategyName, parameters) => {
-      if (!userId.trim()) invalid("INVALID_USER");
-      const factory = factories.get(strategyName);
-      if (!factory) invalid("STRATEGY_NOT_REGISTERED");
-      const normalized = validateParameters(factory!, parameters);
-      const logicalFamilyKey = `strategy:${strategyName}`;
-      const content = { strategyName, implementationSha256: factory!.descriptor.implementationSha256, parameters: normalized };
-      const prior = await dependencies.definitionRepository.listByLogicalFamily(userId, logicalFamilyKey);
-      const existing = prior.find((definition) => digest({ strategyName: definition.strategyName, implementationSha256: definition.implementationSha256, parameters: definition.parameters }) === digest(content));
-      if (existing) return existing;
-      const definition: StrategyDefinition = { id: nextId("strategy-definition"), logicalFamilyKey, familyName: factory!.descriptor.displayName, strategyName, implementationVersion: factory!.descriptor.implementationVersion, implementationSha256: factory!.descriptor.implementationSha256, version: Math.max(0, ...prior.map((item) => item.version)) + 1, parameters: normalized, createdAt: new Date().toISOString() };
-      return dependencies.definitionRepository.insert(userId, definition);
-    },
+    defineStrategy,
     defineComposite: async (userId, command) => {
       if (!userId.trim() || !command || !["MAJORITY_VOTE", "WEIGHTED_SCORE"].includes(command.method) || command.components.length === 0) invalid("INVALID_COMPOSITE_STRATEGY");
       const components = command.components.map((component) => ({ strategyDefinitionId: component.strategyDefinitionId, weight: component.weight }));
@@ -145,6 +150,22 @@ export function createStrategyModule(dependencies: StrategyModuleDependencies = 
       if (existing) return existing;
       const composite: CompositeStrategyDefinition = { id: nextId("composite-strategy"), logicalFamilyKey, version: Math.max(0, ...prior.map((item) => item.version)) + 1, method: command.method, components, thresholds, createdAt: new Date().toISOString() };
       return dependencies.compositeRepository.insert(userId, composite);
+    },
+    generateStrategy: async (userId, source) => {
+      if (!userId.trim() || !source || (source.sourceType !== "TEXT" && source.sourceType !== "URL")) invalid("VALIDATION_ERROR");
+      const value = source.sourceType === "TEXT" ? source.text : source.url;
+      if (typeof value !== "string" || !value.trim()) invalid("VALIDATION_ERROR");
+      if (source.sourceType === "URL") {
+        let parsed: URL | undefined;
+        try { parsed = new URL(value); } catch { invalid("VALIDATION_ERROR"); }
+        if (!parsed || (parsed.protocol !== "http:" && parsed.protocol !== "https:")) invalid("VALIDATION_ERROR");
+      }
+      const normalized = value.toLowerCase();
+      const strategyName = normalized.includes("rsi") ? "RSI" : normalized.includes("bollinger") || normalized.includes("band") ? "BOLLINGER" : normalized.includes("support") || normalized.includes("resistance") ? "SUPPORT_RESISTANCE" : "MA";
+      const descriptor = runtimeList().find(item => item.name === strategyName)!;
+      const parameters = Object.fromEntries(descriptor.parameters.map(item => [item.key, item.defaultValue])) as Record<string, number | string>;
+      const strategyDefinition = await defineStrategy(userId, strategyName, parameters);
+      return { generationId: nextId("strategy-generation"), kind: "SINGLE", strategyDefinition, modelName: "LOCAL_DETERMINISTIC", modelVersion: "1.0.0", promptVersion: "1" };
     },
     buildVisualization: () => [],
   };
