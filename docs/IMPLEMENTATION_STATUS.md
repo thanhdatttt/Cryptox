@@ -5,7 +5,7 @@
 - Branch: `implement`
 - Project status: **Frontend live backend integration in progress — first integration slice implemented on 2026-08-25**
 - Current feature: **Frontend API client, authentication, market transport, strategy/library, backtest, Search, Leaderboard, News, and Settings screens wired to public backend contracts**
-- Next feature: **browser/Compose validation and focused frontend coverage**
+- Next feature: **browser/Compose validation and remaining contract gap review**
 
 ## Frontend integration audit (2026-08-25)
 
@@ -15,14 +15,20 @@ The former `apps/frontend/src/main.tsx` was a reference-screen presentation with
 | --- | --- | --- |
 | Register, login, session restore, logout | `POST /auth/register`, `POST /auth/login`, `GET /auth/me` | Implemented |
 | Strategy plugins, definitions, composites | `GET /strategies`, `POST /strategies`, `GET/POST /strategies/definitions|composites` | Implemented |
-| Market history, snapshots, live updates | `GET /market/candles`, `POST /market/snapshots`, authenticated Socket.IO `/market` | Implemented; native Socket.IO Engine.IO framing is covered by the client boundary |
+| Market history, snapshots, live updates | `GET /market/candles`, `POST /market/snapshots`, authenticated Socket.IO `/market` | Implemented with 1–4 independent panels, bounded reconnect, and REST reconciliation |
 | Scope and queued manual backtesting | `GET/POST /leaderboard-scopes`, `POST/GET /backtests/:candidateId` | Implemented with polling lifecycle |
 | Experiment, replay, visualization | `GET /experiments/:id`, `POST .../replay`, `GET .../visualization` | Implemented |
 | Search lifecycle and ranking | `POST/GET /search-runs`, `GET /search-runs/:id/leaderboard` | Implemented with polling |
 | Leaderboard | `GET /leaderboard?scopeId=` | Implemented |
 | News | `GET /news`, `POST /news/collect` | Implemented |
 
-Known gaps to validate next: browser-level Compose flow, richer visualization rendering beyond the backend payload summary, and focused component tests for auth/API lifecycle states. These are recorded rather than hidden behind demo fallbacks; the UI displays backend empty/error states when records are absent.
+The frontend now also renders candidate history and authoritative Search pause/resume/cancel controls, Experiment metrics and paginated Trade Detail, sealed visualization markers, replay status, and explicit unavailable SL/TP values. Focused frontend transport tests cover bearer persistence, 401 clearing, empty 201/202 responses, and Socket.IO namespace framing.
+
+### Remaining backend contract gap
+
+The frontend specification includes `POST /strategy-generations` for authenticated text/URL generation, but the current backend has no controller, application port, source loader, generation adapter, or persistence table for that contract. `GenerationPanel` calls this endpoint and exposes the backend error without inventing local strategy logic; it cannot claim successful generation until the backend contract is implemented. This is the only known required endpoint mismatch and is intentionally recorded here rather than hidden behind demo data.
+
+Known gaps to validate next: browser-level Compose flow and the backend-owned strategy-generation contract above. These are recorded rather than hidden behind demo fallbacks; the UI displays backend empty/error states when records are absent.
 
 ## Audit summary
 

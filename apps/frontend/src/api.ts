@@ -31,6 +31,7 @@ export const api = {
   define: (strategyName: string, parameters: Record<string, number | string>) => request<StrategyDefinition>("/strategies", json({ strategyName, parameters })),
   composites: () => request<Composite[]>("/strategies/composites"),
   defineComposite: (method: string, components: Array<{ strategyDefinitionId: string; weight: number }>) => request<Composite>("/strategies/composites", json({ method, components })),
+  generateStrategy: (body: { sourceType: "TEXT"; text: string } | { sourceType: "URL"; url: string }) => request<any>("/strategy-generations", json(body)),
   candles: (pair: string, timeframe: Timeframe, limit = 1000) => request<{ candles: ApiCandle[]; complete: boolean; asOf: string }>(`/market/candles?pair=${encodeURIComponent(pair)}&timeframe=${timeframe}&limit=${limit}`),
   snapshot: (body: { pair: string; timeframe: Timeframe; from: string; to: string }) => request<{ id: string }>("/market/snapshots", json(body)),
   scopes: () => request<Scope[]>("/leaderboard-scopes"),
