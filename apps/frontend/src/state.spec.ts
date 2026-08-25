@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canAddChart, initialChartPanels, mergeCandle, parameterDefaults } from "./state";
+import { canAddChart, equalWeights, initialChartPanels, mergeCandle, parameterDefaults } from "./state";
 
 describe("frontend presentation state", () => {
   it("keeps four independent initial chart selections and caps additional panels", () => {
@@ -17,5 +17,10 @@ describe("frontend presentation state", () => {
 
   it("derives editor fields from descriptor metadata rather than strategy names", () => {
     expect(parameterDefaults([{ key: "period", label: "Period", type: "INTEGER", required: true, defaultValue: 14 }])).toEqual({ period: 14 });
+  });
+
+  it("starts a selected composite with backend-valid equal weights", () => {
+    expect(equalWeights(["ma", "rsi"])).toEqual({ ma: 0.5, rsi: 0.5 });
+    expect(equalWeights([])).toEqual({});
   });
 });

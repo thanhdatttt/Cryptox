@@ -44,4 +44,6 @@ export const mergeCandle = (history: UiCandle[], incoming: UiCandle): UiCandle[]
 
 export const parameterDefaults = (descriptors: StrategyParameterDescriptor[]): Record<string, number | string> => Object.fromEntries(descriptors.map((descriptor) => [descriptor.key, descriptor.defaultValue]));
 
+export const equalWeights = (ids: string[]): Record<string, number> => Object.fromEntries(ids.map((id) => [id, 1 / ids.length]));
+
 export const canAddChart = (panels: ChartPanelState[]): boolean => panels.length < 4;
