@@ -3,8 +3,8 @@
 ## Current state
 
 - Branch: `implement`
-- Project status: **Backend validation complete — commit pending**
-- Current feature: **8. Docker-backed backend integration and final traceability** *(validated; commit pending)*
+- Project status: **Backend complete — validated on 2026-08-25**
+- Current feature: **none — backend definition of done satisfied**
 - Next feature: **none — final backend validation gate**
 
 ## Audit summary
@@ -31,6 +31,7 @@ The previous final-validation claim did not establish the assignment-required pr
 | `f7fc06e` | Durable Market Data, News, and Sentiment flows | Completed and validated: migration `007`, PostgreSQL repositories for normalized candles/snapshots, news, analyses, and sentiment snapshots; offline demo News provider; deterministic `LOCAL_LEXICON` Sentiment adapter with model/version provenance; authenticated Market, News, and Sentiment REST routes. |
 | `956b1c5` | Durable Backtesting completion, ranking, and Search advancement | Completed and validated: migration `008`; a durable fenced completion processor; BullMQ terminal listener plus periodic recovery; idempotent evaluation/experiment/Leaderboard admission; and callback/recovery-driven bounded Search advancement. |
 | `0649bb5` | Backend REST and Market transport completion | Completed and validated: owner-scoped strategy-library/scope reads, complete market query mapping, manual cancellation, Search candidate history, experiment visualization/replay reads, required `/leaderboard?scopeId=` and `/leaderboard-scopes` surfaces, concealed cross-owner 404 mapping, and authenticated normalized Market WebSocket subscription control/update messages. |
+| `21eafd2` | Docker-backed backend completion | Completed and validated: Compose migration gating, runtime launcher packaging for backend/worker images, healthy PostgreSQL/Redis/backend/worker/frontend services, successful migrations, and a real authenticated strategy → market snapshot → Redis/BullMQ backtest → worker → evaluation → leaderboard plus deterministic Search flow. |
 
 ## Latest validation
 
