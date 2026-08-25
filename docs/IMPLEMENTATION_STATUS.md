@@ -3,9 +3,9 @@
 ## Current state
 
 - Branch: `implement`
-- Project status: **Frontend live backend integration validated against Docker Compose on 2026-08-25**
+- Project status: **Frontend live backend integration audited against the assignment PDF and supplied reference images; Docker Compose/browser validation passed on 2026-08-25**
 - Current feature: **Frontend API client, authentication, market transport, strategy/library, backtest, Search, Leaderboard, News, and Settings screens wired to public backend contracts**
-- Next feature: **none for this validation slice; retain the documented deterministic generation limitation**
+- Next feature: **none for this audit; provider and public-contract limitations are recorded below**
 
 ## Frontend integration audit (2026-08-25)
 
@@ -49,6 +49,36 @@ Docker was available through Docker Desktop, but this shell did not inherit its 
 - Browser E2E against `http://localhost:5173`: passed. The UI registered and logged in a fresh synthetic account, and logout returned to sign-in. In the authenticated Compose flow, the UI restored the session after reload, showed 12 backend candles and authenticated Socket.IO `CONNECTED` state, created a strategy and weighted composite, displayed persisted generation provenance, created a snapshot/scope, queued and observed a completed backtest, rendered experiment/trade detail, verified replay `MATCH`, loaded sealed visualization markers, ran Search through `COMPLETED`, and displayed real Leaderboard rows.
 - Repeat scope validation after the final rebuild: passed. Creating another scope from the backend candle range no longer produced the duplicate canonical snapshot hash error; the newly returned scope was added to the selector and retained as the selected scope.
 - Runtime contract fixes found during validation: Compose now exposes the browser-facing API as `VITE_BACKEND_URL=http://localhost:3000`; composite backtests send all component definition IDs; scopes use the live candle range; PostgreSQL Search IDs are generated with UUIDs; and canonical input snapshots are reused by SHA-256.
+
+## Assignment and reference-image audit (2026-08-25)
+
+Sources reviewed, in priority order: the 54-page assignment PDF, `crypto-strategy-lab-final-project.md`, and the supplied `realtime.jpg`, `strategy.jpg`, `disco.jpg`, `backtest.jpg`, and `news.jpg` reference screens. The audit distinguished source requirements from implementation notes and checked the running frontend against the authenticated public HTTP/WebSocket contracts.
+
+### Genuine mismatches corrected
+
+- The Market screen had only a basic single bar view at runtime. It now renders up to four independent backend OHLCV candlestick/volume panels, authenticated Socket.IO state, reconnect/loading/error/empty states, recent ticks, and forming-versus-closed candle handling.
+- Backtest was a minimal scope-and-queue form. It now exposes pair, timeframe, date range, capital, transaction cost, slippage, saved scopes, queued/running/completed/failed lifecycle, persisted experiment metrics, trade detail, replay verification, and backend visualization markers.
+- Search and Leaderboard rows previously exposed only candidate/rank state. They now enrich rows from persisted experiment results and show real return, win rate, drawdown, trade count, score, and status values while retaining honest empty states.
+- Strategy Library now presents the backend plugin catalog, versioned saved definitions, weighted composite creation with valid normalized default weights, the Generate → Backtest → Evaluate → Rank → Leaderboard workflow, and generation provenance. News now exposes backend source/asset filters, collection state, persisted sentiment distribution/model provenance, and the actual collect → normalize → analyze → persist pipeline.
+- Frontend fixtures and demo rows were removed from the runtime surfaces. Backend source/model labels are displayed explicitly so local providers cannot appear to be Binance or an external LLM.
+
+Commits for the corrected frontend modules: `0c22960 feat(frontend): align live screens with assignment references` and `7d2c247 fix(frontend): default composite weights evenly`. Focused frontend validation passed with 11 tests, including chart bounds/formatting, sentiment aggregation, composite weight defaults, API transport, and state behavior.
+
+### Final live validation evidence
+
+- Fresh browser registration/login, persisted-session reload, logout, and protected-route return to sign-in passed against the containers.
+- After the final `docker compose -f infra/docker-compose.yml up --build -d`, the browser created MA/RSI definitions and a weighted composite, created a snapshot/scope, observed a completed backtest with 2 trades (`-2.21%` return, `50%` win rate, `5.88%` max drawdown), verified replay `MATCH`, loaded a 12-candle/3-marker visualization, completed Random Search, and displayed two real Leaderboard rows.
+- The final browser smoke also confirmed four market panels with authenticated `CONNECTED` WebSocket state and backend candlestick rendering, plus `LOCAL_DEMO` news records with persisted `LOCAL_LEXICON` sentiment fields.
+- Final repository validation passed: `npm test` (67 tests), `npm run build`, `npm run lint`, `npm run arch:check` (763 modules / 1,050 dependencies, no violations), and `git diff --check`.
+- Docker validation passed with Docker Desktop 4.87.0 / Engine 29.7.2 / Compose v5.4.0; backend, worker, PostgreSQL, Redis, and frontend all reached healthy status.
+
+### Explicit remaining limitations and contract gaps
+
+- Compose intentionally seeds deterministic local market data; only the available `1h` fixture has candles, so other timeframe panels correctly show backend empty states. This is not presented as a live Binance feed. A configured Binance/provider deployment is still required for production market data.
+- The public Market contract returns OHLCV and backend markers, but no MA/Bollinger/support-resistance overlay series. The frontend does not duplicate strategy rules; those reference overlays remain unavailable until the backend contract exposes them.
+- The public News contract supports collection, normalization, persistence, and sentiment, but does not expose the reference image's LLM HTML extraction-template/version/self-healing controls. The UI reports the available pipeline and does not fabricate those controls.
+- Strategy generation remains the authenticated deterministic `LOCAL_DETERMINISTIC` adapter; URL content is not fetched and no external LLM is called. Search currently exercises the required Random Search path; advanced generators remain optional per the assignment.
+- The backend may omit SL/TP fields for trades, so the frontend displays `Unavailable` rather than inventing risk values. These limitations are backend/provider contract boundaries, not frontend demo fallbacks.
 
 ## Audit summary
 
