@@ -1,4 +1,4 @@
-import type { MarketPairMetadata, Pair } from "../domain/contracts";
+import type { MarketPairMetadata, Pair, ProviderId, Timeframe } from "../domain/contracts";
 export type { Candle, DatasetSnapshotRef, MarketDataConnectionStatus, MarketTick, Pair, ProviderId, Timeframe, MarketPairMetadata } from "../domain/contracts";
 export interface HistoricalCandleQuery {
     pair: import("../domain/contracts").Pair;
@@ -51,6 +51,11 @@ export interface MarketSubscription {
     pair: string;
     timeframe: import("../domain/contracts").Timeframe;
 }
+export interface MarketCapabilities {
+    provider: ProviderId;
+    pairs: Pair[];
+    timeframes: Timeframe[];
+}
 export type MarketDataUpdate = {
     kind: "TICK";
     payload: import("../domain/contracts").MarketTick;
@@ -68,6 +73,7 @@ export interface MarketDataError {
     details?: Record<string, unknown>;
 }
 export interface MarketDataModulePublicApi {
+    readCapabilities(): Promise<MarketCapabilities>;
     readPairMetadata(pair: Pair): Promise<MarketPairMetadata>;
     readCandles(query: HistoricalCandleQuery): Promise<HistoricalCandlePage>;
     createDatasetSnapshot(command: DatasetSnapshotCreateCommand): Promise<import("../domain/contracts").DatasetSnapshotRef>;
@@ -76,6 +82,7 @@ export interface MarketDataModulePublicApi {
     shutdown(): Promise<void>;
 }
 export type MarketDataSnapshotReader = Pick<MarketDataModulePublicApi, "readDatasetSnapshot">;
+export declare const readCapabilities: MarketDataModulePublicApi["readCapabilities"];
 export declare const readPairMetadata: MarketDataModulePublicApi["readPairMetadata"];
 export declare const readCandles: MarketDataModulePublicApi["readCandles"];
 export declare const createDatasetSnapshot: MarketDataModulePublicApi["createDatasetSnapshot"];

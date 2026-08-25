@@ -18,7 +18,11 @@ variables default to Binance's public Spot endpoints `https://api.binance.com` a
 - Explicit ranges are gap-synced through the provider contract and preserve completeness errors; snapshots continue to use only persisted, non-forming sealed candles.
 - Binance combined streams normalize `@trade` and `@kline_<interval>` payloads. One subscription manager maintains the complete union for all active panels, replaces forming candles by timestamp, appends new timestamps, rejects closed-candle regressions, and reconnects with bounded exponential backoff/resubscription.
 - PostgreSQL rows carry `BINANCE:HISTORICAL_SYNC` or `BINANCE:REALTIME_STREAM` provenance. The deterministic `seed-dev-market` job is now `demo`-profile-only and requires `MARKET_DATA_SEED_MODE=DEMO`; normal Compose startup does not run it.
+- `GET /market/pairs` exposes the active provider's supported pair/timeframe capabilities for controlled Market selectors. The browser persists the validated versioned Market layout (`cryptox.market-layout`) in parent UI state and local storage, including the 1–4 panel arrangement, pair/timeframe choices, realtime setting, and selected primary panel.
+- Binance `@trade` payloads retain positive `q` quantity and derive the documented aggressor side from `m` (`m=true` means the buyer was the maker, therefore the trade is rendered as `SELL`; otherwise `BUY`). The public Socket.IO `MARKET_TICK` payload carries pair, price, timestamp, quantity, and side. A bounded five-second provider-clock skew is accepted so real Binance trades are not discarded while materially future timestamps remain invalid.
 - The Market UI consumes backend connection-status messages and labels Binance as not connected until the upstream status is genuinely `CONNECTED`. Provider/network failures leave the chart empty/error or disconnected/reconnecting rather than fabricating candles.
+
+The reference-aligned Market correction also removes the Candle update logic and Legend side cards, keeps the provider wording honest, renders bounded newest-first Recent Ticks with real quantity/side values, and uses an accessible red SVG Remove chart control that is disabled when only one panel remains. Chart-card text is enlarged without changing compact axis labels.
 
 ## Validation evidence (2026-08-25)
 
@@ -45,6 +49,12 @@ The former `apps/frontend/src/main.tsx` was a reference-screen presentation with
 | News | `GET /news`, `POST /news/collect` | Implemented |
 
 The frontend now also renders candidate history and authoritative Search pause/resume/cancel controls, Experiment metrics and paginated Trade Detail, sealed visualization markers, replay status, and explicit unavailable SL/TP values. Focused frontend transport tests cover bearer persistence, 401 clearing, empty 201/202 responses, and Socket.IO namespace framing.
+
+### Realtime Market integration correction validation (2026-08-25)
+
+- Focused validation passed: 20 frontend tests, 19 Market Data tests, and 9 backend tests. Coverage includes versioned layout storage/fallback, backend capabilities transport, bounded tick presentation, Binance quantity/side normalization, invalid payload rejection, provider-clock skew handling, closed-candle protection, and authenticated WebSocket forwarding.
+- Full `npm test`, `npm run build`, `npm run lint`, `npm run arch:check`, and `git diff --check` passed after the correction. The architecture check reported no dependency violations.
+- Rebuilt Docker Compose with migration gating. A fresh authenticated browser session rendered 1m/5m/15m/1h history from Binance REST, connected all four authenticated Socket.IO panel subscriptions, and Recent Ticks displayed genuine BTCUSDT rows with non-rounded quantities plus BUY/SELL sides. The backend/provider status remained honest and no mock market rows were used.
 
 ### Backend contract limitation
 

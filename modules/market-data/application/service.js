@@ -6,6 +6,8 @@ const subscription_manager_1 = require("./subscription-manager");
 const errors_1 = require("../domain/errors");
 const rules_1 = require("../domain/rules");
 const key = (candle) => `${candle.pair}|${candle.timeframe}|${candle.timestamp}`;
+// Binance timestamps can lead the application clock by a small amount; keep validation bounded.
+const MAX_TICK_FUTURE_SKEW_MS = 5_000;
 class MemoryCandleRepository {
     rows = new Map();
     async read(query) { return [...this.rows.values()].filter((candle) => candle.pair === query.pair && candle.timeframe === query.timeframe).sort((a, b) => a.timestamp.localeCompare(b.timestamp)); }
@@ -45,6 +47,13 @@ class MarketDataService {
         if (!capabilities.timeframes.includes(timeframe))
             throw new errors_1.MarketDataException("UNSUPPORTED_TIMEFRAME", "Timeframe is not supported by the selected provider.");
         return provider;
+    }
+    async readCapabilities() {
+        const provider = await this.resolveProvider();
+        if (!provider)
+            return { provider: this.status.provider, pairs: [], timeframes: [] };
+        const capabilities = await provider.capabilities();
+        return { provider: provider.id, pairs: [...capabilities.pairs], timeframes: [...capabilities.timeframes] };
     }
     async readRows(pair, timeframe) { return (await this.candles.read({ pair, timeframe, includeForming: true })).map((candle) => (0, rules_1.validateCandle)(candle, this.now(), true)).sort((a, b) => a.timestamp.localeCompare(b.timestamp)); }
     async persist(observation) {
@@ -246,11 +255,16 @@ class MarketDataService {
         this.deliver(subscriber.sink, update); }
     handleTick(tick) { try {
         const pair = (0, rules_1.validatePair)(tick.pair);
-        if (typeof tick.timestamp !== "string" || !tick.timestamp.endsWith("Z") || Date.parse(tick.timestamp) > Date.parse(this.now()))
+        const timestamp = Date.parse(tick.timestamp);
+        if (typeof tick.timestamp !== "string" || !tick.timestamp.endsWith("Z") || !Number.isFinite(timestamp) || timestamp > Date.parse(this.now()) + MAX_TICK_FUTURE_SKEW_MS)
             throw new Error("invalid future tick");
         if (!Number.isFinite(tick.price) || tick.price <= 0)
             throw new Error("invalid tick price");
-        this.broadcast({ kind: "TICK", payload: { ...tick, pair, timestamp: new Date(Date.parse(tick.timestamp)).toISOString() } });
+        if (!Number.isFinite(tick.quantity) || tick.quantity <= 0)
+            throw new Error("invalid tick quantity");
+        if (tick.side !== "BUY" && tick.side !== "SELL")
+            throw new Error("invalid tick side");
+        this.broadcast({ kind: "TICK", payload: { ...tick, pair, timestamp: new Date(timestamp).toISOString() } });
     }
     catch {
         this.deps.observability?.record("market_data.invalid_tick");

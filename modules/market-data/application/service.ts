@@ -4,10 +4,12 @@ import { MarketDataSubscriptionManager } from "./subscription-manager";
 import type { Candle, DatasetSnapshotRef, MarketDataConnectionStatus, MarketPairMetadata, MarketTick, Timeframe } from "../domain/contracts";
 import { MarketDataException } from "../domain/errors";
 import { DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT, TIMEFRAME_SECONDS, missingRanges, parseTimestamp, snapshotSerialization, validateCandle, validateLimit, validatePair, validateRange, validateTimeframe } from "../domain/rules";
-import type { DatasetSnapshotCreateCommand, DatasetSnapshotPage, DatasetSnapshotReadQuery, HistoricalCandlePage, HistoricalCandleQuery, MarketDataModulePublicApi, MarketDataUpdate, MarketSubscription } from "../api";
+import type { DatasetSnapshotCreateCommand, DatasetSnapshotPage, DatasetSnapshotReadQuery, HistoricalCandlePage, HistoricalCandleQuery, MarketCapabilities, MarketDataModulePublicApi, MarketDataUpdate, MarketSubscription } from "../api";
 
 type InternalDeps = Partial<MarketDataModuleDependencies>;
 const key = (candle: Pick<Candle, "pair" | "timeframe" | "timestamp">) => `${candle.pair}|${candle.timeframe}|${candle.timestamp}`;
+// Binance timestamps can lead the application clock by a small amount; keep validation bounded.
+const MAX_TICK_FUTURE_SKEW_MS = 5_000;
 
 class MemoryCandleRepository {
   private readonly rows = new Map<string, Candle>();
@@ -43,6 +45,12 @@ class MarketDataService implements MarketDataModulePublicApi {
     if (!capabilities.pairs.includes(pair)) throw new MarketDataException("UNSUPPORTED_PAIR", "Pair is not supported by the selected provider.");
     if (!capabilities.timeframes.includes(timeframe)) throw new MarketDataException("UNSUPPORTED_TIMEFRAME", "Timeframe is not supported by the selected provider.");
     return provider;
+  }
+  async readCapabilities(): Promise<MarketCapabilities> {
+    const provider = await this.resolveProvider();
+    if (!provider) return { provider: this.status.provider, pairs: [], timeframes: [] };
+    const capabilities = await provider.capabilities();
+    return { provider: provider.id, pairs: [...capabilities.pairs], timeframes: [...capabilities.timeframes] };
   }
   private async readRows(pair: string, timeframe: Timeframe): Promise<Candle[]> { return (await this.candles.read({ pair, timeframe, includeForming: true })).map((candle) => validateCandle(candle, this.now(), true)).sort((a, b) => a.timestamp.localeCompare(b.timestamp)); }
   private async persist(observation: NormalizedProviderCandleObservation): Promise<Candle | undefined> {
@@ -185,7 +193,7 @@ class MarketDataService implements MarketDataModulePublicApi {
   }
   private deliver(sink: (update: MarketDataUpdate) => void, update: MarketDataUpdate): void { try { sink(update); } catch { this.deps.observability?.record("market_data.sink_error"); } }
   private broadcast(update: MarketDataUpdate): void { for (const subscriber of this.subscribers.values()) this.deliver(subscriber.sink, update); }
-  private handleTick(tick: MarketTick): void { try { const pair = validatePair(tick.pair); if (typeof tick.timestamp !== "string" || !tick.timestamp.endsWith("Z") || Date.parse(tick.timestamp) > Date.parse(this.now())) throw new Error("invalid future tick"); if (!Number.isFinite(tick.price) || tick.price <= 0) throw new Error("invalid tick price"); this.broadcast({ kind: "TICK", payload: { ...tick, pair, timestamp: new Date(Date.parse(tick.timestamp)).toISOString() } }); } catch { this.deps.observability?.record("market_data.invalid_tick"); } }
+  private handleTick(tick: MarketTick): void { try { const pair = validatePair(tick.pair); const timestamp = Date.parse(tick.timestamp); if (typeof tick.timestamp !== "string" || !tick.timestamp.endsWith("Z") || !Number.isFinite(timestamp) || timestamp > Date.parse(this.now()) + MAX_TICK_FUTURE_SKEW_MS) throw new Error("invalid future tick"); if (!Number.isFinite(tick.price) || tick.price <= 0) throw new Error("invalid tick price"); if (!Number.isFinite(tick.quantity) || tick.quantity <= 0) throw new Error("invalid tick quantity"); if (tick.side !== "BUY" && tick.side !== "SELL") throw new Error("invalid tick side"); this.broadcast({ kind: "TICK", payload: { ...tick, pair, timestamp: new Date(timestamp).toISOString() } }); } catch { this.deps.observability?.record("market_data.invalid_tick"); } }
   private async handleCandle(observation: NormalizedProviderCandleObservation): Promise<void> { try { const candle = await this.persist(observation); if (candle) this.broadcast({ kind: "CANDLE", payload: candle }); } catch { this.deps.observability?.record("market_data.invalid_candle"); } }
   async shutdown(): Promise<void> { if (this.stopped) return; this.stopped = true; await this.subscriptionManager?.stop(); this.subscriptionManager = undefined; this.subscriptionProvider = undefined; this.subscribers.clear(); }
 }

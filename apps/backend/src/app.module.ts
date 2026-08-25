@@ -191,6 +191,12 @@ export class StrategyGenerationController extends ProtectedController {
 export class MarketController extends ProtectedController {
   constructor(@Inject(BACKEND_MODULES) modules: BackendModules) { super(modules); }
 
+  @Get("pairs")
+  async pairs(@Headers("authorization") authorization: string | undefined) {
+    await this.authenticate(authorization);
+    try { return await this.modules.marketData.readCapabilities(); } catch (error) { return auxiliaryHttpError(error); }
+  }
+
   @Get("candles")
   async candles(
     @Headers("authorization") authorization: string | undefined,

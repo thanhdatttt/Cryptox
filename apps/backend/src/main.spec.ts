@@ -29,13 +29,14 @@ describe("backend composition", () => {
     const modules = {
       auth: { register: async () => undefined, login: async () => ({ token: "token" }), verify: async () => ({ userId: "user-1" }) },
       strategy: { listStrategies: () => [{ name: "MA" }], resolveStrategy: async () => { throw new Error("unused"); }, combineSignals: () => "HOLD" },
-      marketData: { readCandles: async (query: unknown) => ({ query }), readPairMetadata: async (pair: string) => ({ pair }), createDatasetSnapshot: async (command: unknown) => ({ command }), readDatasetSnapshot: async (query: unknown) => ({ query }), subscribeMarketData: async () => async () => undefined, shutdown: async () => undefined },
+      marketData: { readCapabilities: async () => ({ provider: "BINANCE", pairs: ["BTCUSDT"], timeframes: ["1h"] }), readCandles: async (query: unknown) => ({ query }), readPairMetadata: async (pair: string) => ({ pair }), createDatasetSnapshot: async (command: unknown) => ({ command }), readDatasetSnapshot: async (query: unknown) => ({ query }), subscribeMarketData: async () => async () => undefined, shutdown: async () => undefined },
       news: { collect: async () => undefined, readNews: async () => [{ id: "news-1" }] },
       sentiment: { analyze: async (input: unknown) => ({ input }), readLatestForNews: async (newsId: string) => ({ newsId }), createSnapshot: async (input: unknown) => ({ input }), getSnapshotRef: async (snapshotId: string) => ({ snapshotId }), readSnapshot: async () => ({ readAt: () => undefined }) },
     } as unknown as BackendModules;
 
     await expect(new StrategyController(modules).list("Bearer token")).resolves.toEqual([{ name: "MA" }]);
     await expect(new MarketController(modules).candles("Bearer token", "BTCUSDT", "1h", "2")).resolves.toEqual({ query: { pair: "BTCUSDT", timeframe: "1h", limit: 2, range: undefined, cursor: undefined, includeForming: false, completeness: undefined } });
+    await expect(new MarketController(modules).pairs("Bearer token")).resolves.toEqual({ provider: "BINANCE", pairs: ["BTCUSDT"], timeframes: ["1h"] });
     await expect(new MarketController(modules).pairMetadata("Bearer token", "BTCUSDT")).resolves.toEqual({ pair: "BTCUSDT" });
     await expect(new MarketController(modules).createSnapshot("Bearer token", { pair: "BTCUSDT", timeframe: "1h", from: "2025-01-01T00:00:00.000Z", to: "2025-01-01T01:00:00.000Z" })).resolves.toHaveProperty("command");
     await expect(new MarketController(modules).readSnapshot("Bearer token", "snapshot-1", undefined, "10")).resolves.toEqual({ query: { snapshotId: "snapshot-1", cursor: undefined, limit: 10 } });
@@ -171,7 +172,7 @@ describe("backend composition", () => {
 
   it("authenticates and forwards only normalized Market Data WebSocket messages", async () => {
     const emitted: Array<[string, unknown]> = [];
-    let sink: ((update: { kind: "TICK"; payload: { pair: string; price: number; timestamp: string } }) => void) | undefined;
+    let sink: ((update: { kind: "TICK"; payload: { pair: string; price: number; quantity: number; timestamp: string; side: "BUY" | "SELL" } }) => void) | undefined;
     const modules = {
       auth: { verify: async (token: string) => token === "token" ? { userId: "user-1" } : Promise.reject(new Error("INVALID_TOKEN")) },
       marketData: { subscribeMarketData: async (_subscriptions: unknown, next: typeof sink) => { sink = next; return async () => undefined; } },
@@ -181,10 +182,10 @@ describe("backend composition", () => {
 
     await gateway.handleConnection(socket);
     await gateway.command(socket, { schemaVersion: 1, action: "SUBSCRIBE", requestId: "request-1", subscriptions: [{ pair: "BTCUSDT", timeframe: "1h" }] });
-    sink?.({ kind: "TICK", payload: { pair: "BTCUSDT", price: 100, timestamp: "2025-01-01T00:00:00.000Z" } });
+    sink?.({ kind: "TICK", payload: { pair: "BTCUSDT", price: 100, quantity: 0.25, timestamp: "2025-01-01T00:00:00.000Z", side: "SELL" } });
 
     expect(emitted).toContainEqual(["market", expect.objectContaining({ type: "SUBSCRIPTION_ACK", requestId: "request-1" })]);
-    expect(emitted).toContainEqual(["market", expect.objectContaining({ type: "MARKET_TICK", payload: { pair: "BTCUSDT", price: 100, timestamp: "2025-01-01T00:00:00.000Z" } })]);
+    expect(emitted).toContainEqual(["market", expect.objectContaining({ type: "MARKET_TICK", payload: { pair: "BTCUSDT", price: 100, quantity: 0.25, timestamp: "2025-01-01T00:00:00.000Z", side: "SELL" } })]);
   });
 
   it("replaces a client's upstream subscription set when panels change", async () => {

@@ -19,6 +19,11 @@ const deps = (provider: MarketDataProviderAdapter, rows: Candle[]) => ({ provide
 const historical = (timestamp: string, close: number): NormalizedProviderCandleObservation => ({ source: "HISTORICAL_SYNC", orderKey: timestamp, candle: candle(timestamp, close) });
 
 describe("live Binance market-data service behavior", () => {
+  it("exposes active provider capabilities for supported-pair selectors", async () => {
+    const provider = providerFor(async () => []);
+    await expect(createMarketDataService(deps(provider, [])).readCapabilities()).resolves.toEqual({ provider: "BINANCE", pairs: ["BTCUSDT"], timeframes: ["1m", "5m", "15m", "1h", "4h", "1d"] });
+  });
+
   it("syncs the latest no-range history once and persists Binance provenance", async () => {
     const rows: Candle[] = [];
     const calls: Array<{ from: string; to: string }> = [];
@@ -69,6 +74,26 @@ describe("live Binance market-data service behavior", () => {
     expect(candleUpdates.map((update) => update.payload.close)).toEqual([100, 101, 99, 98]);
     expect(rows.find((item) => item.timestamp === forming.timestamp)).toMatchObject({ close: 99, isClosed: true, source: "BINANCE:REALTIME_STREAM" });
     expect(rows.some((item) => item.timestamp === "2025-01-01T01:00:00.000Z")).toBe(true);
+  });
+
+  it("validates and forwards normalized trade quantity and aggressor side", async () => {
+    let onTick: ((observation: { tick: { pair: string; price: number; quantity: number; timestamp: string; side: "BUY" | "SELL" }; source: "REALTIME_STREAM" }) => void) | undefined;
+    const provider: MarketDataProviderAdapter = { ...providerFor(async () => []), connectRealtime: async ({ onTick: next }) => { onTick = next; return { close: async () => undefined }; } };
+    const updates: MarketDataUpdate[] = [];
+    const service = createMarketDataService(deps(provider, []));
+    const stop = await service.subscribeMarketData([{ pair: "BTCUSDT", timeframe: "1h" }], (update) => updates.push(update));
+    onTick?.({ source: "REALTIME_STREAM", tick: { pair: "BTCUSDT", price: 100, quantity: 0.25, timestamp: "2025-01-01T00:00:00.000Z", side: "SELL" } });
+    onTick?.({ source: "REALTIME_STREAM", tick: { pair: "BTCUSDT", price: 100, quantity: 0, timestamp: "2025-01-01T00:00:01.000Z", side: "BUY" } });
+    onTick?.({ source: "REALTIME_STREAM", tick: { pair: "BTCUSDT", price: 101, quantity: 0.5, timestamp: "2025-01-02T00:00:03.000Z", side: "BUY" } });
+    onTick?.({ source: "REALTIME_STREAM", tick: { pair: "BTCUSDT", price: 102, quantity: 0.5, timestamp: "2025-01-02T00:00:06.000Z", side: "BUY" } });
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    await stop();
+
+    const tickUpdates = updates.filter((update): update is Extract<MarketDataUpdate, { kind: "TICK" }> => update.kind === "TICK");
+    expect(tickUpdates).toEqual([
+      { kind: "TICK", payload: { pair: "BTCUSDT", price: 100, quantity: 0.25, timestamp: "2025-01-01T00:00:00.000Z", side: "SELL" } },
+      { kind: "TICK", payload: { pair: "BTCUSDT", price: 101, quantity: 0.5, timestamp: "2025-01-02T00:00:03.000Z", side: "BUY" } },
+    ]);
   });
 
   it("resubscribes the upstream provider with the union of independent panels", async () => {

@@ -43,10 +43,21 @@ describe("Binance market-data adapter", () => {
     expect(streamUrl.match(/btcusdt@trade/g)).toHaveLength(1);
     expect(streamUrl).toContain("btcusdt@kline_1m");
     expect(streamUrl).toContain("btcusdt@kline_5m");
-    socket.onmessage?.({ data: JSON.stringify({ data: { e: "trade", s: "BTCUSDT", p: "123.45", T: Date.parse("2025-01-01T00:00:00.000Z"), t: 1 } }) });
+    socket.onmessage?.({ data: JSON.stringify({ data: { e: "trade", s: "BTCUSDT", p: "123.45", q: "0.25", T: Date.parse("2025-01-01T00:00:00.000Z"), t: 1, m: false } }) });
     socket.onmessage?.({ data: JSON.stringify({ data: { e: "kline", s: "BTCUSDT", k: { i: "1m", t: Date.parse("2025-01-01T00:00:00.000Z"), o: "120", h: "125", l: "119", c: "123", v: "42", x: false } } }) });
 
-    expect(ticks).toMatchObject([{ tick: { pair: "BTCUSDT", price: 123.45, timestamp: "2025-01-01T00:00:00.000Z" } }]);
+    expect(ticks).toMatchObject([{ tick: { pair: "BTCUSDT", price: 123.45, quantity: 0.25, timestamp: "2025-01-01T00:00:00.000Z", side: "BUY" } }]);
     expect(candles).toMatchObject([{ candle: { pair: "BTCUSDT", timeframe: "1m", open: 120, high: 125, low: 119, close: 123, volume: 42, isClosed: false } }]);
+  });
+
+  it("rejects trade payloads without positive quantity or maker flag", async () => {
+    let socket!: { onopen: (() => void) | null; onmessage: ((event: { data: string }) => void) | null; onclose: (() => void) | null; onerror: (() => void) | null; close(): void };
+    const disconnects: unknown[] = [];
+    const adapter = createBinanceMarketDataAdapter({ fetchFn: async () => ({ ok: true, status: 200, json: async () => [] }), webSocketFactory: () => (socket = { onopen: null, onmessage: null, onclose: null, onerror: null, close: () => undefined }) });
+    const connection = await adapter.connectRealtime({ subscriptions: [{ pair: "BTCUSDT", timeframe: "1m" }], onTick: () => undefined, onCandle: () => undefined, onDisconnect: (reason) => disconnects.push(reason) });
+    socket.onopen?.();
+    await connection.ready;
+    socket.onmessage?.({ data: JSON.stringify({ data: { e: "trade", s: "BTCUSDT", p: "123.45", q: "0", T: Date.parse("2025-01-01T00:00:00.000Z"), t: 2, m: true } }) });
+    expect(disconnects).toMatchObject([{ code: "MALFORMED_RESPONSE", retryable: true }]);
   });
 });

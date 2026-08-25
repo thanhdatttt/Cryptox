@@ -22,7 +22,9 @@ export interface Candle {
 export interface MarketTick {
     pair: Pair;
     price: number;
+    quantity: number;
     timestamp: string;
+    side: "BUY" | "SELL";
 }
 export interface MarketDataConnectionStatus {
     provider: ProviderId;

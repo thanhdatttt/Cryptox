@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import { api, session, type Scope } from "./api";
 import { BacktestScreen, RankingTable, SearchScreen } from "./features";
 import { MarketScreen } from "./market";
+import { persistMarketLayout, readMarketLayout, type MarketLayoutState } from "./state";
 import { StrategyScreen } from "./strategy";
 import { sentimentDistribution } from "./visuals";
 import "./style.css";
@@ -35,8 +36,10 @@ function Settings({ onLogout }: { onLogout: () => void }) { const me = useAsync(
 function App() {
   const [authenticated, setAuthenticated] = useState(Boolean(session.token));
   const [screen, setScreen] = useState<Screen>("market");
+  const [marketLayout, setMarketLayout] = useState<MarketLayoutState>(() => readMarketLayout());
   useEffect(() => { if (session.token) api.me().catch(() => setAuthenticated(false)); }, []);
-  const body = useMemo(() => screen === "market" ? <MarketScreen /> : screen === "strategy" ? <StrategyScreen /> : screen === "backtest" ? <BacktestScreen /> : screen === "search" ? <SearchScreen /> : screen === "leaderboard" ? <Leaderboard /> : screen === "news" ? <News /> : <Settings onLogout={() => { session.set(null); setAuthenticated(false); }} />, [screen, authenticated]);
+  useEffect(() => { persistMarketLayout(marketLayout); }, [marketLayout]);
+  const body = useMemo(() => screen === "market" ? <MarketScreen layout={marketLayout} onLayoutChange={setMarketLayout} /> : screen === "strategy" ? <StrategyScreen /> : screen === "backtest" ? <BacktestScreen /> : screen === "search" ? <SearchScreen /> : screen === "leaderboard" ? <Leaderboard /> : screen === "news" ? <News /> : <Settings onLogout={() => { session.set(null); setAuthenticated(false); }} />, [screen, authenticated, marketLayout]);
   if (!authenticated) return <Auth onAuthenticated={() => setAuthenticated(true)} />;
   return <div className="app"><aside><div className="brand"><span>⚗</span><b>Crypto<br />Strategy Lab</b></div><nav>{nav.map(([id, label, icon]) => <button className={screen === id ? "active" : ""} onClick={() => setScreen(id)} key={id}><span className="nav-icon">{icon}</span><span>{label}</span></button>)}</nav><div className="side-bottom"><div className="account-card workspace-account"><span className="account-icon">✦</span><span><b>Live workspace</b><small>Backend connected</small></span></div><button className="account-card user-account" onClick={() => setScreen("settings")}><span className="account-icon">●</span><span><b>Authenticated account</b><small>Session secured</small></span><span className="account-chevron">⌄</span></button></div></aside><main><header className={`app-header ${screen === "market" ? "market-shell-header" : screen === "strategy" ? "strategy-shell-header" : ""}`}><span>Workspace / {nav.find(([id]) => id === screen)?.[1]}</span><span>Authenticated</span></header>{body}</main></div>;
 }

@@ -1,11 +1,33 @@
 import { describe, expect, it } from "vitest";
-import { canAddChart, equalWeights, initialChartPanels, marketConnectionSummary, mergeCandle, parameterDefaults } from "./state";
+import { canAddChart, defaultMarketLayout, equalWeights, initialChartPanels, MARKET_LAYOUT_STORAGE_KEY, marketConnectionSummary, mergeCandle, nextChartId, parameterDefaults, persistMarketLayout, readMarketLayout, validateMarketLayout } from "./state";
 
 describe("frontend presentation state", () => {
   it("keeps four independent initial chart selections and caps additional panels", () => {
     expect(initialChartPanels.map((panel) => panel.timeframe)).toEqual(["1m", "5m", "15m", "1h"]);
     expect(canAddChart(initialChartPanels)).toBe(false);
     expect(canAddChart(initialChartPanels.slice(0, 3))).toBe(true);
+  });
+
+  it("round-trips a valid layout for navigation and refresh, but falls back for invalid or stale storage", () => {
+    const values = new Map<string, string>();
+    const storage = { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => { values.set(key, value); } };
+    const layout = { ...defaultMarketLayout(), panels: initialChartPanels.slice(0, 2).map((panel) => ({ ...panel, pair: panel.id === "chart-1" ? "ETHUSDT" : panel.pair })), primaryPanelId: "chart-2", realtimeEnabled: false };
+    persistMarketLayout(layout, storage);
+    expect(values.has(MARKET_LAYOUT_STORAGE_KEY)).toBe(true);
+    expect(readMarketLayout(storage)).toEqual(layout);
+    values.set(MARKET_LAYOUT_STORAGE_KEY, JSON.stringify({ ...layout, version: 999 }));
+    expect(readMarketLayout(storage)).toEqual(defaultMarketLayout());
+    values.set(MARKET_LAYOUT_STORAGE_KEY, "not-json");
+    expect(readMarketLayout(storage)).toEqual(defaultMarketLayout());
+  });
+
+  it("validates primary panel, unique ids, and chart bounds before restoring", () => {
+    const layout = defaultMarketLayout();
+    expect(validateMarketLayout(layout)).toEqual(layout);
+    expect(validateMarketLayout({ ...layout, primaryPanelId: "missing" })).toBeUndefined();
+    expect(validateMarketLayout({ ...layout, panels: [{ ...layout.panels[0]!, id: "chart-1" }, { ...layout.panels[1]!, id: "chart-1" }] })).toBeUndefined();
+    expect(validateMarketLayout({ ...layout, panels: [] })).toBeUndefined();
+    expect(nextChartId(layout.panels)).toBe("chart-5");
   });
 
   it("merges repeated/forming candle updates by timestamp without regressing a closed candle", () => {

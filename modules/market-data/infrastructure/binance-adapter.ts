@@ -113,7 +113,10 @@ export function createBinanceMarketDataAdapter(options: BinanceAdapterOptions = 
           const payload: Record<string, unknown> = outer.data ?? (outer as Record<string, unknown>);
           if (typeof payload.code === "number" || (typeof payload.msg === "string" && !payload.e)) throw new Error("BINANCE_MALFORMED_PAYLOAD");
           if (payload.e === "trade") {
-            const tick: NormalizedProviderTickObservation = { source: "REALTIME_STREAM", orderKey: `${payload.t}`, tick: { pair: String(payload.s), price: asNumber(payload.p), timestamp: unix(payload.T) } };
+            if (typeof payload.m !== "boolean") throw new Error("BINANCE_MALFORMED_PAYLOAD");
+            const quantity = asNumber(payload.q);
+            if (quantity <= 0) throw new Error("BINANCE_MALFORMED_PAYLOAD");
+            const tick: NormalizedProviderTickObservation = { source: "REALTIME_STREAM", orderKey: `${payload.t}`, tick: { pair: String(payload.s), price: asNumber(payload.p), quantity, timestamp: unix(payload.T), side: payload.m ? "SELL" : "BUY" } };
             onTick(tick);
           } else if (payload.e === "kline" && payload.k && typeof payload.k === "object") {
             const kline = payload.k as Record<string, unknown>;

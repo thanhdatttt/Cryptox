@@ -2,6 +2,8 @@ import { io } from "socket.io-client";
 
 export type Timeframe = "1m" | "5m" | "15m" | "1h" | "4h" | "1d";
 export type ApiCandle = { pair: string; timeframe: Timeframe; timestamp: string; open: number; high: number; low: number; close: number; volume: number; isClosed: boolean; source?: string };
+export type MarketTick = { pair: string; price: number; quantity: number; timestamp: string; side: "BUY" | "SELL" };
+export type MarketCapabilities = { provider: string; pairs: string[]; timeframes: Timeframe[] };
 export type StrategyDescriptor = { name: string; displayName: string; description: string; category: string; parameters: Array<{ key: string; label: string; type: string; required: boolean; defaultValue: number | string; minimum?: number; maximum?: number; step?: number; options?: string[] }> };
 export type StrategyDefinition = { id: string; logicalFamilyKey?: string; strategyName: string; parameters: Record<string, number | string>; version: number; createdAt: string; familyName?: string; implementationVersion?: string; implementationSha256?: string };
 export type Composite = { id: string; method: string; components: Array<{ strategyDefinitionId: string; weight: number }>; thresholds?: { buy: number; sell: number }; createdAt: string };
@@ -36,6 +38,7 @@ export const api = {
   composites: () => request<Composite[]>("/strategies/composites"),
   defineComposite: (method: string, components: Array<{ strategyDefinitionId: string; weight: number }>) => request<Composite>("/strategies/composites", json({ method, components })),
   generateStrategy: (body: { sourceType: "TEXT"; text: string } | { sourceType: "URL"; url: string }) => request<StrategyGenerationResult>("/strategy-generations", json(body)),
+  marketCapabilities: () => request<MarketCapabilities>("/market/pairs"),
   candles: (pair: string, timeframe: Timeframe, limit = 1000) => request<{ candles: ApiCandle[]; range: { from: string; to: string }; complete: boolean; asOf: string }>(`/market/candles?pair=${encodeURIComponent(pair)}&timeframe=${timeframe}&limit=${limit}`),
   snapshot: (body: { pair: string; timeframe: Timeframe; from: string; to: string }) => request<{ id: string }>("/market/snapshots", json(body)),
   scopes: () => request<Scope[]>("/leaderboard-scopes"),

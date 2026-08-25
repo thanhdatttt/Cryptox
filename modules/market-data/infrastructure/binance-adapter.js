@@ -110,7 +110,12 @@ function createBinanceMarketDataAdapter(options = {}) {
                     if (typeof payload.code === "number" || (typeof payload.msg === "string" && !payload.e))
                         throw new Error("BINANCE_MALFORMED_PAYLOAD");
                     if (payload.e === "trade") {
-                        const tick = { source: "REALTIME_STREAM", orderKey: `${payload.t}`, tick: { pair: String(payload.s), price: asNumber(payload.p), timestamp: unix(payload.T) } };
+                        if (typeof payload.m !== "boolean")
+                            throw new Error("BINANCE_MALFORMED_PAYLOAD");
+                        const quantity = asNumber(payload.q);
+                        if (quantity <= 0)
+                            throw new Error("BINANCE_MALFORMED_PAYLOAD");
+                        const tick = { source: "REALTIME_STREAM", orderKey: `${payload.t}`, tick: { pair: String(payload.s), price: asNumber(payload.p), quantity, timestamp: unix(payload.T), side: payload.m ? "SELL" : "BUY" } };
                         onTick(tick);
                     }
                     else if (payload.e === "kline" && payload.k && typeof payload.k === "object") {

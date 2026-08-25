@@ -1,8 +1,10 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.createMarketDataSnapshotReader = exports.createMarketDataService = exports.shutdown = exports.subscribeMarketData = exports.readDatasetSnapshot = exports.createDatasetSnapshot = exports.readCandles = exports.readPairMetadata = void 0;
+exports.createMarketDataSnapshotReader = exports.createMarketDataService = exports.shutdown = exports.subscribeMarketData = exports.readDatasetSnapshot = exports.createDatasetSnapshot = exports.readCandles = exports.readPairMetadata = exports.readCapabilities = void 0;
 const service_1 = require("../application/service");
 const defaultService = (0, service_1.createMarketDataService)();
+const readCapabilities = () => defaultService.readCapabilities();
+exports.readCapabilities = readCapabilities;
 const readPairMetadata = (pair) => defaultService.readPairMetadata(pair);
 exports.readPairMetadata = readPairMetadata;
 const readCandles = (query) => defaultService.readCandles(query);

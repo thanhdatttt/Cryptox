@@ -58,4 +58,11 @@ describe("frontend backend transport", () => {
     expect(states).toEqual(["CONNECTING", "CONNECTED", "DISCONNECTED"]);
     expect(socket.disconnect).toHaveBeenCalledOnce();
   });
+
+  it("loads supported market pairs and timeframes from the backend contract", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(response({ provider: "BINANCE", pairs: ["BTCUSDT", "ETHUSDT"], timeframes: ["1m", "5m"] }));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(api.marketCapabilities()).resolves.toEqual({ provider: "BINANCE", pairs: ["BTCUSDT", "ETHUSDT"], timeframes: ["1m", "5m"] });
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringMatching(/\/market\/pairs$/), expect.objectContaining({ headers: expect.any(Headers) }));
+  });
 });
