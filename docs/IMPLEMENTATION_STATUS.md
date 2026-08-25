@@ -3,9 +3,9 @@
 ## Current state
 
 - Branch: `implement`
-- Project status: **Frontend live backend integration in progress — first integration slice implemented on 2026-08-25**
+- Project status: **Frontend live backend integration validated against Docker Compose on 2026-08-25**
 - Current feature: **Frontend API client, authentication, market transport, strategy/library, backtest, Search, Leaderboard, News, and Settings screens wired to public backend contracts**
-- Next feature: **browser/Compose validation and runtime contract review**
+- Next feature: **none for this validation slice; retain the documented deterministic generation limitation**
 
 ## Frontend integration audit (2026-08-25)
 
@@ -30,14 +30,25 @@ The frontend now also renders candidate history and authoritative Search pause/r
 
 The backend bootstrap now explicitly enables bearer-token CORS for the separately served Vite frontend, and the Market Gateway enables the matching Socket.IO origin policy. Without these narrow transport fixes, a browser could reach the API from the Compose/local frontend origin but the browser would block HTTP or WebSocket responses.
 
-Known gaps to validate next: browser-level Compose flow and the assignment-required worker-backed completed backtest flow. These are recorded rather than hidden behind demo fallbacks; the UI displays backend empty/error states when records are absent.
+The previously open validation gaps are now closed: the browser-level Compose flow and the assignment-required worker-backed completed backtest flow both passed. The deterministic generation adapter limitation remains explicit below; it does not silently substitute frontend demo data.
 
 ### Frontend runtime evidence (local launcher, 2026-08-25)
 
 - `npm run smoke:dev`: passed after wiring the isolated backend port into Vite.
 - Browser flow against the local launcher: synthetic test account registration, login, authenticated Market screen, persisted-session reload, logout/protected-route return to sign-in, live Socket.IO state `CONNECTED`, independent second chart panel, backend descriptor-driven strategy selection, persisted MA definition, and persisted weighted composite all passed.
 - The local in-memory runtime has no historical candle rows and no worker/Redis completion path, so the browser showed the honest Market empty state; it was not treated as backtest completion evidence.
-- Docker Compose validation remains unavailable in this environment because the `docker` executable is not installed/discoverable. No Compose or container E2E claim is made for this session.
+
+### Frontend runtime evidence (Docker Compose, 2026-08-25)
+
+Docker was available through Docker Desktop, but this shell did not inherit its PATH. Validation therefore used the absolute executable `C:\Users\Admin\AppData\Local\Programs\DockerDesktop\resources\bin\docker.exe`.
+
+- `docker version`: passed — Docker Desktop 4.87.0, Docker Engine 29.7.2, `desktop-linux`, `linux/amd64`.
+- `docker compose version`: passed — Docker Compose v5.4.0.
+- `docker compose -f infra/docker-compose.yml up --build`: passed. PostgreSQL, Redis, backend, backtest-worker, and frontend became healthy; the migration service exited successfully. The final published endpoints were backend `http://localhost:3000` and frontend `http://localhost:5173`.
+- API E2E against the containers: passed. A fresh user registered and logged in; protected identity, strategy definitions, composite creation, 8 historical market candles, input snapshot, benchmark scope, `202 QUEUED` manual backtest, worker-completed candidate/attempt, experiment, one trade, replay `MATCH`, 8-candle/1-marker visualization, leaderboard, Search `COMPLETED`, one Search candidate, and one Search leaderboard entry were all verified from the live responses.
+- Browser E2E against `http://localhost:5173`: passed. The UI registered and logged in a fresh synthetic account, and logout returned to sign-in. In the authenticated Compose flow, the UI restored the session after reload, showed 12 backend candles and authenticated Socket.IO `CONNECTED` state, created a strategy and weighted composite, displayed persisted generation provenance, created a snapshot/scope, queued and observed a completed backtest, rendered experiment/trade detail, verified replay `MATCH`, loaded sealed visualization markers, ran Search through `COMPLETED`, and displayed real Leaderboard rows.
+- Repeat scope validation after the final rebuild: passed. Creating another scope from the backend candle range no longer produced the duplicate canonical snapshot hash error; the newly returned scope was added to the selector and retained as the selected scope.
+- Runtime contract fixes found during validation: Compose now exposes the browser-facing API as `VITE_BACKEND_URL=http://localhost:3000`; composite backtests send all component definition IDs; scopes use the live candle range; PostgreSQL Search IDs are generated with UUIDs; and canonical input snapshots are reused by SHA-256.
 
 ## Audit summary
 
@@ -134,6 +145,7 @@ The previous final-validation claim did not establish the assignment-required pr
 - `docker compose -f infra/docker-compose.yml up --build -d`: passed after adding the repository `scripts/` directory to both runtime images. PostgreSQL and Redis became healthy; the migration service exited 0; backend and backtest-worker became healthy; frontend became healthy. The first build exposed `MODULE_NOT_FOUND: /app/scripts/start-backend.mjs` and `/app/scripts/start-worker.mjs`, which was fixed within this feature before the successful rerun.
 - Docker-backed E2E: passed against the live REST/Redis/PostgreSQL stack. Registered/logged in a user; created and persisted an MA definition and weighted composite; read 12 normalized PostgreSQL candles; created a durable snapshot/scope; submitted a `202 QUEUED` manual backtest; observed the BullMQ worker complete it; retrieved completed attempt, 2 trades, experiment, and leaderboard entry; replay returned `MATCH`; started deterministic Search with one candidate and observed `COMPLETED`, one candidate, and one Search leaderboard entry.
 - Docker-backed durable row check: passed with 1 user, 1 strategy definition, 1 composite, 12 market candles, 1 market snapshot, 1 scope, 2 candidates, 2 queue dispatches, 2 attempts, 4 trades, 2 experiments, 1 search run, and 2 leaderboard entries. Redis was reachable and the worker log reported `backtest worker ready`.
+- Final validation rerun (2026-08-25): `npm test` passed — 63 tests across all workspaces; `npm run build` passed; `npm run lint` passed; `npm run arch:check` passed with no violations across 761 modules and 1,044 dependencies; and `git diff --check` passed.
 
 ## Current decisions and assumptions
 
@@ -143,7 +155,7 @@ The previous final-validation claim did not establish the assignment-required pr
 - The root `npm run dev` script builds the backend once, starts it through a Node-based launcher, and starts the frontend’s declared Vite workspace dependency. Backend TypeScript changes require restarting that command; Vite continues to provide frontend development serving.
 - The backend launcher sets `NODE_PATH` programmatically for its compiled child process using the operating system’s path delimiter. This keeps module-alias resolution portable across Windows, macOS, and Linux without relying on shell syntax.
 - Existing code/tests that assert `NOT_IMPLEMENTED` are treated as placeholders to replace when their required feature is implemented, not as completion evidence.
-- The completed slice executes manual submissions synchronously inside the Backtesting application service. Its durable records are PostgreSQL-backed in the backend composition, while the worker/queue adapter remains a separately planned feature; this avoids claiming an asynchronous worker flow that does not exist.
+- Manual submissions are durably queued in PostgreSQL and Redis/BullMQ completes them through the backtest-worker. The worker persists terminal simulation data, after which the fenced completion processor evaluates, stages the experiment, scores/admits leaderboard entries, and advances Search.
 - Backtesting copies the sealed market dataset snapshot and its candles into Backtesting-owned persistence before executing. This preserves module boundaries (the source is read only through Market Data's public API) while making the replay input durable.
 - Search defaults to a deterministic, offline `RANDOM` generator. It cycles sorted owner-visible strategy definitions into immutable composite candidates, so core Search functionality does not depend on LLM credentials or network access.
 - Search owns durable run lifecycle state in `search_runs`; Backtesting continues to own candidate and experiment persistence, including the score written after Leaderboard evaluates the saved metrics. Leaderboard owns durable Top-K entries in `leaderboard_entries` and reads Backtesting records only through its public API adapters.
