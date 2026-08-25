@@ -4,7 +4,7 @@ exports.PostgresSnapshotRepository = exports.PostgresCandleRepository = void 0;
 const number = (value) => typeof value === "number" ? value : Number(value);
 const date = (value) => new Date(value).toISOString();
 const json = (value) => typeof value === "string" ? JSON.parse(value) : value;
-const candle = (row) => ({ pair: row.pair, timeframe: row.timeframe, timestamp: date(row.timestamp), open: number(row.open), high: number(row.high), low: number(row.low), close: number(row.close), volume: number(row.volume), isClosed: row.is_closed });
+const candle = (row) => ({ pair: row.pair, timeframe: row.timeframe, timestamp: date(row.timestamp), open: number(row.open), high: number(row.high), low: number(row.low), close: number(row.close), volume: number(row.volume), isClosed: row.is_closed, ...(row.source === undefined ? {} : { source: row.source }) });
 const snapshot = (row) => ({ id: row.id, pair: row.pair, pairMetadata: json(row.pair_metadata), timeframe: row.timeframe, range: { from: date(row.dataset_from), to: date(row.dataset_to) }, candleCount: row.candle_count, sha256: row.sha256, createdAt: date(row.created_at) });
 class PostgresCandleRepository {
     client;
@@ -14,10 +14,10 @@ class PostgresCandleRepository {
         this.clock = clock;
     }
     async read(query) {
-        const result = await this.client.query("SELECT pair, timeframe, timestamp, open, high, low, close, volume, is_closed FROM market_candles WHERE pair = $1 AND timeframe = $2 AND ($3 OR is_closed = true) ORDER BY timestamp ASC", [query.pair, query.timeframe, query.includeForming ?? false]);
+        const result = await this.client.query("SELECT pair, timeframe, timestamp, open, high, low, close, volume, is_closed, source FROM market_candles WHERE pair = $1 AND timeframe = $2 AND ($3 OR is_closed = true) ORDER BY timestamp ASC", [query.pair, query.timeframe, query.includeForming ?? false]);
         return result.rows.map(candle);
     }
-    async upsert(item) { await this.client.query("INSERT INTO market_candles (pair, timeframe, timestamp, open, high, low, close, volume, is_closed, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) ON CONFLICT (pair, timeframe, timestamp) DO UPDATE SET open = EXCLUDED.open, high = EXCLUDED.high, low = EXCLUDED.low, close = EXCLUDED.close, volume = EXCLUDED.volume, is_closed = EXCLUDED.is_closed, updated_at = EXCLUDED.updated_at", [item.pair, item.timeframe, item.timestamp, item.open, item.high, item.low, item.close, item.volume, item.isClosed, this.clock.now()]); }
+    async upsert(item) { await this.client.query("INSERT INTO market_candles (pair, timeframe, timestamp, open, high, low, close, volume, is_closed, source, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) ON CONFLICT (pair, timeframe, timestamp) DO UPDATE SET open = EXCLUDED.open, high = EXCLUDED.high, low = EXCLUDED.low, close = EXCLUDED.close, volume = EXCLUDED.volume, is_closed = EXCLUDED.is_closed, source = EXCLUDED.source, updated_at = EXCLUDED.updated_at WHERE NOT market_candles.is_closed OR EXCLUDED.is_closed", [item.pair, item.timeframe, item.timestamp, item.open, item.high, item.low, item.close, item.volume, item.isClosed, item.source ?? "UNKNOWN", this.clock.now()]); }
 }
 exports.PostgresCandleRepository = PostgresCandleRepository;
 class PostgresSnapshotRepository {

@@ -2,13 +2,15 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.createMarketDataService = createMarketDataService;
 const node_crypto_1 = require("node:crypto");
+const subscription_manager_1 = require("./subscription-manager");
 const errors_1 = require("../domain/errors");
 const rules_1 = require("../domain/rules");
 const key = (candle) => `${candle.pair}|${candle.timeframe}|${candle.timestamp}`;
 class MemoryCandleRepository {
     rows = new Map();
     async read(query) { return [...this.rows.values()].filter((candle) => candle.pair === query.pair && candle.timeframe === query.timeframe).sort((a, b) => a.timestamp.localeCompare(b.timestamp)); }
-    async upsert(candle) { this.rows.set(key(candle), candle); }
+    async upsert(candle) { const existing = this.rows.get(key(candle)); if (!existing?.isClosed || candle.isClosed)
+        this.rows.set(key(candle), candle); }
 }
 class MarketDataService {
     deps;
@@ -16,19 +18,23 @@ class MarketDataService {
     snapshots = new Map();
     subscribers = new Map();
     sequence = 0;
-    connection;
     provider;
+    providerResolved = false;
+    subscriptionManager;
+    subscriptionProvider;
+    reconcilePromise = Promise.resolve();
+    historySyncs = new Map();
     status;
     stopped = false;
     constructor(deps) {
         this.deps = deps;
         const memory = new MemoryCandleRepository();
         this.candles = deps.candleRepository ?? memory;
-        this.status = { provider: "BINANCE", status: "DISCONNECTED", lastEventAt: this.now() };
+        this.status = { provider: deps.providerRegistry?.defaultProviderId ?? deps.providerRegistry?.defaultProvider?.id ?? "BINANCE", status: "DISCONNECTED", lastEventAt: this.now() };
     }
     now() { return this.deps.clock?.now() ?? new Date().toISOString(); }
-    async resolveProvider() { if (this.provider)
-        return this.provider; const registry = this.deps.providerRegistry; this.provider = registry?.defaultProvider ?? await registry?.getDefault?.(); return this.provider; }
+    async resolveProvider() { if (this.providerResolved)
+        return this.provider; this.providerResolved = true; const registry = this.deps.providerRegistry; this.provider = registry?.defaultProvider ?? await registry?.getDefault?.(); return this.provider; }
     async validateProvider(pair, timeframe) {
         const provider = await this.resolveProvider();
         if (!provider)
@@ -41,7 +47,43 @@ class MarketDataService {
         return provider;
     }
     async readRows(pair, timeframe) { return (await this.candles.read({ pair, timeframe, includeForming: true })).map((candle) => (0, rules_1.validateCandle)(candle, this.now(), true)).sort((a, b) => a.timestamp.localeCompare(b.timestamp)); }
-    async persist(observation) { const candle = (0, rules_1.validateCandle)(observation.candle, this.now(), true); await this.candles.upsert(candle); return candle; }
+    async persist(observation) {
+        const provider = await this.resolveProvider();
+        const source = observation.source.includes(":") ? observation.source : `${provider?.id ?? "UNKNOWN"}:${observation.source}`;
+        const candle = (0, rules_1.validateCandle)({ ...observation.candle, source }, this.now());
+        const existing = (await this.candles.read({ pair: candle.pair, timeframe: candle.timeframe, includeForming: true })).find((item) => item.timestamp === candle.timestamp);
+        if (existing?.isClosed && !candle.isClosed)
+            return undefined;
+        await this.candles.upsert(candle);
+        return candle;
+    }
+    latestClosedRange(now, timeframe, limit) {
+        const interval = rules_1.TIMEFRAME_SECONDS[timeframe] * 1000;
+        const end = Math.floor(Date.parse(now) / interval) * interval;
+        return { from: new Date(end - limit * interval).toISOString(), to: new Date(end).toISOString() };
+    }
+    async syncMissing(provider, pair, timeframe, range) {
+        const syncKey = `${provider.id}|${pair}|${timeframe}|${range.from}|${range.to}`;
+        const running = this.historySyncs.get(syncKey);
+        if (running)
+            return running;
+        const operation = (async () => {
+            const rows = await this.readRows(pair, timeframe);
+            const missing = (0, rules_1.missingRanges)(rows.filter((candle) => candle.timestamp >= range.from && candle.timestamp < range.to), range, timeframe);
+            for (const missingRange of missing) {
+                const observations = await provider.fetchHistorical({ pair, timeframe, range: missingRange });
+                for (const observation of observations)
+                    await this.persist(observation);
+            }
+        })();
+        this.historySyncs.set(syncKey, operation);
+        try {
+            await operation;
+        }
+        finally {
+            this.historySyncs.delete(syncKey);
+        }
+    }
     fingerprint(query) { return JSON.stringify({ pair: query.pair, timeframe: query.timeframe, range: query.range, limit: query.limit ?? rules_1.DEFAULT_PAGE_LIMIT, includeForming: query.includeForming ?? false, completeness: query.completeness ?? "ALLOW_PARTIAL" }); }
     encodeCursor(query, offset) { return Buffer.from(JSON.stringify({ fingerprint: this.fingerprint(query), offset }), "utf8").toString("base64url"); }
     decodeCursor(query, cursor) {
@@ -74,26 +116,28 @@ class MarketDataService {
         this.decodeCursor(normalizedQuery, query.cursor);
         const provider = await this.validateProvider(pair, timeframe);
         let rows = await this.readRows(pair, timeframe);
-        if (range && provider && (0, rules_1.missingRanges)(rows.filter((candle) => candle.timestamp >= range.from && candle.timestamp < range.to), range, timeframe).length > 0) {
+        const requestedRange = range ?? (provider ? this.latestClosedRange(now, timeframe, limit) : undefined);
+        let providerFailure;
+        if (provider && requestedRange) {
             try {
-                for (const observation of await provider.fetchHistorical({ pair, timeframe, range }))
-                    await this.persist(observation);
+                await this.syncMissing(provider, pair, timeframe, requestedRange);
                 rows = await this.readRows(pair, timeframe);
             }
             catch (error) {
+                providerFailure = error;
                 if (query.completeness === "REQUIRE_COMPLETE")
                     throw new errors_1.MarketDataException("HISTORY_UNAVAILABLE", "Historical market data is unavailable.", true, { cause: error instanceof Error ? error.message : "provider failure" });
             }
         }
-        const closed = rows.filter((candle) => candle.isClosed && (!range || (candle.timestamp >= range.from && candle.timestamp < range.to)));
-        const forming = query.includeForming ? rows.filter((candle) => !candle.isClosed && (!range || (candle.timestamp >= range.from && candle.timestamp < range.to))) : [];
+        const closed = rows.filter((candle) => candle.isClosed && (!requestedRange || (candle.timestamp >= requestedRange.from && candle.timestamp < requestedRange.to)));
+        const forming = query.includeForming ? rows.filter((candle) => !candle.isClosed && (!requestedRange || (range ? (candle.timestamp >= range.from && candle.timestamp < range.to) : (candle.timestamp >= requestedRange.from && candle.timestamp <= requestedRange.to)))) : [];
         const page = [...closed, ...forming].sort((a, b) => a.timestamp.localeCompare(b.timestamp));
-        const effectiveRange = range ?? (page.length > 0 ? { from: page[0].timestamp, to: new Date(Date.parse(page[page.length - 1].timestamp) + rules_1.TIMEFRAME_SECONDS[timeframe] * 1000).toISOString() } : { from: now, to: now });
+        const effectiveRange = requestedRange ?? (page.length > 0 ? { from: page[0].timestamp, to: new Date(Date.parse(page[page.length - 1].timestamp) + rules_1.TIMEFRAME_SECONDS[timeframe] * 1000).toISOString() } : { from: now, to: now });
         const gaps = (0, rules_1.missingRanges)(closed, effectiveRange, timeframe);
-        if (range && query.completeness === "REQUIRE_COMPLETE" && gaps.length > 0)
+        if (query.completeness === "REQUIRE_COMPLETE" && gaps.length > 0)
             throw new errors_1.MarketDataException("HISTORY_INCOMPLETE", "Historical data contains missing candles.", true, { missingRanges: gaps });
         if (!range && page.length === 0)
-            throw new errors_1.MarketDataException("NO_DATA", "No historical candles are available.");
+            throw new errors_1.MarketDataException(providerFailure ? "HISTORY_UNAVAILABLE" : "NO_DATA", providerFailure ? "Historical market data is unavailable." : "No historical candles are available.", Boolean(providerFailure), providerFailure ? { cause: providerFailure instanceof Error ? providerFailure.message : "provider failure" } : undefined);
         const offset = query.cursor ? this.decodeCursor(normalizedQuery, query.cursor) : (range ? 0 : Math.max(0, page.length - limit));
         const selected = page.slice(offset, offset + limit);
         const responseRange = range ?? (selected.length > 0 ? { from: selected[0].timestamp, to: new Date(Date.parse(selected[selected.length - 1].timestamp) + rules_1.TIMEFRAME_SECONDS[timeframe] * 1000).toISOString() } : effectiveRange);
@@ -139,25 +183,58 @@ class MarketDataService {
         if (this.stopped)
             throw new errors_1.MarketDataException("SUBSCRIPTION_REJECTED", "Market Data module is shut down.");
         const validated = subscriptions.map((subscription) => ({ pair: (0, rules_1.validatePair)(subscription.pair), timeframe: (0, rules_1.validateTimeframe)(subscription.timeframe) }));
+        for (const subscription of validated)
+            await this.validateProvider(subscription.pair, subscription.timeframe);
         const id = ++this.sequence;
         this.subscribers.set(id, { subscriptions: new Set(validated.map((subscription) => `${subscription.pair}|${subscription.timeframe}`)), sink });
         this.deliver(sink, { kind: "CONNECTION_STATUS", payload: this.status });
-        const provider = await this.validateProvider(validated[0]?.pair ?? "BTCUSDT", validated[0]?.timeframe ?? "1m");
-        if (provider && !this.connection) {
-            this.provider = provider;
-            this.status = { provider: provider.id, status: "RECONNECTING", lastEventAt: this.now() };
-            this.broadcast({ kind: "CONNECTION_STATUS", payload: this.status });
-            this.connection = await provider.connectRealtime({ subscriptions: validated, onTick: (observation) => this.handleTick(observation.tick), onCandle: (observation) => void this.handleCandle(observation), onDisconnect: () => { this.status = { provider: provider.id, status: "DISCONNECTED", lastEventAt: this.now() }; this.broadcast({ kind: "CONNECTION_STATUS", payload: this.status }); } });
-            this.status = { provider: provider.id, status: "CONNECTED", lastEventAt: this.now() };
-            this.broadcast({ kind: "CONNECTION_STATUS", payload: this.status });
-        }
+        await this.reconcileRealtime();
         let active = true;
-        return async () => { if (!active)
-            return; active = false; this.subscribers.delete(id); if (this.subscribers.size === 0 && this.connection) {
-            await this.connection.close();
-            this.connection = undefined;
-            this.status = { provider: this.provider?.id ?? "BINANCE", status: "DISCONNECTED", lastEventAt: this.now() };
-        } };
+        return async () => {
+            if (!active)
+                return;
+            active = false;
+            this.subscribers.delete(id);
+            await this.reconcileRealtime();
+        };
+    }
+    unionSubscriptions() {
+        const values = new Map();
+        for (const subscriber of this.subscribers.values())
+            for (const value of subscriber.subscriptions) {
+                const [pair, timeframe] = value.split("|");
+                values.set(value, { pair, timeframe: timeframe });
+            }
+        return [...values.values()].sort((left, right) => `${left.pair}|${left.timeframe}`.localeCompare(`${right.pair}|${right.timeframe}`));
+    }
+    async reconcileRealtime() {
+        const operation = this.reconcilePromise.then(async () => {
+            const subscriptions = this.unionSubscriptions();
+            const provider = await this.resolveProvider();
+            if (!provider || subscriptions.length === 0) {
+                await this.subscriptionManager?.setSubscriptions([]);
+                if (subscriptions.length > 0)
+                    this.setStatus({ provider: this.status.provider, status: "DISCONNECTED" });
+                return;
+            }
+            if (!this.subscriptionManager || this.subscriptionProvider !== provider) {
+                await this.subscriptionManager?.stop();
+                this.subscriptionProvider = provider;
+                this.subscriptionManager = new subscription_manager_1.MarketDataSubscriptionManager({
+                    provider,
+                    onTick: (observation) => this.handleTick(observation.tick),
+                    onCandle: (observation) => { void this.handleCandle(observation); },
+                    onStatus: (status, failure) => this.setStatus({ provider: provider.id, status, ...(failure ? { errorCode: failure.code } : {}) }),
+                });
+            }
+            await this.subscriptionManager.setSubscriptions(subscriptions);
+        });
+        this.reconcilePromise = operation.catch(() => undefined);
+        await operation;
+    }
+    setStatus(next) {
+        this.status = { ...next, lastEventAt: this.now() };
+        this.broadcast({ kind: "CONNECTION_STATUS", payload: this.status });
     }
     deliver(sink, update) { try {
         sink(update);
@@ -180,13 +257,13 @@ class MarketDataService {
     } }
     async handleCandle(observation) { try {
         const candle = await this.persist(observation);
-        this.broadcast({ kind: "CANDLE", payload: candle });
+        if (candle)
+            this.broadcast({ kind: "CANDLE", payload: candle });
     }
     catch {
         this.deps.observability?.record("market_data.invalid_candle");
     } }
     async shutdown() { if (this.stopped)
-        return; this.stopped = true; if (this.connection)
-        await this.connection.close(); this.connection = undefined; this.subscribers.clear(); }
+        return; this.stopped = true; await this.subscriptionManager?.stop(); this.subscriptionManager = undefined; this.subscriptionProvider = undefined; this.subscribers.clear(); }
 }
 function createMarketDataService(deps = {}) { return new MarketDataService(deps); }

@@ -15,6 +15,10 @@ export interface ProviderAdapterFailure {
     retryable: boolean;
     safeMessage: string;
 }
+export interface ProviderRealtimeConnection {
+    close(): Promise<void>;
+    ready?: Promise<void>;
+}
 export interface MarketDataProviderAdapter {
     readonly id: string;
     capabilities(): Promise<{
@@ -33,16 +37,16 @@ export interface MarketDataProviderAdapter {
         subscriptions: MarketSubscription[];
         onTick(observation: NormalizedProviderTickObservation): void;
         onCandle(observation: NormalizedProviderCandleObservation): void;
+        onConnect?(): void;
         onDisconnect(error?: ProviderAdapterFailure): void;
-    }): Promise<{
-        close(): Promise<void>;
-    }>;
+    }): Promise<ProviderRealtimeConnection>;
     readPairMetadata?(pair: Pair): Promise<MarketPairMetadata>;
 }
 export interface ProviderRegistry {
     getDefault?(): Promise<MarketDataProviderAdapter | undefined> | MarketDataProviderAdapter | undefined;
     get?(id: string): Promise<MarketDataProviderAdapter | undefined> | MarketDataProviderAdapter | undefined;
     defaultProvider?: MarketDataProviderAdapter;
+    defaultProviderId?: string;
 }
 export interface CandleRepository {
     read(query: {

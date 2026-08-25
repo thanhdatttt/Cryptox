@@ -10,6 +10,7 @@ type FetchResponse = { ok: boolean; status: number; json(): Promise<unknown> };
 type FetchLike = (input: string) => Promise<FetchResponse>;
 type SocketMessage = { data: string };
 interface WebSocketLike {
+  onopen?: (() => void) | null;
   onmessage: ((event: SocketMessage) => void) | null;
   onclose: (() => void) | null;
   onerror: (() => void) | null;
@@ -25,6 +26,9 @@ export interface BinanceAdapterOptions {
   now?: () => number;
 }
 
+const publicRestDefault = "https://api.binance.com";
+const publicStreamDefault = "wss://stream.binance.com:9443";
+
 const asNumber = (value: unknown): number => {
   const numeric = typeof value === "number" ? value : typeof value === "string" ? Number(value) : Number.NaN;
   if (!Number.isFinite(numeric)) throw new Error("BINANCE_MALFORMED_PAYLOAD");
@@ -33,7 +37,9 @@ const asNumber = (value: unknown): number => {
 const unix = (value: unknown): string => {
   const timestamp = asNumber(value);
   if (!Number.isInteger(timestamp) || timestamp <= 0) throw new Error("BINANCE_MALFORMED_PAYLOAD");
-  return new Date(timestamp).toISOString();
+  const date = new Date(timestamp);
+  if (!Number.isFinite(date.getTime())) throw new Error("BINANCE_MALFORMED_PAYLOAD");
+  return date.toISOString();
 };
 const failure = (code: ProviderAdapterFailure["code"], retryable: boolean, safeMessage: string): ProviderAdapterFailure => ({ code, retryable, safeMessage });
 
@@ -53,8 +59,8 @@ const normalizeKline = (pair: Pair, timeframe: Timeframe, row: unknown, now: num
 export function createBinanceMarketDataAdapter(options: BinanceAdapterOptions = {}): MarketDataProviderAdapter {
   const fetchFn = options.fetchFn ?? (globalThis.fetch as FetchLike | undefined);
   const webSocketFactory = options.webSocketFactory ?? (typeof WebSocket === "undefined" ? undefined : ((url: string) => new WebSocket(url) as unknown as WebSocketLike));
-  const restBaseUrl = options.restBaseUrl ?? "https://api.binance.com";
-  const streamBaseUrl = options.streamBaseUrl ?? "wss://stream.binance.com:9443";
+  const restBaseUrl = options.restBaseUrl ?? process.env.MARKET_DATA_BINANCE_REST_URL ?? publicRestDefault;
+  const streamBaseUrl = options.streamBaseUrl ?? process.env.MARKET_DATA_BINANCE_WS_URL ?? publicStreamDefault;
   const now = options.now ?? Date.now;
   if (!fetchFn) throw new Error("BINANCE_FETCH_UNAVAILABLE");
 
@@ -77,7 +83,8 @@ export function createBinanceMarketDataAdapter(options: BinanceAdapterOptions = 
         try { response = await fetchFn(url.toString()); }
         catch { throw new Error("BINANCE_HISTORY_UNAVAILABLE"); }
         if (!response.ok) throw new Error(response.status === 429 ? "BINANCE_RATE_LIMITED" : "BINANCE_HISTORY_UNAVAILABLE");
-        const payload = await response.json();
+        let payload: unknown;
+        try { payload = await response.json(); } catch { throw new Error("BINANCE_MALFORMED_PAYLOAD"); }
         if (!Array.isArray(payload)) throw new Error("BINANCE_MALFORMED_PAYLOAD");
         const page = payload.map((row) => normalizeKline(pair, timeframe, row, now()));
         results.push(...page);
@@ -89,16 +96,22 @@ export function createBinanceMarketDataAdapter(options: BinanceAdapterOptions = 
       }
       return results.filter((item) => Date.parse(item.candle.timestamp) >= Date.parse(range.from) && Date.parse(item.candle.timestamp) < endTime);
     },
-    connectRealtime: async ({ subscriptions, onTick, onCandle, onDisconnect }) => {
+    connectRealtime: async ({ subscriptions, onTick, onCandle, onConnect, onDisconnect }) => {
       if (!webSocketFactory) throw new Error("BINANCE_WEBSOCKET_UNAVAILABLE");
-      const streams = subscriptions.flatMap((subscription) => [`${subscription.pair.toLowerCase()}@trade`, `${subscription.pair.toLowerCase()}@kline_${intervals[subscription.timeframe]}`]);
+      const streams = [...new Set(subscriptions.flatMap((subscription) => [`${subscription.pair.toLowerCase()}@trade`, `${subscription.pair.toLowerCase()}@kline_${intervals[subscription.timeframe]}`]))];
       const socket = webSocketFactory(`${streamBaseUrl}/stream?streams=${streams.join("/")}`);
       let closed = false;
+      let opened = false;
+      let resolveReady!: () => void;
+      let rejectReady!: (error: unknown) => void;
+      const ready = new Promise<void>((resolve, reject) => { resolveReady = resolve; rejectReady = reject; });
       const disconnect = (reason?: ProviderAdapterFailure) => { if (!closed) { closed = true; onDisconnect(reason); } };
+      socket.onopen = () => { if (closed || opened) return; opened = true; resolveReady(); onConnect?.(); };
       socket.onmessage = (event) => {
         try {
           const outer = JSON.parse(event.data) as { data?: Record<string, unknown> };
           const payload: Record<string, unknown> = outer.data ?? (outer as Record<string, unknown>);
+          if (typeof payload.code === "number" || (typeof payload.msg === "string" && !payload.e)) throw new Error("BINANCE_MALFORMED_PAYLOAD");
           if (payload.e === "trade") {
             const tick: NormalizedProviderTickObservation = { source: "REALTIME_STREAM", orderKey: `${payload.t}`, tick: { pair: String(payload.s), price: asNumber(payload.p), timestamp: unix(payload.T) } };
             onTick(tick);
@@ -111,9 +124,9 @@ export function createBinanceMarketDataAdapter(options: BinanceAdapterOptions = 
           }
         } catch { disconnect(failure("MALFORMED_RESPONSE", true, "Binance sent an invalid realtime message.")); }
       };
-      socket.onerror = () => disconnect(failure("UNAVAILABLE", true, "Binance realtime connection is unavailable."));
-      socket.onclose = () => disconnect(failure("UNAVAILABLE", true, "Binance realtime connection closed."));
-      return { close: async () => { if (!closed) { closed = true; socket.close(); } } };
+      socket.onerror = () => { if (!opened) rejectReady(new Error("BINANCE_WEBSOCKET_UNAVAILABLE")); disconnect(failure("UNAVAILABLE", true, "Binance realtime connection is unavailable.")); };
+      socket.onclose = () => { if (!opened) rejectReady(new Error("BINANCE_WEBSOCKET_UNAVAILABLE")); disconnect(failure("UNAVAILABLE", true, "Binance realtime connection closed.")); };
+      return { ready, close: async () => { if (!closed) { closed = true; resolveReady(); socket.close(); } } };
     },
   };
 }

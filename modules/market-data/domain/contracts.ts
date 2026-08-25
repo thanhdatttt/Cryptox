@@ -6,5 +6,5 @@ export interface MarketPairMetadata { pair: Pair; baseAsset: string; quoteAsset:
 
 export interface Candle { pair: Pair; timeframe: Timeframe; timestamp: string; open: number; high: number; low: number; close: number; volume: number; isClosed: boolean; source?: string; }
 export interface MarketTick { pair: Pair; price: number; timestamp: string; }
-export interface MarketDataConnectionStatus { provider: ProviderId; status: "CONNECTED" | "RECONNECTING" | "DISCONNECTED"; lastEventAt: string; }
+export interface MarketDataConnectionStatus { provider: ProviderId; status: "CONNECTED" | "RECONNECTING" | "DISCONNECTED"; lastEventAt: string; errorCode?: string; }
 export interface DatasetSnapshotRef { id: string; pair: Pair; pairMetadata: MarketPairMetadata; timeframe: Timeframe; range: { from: string; to: string }; candleCount: number; sha256: string; createdAt: string; }

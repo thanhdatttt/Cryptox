@@ -4,6 +4,8 @@ exports.createBinanceMarketDataAdapter = createBinanceMarketDataAdapter;
 const intervals = { "1m": "1m", "5m": "5m", "15m": "15m", "1h": "1h", "4h": "4h", "1d": "1d" };
 const supportedPairs = ["BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT", "ADAUSDT", "DOGEUSDT"];
 const supportedTimeframes = Object.keys(intervals);
+const publicRestDefault = "https://api.binance.com";
+const publicStreamDefault = "wss://stream.binance.com:9443";
 const asNumber = (value) => {
     const numeric = typeof value === "number" ? value : typeof value === "string" ? Number(value) : Number.NaN;
     if (!Number.isFinite(numeric))
@@ -14,7 +16,10 @@ const unix = (value) => {
     const timestamp = asNumber(value);
     if (!Number.isInteger(timestamp) || timestamp <= 0)
         throw new Error("BINANCE_MALFORMED_PAYLOAD");
-    return new Date(timestamp).toISOString();
+    const date = new Date(timestamp);
+    if (!Number.isFinite(date.getTime()))
+        throw new Error("BINANCE_MALFORMED_PAYLOAD");
+    return date.toISOString();
 };
 const failure = (code, retryable, safeMessage) => ({ code, retryable, safeMessage });
 const metadata = (pair) => {
@@ -32,8 +37,8 @@ const normalizeKline = (pair, timeframe, row, now) => {
 function createBinanceMarketDataAdapter(options = {}) {
     const fetchFn = options.fetchFn ?? globalThis.fetch;
     const webSocketFactory = options.webSocketFactory ?? (typeof WebSocket === "undefined" ? undefined : ((url) => new WebSocket(url)));
-    const restBaseUrl = options.restBaseUrl ?? "https://api.binance.com";
-    const streamBaseUrl = options.streamBaseUrl ?? "wss://stream.binance.com:9443";
+    const restBaseUrl = options.restBaseUrl ?? process.env.MARKET_DATA_BINANCE_REST_URL ?? publicRestDefault;
+    const streamBaseUrl = options.streamBaseUrl ?? process.env.MARKET_DATA_BINANCE_WS_URL ?? publicStreamDefault;
     const now = options.now ?? Date.now;
     if (!fetchFn)
         throw new Error("BINANCE_FETCH_UNAVAILABLE");
@@ -61,7 +66,13 @@ function createBinanceMarketDataAdapter(options = {}) {
                 }
                 if (!response.ok)
                     throw new Error(response.status === 429 ? "BINANCE_RATE_LIMITED" : "BINANCE_HISTORY_UNAVAILABLE");
-                const payload = await response.json();
+                let payload;
+                try {
+                    payload = await response.json();
+                }
+                catch {
+                    throw new Error("BINANCE_MALFORMED_PAYLOAD");
+                }
                 if (!Array.isArray(payload))
                     throw new Error("BINANCE_MALFORMED_PAYLOAD");
                 const page = payload.map((row) => normalizeKline(pair, timeframe, row, now()));
@@ -76,20 +87,28 @@ function createBinanceMarketDataAdapter(options = {}) {
             }
             return results.filter((item) => Date.parse(item.candle.timestamp) >= Date.parse(range.from) && Date.parse(item.candle.timestamp) < endTime);
         },
-        connectRealtime: async ({ subscriptions, onTick, onCandle, onDisconnect }) => {
+        connectRealtime: async ({ subscriptions, onTick, onCandle, onConnect, onDisconnect }) => {
             if (!webSocketFactory)
                 throw new Error("BINANCE_WEBSOCKET_UNAVAILABLE");
-            const streams = subscriptions.flatMap((subscription) => [`${subscription.pair.toLowerCase()}@trade`, `${subscription.pair.toLowerCase()}@kline_${intervals[subscription.timeframe]}`]);
+            const streams = [...new Set(subscriptions.flatMap((subscription) => [`${subscription.pair.toLowerCase()}@trade`, `${subscription.pair.toLowerCase()}@kline_${intervals[subscription.timeframe]}`]))];
             const socket = webSocketFactory(`${streamBaseUrl}/stream?streams=${streams.join("/")}`);
             let closed = false;
+            let opened = false;
+            let resolveReady;
+            let rejectReady;
+            const ready = new Promise((resolve, reject) => { resolveReady = resolve; rejectReady = reject; });
             const disconnect = (reason) => { if (!closed) {
                 closed = true;
                 onDisconnect(reason);
             } };
+            socket.onopen = () => { if (closed || opened)
+                return; opened = true; resolveReady(); onConnect?.(); };
             socket.onmessage = (event) => {
                 try {
                     const outer = JSON.parse(event.data);
                     const payload = outer.data ?? outer;
+                    if (typeof payload.code === "number" || (typeof payload.msg === "string" && !payload.e))
+                        throw new Error("BINANCE_MALFORMED_PAYLOAD");
                     if (payload.e === "trade") {
                         const tick = { source: "REALTIME_STREAM", orderKey: `${payload.t}`, tick: { pair: String(payload.s), price: asNumber(payload.p), timestamp: unix(payload.T) } };
                         onTick(tick);
@@ -107,10 +126,13 @@ function createBinanceMarketDataAdapter(options = {}) {
                     disconnect(failure("MALFORMED_RESPONSE", true, "Binance sent an invalid realtime message."));
                 }
             };
-            socket.onerror = () => disconnect(failure("UNAVAILABLE", true, "Binance realtime connection is unavailable."));
-            socket.onclose = () => disconnect(failure("UNAVAILABLE", true, "Binance realtime connection closed."));
-            return { close: async () => { if (!closed) {
+            socket.onerror = () => { if (!opened)
+                rejectReady(new Error("BINANCE_WEBSOCKET_UNAVAILABLE")); disconnect(failure("UNAVAILABLE", true, "Binance realtime connection is unavailable.")); };
+            socket.onclose = () => { if (!opened)
+                rejectReady(new Error("BINANCE_WEBSOCKET_UNAVAILABLE")); disconnect(failure("UNAVAILABLE", true, "Binance realtime connection closed.")); };
+            return { ready, close: async () => { if (!closed) {
                     closed = true;
+                    resolveReady();
                     socket.close();
                 } } };
         },

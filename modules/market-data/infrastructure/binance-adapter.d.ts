@@ -9,6 +9,7 @@ type SocketMessage = {
     data: string;
 };
 interface WebSocketLike {
+    onopen?: (() => void) | null;
     onmessage: ((event: SocketMessage) => void) | null;
     onclose: (() => void) | null;
     onerror: (() => void) | null;
