@@ -37,25 +37,28 @@ export const api = {
   createScope: (body: unknown) => request<Scope>("/leaderboard-scopes", json(body)),
   backtest: (body: unknown) => request<{ candidateId: string; status: string }>("/backtests", json(body, { "idempotency-key": crypto.randomUUID() })),
   candidate: (id: string) => request<Candidate>(`/backtests/${id}`),
+  attempt: (id: string) => request<any>(`/backtest-attempts/${id}`),
+  attemptTrades: (id: string) => request<{ items: any[]; nextCursor?: string }>(`/backtest-attempts/${id}/trades?limit=100`),
   cancel: (id: string) => request<void>(`/backtests/${id}/cancel`, { method: "POST" }),
   experiment: (id: string) => request<any>(`/experiments/${id}`),
+  experimentTrades: (id: string) => request<{ items: any[]; nextCursor?: string }>(`/experiments/${id}/trades?limit=100`),
   visualization: (id: string) => request<any>(`/experiments/${id}/visualization?limit=1000`),
   replay: (id: string) => request<any>(`/experiments/${id}/replay`, { method: "POST" }),
   search: (body: unknown) => request<{ searchRunId: string }>("/search-runs", json(body)),
   searchStatus: (id: string) => request<any>(`/search-runs/${id}`),
-  searchCandidates: (id: string) => request<{ items: Candidate[] }>(`/search-runs/${id}/candidates?limit=100`),
   searchLeaderboard: (id: string) => request<any[]>(`/search-runs/${id}/leaderboard`),
+  searchCandidates: (id: string) => request<{ items: Candidate[] }>(`/search-runs/${id}/candidates?limit=100`),
+  pauseSearch: (id: string) => request<void>(`/search-runs/${id}/pause`, { method: "POST" }),
+  resumeSearch: (id: string) => request<void>(`/search-runs/${id}/resume`, { method: "POST" }),
+  cancelSearch: (id: string) => request<void>(`/search-runs/${id}/cancel`, { method: "POST" }),
   leaderboard: (scopeId: string) => request<any[]>(`/leaderboard?scopeId=${encodeURIComponent(scopeId)}`),
   news: () => request<any[]>("/news"),
+  sentiment: (newsId: string) => request<any>(`/sentiment/news/${newsId}`),
   collectNews: () => request<void>("/news/collect", { method: "POST" }),
 };
 
 export function marketSocket(onMessage: (message: any) => void, onState: (state: string) => void, subscriptions: Array<{ pair: string; timeframe: Timeframe }>): () => void {
-  const url = `${base.replace(/^http/, "ws")}/socket.io/?EIO=4&transport=websocket`;
-  const socket = new WebSocket(url); let closed = false;
-  const send = (payload: unknown) => socket.send(`42${JSON.stringify(["market", payload])}`);
-  socket.onopen = () => { onState("CONNECTED"); socket.send("40/market,"); send({ schemaVersion: 1, action: "SUBSCRIBE", requestId: crypto.randomUUID(), subscriptions }); };
-  socket.onmessage = (event) => { const text = String(event.data); if (text === "2") { socket.send("3"); return; } if (!text.startsWith("42")) return; try { const packet = JSON.parse(text.slice(2)); if (packet[0] === "market") onMessage(packet[1]); } catch { onState("ERROR"); } };
-  socket.onerror = () => onState("ERROR"); socket.onclose = () => { if (!closed) onState("RECONNECTING"); };
-  return () => { closed = true; socket.close(); onState("DISCONNECTED"); };
+  const url = `${base.replace(/^http/, "ws")}/socket.io/?EIO=4&transport=websocket`; let socket: WebSocket | undefined; let closed = false; let retryTimer: number | undefined; let retryDelay = 500;
+  const connect = () => { if (closed) return; onState(retryDelay === 500 ? "CONNECTING" : "RECONNECTING"); socket = new WebSocket(url); const current = socket; const send = (payload: unknown) => current.send(`42${JSON.stringify(["market", payload])}`); current.onopen = () => { retryDelay = 500; onState("CONNECTED"); current.send("40/market,"); send({ schemaVersion: 1, action: "SUBSCRIBE", requestId: crypto.randomUUID(), subscriptions }); }; current.onmessage = (event) => { const text = String(event.data); if (text === "2") { current.send("3"); return; } if (!text.startsWith("42")) return; try { const packet = JSON.parse(text.slice(2)); if (packet[0] === "market") onMessage(packet[1]); } catch { onState("ERROR"); } }; current.onerror = () => onState("ERROR"); current.onclose = () => { if (closed) return; onState("RECONNECTING"); retryTimer = window.setTimeout(() => { retryDelay = Math.min(retryDelay * 2, 5000); connect(); }, retryDelay); }; };
+  connect(); return () => { closed = true; if (retryTimer !== undefined) window.clearTimeout(retryTimer); socket?.close(); onState("DISCONNECTED"); };
 }

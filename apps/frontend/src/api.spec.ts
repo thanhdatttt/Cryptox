@@ -51,7 +51,7 @@ describe("frontend backend transport", () => {
     expect(socket.sent[0]).toBe("40/market,");
     expect(socket.sent[1]).toContain('"action":"SUBSCRIBE"');
     expect(messages).toEqual([{ type: "CANDLE", payload: { pair: "BTCUSDT" } }]);
-    expect(states).toEqual(["CONNECTED", "DISCONNECTED"]);
+    expect(states).toEqual(["CONNECTING", "CONNECTED", "DISCONNECTED"]);
     expect(socket.closed).toBe(true);
   });
 });
