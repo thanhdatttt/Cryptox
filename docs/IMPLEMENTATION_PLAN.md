@@ -42,13 +42,13 @@ The audit also found source-adjacent generated JavaScript/declaration files that
    - Persist search runs, candidate projections, and leaderboard entries; expose authenticated REST commands and reads.
    - Acceptance: a bounded search generates deterministic strategies without external credentials, submits/evaluates them through Backtesting, and serves scope-specific rankings with lifecycle controls. Search runs and Leaderboard entries are durable; candidate and experiment records remain Backtesting-owned durable projections.
 
-4. **Replace the Backtesting worker/queue skeleton with durable dispatch and recovery** *(completed; commit pending)*
+4. **Replace the Backtesting worker/queue skeleton with durable dispatch and recovery** *(completed in `d168167`)*
    - Replace `apps/backtest-worker` and the Backtesting queue placeholder with BullMQ/Redis dispatch and consumption.
    - Persist a transactional dispatch record before publishing, use a stable job identity, and make recovery replay undispatched work after a process failure.
    - Use a database lease/fencing token at worker execution and completion so duplicate broker deliveries cannot duplicate trades or experiments. Configure bounded retries with deterministic backoff and durable retry/terminal state.
    - Acceptance: a queued submission is durable before Redis publication, can be recovered after dispatch failure, is processed at most once under a valid fence, records retry/terminal outcomes, and completes normal attempt/trade/result records through the worker process.
 
-5. **Complete durable Market Data, News, and Sentiment backend flows**
+5. **Complete durable Market Data, News, and Sentiment backend flows** *(in progress)*
    - Add PostgreSQL migrations/repositories for normalized market candles/snapshots, news, sentiment analyses, and sentiment snapshots.
    - Make configured Binance access real without fabricating a provider success on failure; supply a concrete local/demo news provider and deterministic sentiment fallback with model/version provenance.
    - Expose the required authenticated REST commands and reads and prove collect → normalize → persist → analyze and snapshot retrieval with integration fixtures.

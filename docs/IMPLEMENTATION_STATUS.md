@@ -4,8 +4,8 @@
 
 - Branch: `implement`
 - Project status: **Reopened — prior completion claim withdrawn on 2026-08-24**
-- Current feature: **4. Replace the Backtesting worker/queue skeleton with durable dispatch and recovery** *(completed; commit pending)*
-- Next feature: **5. Complete durable Market Data, News, and Sentiment backend flows**
+- Current feature: **5. Complete durable Market Data, News, and Sentiment backend flows** *(in progress)*
+- Next feature: **6. Close remaining backend transport and end-to-end composition gaps**
 
 ## Audit summary
 
@@ -27,7 +27,7 @@ The previous final-validation claim did not establish the assignment-required pr
 | `2070778` | Cross-platform npm developer workflow | Completed: npm lockfile/workspace workflow, root development/start scripts, Node-based backend launcher, and focused smoke checks. |
 | `4518930` | Durable manual Backtesting runtime and API | Completed and validated: authenticated benchmark scope/manual-run/read routes, deterministic simulator execution, PostgreSQL repositories/migration for all records created by this slice, and ownership/idempotency/audit behavior. The worker/queue path remains explicitly incomplete. |
 | `745dc18` | Deterministic Search and Leaderboard flow | Completed and validated: authenticated bounded Search lifecycle/Top-K routes, offline deterministic generation over saved strategy definitions, Backtesting/Evaluation scoring handoff, durable Search runs and Leaderboard entries, and persisted Backtesting candidate/experiment scores. |
-| pending | Durable Backtesting BullMQ worker and recovery | Validated and ready to commit: PostgreSQL dispatch/fence migration, transactional candidate-plus-dispatch persistence, Redis/BullMQ dispatch with bounded exponential retry, worker consumption, database claim fencing, worker-side result/retry persistence, restart reconciliation of pending dispatches, and portable worker startup. |
+| `d168167` | Durable Backtesting BullMQ worker and recovery | Completed and validated: PostgreSQL dispatch/fence migration, transactional candidate-plus-dispatch persistence, Redis/BullMQ dispatch with bounded exponential retry, worker consumption, database claim fencing, worker-side result/retry persistence, restart reconciliation of pending dispatches, and portable worker startup. |
 
 ## Latest validation
 
