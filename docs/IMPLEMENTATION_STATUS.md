@@ -32,6 +32,13 @@ The backend bootstrap now explicitly enables bearer-token CORS for the separatel
 
 Known gaps to validate next: browser-level Compose flow and the backend-owned strategy-generation contract above. These are recorded rather than hidden behind demo fallbacks; the UI displays backend empty/error states when records are absent.
 
+### Frontend runtime evidence (local launcher, 2026-08-25)
+
+- `npm run smoke:dev`: passed after wiring the isolated backend port into Vite.
+- Browser flow against the local launcher: synthetic test account registration, login, authenticated Market screen, persisted-session reload, logout/protected-route return to sign-in, live Socket.IO state `CONNECTED`, independent second chart panel, backend descriptor-driven strategy selection, persisted MA definition, and persisted weighted composite all passed.
+- The local in-memory runtime has no historical candle rows and no worker/Redis completion path, so the browser showed the honest Market empty state; it was not treated as backtest completion evidence.
+- Docker Compose validation remains unavailable in this environment because the `docker` executable is not installed/discoverable. No Compose or container E2E claim is made for this session.
+
 ## Audit summary
 
 The previous final-validation claim did not establish the assignment-required product flow. The reopened audit findings for the Backtesting queue and for `undefined as never` News/Sentiment composition have now been repaired in features 4 and 5. Feature 6 now also repairs the ADR-003 completion gap: workers persist terminal simulation data only; a fenced completion processor durably evaluates, stages the experiment, scores/admit Top-K entries, and advances Search. BullMQ terminal events, startup reconciliation, and a periodic watchdog recover lost notifications. Feature 8 has now passed the real Docker-backed migration and end-to-end gate.
