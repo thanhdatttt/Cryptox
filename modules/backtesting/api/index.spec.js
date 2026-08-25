@@ -172,7 +172,11 @@ const candle = (timestamp, open, close) => ({
         (0, vitest_1.expect)(job).toMatchObject({ jobId: accepted.candidateId, maxAttempts: 2 });
         await (0, vitest_1.expect)(service.processQueueJob(job, { attemptNumber: 1, fenceToken: "worker-claim-1" })).rejects.toThrow("TRANSIENT_STRATEGY_ARTIFACT_FAILURE");
         await (0, vitest_1.expect)(service.status(accepted.candidateId, { ownerUserId: "user-1" })).resolves.toMatchObject({ status: "RETRY_WAIT", attempts: [{ status: "FAILED", failureCategory: "RETRYABLE" }] });
-        await (0, vitest_1.expect)(service.processQueueJob(job, { attemptNumber: 2, fenceToken: "worker-claim-2" })).resolves.toMatchObject({ status: "COMPLETED", candidateId: accepted.candidateId });
+        const workerReturn = await service.processQueueJob(job, { attemptNumber: 2, fenceToken: "worker-claim-2" });
+        (0, vitest_1.expect)(workerReturn).toMatchObject({ status: "COMPLETED", candidateId: accepted.candidateId });
+        await (0, vitest_1.expect)(service.status(accepted.candidateId, { ownerUserId: "user-1" })).resolves.toMatchObject({ status: "PROCESSING_RESULT", attempts: [{ status: "FAILED" }, { status: "COMPLETED" }] });
+        await (0, vitest_1.expect)(service.processQueueTerminalSignal({ schemaVersion: 1, jobId: accepted.candidateId, status: "COMPLETED", returnValue: workerReturn })).resolves.toMatchObject({ status: "COMPLETED", candidateId: accepted.candidateId });
+        await (0, vitest_1.expect)(service.processQueueTerminalSignal({ schemaVersion: 1, jobId: accepted.candidateId, status: "COMPLETED", returnValue: workerReturn })).resolves.toMatchObject({ status: "COMPLETED", candidateId: accepted.candidateId });
         await (0, vitest_1.expect)(service.processQueueJob(job, { attemptNumber: 2, fenceToken: "stale-claim" })).resolves.toMatchObject({ status: "IGNORED", reason: "ALREADY_TERMINAL" });
         const progress = await service.status(accepted.candidateId, { ownerUserId: "user-1" });
         (0, vitest_1.expect)(progress).toMatchObject({ status: "COMPLETED", attempts: [{ status: "FAILED" }, { status: "COMPLETED" }] });
@@ -184,5 +188,11 @@ const candle = (timestamp, open, close) => ({
         (0, vitest_1.expect)(experiment.metrics).toMatchObject({ numberOfTrades: 1, candidateId: accepted.candidateId });
         await (0, vitest_1.expect)(service.verifyReplay(experiment.id, { ownerUserId: "user-1" })).resolves.toMatchObject({ status: "MATCH", comparedTradeCount: 1 });
         await (0, vitest_1.expect)(service.status(accepted.candidateId, { ownerUserId: "another-user" })).rejects.toThrow("BACKTEST_ACCESS_DENIED");
+        transientFailures = 1;
+        const failed = await service.startManual({ leaderboardScopeId: scope.id, strategyDefinitions: [definition], compositeDefinition: composite, maxAttempts: 1 }, { ownerUserId: "user-1", submissionIdempotencyKey: "terminal-failure-key" });
+        await (0, vitest_1.expect)(service.processQueueJob(queue.jobs.get(failed.jobId), { attemptNumber: 1, fenceToken: "terminal-worker" })).rejects.toThrow("TRANSIENT_STRATEGY_ARTIFACT_FAILURE");
+        await (0, vitest_1.expect)(service.status(failed.candidateId, { ownerUserId: "user-1" })).resolves.toMatchObject({ status: "TERMINAL_FAILURE_PENDING", failureKind: "RETRY_EXHAUSTED" });
+        await (0, vitest_1.expect)(service.processQueueTerminalSignal({ schemaVersion: 1, jobId: failed.candidateId, status: "RETRIES_EXHAUSTED", attemptsMade: 1 })).resolves.toMatchObject({ status: "FAILED" });
+        await (0, vitest_1.expect)(service.status(failed.candidateId, { ownerUserId: "user-1" })).resolves.toMatchObject({ status: "FAILED", failureKind: "RETRY_EXHAUSTED" });
     });
 });

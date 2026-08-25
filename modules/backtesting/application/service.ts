@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { createEvaluationModule } from "../../evaluation/api/bootstrap";
 import { createMarketDataModule } from "../../market-data/api/bootstrap";
 import { createStrategyModule } from "../../strategy/api/bootstrap";
-import type { BacktestQueueJob, BacktestQueueReturn } from "@cryptox/contracts/queue";
+import type { BacktestQueueJob, BacktestQueueReturn, BacktestQueueTerminalSignal } from "@cryptox/contracts/queue";
 import type { CompositeStrategyDefinition, Strategy, StrategyDefinition } from "modules/strategy/api";
 import type { BacktestLogApi, BacktestReadOptions, SearchCandidatePage, SearchCandidatePageRequest, SearchCandidateSummary, TradePage, TradePageRequest } from "../api";
 import type { BacktestAttemptAudit, BacktestSubmissionAccepted, BenchmarkScopeSummary, CandidateProgress, CandidateStatus, CompletedBacktestResult, CreateLeaderboardScopeCommand, ExperimentResultSummary, ReplayVerificationResult, StartManualBacktestCommand, SubmitSearchCandidateCommand, Trade } from "../domain/contracts";
@@ -55,6 +55,7 @@ export class InMemoryBacktestingRepository implements BacktestingRepository {
   async updateCandidate(candidate: StoredCandidate): Promise<void> { this.candidates.set(candidate.candidateId, clone(candidate)); }
   async readDispatch(jobId: string) { const value = this.dispatches.get(jobId); return value ? clone(value) : undefined; }
   async listPendingDispatches(limit: number) { return [...this.dispatches.values()].filter((item) => item.state === "PENDING").sort((left, right) => left.createdAt.localeCompare(right.createdAt)).slice(0, limit).map(clone); }
+  async listQueueRecoveryCandidates(limit: number): Promise<string[]> { return [...this.candidates.values()].filter((candidate) => ["QUEUED", "BACKTESTING", "RETRY_WAIT"].includes(candidate.status)).sort((left, right) => left.updatedAt.localeCompare(right.updatedAt)).slice(0, limit).map((candidate) => candidate.candidateId); }
   async markDispatchDispatched(jobId: string, dispatchedAt: string): Promise<void> { const item = this.dispatches.get(jobId); if (item && item.state !== "CANCELLED") this.dispatches.set(jobId, { ...item, state: "DISPATCHED", dispatchAttempts: item.dispatchAttempts + 1, dispatchedAt, lastError: undefined, updatedAt: dispatchedAt }); }
   async markDispatchFailed(jobId: string, error: string, at: string): Promise<void> { const item = this.dispatches.get(jobId); if (item && item.state !== "CANCELLED") this.dispatches.set(jobId, { ...item, state: "PENDING", dispatchAttempts: item.dispatchAttempts + 1, lastError: error, updatedAt: at }); }
   async markDispatchCancelled(jobId: string, at: string): Promise<void> { const item = this.dispatches.get(jobId); if (item) this.dispatches.set(jobId, { ...item, state: "CANCELLED", updatedAt: at }); }
@@ -81,6 +82,59 @@ export class InMemoryBacktestingRepository implements BacktestingRepository {
     const updated: StoredCandidate = { ...candidate, status: input.retrying ? "RETRY_WAIT" : "TERMINAL_FAILURE_PENDING", activeAttemptNumber: undefined, activeFenceToken: undefined, activeLeaseExpiresAt: undefined, failureKind: input.retrying ? undefined : "RETRY_EXHAUSTED", failureCode: input.error, lastError: input.error, updatedAt: input.now };
     this.attempts.set(failed.attemptId, clone(failed)); this.candidates.set(updated.candidateId, clone(updated));
   }
+  async repairTerminalQueueFailure(input: { candidateId: string; error: string; now: string }): Promise<void> {
+    const candidate = this.candidates.get(input.candidateId);
+    if (!candidate || terminal(candidate.status) || candidate.status === "TERMINAL_FAILURE_PENDING") return;
+    for (const [attemptId, attempt] of this.attempts) if (attempt.candidateId === input.candidateId && attempt.status === "RUNNING") this.attempts.set(attemptId, { ...attempt, status: "FAILED", completedAt: input.now, leaseExpiresAt: undefined, failureCategory: "INFRASTRUCTURE", failureCode: input.error, errorMessage: input.error });
+    this.candidates.set(candidate.candidateId, clone({ ...candidate, status: "TERMINAL_FAILURE_PENDING", activeAttemptNumber: undefined, activeFenceToken: undefined, activeLeaseExpiresAt: undefined, failureKind: "INFRASTRUCTURE", failureCode: input.error, lastError: input.error, updatedAt: input.now }));
+  }
+  async persistWorkerSuccess(input: { candidate: StoredCandidate; attempt: BacktestAttemptAudit; result: CompletedBacktestResult; fenceToken: string }): Promise<void> {
+    const candidate = this.candidates.get(input.candidate.candidateId); const attempt = this.attempts.get(input.attempt.attemptId);
+    if (!candidate || !attempt || candidate.activeFenceToken !== input.fenceToken || attempt.fenceToken !== input.fenceToken) throw new Error("BACKTEST_FENCE_LOST");
+    const completedAttempt: BacktestAttemptAudit = { ...attempt, status: "COMPLETED", completedAt: input.result.completedAt, tradeCount: input.result.trades.length, leaseExpiresAt: undefined };
+    const pending: StoredCandidate = { ...candidate, status: "PROCESSING_RESULT", activeAttemptNumber: undefined, activeFenceToken: undefined, activeLeaseExpiresAt: undefined, completionNextRetryAt: input.result.completedAt, updatedAt: input.result.completedAt };
+    this.attempts.set(completedAttempt.attemptId, clone(completedAttempt)); this.trades.set(completedAttempt.attemptId, clone(input.result.trades)); this.candidates.set(pending.candidateId, clone(pending));
+  }
+  async claimCompletion(input: { candidateId: string; claimToken: string; now: string; leaseExpiresAt: string }) {
+    const candidate = this.candidates.get(input.candidateId);
+    if (!candidate || !["PROCESSING_RESULT", "TERMINAL_FAILURE_PENDING"].includes(candidate.status)) return undefined;
+    if (candidate.completionNextRetryAt && Date.parse(candidate.completionNextRetryAt) > Date.parse(input.now)) return undefined;
+    if (candidate.activeCompletionLeaseExpiresAt && Date.parse(candidate.activeCompletionLeaseExpiresAt) > Date.parse(input.now)) return undefined;
+    if (candidate.completionAttemptCount >= candidate.completionMaxAttempts) return undefined;
+    const claimed: StoredCandidate = { ...candidate, completionAttemptCount: candidate.completionAttemptCount + 1, completionGeneration: (candidate.completionGeneration ?? 0) + 1, activeCompletionClaimToken: input.claimToken, activeCompletionLeaseExpiresAt: input.leaseExpiresAt, completionNextRetryAt: undefined, updatedAt: input.now };
+    this.candidates.set(claimed.candidateId, clone(claimed));
+    return { candidate: clone(claimed), claimToken: input.claimToken };
+  }
+  async listDueCompletions(nowValue: string, limit: number): Promise<string[]> {
+    return [...this.candidates.values()].filter((candidate) => ["PROCESSING_RESULT", "TERMINAL_FAILURE_PENDING"].includes(candidate.status) && (!candidate.completionNextRetryAt || Date.parse(candidate.completionNextRetryAt) <= Date.parse(nowValue)) && (!candidate.activeCompletionLeaseExpiresAt || Date.parse(candidate.activeCompletionLeaseExpiresAt) <= Date.parse(nowValue))).sort((left, right) => left.updatedAt.localeCompare(right.updatedAt)).slice(0, limit).map((candidate) => candidate.candidateId);
+  }
+  async readLatestCompletedAttempt(candidateId: string): Promise<BacktestAttemptAudit | undefined> {
+    const attempts = [...this.attempts.values()].filter((attempt) => attempt.candidateId === candidateId && attempt.status === "COMPLETED").sort((left, right) => right.attemptNumber - left.attemptNumber);
+    return attempts[0] ? clone(attempts[0]) : undefined;
+  }
+  async stageCompletionExperiment(experiment: StoredExperiment): Promise<StoredExperiment> {
+    const existing = [...this.experiments.values()].find((value) => value.candidateId === experiment.candidateId);
+    if (existing) return clone(existing);
+    this.experiments.set(experiment.id, clone(experiment));
+    return clone(experiment);
+  }
+  async finalizeCompletion(input: { candidate: StoredCandidate; experimentId: string; claimToken: string; now: string }): Promise<void> {
+    const candidate = this.candidates.get(input.candidate.candidateId);
+    if (!candidate || candidate.status !== "PROCESSING_RESULT" || candidate.activeCompletionClaimToken !== input.claimToken) throw new Error("BACKTEST_COMPLETION_FENCE_LOST");
+    const completed: StoredCandidate = { ...candidate, status: "COMPLETED", experimentResultId: input.experimentId, activeCompletionClaimToken: undefined, activeCompletionLeaseExpiresAt: undefined, completionNextRetryAt: undefined, updatedAt: input.now };
+    this.candidates.set(completed.candidateId, clone(completed));
+  }
+  async finalizeTerminalFailure(input: { candidate: StoredCandidate; claimToken: string; now: string }): Promise<void> {
+    const candidate = this.candidates.get(input.candidate.candidateId);
+    if (!candidate || candidate.status !== "TERMINAL_FAILURE_PENDING" || candidate.activeCompletionClaimToken !== input.claimToken) throw new Error("BACKTEST_COMPLETION_FENCE_LOST");
+    this.candidates.set(candidate.candidateId, clone({ ...candidate, status: "FAILED", activeCompletionClaimToken: undefined, activeCompletionLeaseExpiresAt: undefined, completionNextRetryAt: undefined, updatedAt: input.now }));
+  }
+  async failCompletion(input: { candidate: StoredCandidate; claimToken: string; retryAt?: string; now: string; error: string }): Promise<void> {
+    const candidate = this.candidates.get(input.candidate.candidateId);
+    if (!candidate || candidate.activeCompletionClaimToken !== input.claimToken) throw new Error("BACKTEST_COMPLETION_FENCE_LOST");
+    const exhausted = candidate.completionAttemptCount >= candidate.completionMaxAttempts;
+    this.candidates.set(candidate.candidateId, clone({ ...candidate, status: exhausted ? "FAILED" : "PROCESSING_RESULT", activeCompletionClaimToken: undefined, activeCompletionLeaseExpiresAt: undefined, completionNextRetryAt: exhausted ? undefined : input.retryAt, failureKind: exhausted ? "COMPLETION_PROCESSING" : candidate.failureKind, failureCode: exhausted ? "COMPLETION_PROCESSING_FAILED" : candidate.failureCode, lastError: input.error, updatedAt: input.now }));
+  }
   async completeAttempt(input: { candidate: StoredCandidate; attempt: BacktestAttemptAudit; result: CompletedBacktestResult; metrics: import("modules/evaluation/api").EvaluationMetrics; experiment: StoredExperiment; fenceToken?: string }): Promise<void> {
     const storedCandidate = this.candidates.get(input.candidate.candidateId); const storedAttempt = this.attempts.get(input.attempt.attemptId);
     if (input.fenceToken && (!storedCandidate || !storedAttempt || storedCandidate.activeFenceToken !== input.fenceToken || storedAttempt.fenceToken !== input.fenceToken)) throw new Error("BACKTEST_FENCE_LOST");
@@ -93,7 +147,7 @@ export class InMemoryBacktestingRepository implements BacktestingRepository {
   async updateExperimentScore(experimentId: string, input: { overallScore: number; rankEligible: boolean }) { const value = this.experiments.get(experimentId); if (!value) return undefined; const updated = { ...value, ...input }; this.experiments.set(experimentId, clone(updated)); return clone(updated); }
 }
 
-export function createInMemoryBacktestingDependencies(): BacktestingModuleDependencies { return { marketData: createMarketDataModule(), strategy: createStrategyModule(), evaluation: createEvaluationModule(), repository: new InMemoryBacktestingRepository(), queue: new InMemoryBacktestQueue(), clock: { now }, idGenerator: randomUUID }; }
+export function createInMemoryBacktestingDependencies(): BacktestingModuleDependencies { return { marketData: createMarketDataModule(), strategy: createStrategyModule(), evaluation: createEvaluationModule(), repository: new InMemoryBacktestingRepository(), queue: new InMemoryBacktestQueue(), completion: { score: async (_scopeId, metrics) => ({ scoreFormulaId: "MVP_MANUAL_V1", overallScore: metrics.totalReturnPercent, rankEligible: metrics.numberOfTrades > 0 }), submit: async () => undefined }, clock: { now }, idGenerator: randomUUID }; }
 
 export class BacktestingService implements BacktestLogApi {
   constructor(private readonly deps: BacktestingModuleDependencies) {}
@@ -108,15 +162,81 @@ export class BacktestingService implements BacktestLogApi {
   async createBenchmarkScope(command: CreateLeaderboardScopeCommand, options: { scopeIdempotencyKey: string; ownerUserId: string }): Promise<BenchmarkScopeSummary> { if (!options.ownerUserId.trim() || !options.scopeIdempotencyKey.trim()) invalid("INVALID_BENCHMARK_SCOPE"); const existing = await this.deps.repository.findScopeByIdempotency(options.ownerUserId, options.scopeIdempotencyKey); if (existing) return existing; this.validateScope(command); const captured = await this.captureSnapshot(command.datasetSnapshot.id); const createdAt = this.now(); const scope: StoredBenchmarkScope = { id: this.id(), ownerUserId: options.ownerUserId, name: command.name, version: 1, datasetSnapshot: captured.snapshot, sentimentDatasetSnapshot: command.sentimentDatasetSnapshot, workerRuntimeVersion: command.workerRuntimeVersion, workerRuntimeSha256: command.workerRuntimeSha256, evaluationRuntimeVersion: command.evaluationRuntimeVersion, evaluationRuntimeSha256: command.evaluationRuntimeSha256, pair: captured.snapshot.pair, timeframe: captured.snapshot.timeframe, datasetRange: captured.snapshot.range, datasetSnapshotId: captured.snapshot.id, datasetSnapshotSha256: captured.snapshot.sha256, initialCapital: command.initialCapital, feeRatePercent: command.feeRatePercent, slippageBps: command.slippageBps, riskPolicy: command.riskPolicy, decimalPolicyId: "MVP_DECIMAL_HALF_UP_V1", evaluationPolicyId: "MVP_EVALUATION_V1", scoreFormulaId: command.scoreFormulaId, createdAt }; return this.deps.repository.createScope(scope, options.scopeIdempotencyKey); }
   async readBenchmarkScope(scopeId: string, options?: BacktestReadOptions): Promise<BenchmarkScopeSummary> { const scope = await this.scope(scopeId); this.assertOwner(options?.ownerUserId, scope.ownerUserId); return scope; }
   private async compositeStrategy(definitions: StrategyDefinition[], composite: CompositeStrategyDefinition): Promise<Strategy> { const byId = new Map(definitions.map((definition) => [definition.id, definition])); if (composite.components.length === 0 || composite.components.some((component) => !byId.has(component.strategyDefinitionId))) invalid("INVALID_COMPOSITE_STRATEGY"); const resolved = await Promise.all(definitions.map(async (definition) => [definition.id, await this.deps.strategy.resolveStrategy(definition)] as const)); const strategies = new Map(resolved); return { name: `composite:${composite.id}`, category: "TREND", analyze: (context) => this.deps.strategy.combineSignals(composite, composite.components.map((component) => ({ strategyDefinitionId: component.strategyDefinitionId, signal: strategies.get(component.strategyDefinitionId)!.analyze(context) }))) }; }
-  private candidateRecord(input: { ownerUserId: string; scope: StoredBenchmarkScope; command: StartManualBacktestCommand | SubmitSearchCandidateCommand; origin: "MANUAL" | "SEARCH"; candidateId: string }): StoredCandidate { const createdAt = this.now(); const search = input.origin === "SEARCH" ? input.command as SubmitSearchCandidateCommand : undefined; if (!Number.isInteger(input.command.maxAttempts) || input.command.maxAttempts < 1) invalid("INVALID_BACKTEST_SUBMISSION"); return { candidateId: input.candidateId, ownerUserId: input.ownerUserId, origin: input.origin, selectionMode: "COMPOSITE", searchRunId: search?.searchRunId, iterationNumber: search?.iterationNumber, leaderboardScopeId: input.scope.id, status: "QUEUED", attempts: [], maxAttempts: input.command.maxAttempts, completionAttemptCount: 0, completionMaxAttempts: 1, executionGeneration: 0, strategyDefinitions: clone(input.command.strategyDefinitions), compositeDefinition: clone(input.command.compositeDefinition), queueJobId: input.candidateId, createdAt, updatedAt: createdAt }; }
+  private candidateRecord(input: { ownerUserId: string; scope: StoredBenchmarkScope; command: StartManualBacktestCommand | SubmitSearchCandidateCommand; origin: "MANUAL" | "SEARCH"; candidateId: string }): StoredCandidate { const createdAt = this.now(); const search = input.origin === "SEARCH" ? input.command as SubmitSearchCandidateCommand : undefined; if (!Number.isInteger(input.command.maxAttempts) || input.command.maxAttempts < 1) invalid("INVALID_BACKTEST_SUBMISSION"); return { candidateId: input.candidateId, ownerUserId: input.ownerUserId, origin: input.origin, selectionMode: "COMPOSITE", searchRunId: search?.searchRunId, iterationNumber: search?.iterationNumber, leaderboardScopeId: input.scope.id, status: "QUEUED", attempts: [], maxAttempts: input.command.maxAttempts, completionAttemptCount: 0, completionMaxAttempts: 5, executionGeneration: 0, completionGeneration: 0, strategyDefinitions: clone(input.command.strategyDefinitions), compositeDefinition: clone(input.command.compositeDefinition), queueJobId: input.candidateId, createdAt, updatedAt: createdAt }; }
   private dispatchRecord(candidate: StoredCandidate, scope: StoredBenchmarkScope): BacktestDispatch { const createdAt = this.now(); return { job: { schemaVersion: 1, jobId: candidate.candidateId, candidateId: candidate.candidateId, leaderboardScopeId: scope.id, maxAttempts: candidate.maxAttempts, workerRuntimeVersion: scope.workerRuntimeVersion, workerRuntimeSha256: scope.workerRuntimeSha256, enqueuedAt: createdAt }, state: "PENDING", dispatchAttempts: 0, createdAt, updatedAt: createdAt }; }
   private async dispatchOne(dispatch: BacktestDispatch): Promise<boolean> { if (dispatch.state === "CANCELLED") return false; try { await this.deps.queue.enqueue(dispatch.job); await this.deps.repository.markDispatchDispatched(dispatch.job.jobId, this.now()); return true; } catch (error) { const message = error instanceof Error ? error.message : "BACKTEST_QUEUE_DISPATCH_FAILED"; await this.deps.repository.markDispatchFailed(dispatch.job.jobId, message, this.now()); return false; } }
   async reconcileQueue(limit = 100): Promise<{ dispatched: number; pending: number }> { if (!Number.isInteger(limit) || limit < 1) invalid("INVALID_QUEUE_RECOVERY_LIMIT"); const pending = await this.deps.repository.listPendingDispatches(limit); let dispatched = 0; for (const item of pending) if (await this.dispatchOne(item)) dispatched += 1; return { dispatched, pending: pending.length - dispatched }; }
+  async listQueueRecoveryCandidates(limit = 100): Promise<string[]> { if (!Number.isInteger(limit) || limit < 1) invalid("INVALID_QUEUE_RECOVERY_LIMIT"); return this.deps.repository.listQueueRecoveryCandidates(limit); }
   private async submit(command: StartManualBacktestCommand | SubmitSearchCandidateCommand, input: { ownerUserId: string; origin: "MANUAL" | "SEARCH"; submissionIdempotencyKey?: string }): Promise<BacktestSubmissionAccepted> { if (input.submissionIdempotencyKey) { const existing = await this.deps.repository.findCandidateBySubmission(input.ownerUserId, input.submissionIdempotencyKey); if (existing) return { candidateId: existing.candidateId, jobId: existing.queueJobId, status: existing.status }; } const scope = await this.scope(command.leaderboardScopeId); this.assertOwner(input.ownerUserId, scope.ownerUserId); const candidate = this.candidateRecord({ ownerUserId: input.ownerUserId, scope, command, origin: input.origin, candidateId: this.id() }); const dispatch = this.dispatchRecord(candidate, scope); const saved = await this.deps.repository.createQueuedSubmission({ candidate, dispatch, submissionIdempotencyKey: input.submissionIdempotencyKey }); await this.dispatchOne(dispatch); return { candidateId: saved.candidateId, jobId: saved.queueJobId, status: saved.status }; }
   async startManual(command: StartManualBacktestCommand, options: { ownerUserId: string; submissionIdempotencyKey?: string }): Promise<BacktestSubmissionAccepted> { if (!options.ownerUserId.trim()) invalid("INVALID_BACKTEST_SUBMISSION"); return this.submit(command, { ownerUserId: options.ownerUserId, origin: "MANUAL", submissionIdempotencyKey: options.submissionIdempotencyKey }); }
   async submitSearchCandidate(command: SubmitSearchCandidateCommand): Promise<BacktestSubmissionAccepted> { const scope = await this.scope(command.leaderboardScopeId); return this.submit(command, { ownerUserId: scope.ownerUserId, origin: "SEARCH" }); }
   async processQueueJob(job: BacktestQueueJob, delivery: { attemptNumber: number; fenceToken?: string }): Promise<BacktestQueueReturn> { if (job.schemaVersion !== 1 || job.jobId !== job.candidateId || !Number.isInteger(delivery.attemptNumber) || delivery.attemptNumber < 1 || delivery.attemptNumber > job.maxAttempts) throw new Error("INVALID_BACKTEST_QUEUE_JOB"); const startedAt = this.now(); const fenceToken = delivery.fenceToken ?? this.id(); const claim = await this.deps.repository.claimWorkerAttempt({ candidateId: job.candidateId, queueJobId: job.jobId, deliveryAttempt: delivery.attemptNumber, attemptId: `${job.candidateId}:attempt:${delivery.attemptNumber}`, fenceToken, now: startedAt, leaseExpiresAt: plusSeconds(startedAt, 60), workerRuntimeVersion: job.workerRuntimeVersion, workerRuntimeSha256: job.workerRuntimeSha256 }); if (!claim) { const candidate = await this.deps.repository.readCandidate(job.candidateId); return { candidateId: job.candidateId, status: "IGNORED", reason: candidate?.status === "CANCELLED" ? "CANCELLED" : terminal(candidate?.status ?? "FAILED") ? "ALREADY_TERMINAL" : "SUPERSEDED" }; } return this.runClaimedAttempt(claim, job); }
-  private async runClaimedAttempt(claim: WorkerAttemptClaim, job: BacktestQueueJob): Promise<BacktestQueueReturn> { const { candidate, attempt, fenceToken } = claim; try { const scope = await this.scope(candidate.leaderboardScopeId); const input = await this.snapshot(scope.datasetSnapshotId); const strategy = await this.compositeStrategy(candidate.strategyDefinitions, candidate.compositeDefinition); const completedAt = this.now(); const result = simulateBacktest({ candidateId: candidate.candidateId, attemptId: attempt.attemptId, pair: scope.pair, settlementAsset: scope.datasetSnapshot.pairMetadata.settlementAsset || scope.datasetSnapshot.pairMetadata.quoteAsset || "USDT", timeframe: scope.timeframe, candles: input.candles, strategy, initialCapital: scope.initialCapital, feeRatePercent: scope.feeRatePercent, slippageBps: scope.slippageBps, stopLossPercent: scope.riskPolicy?.stopLossPercent, takeProfitPercent: scope.riskPolicy?.takeProfitPercent, workerRuntimeVersion: job.workerRuntimeVersion, workerRuntimeSha256: job.workerRuntimeSha256, startedAt: attempt.startedAt, completedAt }); const metrics = this.deps.evaluation.evaluator.evaluate(result); const completedAttempt: BacktestAttemptAudit = { ...attempt, status: "COMPLETED", completedAt, tradeCount: result.trades.length, leaseExpiresAt: undefined }; const experimentId = this.id(); const completedCandidate: StoredCandidate = { ...candidate, status: "COMPLETED", activeAttemptNumber: undefined, activeFenceToken: undefined, activeLeaseExpiresAt: undefined, completionAttemptCount: 1, experimentResultId: experimentId, updatedAt: completedAt }; const experiment: StoredExperiment = { id: experimentId, ownerUserId: candidate.ownerUserId, candidateId: candidate.candidateId, searchRunId: candidate.searchRunId, leaderboardScopeId: scope.id, scoreFormulaId: scope.scoreFormulaId, overallScore: 0, rankEligible: metrics.numberOfTrades > 0, backtestAttemptId: attempt.attemptId, compositeDefinitionId: candidate.compositeDefinition.id, compositeDefinition: candidate.compositeDefinition, datasetSnapshot: scope.datasetSnapshot, sentimentDatasetSnapshot: scope.sentimentDatasetSnapshot, strategyDefinitions: candidate.strategyDefinitions, metrics, trades: result.trades, createdAt: completedAt }; await this.deps.repository.completeAttempt({ candidate: completedCandidate, attempt: completedAttempt, result, metrics, experiment, fenceToken }); return { candidateId: candidate.candidateId, status: "COMPLETED", attemptId: attempt.attemptId, completedAt }; } catch (error) { const message = error instanceof Error ? error.message : "BACKTEST_EXECUTION_FAILED"; const retrying = attempt.attemptNumber < job.maxAttempts; await this.deps.repository.failWorkerAttempt({ candidate, attempt, fenceToken, retrying, now: this.now(), error: message }); throw error; } }
+  private async runClaimedAttempt(claim: WorkerAttemptClaim, job: BacktestQueueJob): Promise<BacktestQueueReturn> {
+    const { candidate, attempt, fenceToken } = claim;
+    try {
+      const scope = await this.scope(candidate.leaderboardScopeId);
+      const input = await this.snapshot(scope.datasetSnapshotId);
+      const strategy = await this.compositeStrategy(candidate.strategyDefinitions, candidate.compositeDefinition);
+      const completedAt = this.now();
+      const result = simulateBacktest({ candidateId: candidate.candidateId, attemptId: attempt.attemptId, pair: scope.pair, settlementAsset: scope.datasetSnapshot.pairMetadata.settlementAsset || scope.datasetSnapshot.pairMetadata.quoteAsset || "USDT", timeframe: scope.timeframe, candles: input.candles, strategy, initialCapital: scope.initialCapital, feeRatePercent: scope.feeRatePercent, slippageBps: scope.slippageBps, stopLossPercent: scope.riskPolicy?.stopLossPercent, takeProfitPercent: scope.riskPolicy?.takeProfitPercent, workerRuntimeVersion: job.workerRuntimeVersion, workerRuntimeSha256: job.workerRuntimeSha256, startedAt: attempt.startedAt, completedAt });
+      await this.deps.repository.persistWorkerSuccess({ candidate, attempt, result, fenceToken });
+      return { candidateId: candidate.candidateId, status: "COMPLETED", attemptId: attempt.attemptId, completedAt };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "BACKTEST_EXECUTION_FAILED";
+      const retrying = attempt.attemptNumber < job.maxAttempts;
+      await this.deps.repository.failWorkerAttempt({ candidate, attempt, fenceToken, retrying, now: this.now(), error: message });
+      throw error;
+    }
+  }
+  async processCompletion(candidateId: string): Promise<{ candidateId: string; status: "COMPLETED" | "FAILED" | "IGNORED" }> {
+    const claimed = await this.deps.repository.claimCompletion({ candidateId, claimToken: this.id(), now: this.now(), leaseExpiresAt: plusSeconds(this.now(), 60) });
+    if (!claimed) {
+      const candidate = await this.deps.repository.readCandidate(candidateId);
+      return { candidateId, status: candidate?.status === "COMPLETED" ? "COMPLETED" : candidate?.status === "FAILED" ? "FAILED" : "IGNORED" };
+    }
+    const { candidate, claimToken } = claimed;
+    try {
+      if (candidate.status === "TERMINAL_FAILURE_PENDING") {
+        await this.deps.repository.finalizeTerminalFailure({ candidate, claimToken, now: this.now() });
+        if (candidate.searchRunId) {
+          try { await this.deps.completion.notifySearchCandidateFinished?.(candidate.searchRunId); } catch { /* Search startup reconciliation recovers a lost callback. */ }
+        }
+        return { candidateId, status: "FAILED" };
+      }
+      const attempt = await this.deps.repository.readLatestCompletedAttempt(candidateId);
+      if (!attempt) throw new Error("BACKTEST_COMPLETION_ATTEMPT_NOT_FOUND");
+      const scope = await this.scope(candidate.leaderboardScopeId);
+      const result: CompletedBacktestResult = { status: "COMPLETED", candidateId, attemptId: attempt.attemptId, workerRuntimeVersion: attempt.workerRuntimeVersion, workerRuntimeSha256: attempt.workerRuntimeSha256, startedAt: attempt.startedAt, completedAt: attempt.completedAt ?? this.now(), trades: await this.deps.repository.listTrades(attempt.attemptId) };
+      const metrics = this.deps.evaluation.evaluator.evaluate(result);
+      const scored = await this.deps.completion.score(scope.id, metrics);
+      const existing = await this.deps.repository.findExperimentByCandidate(candidateId);
+      const experiment = existing ?? await this.deps.repository.stageCompletionExperiment({ id: this.id(), ownerUserId: candidate.ownerUserId, candidateId, searchRunId: candidate.searchRunId, leaderboardScopeId: scope.id, scoreFormulaId: scored.scoreFormulaId, overallScore: scored.overallScore, rankEligible: scored.rankEligible, backtestAttemptId: attempt.attemptId, compositeDefinitionId: candidate.compositeDefinition.id, compositeDefinition: candidate.compositeDefinition, datasetSnapshot: scope.datasetSnapshot, sentimentDatasetSnapshot: scope.sentimentDatasetSnapshot, strategyDefinitions: candidate.strategyDefinitions, metrics, trades: result.trades, createdAt: this.now() });
+      await this.deps.completion.submit(experiment, { kind: "COMPLETION", id: `completion-${candidateId}-${candidate.completionAttemptCount}`, candidateId, completionAttemptCount: candidate.completionAttemptCount, completionClaimToken: claimToken, enlist: () => undefined });
+      await this.deps.repository.finalizeCompletion({ candidate, experimentId: experiment.id, claimToken, now: this.now() });
+      if (candidate.searchRunId) {
+        try { await this.deps.completion.notifySearchCandidateFinished?.(candidate.searchRunId); } catch { /* Search startup reconciliation recovers a lost callback. */ }
+      }
+      return { candidateId, status: "COMPLETED" };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "BACKTEST_COMPLETION_FAILED";
+      await this.deps.repository.failCompletion({ candidate, claimToken, retryAt: plusSeconds(this.now(), 1), now: this.now(), error: message });
+      throw error;
+    }
+  }
+  async processQueueTerminalSignal(signal: BacktestQueueTerminalSignal): Promise<{ candidateId: string; status: "COMPLETED" | "FAILED" | "IGNORED" }> {
+    if (signal.schemaVersion !== 1 || !signal.jobId) invalid("INVALID_BACKTEST_QUEUE_SIGNAL");
+    if (signal.status !== "COMPLETED") await this.deps.repository.repairTerminalQueueFailure({ candidateId: signal.jobId, error: signal.status === "RETRIES_EXHAUSTED" ? "BACKTEST_RETRIES_EXHAUSTED" : signal.failedReason, now: this.now() });
+    return this.processCompletion(signal.jobId);
+  }
+  async reconcileCompletions(limit = 100): Promise<{ processed: number; pending: number }> {
+    if (!Number.isInteger(limit) || limit < 1) invalid("INVALID_COMPLETION_RECOVERY_LIMIT");
+    const ids = await this.deps.repository.listDueCompletions(this.now(), limit);
+    let processed = 0;
+    for (const id of ids) {
+      try { await this.processCompletion(id); processed += 1; } catch { /* durable retry state is written by processCompletion */ }
+    }
+    return { processed, pending: ids.length - processed };
+  }
   async status(candidateId: string, options?: BacktestReadOptions): Promise<CandidateProgress> { const candidate = await this.candidate(candidateId, options); return { ...candidate, attempts: await this.deps.repository.listAttempts(candidateId) }; }
   async summarizeSearchCandidates(searchRunId: string): Promise<SearchCandidateSummary> { const candidates = await this.deps.repository.listCandidatesBySearchRun(searchRunId); const active = candidates.filter((candidate) => !terminal(candidate.status)); const attempts = (await Promise.all(candidates.map((candidate) => this.deps.repository.listAttempts(candidate.candidateId)))).flat(); const failed = candidates.filter((candidate) => candidate.status === "FAILED" || candidate.status === "TERMINAL_FAILURE_PENDING"); return { searchRunId, active, queuedCount: candidates.filter((candidate) => candidate.status === "QUEUED").length, runningCount: candidates.filter((candidate) => ["BACKTESTING", "RETRY_WAIT", "PROCESSING_RESULT"].includes(candidate.status)).length, candidatesTested: candidates.length, failedCandidateCount: failed.length, retryExhaustedCandidateCount: failed.filter((candidate) => candidate.failureKind === "RETRY_EXHAUSTED").length, infrastructureFailureCandidateCount: failed.filter((candidate) => candidate.failureKind === "INFRASTRUCTURE").length, completionProcessingFailureCandidateCount: failed.filter((candidate) => candidate.failureKind === "COMPLETION_PROCESSING").length, failedAttemptCount: attempts.filter((attempt) => attempt.status === "FAILED").length, averageBacktestDurationMs: null }; }
   async listSearchCandidates(searchRunId: string, page: SearchCandidatePageRequest): Promise<SearchCandidatePage> { if (!Number.isInteger(page.limit) || page.limit < 1) invalid("INVALID_PAGE"); const items = (await this.deps.repository.listCandidatesBySearchRun(searchRunId)).sort((left, right) => left.createdAt.localeCompare(right.createdAt)); const offset = page.cursor ? Number(page.cursor) : 0; if (!Number.isInteger(offset) || offset < 0) invalid("INVALID_PAGE"); const selected = items.slice(offset, offset + page.limit); return { items: selected, nextCursor: offset + page.limit < items.length ? String(offset + page.limit) : undefined }; }

@@ -1,5 +1,5 @@
 import type { BacktestAttemptAudit, BacktestSubmissionAccepted, BenchmarkScopeSummary, CandidateProgress, CancellationUnitOfWork, CreateLeaderboardScopeCommand, ExperimentResultSummary, ReplayVerificationResult, StartManualBacktestCommand, SubmitSearchCandidateCommand, Trade } from "../domain/contracts";
-import type { BacktestQueueJob, BacktestQueueReturn } from "@cryptox/contracts/queue";
+import type { BacktestQueueJob, BacktestQueueReturn, BacktestQueueTerminalSignal } from "@cryptox/contracts/queue";
 export { simulateBacktest } from "../domain/simulator";
 export type { SimulationInput } from "../domain/simulator";
 export type { CandidateStatus, BacktestSubmissionAccepted, CancellationUnitOfWork, CompletionUnitOfWork, Trade, CompletedBacktestResult, GeneratorType, CreateLeaderboardScopeCommand, StartManualBacktestCommand, SubmitSearchCandidateCommand, BenchmarkScopeSummary, ReplayVerificationResult, CandidateProgress, BacktestAttemptProgress, BacktestAttemptAudit, ExperimentResult, ExperimentResultSummary } from "../domain/contracts";
@@ -50,10 +50,23 @@ export interface BacktestLogApi {
         dispatched: number;
         pending: number;
     }>;
+    listQueueRecoveryCandidates(limit?: number): Promise<string[]>;
+    reconcileCompletions(limit?: number): Promise<{
+        processed: number;
+        pending: number;
+    }>;
     processQueueJob(job: BacktestQueueJob, delivery: {
         attemptNumber: number;
         fenceToken?: string;
     }): Promise<BacktestQueueReturn>;
+    processCompletion(candidateId: string): Promise<{
+        candidateId: string;
+        status: "COMPLETED" | "FAILED" | "IGNORED";
+    }>;
+    processQueueTerminalSignal(signal: BacktestQueueTerminalSignal): Promise<{
+        candidateId: string;
+        status: "COMPLETED" | "FAILED" | "IGNORED";
+    }>;
     status(candidateId: string, options?: BacktestReadOptions): Promise<CandidateProgress>;
     summarizeSearchCandidates(searchRunId: string): Promise<SearchCandidateSummary>;
     listSearchCandidates(searchRunId: string, page: SearchCandidatePageRequest): Promise<SearchCandidatePage>;
@@ -78,7 +91,11 @@ export declare const readBenchmarkScope: BacktestLogApi["readBenchmarkScope"];
 export declare const startManual: BacktestLogApi["startManual"];
 export declare const submitSearchCandidate: BacktestLogApi["submitSearchCandidate"];
 export declare const reconcileQueue: BacktestLogApi["reconcileQueue"];
+export declare const listQueueRecoveryCandidates: BacktestLogApi["listQueueRecoveryCandidates"];
+export declare const reconcileCompletions: BacktestLogApi["reconcileCompletions"];
 export declare const processQueueJob: BacktestLogApi["processQueueJob"];
+export declare const processCompletion: BacktestLogApi["processCompletion"];
+export declare const processQueueTerminalSignal: BacktestLogApi["processQueueTerminalSignal"];
 export declare const status: BacktestLogApi["status"];
 export declare const summarizeSearchCandidates: BacktestLogApi["summarizeSearchCandidates"];
 export declare const listSearchCandidates: BacktestLogApi["listSearchCandidates"];

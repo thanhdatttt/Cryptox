@@ -1,4 +1,4 @@
-import type { BacktestQueueJob, BacktestQueueReturn } from "@cryptox/contracts/queue";
+import type { BacktestQueueJob, BacktestQueueReturn, BacktestQueueTerminalSignal } from "@cryptox/contracts/queue";
 import type { CompositeStrategyDefinition, StrategyDefinition } from "modules/strategy/api";
 import type { BacktestLogApi, BacktestReadOptions, SearchCandidatePage, SearchCandidatePageRequest, SearchCandidateSummary, TradePage, TradePageRequest } from "../api";
 import type { BacktestAttemptAudit, BacktestSubmissionAccepted, BenchmarkScopeSummary, CandidateProgress, CompletedBacktestResult, CreateLeaderboardScopeCommand, ExperimentResultSummary, ReplayVerificationResult, StartManualBacktestCommand, SubmitSearchCandidateCommand, Trade } from "../domain/contracts";
@@ -39,6 +39,7 @@ export declare class InMemoryBacktestingRepository implements BacktestingReposit
     updateCandidate(candidate: StoredCandidate): Promise<void>;
     readDispatch(jobId: string): Promise<BacktestDispatch | undefined>;
     listPendingDispatches(limit: number): Promise<BacktestDispatch[]>;
+    listQueueRecoveryCandidates(limit: number): Promise<string[]>;
     markDispatchDispatched(jobId: string, dispatchedAt: string): Promise<void>;
     markDispatchFailed(jobId: string, error: string, at: string): Promise<void>;
     markDispatchCancelled(jobId: string, at: string): Promise<void>;
@@ -73,6 +74,47 @@ export declare class InMemoryBacktestingRepository implements BacktestingReposit
         attempt: BacktestAttemptAudit;
         fenceToken: string;
         retrying: boolean;
+        now: string;
+        error: string;
+    }): Promise<void>;
+    repairTerminalQueueFailure(input: {
+        candidateId: string;
+        error: string;
+        now: string;
+    }): Promise<void>;
+    persistWorkerSuccess(input: {
+        candidate: StoredCandidate;
+        attempt: BacktestAttemptAudit;
+        result: CompletedBacktestResult;
+        fenceToken: string;
+    }): Promise<void>;
+    claimCompletion(input: {
+        candidateId: string;
+        claimToken: string;
+        now: string;
+        leaseExpiresAt: string;
+    }): Promise<{
+        candidate: StoredCandidate;
+        claimToken: string;
+    } | undefined>;
+    listDueCompletions(nowValue: string, limit: number): Promise<string[]>;
+    readLatestCompletedAttempt(candidateId: string): Promise<BacktestAttemptAudit | undefined>;
+    stageCompletionExperiment(experiment: StoredExperiment): Promise<StoredExperiment>;
+    finalizeCompletion(input: {
+        candidate: StoredCandidate;
+        experimentId: string;
+        claimToken: string;
+        now: string;
+    }): Promise<void>;
+    finalizeTerminalFailure(input: {
+        candidate: StoredCandidate;
+        claimToken: string;
+        now: string;
+    }): Promise<void>;
+    failCompletion(input: {
+        candidate: StoredCandidate;
+        claimToken: string;
+        retryAt?: string;
         now: string;
         error: string;
     }): Promise<void>;
@@ -136,6 +178,7 @@ export declare class BacktestingService implements BacktestLogApi {
         dispatched: number;
         pending: number;
     }>;
+    listQueueRecoveryCandidates(limit?: number): Promise<string[]>;
     private submit;
     startManual(command: StartManualBacktestCommand, options: {
         ownerUserId: string;
@@ -147,6 +190,18 @@ export declare class BacktestingService implements BacktestLogApi {
         fenceToken?: string;
     }): Promise<BacktestQueueReturn>;
     private runClaimedAttempt;
+    processCompletion(candidateId: string): Promise<{
+        candidateId: string;
+        status: "COMPLETED" | "FAILED" | "IGNORED";
+    }>;
+    processQueueTerminalSignal(signal: BacktestQueueTerminalSignal): Promise<{
+        candidateId: string;
+        status: "COMPLETED" | "FAILED" | "IGNORED";
+    }>;
+    reconcileCompletions(limit?: number): Promise<{
+        processed: number;
+        pending: number;
+    }>;
     status(candidateId: string, options?: BacktestReadOptions): Promise<CandidateProgress>;
     summarizeSearchCandidates(searchRunId: string): Promise<SearchCandidateSummary>;
     listSearchCandidates(searchRunId: string, page: SearchCandidatePageRequest): Promise<SearchCandidatePage>;

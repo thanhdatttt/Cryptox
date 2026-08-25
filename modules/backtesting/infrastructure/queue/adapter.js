@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.BullMqBacktestWorker = exports.BullMqBacktestQueue = exports.BACKTEST_QUEUE_NAME = void 0;
+exports.BullMqBacktestCompletionListener = exports.BullMqBacktestWorker = exports.forwardTerminalSignal = exports.BullMqBacktestQueue = exports.BACKTEST_QUEUE_NAME = void 0;
 const bullmq_1 = require("bullmq");
 exports.BACKTEST_QUEUE_NAME = "backtest-execution-v1";
 const validate = (value) => {
@@ -35,6 +35,10 @@ class BullMqBacktestQueue {
     async close() { await this.queue.close(); }
 }
 exports.BullMqBacktestQueue = BullMqBacktestQueue;
+const forwardTerminalSignal = async (runtime, signal) => {
+    await runtime.processQueueTerminalSignal(signal);
+};
+exports.forwardTerminalSignal = forwardTerminalSignal;
 class BullMqBacktestWorker {
     worker;
     constructor(redisUrl, runtime, concurrency = 1) {
@@ -49,3 +53,56 @@ class BullMqBacktestWorker {
     async close() { await this.worker.close(); }
 }
 exports.BullMqBacktestWorker = BullMqBacktestWorker;
+class BullMqBacktestCompletionListener {
+    runtime;
+    queue;
+    events;
+    constructor(redisUrl, runtime) {
+        this.runtime = runtime;
+        this.queue = new bullmq_1.Queue(exports.BACKTEST_QUEUE_NAME, { connection: { url: redisUrl } });
+        this.events = new bullmq_1.QueueEvents(exports.BACKTEST_QUEUE_NAME, { connection: { url: redisUrl } });
+        this.events.on("completed", ({ jobId, returnvalue }) => {
+            try {
+                const parsed = JSON.parse(returnvalue);
+                void (0, exports.forwardTerminalSignal)(this.runtime, { schemaVersion: 1, jobId, status: "COMPLETED", returnValue: parsed }).catch(() => undefined);
+            }
+            catch { /* malformed return values are ignored; durable reconciliation remains authoritative */ }
+        });
+        this.events.on("failed", ({ jobId, failedReason }) => { void this.forwardVerifiedFailure(jobId, failedReason); });
+    }
+    async forwardVerifiedFailure(jobId, failedReason) {
+        const job = await this.queue.getJob(jobId);
+        if (!job || await job.getState() !== "failed")
+            return;
+        const attempts = typeof job.opts.attempts === "number" ? job.opts.attempts : 1;
+        if (job.attemptsMade < attempts)
+            return;
+        await (0, exports.forwardTerminalSignal)(this.runtime, { schemaVersion: 1, jobId, status: "VERIFIED_TERMINAL_FAILED", failedReason });
+    }
+    async reconcileTerminalJobs(limit = 100) {
+        const candidateIds = await this.runtime.listQueueRecoveryCandidates(limit);
+        let forwarded = 0;
+        for (const jobId of candidateIds) {
+            const job = await this.queue.getJob(jobId);
+            if (!job)
+                continue;
+            const state = await job.getState();
+            if (state === "completed") {
+                const returnValue = (job.returnvalue ?? { candidateId: jobId, status: "IGNORED", reason: "PENDING_COMPLETION" });
+                await (0, exports.forwardTerminalSignal)(this.runtime, { schemaVersion: 1, jobId, status: "COMPLETED", returnValue });
+                forwarded += 1;
+            }
+            else if (state === "failed") {
+                const attempts = typeof job.opts.attempts === "number" ? job.opts.attempts : 1;
+                if (job.attemptsMade >= attempts) {
+                    await (0, exports.forwardTerminalSignal)(this.runtime, { schemaVersion: 1, jobId, status: "VERIFIED_TERMINAL_FAILED", failedReason: job.failedReason ?? "BACKTEST_QUEUE_TERMINAL_FAILURE" });
+                    forwarded += 1;
+                }
+            }
+        }
+        return forwarded;
+    }
+    async waitUntilReady() { await this.events.waitUntilReady(); }
+    async close() { await this.events.close(); await this.queue.close(); }
+}
+exports.BullMqBacktestCompletionListener = BullMqBacktestCompletionListener;

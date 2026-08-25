@@ -20,6 +20,7 @@ export interface SearchModuleRuntime {
     leaderboard(searchRunId: string, options?: SearchReadOptions): Promise<SearchRunRankingEntry[]>;
     onCandidateFinished(searchRunId: string): Promise<void>;
     fillAvailableSlots(searchRunId: string): Promise<void>;
+    reconcileRunningRuns(): Promise<number>;
 }
 export declare function createInMemorySearchDependencies(): SearchModuleDependencies;
 export declare function createSearchModule(dependencies?: SearchModuleDependencies): SearchModuleRuntime;

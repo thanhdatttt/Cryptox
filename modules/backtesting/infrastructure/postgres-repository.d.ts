@@ -1,7 +1,7 @@
 import type { EvaluationMetrics } from "modules/evaluation/api";
 import type { Candle, DatasetSnapshotRef } from "modules/market-data/api";
 import type { BacktestAttemptAudit, BacktestAttemptProgress, CompletedBacktestResult, Trade } from "../domain/contracts";
-import type { BacktestDispatch, BacktestingRepository, StoredBenchmarkScope, StoredCandidate, StoredExperiment, WorkerAttemptClaim } from "../application/ports";
+import type { BacktestDispatch, BacktestingRepository, CompletionProcessingClaim, StoredBenchmarkScope, StoredCandidate, StoredExperiment, WorkerAttemptClaim } from "../application/ports";
 export interface BacktestingSqlClient {
     query<Row>(text: string, values: unknown[]): Promise<{
         rows: Row[];
@@ -39,6 +39,7 @@ export declare class PostgresBacktestingRepository implements BacktestingReposit
     updateCandidate(input: StoredCandidate): Promise<void>;
     readDispatch(jobId: string): Promise<BacktestDispatch | undefined>;
     listPendingDispatches(limit: number): Promise<BacktestDispatch[]>;
+    listQueueRecoveryCandidates(limit: number): Promise<string[]>;
     markDispatchDispatched(jobId: string, dispatchedAt: string): Promise<void>;
     markDispatchFailed(jobId: string, error: string, at: string): Promise<void>;
     markDispatchCancelled(jobId: string, at: string): Promise<void>;
@@ -63,6 +64,44 @@ export declare class PostgresBacktestingRepository implements BacktestingReposit
         attempt: BacktestAttemptAudit;
         fenceToken: string;
         retrying: boolean;
+        now: string;
+        error: string;
+    }): Promise<void>;
+    repairTerminalQueueFailure(input: {
+        candidateId: string;
+        error: string;
+        now: string;
+    }): Promise<void>;
+    persistWorkerSuccess(input: {
+        candidate: StoredCandidate;
+        attempt: BacktestAttemptAudit;
+        result: CompletedBacktestResult;
+        fenceToken: string;
+    }): Promise<void>;
+    claimCompletion(input: {
+        candidateId: string;
+        claimToken: string;
+        now: string;
+        leaseExpiresAt: string;
+    }): Promise<CompletionProcessingClaim | undefined>;
+    listDueCompletions(now: string, limit: number): Promise<string[]>;
+    readLatestCompletedAttempt(candidateId: string): Promise<BacktestAttemptAudit | undefined>;
+    stageCompletionExperiment(input: StoredExperiment): Promise<StoredExperiment>;
+    finalizeCompletion(input: {
+        candidate: StoredCandidate;
+        experimentId: string;
+        claimToken: string;
+        now: string;
+    }): Promise<void>;
+    finalizeTerminalFailure(input: {
+        candidate: StoredCandidate;
+        claimToken: string;
+        now: string;
+    }): Promise<void>;
+    failCompletion(input: {
+        candidate: StoredCandidate;
+        claimToken: string;
+        retryAt?: string;
         now: string;
         error: string;
     }): Promise<void>;

@@ -8,8 +8,8 @@ export interface SearchRunRepository {
 export interface SearchModuleDependencies {
     searchRunRepository: SearchRunRepository;
     generators: Record<GeneratorType, import("../domain/contracts").StrategyGenerator>;
-    backtestCoordinator: Pick<import("modules/backtesting/api").BacktestLogApi, "submitSearchCandidate" | "summarizeSearchCandidates" | "cancelSearchCandidates" | "removePendingJobs" | "status" | "readExperimentSummary" | "scoreExperiment">;
-    leaderboardService: Pick<import("modules/leaderboard/api").LeaderboardModulePublicApi, "score" | "submit" | "rankSearchRun">;
+    backtestCoordinator: Pick<import("modules/backtesting/api").BacktestLogApi, "submitSearchCandidate" | "summarizeSearchCandidates" | "cancelSearchCandidates" | "removePendingJobs">;
+    leaderboardService: Pick<import("modules/leaderboard/api").LeaderboardModulePublicApi, "rankSearchRun">;
     clock: {
         now(): string;
     };

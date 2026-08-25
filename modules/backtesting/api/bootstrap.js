@@ -1,12 +1,13 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.BullMqBacktestWorker = exports.BullMqBacktestQueue = exports.BACKTEST_QUEUE_NAME = exports.createPostgresBacktestingDependencies = exports.PostgresBacktestingRepository = exports.BACKTEST_RUNTIME_VERSION = exports.BACKTEST_RUNTIME_SHA256 = exports.createBacktestingService = exports.createInMemoryBacktestingDependencies = void 0;
+exports.forwardTerminalSignal = exports.BullMqBacktestCompletionListener = exports.BullMqBacktestWorker = exports.BullMqBacktestQueue = exports.BACKTEST_QUEUE_NAME = exports.createPostgresBacktestingDependencies = exports.PostgresBacktestingRepository = exports.BACKTEST_RUNTIME_VERSION = exports.BACKTEST_RUNTIME_SHA256 = exports.InMemoryBacktestQueue = exports.createBacktestingService = exports.createInMemoryBacktestingDependencies = void 0;
 exports.createBacktestingModule = createBacktestingModule;
 const service_1 = require("../application/service");
 function createBacktestingModule(deps) { return (0, service_1.createBacktestingService)(deps ?? (0, service_1.createInMemoryBacktestingDependencies)()); }
 var service_2 = require("../application/service");
 Object.defineProperty(exports, "createInMemoryBacktestingDependencies", { enumerable: true, get: function () { return service_2.createInMemoryBacktestingDependencies; } });
 Object.defineProperty(exports, "createBacktestingService", { enumerable: true, get: function () { return service_2.createBacktestingService; } });
+Object.defineProperty(exports, "InMemoryBacktestQueue", { enumerable: true, get: function () { return service_2.InMemoryBacktestQueue; } });
 Object.defineProperty(exports, "BACKTEST_RUNTIME_SHA256", { enumerable: true, get: function () { return service_2.BACKTEST_RUNTIME_SHA256; } });
 Object.defineProperty(exports, "BACKTEST_RUNTIME_VERSION", { enumerable: true, get: function () { return service_2.BACKTEST_RUNTIME_VERSION; } });
 var postgres_repository_1 = require("../infrastructure/postgres-repository");
@@ -16,3 +17,5 @@ var adapter_1 = require("../infrastructure/queue/adapter");
 Object.defineProperty(exports, "BACKTEST_QUEUE_NAME", { enumerable: true, get: function () { return adapter_1.BACKTEST_QUEUE_NAME; } });
 Object.defineProperty(exports, "BullMqBacktestQueue", { enumerable: true, get: function () { return adapter_1.BullMqBacktestQueue; } });
 Object.defineProperty(exports, "BullMqBacktestWorker", { enumerable: true, get: function () { return adapter_1.BullMqBacktestWorker; } });
+Object.defineProperty(exports, "BullMqBacktestCompletionListener", { enumerable: true, get: function () { return adapter_1.BullMqBacktestCompletionListener; } });
+Object.defineProperty(exports, "forwardTerminalSignal", { enumerable: true, get: function () { return adapter_1.forwardTerminalSignal; } });

@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.leaderboard = exports.status = exports.cancel = exports.resume = exports.pause = exports.start = exports.createInMemorySearchDependencies = exports.createSearchModule = void 0;
+exports.reconcileRunningRuns = exports.leaderboard = exports.status = exports.cancel = exports.resume = exports.pause = exports.start = exports.createInMemorySearchDependencies = exports.createSearchModule = void 0;
 var service_1 = require("../application/service");
 Object.defineProperty(exports, "createSearchModule", { enumerable: true, get: function () { return service_1.createSearchModule; } });
 Object.defineProperty(exports, "createInMemorySearchDependencies", { enumerable: true, get: function () { return service_1.createInMemorySearchDependencies; } });
@@ -18,3 +18,5 @@ const status = (searchRunId, options) => defaultService.status(searchRunId, opti
 exports.status = status;
 const leaderboard = (searchRunId, options) => defaultService.leaderboard(searchRunId, options);
 exports.leaderboard = leaderboard;
+const reconcileRunningRuns = () => defaultService.reconcileRunningRuns();
+exports.reconcileRunningRuns = reconcileRunningRuns;

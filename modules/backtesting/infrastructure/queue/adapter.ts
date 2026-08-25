@@ -1,5 +1,5 @@
-import { Queue, Worker, type Job } from "bullmq";
-import type { BacktestQueueJob, BacktestQueueReturn } from "@cryptox/contracts/queue";
+import { Queue, QueueEvents, Worker, type Job } from "bullmq";
+import type { BacktestQueueJob, BacktestQueueReturn, BacktestQueueTerminalSignal } from "@cryptox/contracts/queue";
 import type { BacktestQueuePort } from "../../application/ports";
 
 export const BACKTEST_QUEUE_NAME = "backtest-execution-v1";
@@ -42,6 +42,18 @@ export interface BacktestQueueWorkerRuntime {
   processQueueJob(job: BacktestQueueJob, delivery: { attemptNumber: number; fenceToken?: string }): Promise<BacktestQueueReturn>;
 }
 
+export interface BacktestQueueCompletionRuntime {
+  processQueueTerminalSignal(signal: BacktestQueueTerminalSignal): Promise<unknown>;
+}
+
+export interface BacktestQueueRecoveryRuntime extends BacktestQueueCompletionRuntime {
+  listQueueRecoveryCandidates(limit?: number): Promise<string[]>;
+}
+
+export const forwardTerminalSignal = async (runtime: BacktestQueueCompletionRuntime, signal: BacktestQueueTerminalSignal): Promise<void> => {
+  await runtime.processQueueTerminalSignal(signal);
+};
+
 export class BullMqBacktestWorker {
   private readonly worker: Worker<BacktestQueueJob, BacktestQueueReturn, "execute">;
 
@@ -55,4 +67,54 @@ export class BullMqBacktestWorker {
 
   async waitUntilReady(): Promise<void> { await this.worker.waitUntilReady(); }
   async close(): Promise<void> { await this.worker.close(); }
+}
+
+export class BullMqBacktestCompletionListener {
+  private readonly queue: Queue<BacktestQueueJob, BacktestQueueReturn, "execute">;
+  private readonly events: QueueEvents;
+
+  constructor(redisUrl: string, private readonly runtime: BacktestQueueRecoveryRuntime) {
+    this.queue = new Queue<BacktestQueueJob, BacktestQueueReturn, "execute">(BACKTEST_QUEUE_NAME, { connection: { url: redisUrl } });
+    this.events = new QueueEvents(BACKTEST_QUEUE_NAME, { connection: { url: redisUrl } });
+    this.events.on("completed", ({ jobId, returnvalue }: { jobId: string; returnvalue: string }) => {
+      try {
+        const parsed = JSON.parse(returnvalue) as BacktestQueueReturn;
+        void forwardTerminalSignal(this.runtime, { schemaVersion: 1, jobId, status: "COMPLETED", returnValue: parsed }).catch(() => undefined);
+      } catch { /* malformed return values are ignored; durable reconciliation remains authoritative */ }
+    });
+    this.events.on("failed", ({ jobId, failedReason }: { jobId: string; failedReason: string }) => { void this.forwardVerifiedFailure(jobId, failedReason); });
+  }
+
+  private async forwardVerifiedFailure(jobId: string, failedReason: string): Promise<void> {
+    const job = await this.queue.getJob(jobId);
+    if (!job || await job.getState() !== "failed") return;
+    const attempts = typeof job.opts.attempts === "number" ? job.opts.attempts : 1;
+    if (job.attemptsMade < attempts) return;
+    await forwardTerminalSignal(this.runtime, { schemaVersion: 1, jobId, status: "VERIFIED_TERMINAL_FAILED", failedReason });
+  }
+
+  async reconcileTerminalJobs(limit = 100): Promise<number> {
+    const candidateIds = await this.runtime.listQueueRecoveryCandidates(limit);
+    let forwarded = 0;
+    for (const jobId of candidateIds) {
+      const job = await this.queue.getJob(jobId);
+      if (!job) continue;
+      const state = await job.getState();
+      if (state === "completed") {
+        const returnValue = (job.returnvalue ?? { candidateId: jobId, status: "IGNORED", reason: "PENDING_COMPLETION" }) as BacktestQueueReturn;
+        await forwardTerminalSignal(this.runtime, { schemaVersion: 1, jobId, status: "COMPLETED", returnValue });
+        forwarded += 1;
+      } else if (state === "failed") {
+        const attempts = typeof job.opts.attempts === "number" ? job.opts.attempts : 1;
+        if (job.attemptsMade >= attempts) {
+          await forwardTerminalSignal(this.runtime, { schemaVersion: 1, jobId, status: "VERIFIED_TERMINAL_FAILED", failedReason: job.failedReason ?? "BACKTEST_QUEUE_TERMINAL_FAILURE" });
+          forwarded += 1;
+        }
+      }
+    }
+    return forwarded;
+  }
+
+  async waitUntilReady(): Promise<void> { await this.events.waitUntilReady(); }
+  async close(): Promise<void> { await this.events.close(); await this.queue.close(); }
 }

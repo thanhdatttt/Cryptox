@@ -92,6 +92,7 @@ describe("backend composition", () => {
     const accepted = await new BacktestController(modules).start(`Bearer ${token}`, "submission-key", { leaderboardScopeId: scope.id, strategyDefinitionIds: [definition.id], compositeDefinitionId: composite.id, maxAttempts: 1 });
     expect(accepted).toMatchObject({ candidateId: accepted.jobId, status: "QUEUED" });
     await backtesting.processQueueJob({ schemaVersion: 1, jobId: accepted.jobId, candidateId: accepted.candidateId, leaderboardScopeId: scope.id, maxAttempts: 1, workerRuntimeVersion: "1", workerRuntimeSha256: "c".repeat(64), enqueuedAt: "2025-01-01T03:00:00.000Z" }, { attemptNumber: 1, fenceToken: "controller-worker" });
+    await backtesting.processCompletion(accepted.candidateId);
     const progress = await new BacktestController(modules).status(`Bearer ${token}`, accepted.candidateId);
     const attempt = await new BacktestAttemptController(modules).read(`Bearer ${token}`, progress.attempts[0]!.attemptId);
     const experiment = await new ExperimentController(modules).read(`Bearer ${token}`, progress.experimentResultId!);

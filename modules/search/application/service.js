@@ -38,6 +38,7 @@ const deterministicGenerator = (type) => {
 };
 function createInMemorySearchDependencies() {
     const runs = new Map();
+    const candidates = new Map();
     let sequence = 0;
     return {
         searchRunRepository: { get: async (id) => runs.get(id), insert: async (run) => { runs.set(run.searchRunId, run); return run; }, save: async (run) => { runs.set(run.searchRunId, run); return run; }, listRunning: async () => [...runs.values()].filter((run) => run.state === "RUNNING") },
@@ -47,15 +48,26 @@ function createInMemorySearchDependencies() {
             GENETIC: deterministicGenerator("GENETIC"),
         },
         backtestCoordinator: {
-            submitSearchCandidate: async () => { throw new Error("NO_BACKTEST_COORDINATOR_CONFIGURED"); },
-            summarizeSearchCandidates: async (searchRunId) => ({ searchRunId, active: [], queuedCount: 0, runningCount: 0, candidatesTested: 0, failedCandidateCount: 0, retryExhaustedCandidateCount: 0, infrastructureFailureCandidateCount: 0, completionProcessingFailureCandidateCount: 0, failedAttemptCount: 0, averageBacktestDurationMs: null }),
-            cancelSearchCandidates: async () => ({ candidateIds: [] }),
+            submitSearchCandidate: async (command) => {
+                const candidateId = `in-memory-search-candidate-${++sequence}`;
+                candidates.set(candidateId, { candidateId, origin: "SEARCH", selectionMode: "COMPOSITE", searchRunId: command.searchRunId, iterationNumber: command.iterationNumber, leaderboardScopeId: command.leaderboardScopeId, status: "QUEUED", attempts: [], maxAttempts: command.maxAttempts, completionAttemptCount: 0, completionMaxAttempts: 5, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+                return { candidateId, jobId: candidateId, status: "QUEUED" };
+            },
+            summarizeSearchCandidates: async (searchRunId) => {
+                const values = [...candidates.values()].filter((candidate) => candidate.searchRunId === searchRunId);
+                return { searchRunId, active: values.filter((candidate) => !["COMPLETED", "FAILED", "CANCELLED"].includes(candidate.status)), queuedCount: values.filter((candidate) => candidate.status === "QUEUED").length, runningCount: values.filter((candidate) => ["BACKTESTING", "RETRY_WAIT", "PROCESSING_RESULT"].includes(candidate.status)).length, candidatesTested: values.length, failedCandidateCount: values.filter((candidate) => candidate.status === "FAILED").length, retryExhaustedCandidateCount: 0, infrastructureFailureCandidateCount: 0, completionProcessingFailureCandidateCount: 0, failedAttemptCount: 0, averageBacktestDurationMs: null };
+            },
+            cancelSearchCandidates: async (searchRunId) => {
+                const candidateIds = [...candidates.values()].filter((candidate) => candidate.searchRunId === searchRunId && !["COMPLETED", "FAILED", "CANCELLED"].includes(candidate.status)).map((candidate) => candidate.candidateId);
+                for (const candidateId of candidateIds) {
+                    const candidate = candidates.get(candidateId);
+                    candidates.set(candidateId, { ...candidate, status: "CANCELLED", updatedAt: new Date().toISOString() });
+                }
+                return { candidateIds };
+            },
             removePendingJobs: async () => undefined,
-            status: async () => { throw new Error("NO_BACKTEST_COORDINATOR_CONFIGURED"); },
-            readExperimentSummary: async () => { throw new Error("NO_BACKTEST_COORDINATOR_CONFIGURED"); },
-            scoreExperiment: async () => { throw new Error("NO_BACKTEST_COORDINATOR_CONFIGURED"); },
         },
-        leaderboardService: { score: async () => { throw new Error("NO_LEADERBOARD_SERVICE_CONFIGURED"); }, submit: async () => { throw new Error("NO_LEADERBOARD_SERVICE_CONFIGURED"); }, rankSearchRun: async () => [] },
+        leaderboardService: { rankSearchRun: async () => [] },
         clock: { now: () => new Date().toISOString() },
         idGenerator: () => `search-run-${++sequence}`,
     };
@@ -94,15 +106,8 @@ function createSearchModule(dependencies = createInMemorySearchDependencies()) {
         return undefined;
     };
     const submit = async (run, candidate) => {
-        const accepted = await dependencies.backtestCoordinator.submitSearchCandidate({ leaderboardScopeId: run.leaderboardScopeId, strategyDefinitions: candidate.strategyDefinitions, compositeDefinition: candidate.compositeDefinition, maxAttempts: 1, searchRunId: run.searchRunId, iterationNumber: run.nextIteration, generatedBy: candidate.generatedBy });
+        await dependencies.backtestCoordinator.submitSearchCandidate({ leaderboardScopeId: run.leaderboardScopeId, strategyDefinitions: candidate.strategyDefinitions, compositeDefinition: candidate.compositeDefinition, maxAttempts: 1, searchRunId: run.searchRunId, iterationNumber: run.nextIteration, generatedBy: candidate.generatedBy });
         run.nextIteration += 1;
-        const progress = await dependencies.backtestCoordinator.status(accepted.candidateId, { ownerUserId: run.ownerUserId });
-        if (progress.status !== "COMPLETED" || !progress.experimentResultId)
-            return;
-        const experiment = await dependencies.backtestCoordinator.readExperimentSummary(progress.experimentResultId, { ownerUserId: run.ownerUserId });
-        const scored = await dependencies.leaderboardService.score(run.leaderboardScopeId, experiment.metrics);
-        const persisted = await dependencies.backtestCoordinator.scoreExperiment(experiment.id, scored, { ownerUserId: run.ownerUserId });
-        await dependencies.leaderboardService.submit(persisted, { kind: "COMPLETION", id: `search-${run.searchRunId}-${accepted.candidateId}`, candidateId: accepted.candidateId, completionAttemptCount: progress.completionAttemptCount, completionClaimToken: accepted.jobId, enlist: () => undefined });
     };
     const fill = async (searchRunId) => {
         const previous = fills.get(searchRunId) ?? Promise.resolve();
@@ -161,5 +166,11 @@ function createSearchModule(dependencies = createInMemorySearchDependencies()) {
         leaderboard: async (id, options) => { const run = await load(id); assertOwner(run, options); return dependencies.leaderboardService.rankSearchRun(id); },
         onCandidateFinished: fill,
         fillAvailableSlots: fill,
+        reconcileRunningRuns: async () => {
+            const runs = await dependencies.searchRunRepository.listRunning?.() ?? [];
+            for (const run of runs)
+                await fill(run.searchRunId);
+            return runs.length;
+        },
     };
 }

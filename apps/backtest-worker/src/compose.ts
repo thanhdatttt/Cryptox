@@ -26,6 +26,7 @@ export function composeWorkerModules(options: WorkerCompositionOptions = {}): Wo
     strategy: createStrategyModule(),
     evaluation: inMemory.evaluation,
     queue: inMemory.queue,
+    completion: inMemory.completion,
     clock: { now: () => new Date().toISOString() },
   }));
   return { backtesting, start: () => new BullMqBacktestWorker(redisUrl, backtesting, Number(process.env.BACKTEST_WORKER_CONCURRENCY ?? "1")) };

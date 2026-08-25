@@ -14,6 +14,9 @@ export interface StoredCandidate extends CandidateProgress {
   executionGeneration?: number;
   activeFenceToken?: string;
   activeLeaseExpiresAt?: string;
+  completionGeneration?: number;
+  activeCompletionClaimToken?: string;
+  activeCompletionLeaseExpiresAt?: string;
 }
 
 export interface StoredExperiment extends ExperimentResultSummary { ownerUserId: string; }
@@ -39,6 +42,17 @@ export interface WorkerAttemptClaim {
   fenceToken: string;
 }
 
+export interface CompletionProcessingClaim {
+  candidate: StoredCandidate;
+  claimToken: string;
+}
+
+export interface BacktestCompletionServices {
+  score(leaderboardScopeId: string, metrics: EvaluationMetrics): Promise<{ scoreFormulaId: string; overallScore: number; rankEligible: boolean }>;
+  submit(experiment: import("../domain/contracts").ExperimentResultSummary, unitOfWork: import("../domain/contracts").CompletionUnitOfWork): Promise<void>;
+  notifySearchCandidateFinished?(searchRunId: string): Promise<void>;
+}
+
 export interface BacktestingRepository {
   createInputSnapshot(snapshot: DatasetSnapshotRef, candles: Candle[]): Promise<void>;
   readInputSnapshot(snapshotId: string): Promise<{ snapshot: DatasetSnapshotRef; candles: Candle[] } | undefined>;
@@ -52,11 +66,21 @@ export interface BacktestingRepository {
   updateCandidate(candidate: StoredCandidate): Promise<void>;
   readDispatch(jobId: string): Promise<BacktestDispatch | undefined>;
   listPendingDispatches(limit: number): Promise<BacktestDispatch[]>;
+  listQueueRecoveryCandidates(limit: number): Promise<string[]>;
   markDispatchDispatched(jobId: string, dispatchedAt: string): Promise<void>;
   markDispatchFailed(jobId: string, error: string, at: string): Promise<void>;
   markDispatchCancelled(jobId: string, at: string): Promise<void>;
   claimWorkerAttempt(input: { candidateId: string; queueJobId: string; deliveryAttempt: number; attemptId: string; fenceToken: string; now: string; leaseExpiresAt: string; workerRuntimeVersion: string; workerRuntimeSha256: string }): Promise<WorkerAttemptClaim | undefined>;
   failWorkerAttempt(input: { candidate: StoredCandidate; attempt: BacktestAttemptAudit; fenceToken: string; retrying: boolean; now: string; error: string }): Promise<void>;
+  repairTerminalQueueFailure(input: { candidateId: string; error: string; now: string }): Promise<void>;
+  persistWorkerSuccess(input: { candidate: StoredCandidate; attempt: BacktestAttemptAudit; result: CompletedBacktestResult; fenceToken: string }): Promise<void>;
+  claimCompletion(input: { candidateId: string; claimToken: string; now: string; leaseExpiresAt: string }): Promise<CompletionProcessingClaim | undefined>;
+  listDueCompletions(now: string, limit: number): Promise<string[]>;
+  readLatestCompletedAttempt(candidateId: string): Promise<BacktestAttemptAudit | undefined>;
+  stageCompletionExperiment(experiment: StoredExperiment): Promise<StoredExperiment>;
+  finalizeCompletion(input: { candidate: StoredCandidate; experimentId: string; claimToken: string; now: string }): Promise<void>;
+  finalizeTerminalFailure(input: { candidate: StoredCandidate; claimToken: string; now: string }): Promise<void>;
+  failCompletion(input: { candidate: StoredCandidate; claimToken: string; retryAt?: string; now: string; error: string }): Promise<void>;
   listCandidatesBySearchRun(searchRunId: string): Promise<StoredCandidate[]>;
   createAttempt(attempt: BacktestAttemptAudit): Promise<void>;
   updateAttempt(attempt: BacktestAttemptAudit): Promise<void>;
@@ -76,6 +100,7 @@ export interface BacktestingModuleDependencies {
   evaluation: Pick<EvaluatorModulePublicApi, "evaluator">;
   repository: BacktestingRepository;
   queue: BacktestQueuePort;
+  completion: BacktestCompletionServices;
   clock: { now(): string };
   idGenerator?: () => string;
 }

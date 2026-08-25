@@ -48,17 +48,22 @@ The audit also found source-adjacent generated JavaScript/declaration files that
    - Use a database lease/fencing token at worker execution and completion so duplicate broker deliveries cannot duplicate trades or experiments. Configure bounded retries with deterministic backoff and durable retry/terminal state.
    - Acceptance: a queued submission is durable before Redis publication, can be recovered after dispatch failure, is processed at most once under a valid fence, records retry/terminal outcomes, and completes normal attempt/trade/result records through the worker process.
 
-5. **Complete durable Market Data, News, and Sentiment backend flows** *(completed in pending commit)*
+5. **Complete durable Market Data, News, and Sentiment backend flows** *(completed in `f7fc06e`)*
    - Add PostgreSQL migrations/repositories for normalized market candles/snapshots, news, sentiment analyses, and sentiment snapshots.
    - Make configured Binance access real without fabricating a provider success on failure; supply a concrete local/demo news provider and deterministic sentiment fallback with model/version provenance.
    - Expose the required authenticated REST commands and reads and prove collect → normalize → persist → analyze and snapshot retrieval with integration fixtures.
 
-6. **Close remaining backend transport and end-to-end composition gaps** *(next)*
-   - Replace remaining backend/worker public placeholders, compose all modules without `undefined as never`, and complete authenticated Strategy, Market Data, Backtesting, Search, Leaderboard, News, and Sentiment transport surfaces.
-   - Make the Search lifecycle work over queued Backtesting: generate → persist → dispatch → worker execute → evaluate → rank → retrieve, including lifecycle/recovery visibility.
-   - Acceptance: module-boundary integration tests prove the full authenticated backend flow without controller-owned domain logic or undeclared external credentials.
+6. **Implement durable Backtesting completion, ranking, and Search advancement** *(completed; commit pending)*
+   - Move evaluation, experiment persistence, scoring, and Top-K admission out of the worker completion path into a durable completion processor.
+   - Add the BullMQ terminal-notification adapter, terminal-failure/retry recovery, and startup reconciliation required by ADR-003.
+   - On each idempotent terminal completion/failure, release the corresponding Search slot and advance its bounded deterministic loop.
+   - Acceptance: integration tests prove queued generate → worker → completion processor → evaluate → rank → next slot, duplicate terminal notifications, and exhausted retry handling.
 
-7. **Docker-backed backend integration and final traceability**
+7. **Close remaining backend REST transport and facade gaps**
+   - Complete and verify all authenticated Strategy, Market Data, Backtesting, Search, Leaderboard, News, and Sentiment transport surfaces; remove or replace any remaining assignment-required facade or adapter placeholder found by the post-completion audit.
+   - Acceptance: module-boundary REST integration tests prove the full authenticated backend flow without controller-owned domain logic or undeclared external credentials.
+
+8. **Docker-backed backend integration and final traceability**
    - Make Docker Compose run PostgreSQL, Redis, backend, and the backtest worker; apply migrations and execute a real end-to-end validation.
    - Acceptance: no assignment-required backend public API, worker, queue, repository, or facade remains a `NOT_IMPLEMENTED` implementation or placeholder; full tests, build, lint, architecture check, and Docker-backed validation pass. If Docker is unavailable, record the exact evidence and stop rather than claiming completion.
 
