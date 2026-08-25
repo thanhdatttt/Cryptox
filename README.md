@@ -33,13 +33,17 @@ Architectural Decision Records (ADRs) capture the reasoning behind the key desig
 - [Node.js](https://nodejs.org/) 22 LTS or newer (npm is included)
 - Git
 
-No environment file or external API credential is currently required for the local frontend and the composition-shell backend. Before deploying the backend, set a strong `JWT_SECRET`; a development-only fallback is used locally so the Auth routes can run without a `.env` file.
+No Binance API key or secret is required: Market Data uses Binance's public REST and WebSocket endpoints only. Before deploying the backend, set a strong `JWT_SECRET`; a development-only fallback is used locally so the Auth routes can run without a `.env` file.
 
-The backend uses local/demo News plus deterministic local Sentiment by default, so core collection and analysis flows do not need external credentials. Market-data snapshots are created from persisted normalized candles. To enable the normalized Binance REST/WebSocket adapter, set this before starting the backend (internet access is required):
+The backend uses local/demo News plus deterministic local Sentiment by default, so those auxiliary flows do not need external credentials. Normal Compose mode explicitly selects the live Binance market provider. Market-data snapshots are created from persisted normalized and sealed candles. For a local launcher, set the provider and the documented public endpoints before starting the backend (internet access is required):
 
 ```powershell
 $env:MARKET_DATA_PROVIDER = "BINANCE"
+$env:MARKET_DATA_BINANCE_REST_URL = "https://api.binance.com"
+$env:MARKET_DATA_BINANCE_WS_URL = "wss://stream.binance.com:9443"
 ```
+
+`MARKET_DATA_BINANCE_REST_URL` and `MARKET_DATA_BINANCE_WS_URL` default to those same public Binance Spot URLs. They are backend-only variables; never expose them through `VITE_*` frontend configuration and never add API credentials.
 
 ### Install dependencies
 
@@ -90,7 +94,16 @@ npm run start:worker
 
 The same `DATABASE_URL`, `REDIS_URL`, and `JWT_SECRET` must be present in the backend process; the worker requires the first two. Migrations create the users, versioned Strategy Library, normalized market candle/snapshot, Backtesting input-snapshot/scope/candidate/attempt/trade/experiment, durable queue-dispatch/fence, Search-run, Leaderboard, News, Sentiment-result, and Sentiment-snapshot tables. A manual backtest first commits its candidate and dispatch record to PostgreSQL, then publishes one BullMQ job with `jobId = candidateId`. The independently runnable worker claims the delivery under a database fence, persists retries and result records, and returns a duplicate-safe terminal result. Search defaults to a deterministic offline generator over the owner’s saved strategy definitions; it does not require LLM credentials. News defaults to the concrete `LOCAL_DEMO` provider, and Sentiment defaults to the deterministic `LOCAL_LEXICON` model (`1.0.0`) with persisted model provenance.
 
-The default frontend data is deliberately labelled as demo data. Set `MARKET_DATA_PROVIDER=BINANCE` when you want the backend market-data boundary to fetch and subscribe to Binance; browser clients still never consume Binance payloads directly.
+Browser clients never consume Binance payloads directly: they use authenticated REST and Socket.IO messages from the backend. If Binance is unavailable, the Market screen reports unavailable history and a disconnected/reconnecting upstream state instead of creating synthetic candles.
+
+For deterministic offline/demo data, use the explicit Compose profile and provider override; it is not part of normal live startup:
+
+```powershell
+$env:MARKET_DATA_PROVIDER = "DEMO"
+docker compose -f infra/docker-compose.yml --profile demo up --build -d
+```
+
+The `seed-dev-market` service requires `MARKET_DATA_SEED_MODE=DEMO` and is profile-gated. Return to live mode by setting `MARKET_DATA_PROVIDER=BINANCE` and starting Compose without the demo profile.
 
 ### Verify the project
 

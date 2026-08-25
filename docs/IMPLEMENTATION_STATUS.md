@@ -3,9 +3,31 @@
 ## Current state
 
 - Branch: `implement`
-- Project status: **Frontend live backend integration audited against the assignment PDF and supplied reference images; Docker Compose/browser validation passed on 2026-08-25**
-- Current feature: **Frontend API client, authentication, market transport, strategy/library, backtest, Search, Leaderboard, News, and Settings screens wired to public backend contracts; repeatable development Market seed added**
-- Next feature: **none for this audit; provider and public-contract limitations are recorded below**
+- Project status: **Live Binance Spot market-data integration implemented and validated on 2026-08-25**
+- Current feature: **Environment-selected Binance REST klines, persisted history backfill, public trade/kline WebSocket union management, honest provider status, and explicit demo-only seed policy**
+- Next feature: **none for this market-data integration; future providers remain behind the existing adapter contract**
+
+## Live Binance market-data implementation (2026-08-25)
+
+The Market Data module now composes Binance explicitly when `MARKET_DATA_PROVIDER=BINANCE`.
+The backend-only `MARKET_DATA_BINANCE_REST_URL` and `MARKET_DATA_BINANCE_WS_URL`
+variables default to Binance's public Spot endpoints `https://api.binance.com` and
+`wss://stream.binance.com:9443`; no API key or secret is read or emitted.
+
+- No-range candle reads calculate the latest aligned closed-candle window, fetch only missing ranges through Binance REST `/api/v3/klines`, persist normalized OHLCV rows, and avoid another request while the window is complete.
+- Explicit ranges are gap-synced through the provider contract and preserve completeness errors; snapshots continue to use only persisted, non-forming sealed candles.
+- Binance combined streams normalize `@trade` and `@kline_<interval>` payloads. One subscription manager maintains the complete union for all active panels, replaces forming candles by timestamp, appends new timestamps, rejects closed-candle regressions, and reconnects with bounded exponential backoff/resubscription.
+- PostgreSQL rows carry `BINANCE:HISTORICAL_SYNC` or `BINANCE:REALTIME_STREAM` provenance. The deterministic `seed-dev-market` job is now `demo`-profile-only and requires `MARKET_DATA_SEED_MODE=DEMO`; normal Compose startup does not run it.
+- The Market UI consumes backend connection-status messages and labels Binance as not connected until the upstream status is genuinely `CONNECTED`. Provider/network failures leave the chart empty/error or disconnected/reconnecting rather than fabricating candles.
+
+## Validation evidence (2026-08-25)
+
+- Focused market-data tests passed: 16 tests covering recorded Binance REST/WebSocket payloads, REST pagination, latest no-range sync, explicit missing-range sync, provenance persistence, forming-candle replacement, closed-candle protection, panel-union resubscription, reconnect/backoff, and offline failure state.
+- Backend WebSocket/controller tests passed: 9 tests, including authenticated subscription changes and normalized message forwarding. Frontend tests passed: 15 tests, including honest disconnected provider status.
+- `npm test` passed: all workspace suites plus deterministic seed tests. `npm run build`, `npm run lint`, `npm run arch:check`, and `git diff --check` passed; the architecture check reported 773 modules and 1,077 dependencies with no violations.
+- `docker compose -f infra/docker-compose.yml config --quiet` passed. A rebuilt normal Compose run completed with migration exit 0 and healthy PostgreSQL, Redis, backend, backtest-worker, and frontend services. The `seed-dev-market` service was not started because it is demo-profile gated.
+- Authenticated live smoke against the rebuilt Compose backend passed: history returned three candles with `BINANCE:HISTORICAL_SYNC` source for BTCUSDT `1m`, `5m`, `15m`, and `1h`; the Socket.IO market stream reported `DISCONNECTED → RECONNECTING → CONNECTED` and delivered live kline updates for all four timeframes.
+- PostgreSQL verification after the smoke found Binance history and realtime rows for all four timeframes, including `BINANCE:REALTIME_STREAM` forming-candle updates.
 
 ## Frontend integration audit (2026-08-25)
 
@@ -45,7 +67,7 @@ Docker was available through Docker Desktop, but this shell did not inherit its 
 - `docker version`: passed — Docker Desktop 4.87.0, Docker Engine 29.7.2, `desktop-linux`, `linux/amd64`.
 - `docker compose version`: passed — Docker Compose v5.4.0.
 - `docker compose -f infra/docker-compose.yml up --build`: passed. PostgreSQL, Redis, backend, backtest-worker, and frontend became healthy; the migration service exited successfully. The final published endpoints were backend `http://localhost:3000` and frontend `http://localhost:5173`.
-- Development Market seed: passed. Migration `009_add_market_candle_source` adds explicit candle provenance, and the one-shot `seed-dev-market` Compose service runs `npm run seed:dev` only after migrations. It ensured exactly 1,000 deterministic BTCUSDT rows for each of `1m`, `5m`, `15m`, and `1h` (preserving 12 pre-existing 1h rows); a repeat run inserted `0` and skipped `4,000` existing keys. Seed rows use source `DEV_SEED:realtime-v1` and do not create users, credentials, backtests, or leaderboard data.
+- Development Market seed: passed in the earlier demo validation. Migration `009_add_market_candle_source` adds explicit candle provenance; the deterministic `seed-dev-market` service is now gated behind the Compose `demo` profile and `MARKET_DATA_SEED_MODE=DEMO`. Seed rows use source `DEV_SEED:realtime-v1` and do not create users, credentials, backtests, or leaderboard data.
 - API E2E against the containers: passed. A fresh user registered and logged in; protected identity, strategy definitions, composite creation, 8 historical market candles, input snapshot, benchmark scope, `202 QUEUED` manual backtest, worker-completed candidate/attempt, experiment, one trade, replay `MATCH`, 8-candle/1-marker visualization, leaderboard, Search `COMPLETED`, one Search candidate, and one Search leaderboard entry were all verified from the live responses.
 - Browser E2E against `http://localhost:5173`: passed. The UI registered and logged in a fresh synthetic account, and logout returned to sign-in. In the authenticated Compose flow, the UI restored the session after reload, showed 12 backend candles and authenticated Socket.IO `CONNECTED` state, created a strategy and weighted composite, displayed persisted generation provenance, created a snapshot/scope, queued and observed a completed backtest, rendered experiment/trade detail, verified replay `MATCH`, loaded sealed visualization markers, ran Search through `COMPLETED`, and displayed real Leaderboard rows.
 - Repeat scope validation after the final rebuild: passed. Creating another scope from the backend candle range no longer produced the duplicate canonical snapshot hash error; the newly returned scope was added to the selector and retained as the selected scope.
@@ -83,7 +105,7 @@ Commits for the corrected frontend modules: `0c22960 feat(frontend): align live 
 
 ### Explicit remaining limitations and contract gaps
 
-- Compose intentionally seeds deterministic local market data through the development-only `seed-dev-market` service. The seed is not a frontend fallback and is not a production startup dependency; a configured Binance/provider deployment is still required for production market data.
+- Deterministic local market data is available only through the explicit development-only `demo` Compose profile. Normal Compose startup uses `MARKET_DATA_PROVIDER=BINANCE`; the seed is not a startup dependency or frontend fallback.
 - The public Market contract returns OHLCV and backend markers, but no MA/Bollinger/support-resistance overlay series. The frontend does not duplicate strategy rules; those reference overlays remain unavailable until the backend contract exposes them.
 - The public News contract supports collection, normalization, persistence, and sentiment, but does not expose the reference image's LLM HTML extraction-template/version/self-healing controls. The UI reports the available pipeline and does not fabricate those controls.
 - Strategy generation remains the authenticated deterministic `LOCAL_DETERMINISTIC` adapter; URL content is not fetched and no external LLM is called. Search currently exercises the required Random Search path; advanced generators remain optional per the assignment.
@@ -201,7 +223,7 @@ The previous final-validation claim did not establish the assignment-required pr
 - Search owns durable run lifecycle state in `search_runs`; Backtesting continues to own candidate and experiment persistence, including the score written after Leaderboard evaluates the saved metrics. Leaderboard owns durable Top-K entries in `leaderboard_entries` and reads Backtesting records only through its public API adapters.
 - Queue dispatch uses `jobId = candidateId`. A `backtest_queue_dispatches` row and `QUEUED` Candidate are committed in the same PostgreSQL transaction before BullMQ publication. If publication fails or the process dies before acknowledgement, backend and worker startup reconciliation re-enqueue the durable pending record using the same job ID.
 - BullMQ uses the Candidate's bounded `maxAttempts` and a one-second exponential backoff. Each delivery takes a PostgreSQL fence/lease; late or duplicate deliveries cannot persist trades, experiments, or a candidate transition after the active fence has changed. Worker failures persist `RETRY_WAIT` or `TERMINAL_FAILURE_PENDING` before they are rethrown to BullMQ.
-- The worker app imports only Backtesting and Strategy public APIs. Its Backtesting runtime processes persisted Backtesting snapshots and strategy definitions; it does not call scope creation or configure provider adapters. Durable Market/News/Sentiment provider composition remains explicitly open in feature 5.
+- The worker app imports only Backtesting and Strategy public APIs. Its Backtesting runtime processes persisted Backtesting snapshots and strategy definitions; it does not call scope creation or configure provider adapters. Backend composition owns the live Binance provider while preserving that worker boundary.
 - Market Data, News, and Sentiment now compose concrete PostgreSQL repositories whenever `DATABASE_URL` is configured. With no configured News provider, News uses the explicit local `LOCAL_DEMO` provider; requesting an unsupported configured provider raises an explicit provider error rather than reporting a false success. Sentiment uses deterministic `LOCAL_LEXICON` version `1.0.0` with a stable model fingerprint, so core flows do not require LLM credentials.
 - `MVP_MANUAL_V1` is the shared default score-formula identity for benchmark scopes and the deterministic Leaderboard formula, preventing an unscorable default scope.
 - Workers only persist attempt/trade simulation outcomes and move a candidate to `PROCESSING_RESULT`. A completion claim with a database lease/fencing token then performs evaluation, immutable experiment staging, Leaderboard scoring/admission, final candidate state, and finally the best-effort Search callback. This ordering makes duplicate terminal signals and restarts safe.
