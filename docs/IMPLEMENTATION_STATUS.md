@@ -4,7 +4,7 @@
 
 - Branch: `implement`
 - Project status: **Frontend live backend integration audited against the assignment PDF and supplied reference images; Docker Compose/browser validation passed on 2026-08-25**
-- Current feature: **Frontend API client, authentication, market transport, strategy/library, backtest, Search, Leaderboard, News, and Settings screens wired to public backend contracts**
+- Current feature: **Frontend API client, authentication, market transport, strategy/library, backtest, Search, Leaderboard, News, and Settings screens wired to public backend contracts; repeatable development Market seed added**
 - Next feature: **none for this audit; provider and public-contract limitations are recorded below**
 
 ## Frontend integration audit (2026-08-25)
@@ -45,6 +45,7 @@ Docker was available through Docker Desktop, but this shell did not inherit its 
 - `docker version`: passed — Docker Desktop 4.87.0, Docker Engine 29.7.2, `desktop-linux`, `linux/amd64`.
 - `docker compose version`: passed — Docker Compose v5.4.0.
 - `docker compose -f infra/docker-compose.yml up --build`: passed. PostgreSQL, Redis, backend, backtest-worker, and frontend became healthy; the migration service exited successfully. The final published endpoints were backend `http://localhost:3000` and frontend `http://localhost:5173`.
+- Development Market seed: passed. Migration `009_add_market_candle_source` adds explicit candle provenance, and the one-shot `seed-dev-market` Compose service runs `npm run seed:dev` only after migrations. It ensured exactly 1,000 deterministic BTCUSDT rows for each of `1m`, `5m`, `15m`, and `1h` (preserving 12 pre-existing 1h rows); a repeat run inserted `0` and skipped `4,000` existing keys. Seed rows use source `DEV_SEED:realtime-v1` and do not create users, credentials, backtests, or leaderboard data.
 - API E2E against the containers: passed. A fresh user registered and logged in; protected identity, strategy definitions, composite creation, 8 historical market candles, input snapshot, benchmark scope, `202 QUEUED` manual backtest, worker-completed candidate/attempt, experiment, one trade, replay `MATCH`, 8-candle/1-marker visualization, leaderboard, Search `COMPLETED`, one Search candidate, and one Search leaderboard entry were all verified from the live responses.
 - Browser E2E against `http://localhost:5173`: passed. The UI registered and logged in a fresh synthetic account, and logout returned to sign-in. In the authenticated Compose flow, the UI restored the session after reload, showed 12 backend candles and authenticated Socket.IO `CONNECTED` state, created a strategy and weighted composite, displayed persisted generation provenance, created a snapshot/scope, queued and observed a completed backtest, rendered experiment/trade detail, verified replay `MATCH`, loaded sealed visualization markers, ran Search through `COMPLETED`, and displayed real Leaderboard rows.
 - Repeat scope validation after the final rebuild: passed. Creating another scope from the backend candle range no longer produced the duplicate canonical snapshot hash error; the newly returned scope was added to the selector and retained as the selected scope.
@@ -67,6 +68,7 @@ Commits for the corrected frontend modules: `0c22960 feat(frontend): align live 
 ### Final live validation evidence
 
 - Fresh browser registration/login, persisted-session reload, logout, and protected-route return to sign-in passed against the containers.
+- Fresh browser registration/login against the seeded Compose stack passed. The authenticated Market screen returned and rendered non-empty backend history for all four default panels: `BTCUSDT · 1m`, `5m`, `15m`, and `1h`, each reporting `Historical candles: 1000` with authenticated Socket.IO `Connected` state.
 - After the final `docker compose -f infra/docker-compose.yml up --build -d`, the browser created MA/RSI definitions and a weighted composite, created a snapshot/scope, observed a completed backtest with 2 trades (`-2.21%` return, `50%` win rate, `5.88%` max drawdown), verified replay `MATCH`, loaded a 12-candle/3-marker visualization, completed Random Search, and displayed two real Leaderboard rows.
 - The final browser smoke also confirmed four market panels with authenticated `CONNECTED` WebSocket state and backend candlestick rendering, plus `LOCAL_DEMO` news records with persisted `LOCAL_LEXICON` sentiment fields.
 - Final repository validation passed: `npm test` (67 tests), `npm run build`, `npm run lint`, `npm run arch:check` (763 modules / 1,050 dependencies, no violations), and `git diff --check`.
@@ -74,7 +76,7 @@ Commits for the corrected frontend modules: `0c22960 feat(frontend): align live 
 
 ### Explicit remaining limitations and contract gaps
 
-- Compose intentionally seeds deterministic local market data; only the available `1h` fixture has candles, so other timeframe panels correctly show backend empty states. This is not presented as a live Binance feed. A configured Binance/provider deployment is still required for production market data.
+- Compose intentionally seeds deterministic local market data through the development-only `seed-dev-market` service. The seed is not a frontend fallback and is not a production startup dependency; a configured Binance/provider deployment is still required for production market data.
 - The public Market contract returns OHLCV and backend markers, but no MA/Bollinger/support-resistance overlay series. The frontend does not duplicate strategy rules; those reference overlays remain unavailable until the backend contract exposes them.
 - The public News contract supports collection, normalization, persistence, and sentiment, but does not expose the reference image's LLM HTML extraction-template/version/self-healing controls. The UI reports the available pipeline and does not fabricate those controls.
 - Strategy generation remains the authenticated deterministic `LOCAL_DETERMINISTIC` adapter; URL content is not fetched and no external LLM is called. Search currently exercises the required Random Search path; advanced generators remain optional per the assignment.
@@ -176,6 +178,7 @@ The previous final-validation claim did not establish the assignment-required pr
 - Docker-backed E2E: passed against the live REST/Redis/PostgreSQL stack. Registered/logged in a user; created and persisted an MA definition and weighted composite; read 12 normalized PostgreSQL candles; created a durable snapshot/scope; submitted a `202 QUEUED` manual backtest; observed the BullMQ worker complete it; retrieved completed attempt, 2 trades, experiment, and leaderboard entry; replay returned `MATCH`; started deterministic Search with one candidate and observed `COMPLETED`, one candidate, and one Search leaderboard entry.
 - Docker-backed durable row check: passed with 1 user, 1 strategy definition, 1 composite, 12 market candles, 1 market snapshot, 1 scope, 2 candidates, 2 queue dispatches, 2 attempts, 4 trades, 2 experiments, 1 search run, and 2 leaderboard entries. Redis was reachable and the worker log reported `backtest worker ready`.
 - Final validation rerun (2026-08-25): `npm test` passed — 63 tests across all workspaces; `npm run build` passed; `npm run lint` passed; `npm run arch:check` passed with no violations across 761 modules and 1,044 dependencies; and `git diff --check` passed.
+- Development Market seed validation (2026-08-25): focused seed tests and the full `npm test` passed (71 tests including seed coverage); `npm run build`, `npm run lint`, `npm run arch:check`, migration, Compose startup, repeat seed, PostgreSQL row counts, and fresh-user browser Market verification all passed. The seed remains development-only and explicitly provenance-marked.
 
 ## Current decisions and assumptions
 

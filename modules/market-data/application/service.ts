@@ -40,7 +40,7 @@ class MarketDataService implements MarketDataModulePublicApi {
     return provider;
   }
   private async readRows(pair: string, timeframe: Timeframe): Promise<Candle[]> { return (await this.candles.read({ pair, timeframe, includeForming: true })).map((candle) => validateCandle(candle, this.now(), true)).sort((a, b) => a.timestamp.localeCompare(b.timestamp)); }
-  private async persist(observation: NormalizedProviderCandleObservation): Promise<Candle> { const candle = validateCandle(observation.candle, this.now(), true); await this.candles.upsert(candle); return candle; }
+  private async persist(observation: NormalizedProviderCandleObservation): Promise<Candle> { const candle = validateCandle({ ...observation.candle, source: observation.source }, this.now(), true); await this.candles.upsert(candle); return candle; }
   private fingerprint(query: HistoricalCandleQuery): string { return JSON.stringify({ pair: query.pair, timeframe: query.timeframe, range: query.range, limit: query.limit ?? DEFAULT_PAGE_LIMIT, includeForming: query.includeForming ?? false, completeness: query.completeness ?? "ALLOW_PARTIAL" }); }
   private encodeCursor(query: HistoricalCandleQuery, offset: number): string { return Buffer.from(JSON.stringify({ fingerprint: this.fingerprint(query), offset }), "utf8").toString("base64url"); }
   private decodeCursor(query: HistoricalCandleQuery, cursor?: string): number {

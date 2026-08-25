@@ -1,7 +1,7 @@
 import { io } from "socket.io-client";
 
 export type Timeframe = "1m" | "5m" | "15m" | "1h" | "4h" | "1d";
-export type ApiCandle = { pair: string; timeframe: Timeframe; timestamp: string; open: number; high: number; low: number; close: number; volume: number; isClosed: boolean };
+export type ApiCandle = { pair: string; timeframe: Timeframe; timestamp: string; open: number; high: number; low: number; close: number; volume: number; isClosed: boolean; source?: string };
 export type StrategyDescriptor = { name: string; displayName: string; description: string; category: string; parameters: Array<{ key: string; label: string; type: string; required: boolean; defaultValue: number | string; minimum?: number; maximum?: number; step?: number; options?: string[] }> };
 export type StrategyDefinition = { id: string; strategyName: string; parameters: Record<string, number | string>; version: number; createdAt: string; familyName?: string };
 export type Composite = { id: string; method: string; components: Array<{ strategyDefinitionId: string; weight: number }>; thresholds?: { buy: number; sell: number }; createdAt: string };

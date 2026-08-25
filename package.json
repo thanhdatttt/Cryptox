@@ -14,15 +14,18 @@
     "start": "npm run start:backend",
     "start:backend": "node scripts/start-backend.mjs",
     "start:worker": "npm run start --workspace=@cryptox/backtest-worker",
-    "test": "npm run test --workspaces --if-present",
+    "test": "npm run test:seed:dev && npm run test --workspaces --if-present",
     "test:workflow": "node --test scripts/start-backend.test.mjs",
     "arch:check": "dependency-cruise --config .dependency-cruiser.js --exclude dist --exclude d.ts modules apps packages",
-    "db:migrate": "node-pg-migrate up -m infra/db/migrations"
+    "db:migrate": "node-pg-migrate up -m infra/db/migrations",
+    "seed:dev": "node scripts/seed-dev-market.mjs",
+    "test:seed:dev": "node --test scripts/seed-dev-market.test.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
     "dependency-cruiser": "^16.10.4",
     "node-pg-migrate": "^7.9.1",
+    "pg": "^8.23.0",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8"
   }

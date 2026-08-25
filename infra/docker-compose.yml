@@ -32,6 +32,18 @@ services:
     depends_on:
       postgres: { condition: service_healthy }
 
+  seed-dev-market:
+    build:
+      context: ..
+      dockerfile: infra/docker/backend.Dockerfile
+    environment:
+      DATABASE_URL: postgres://cryptox:cryptox@postgres:5432/cryptox
+      NODE_ENV: development
+    command: ["npm", "run", "seed:dev"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
+
   backend:
     build:
       context: ..
