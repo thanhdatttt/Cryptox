@@ -152,9 +152,10 @@ export interface CandidateProgress {
 export interface BacktestAttemptProgress {
     attemptId: string;
     attemptNumber: number;
-    status: "RUNNING" | "COMPLETED" | "FAILED";
+    status: "QUEUED" | "RUNNING" | "RETRY_WAIT" | "COMPLETED" | "FAILED" | "CANCELLED";
     startedAt: string;
     completedAt?: string;
+    deliveryAttemptCount?: number;
     failureCategory?: "RETRYABLE" | "INFRASTRUCTURE" | "CANCELLED_AUDIT";
     failureCode?: string;
     errorMessage?: string;
@@ -166,6 +167,8 @@ export interface BacktestAttemptAudit extends BacktestAttemptProgress {
     workerRuntimeSha256: string;
     tradeCount: number;
     auditOnly: boolean;
+    fenceToken?: string;
+    leaseExpiresAt?: string;
 }
 export interface ExperimentResult {
     id: string;

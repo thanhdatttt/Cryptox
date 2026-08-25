@@ -81,19 +81,19 @@ describe("backend composition", () => {
     } as unknown as BackendModules;
     const scope = await new BacktestScopeController(modules).create(`Bearer ${token}`, "scope-key", { name: "fixture", pair: "BTCUSDT", timeframe: "1h", from: snapshot.range.from, to: snapshot.range.to, initialCapital: 1000, feeRatePercent: 0, slippageBps: 0 });
     const accepted = await new BacktestController(modules).start(`Bearer ${token}`, "submission-key", { leaderboardScopeId: scope.id, strategyDefinitionIds: [definition.id], compositeDefinitionId: composite.id, maxAttempts: 1 });
+    expect(accepted).toMatchObject({ candidateId: accepted.jobId, status: "QUEUED" });
+    await backtesting.processQueueJob({ schemaVersion: 1, jobId: accepted.jobId, candidateId: accepted.candidateId, leaderboardScopeId: scope.id, maxAttempts: 1, workerRuntimeVersion: "1", workerRuntimeSha256: "c".repeat(64), enqueuedAt: "2025-01-01T03:00:00.000Z" }, { attemptNumber: 1, fenceToken: "controller-worker" });
     const progress = await new BacktestController(modules).status(`Bearer ${token}`, accepted.candidateId);
     const attempt = await new BacktestAttemptController(modules).read(`Bearer ${token}`, progress.attempts[0]!.attemptId);
     const experiment = await new ExperimentController(modules).read(`Bearer ${token}`, progress.experimentResultId!);
 
-    expect(accepted.status).toBe("COMPLETED");
+    expect(progress.status).toBe("COMPLETED");
     expect(attempt).toMatchObject({ status: "COMPLETED", tradeCount: 1 });
     await expect(new BacktestAttemptController(modules).trades(`Bearer ${token}`, attempt.attemptId, "10")).resolves.toMatchObject({ items: [expect.objectContaining({ exitReason: "RANGE_END" })] });
     await expect(new ExperimentController(modules).trades(`Bearer ${token}`, experiment.id, "10")).resolves.toMatchObject({ items: [expect.objectContaining({ result: "WIN" })] });
 
     const searchStarted = await new SearchController(modules).start(`Bearer ${token}`, { leaderboardScopeId: scope.id, strategyDefinitionIds: [definition.id], maxCandidates: 2, maxInFlight: 1 });
-    await expect(new SearchController(modules).status(`Bearer ${token}`, searchStarted.searchRunId)).resolves.toMatchObject({ state: "COMPLETED", candidatesTested: 2 });
-    await expect(new SearchController(modules).leaderboard(`Bearer ${token}`, searchStarted.searchRunId)).resolves.toHaveLength(2);
-    await expect(new LeaderboardController(modules).topK(`Bearer ${token}`, scope.id)).resolves.toHaveLength(2);
+    await expect(new SearchController(modules).status(`Bearer ${token}`, searchStarted.searchRunId)).resolves.toMatchObject({ state: "RUNNING", candidatesTested: 1, queuedCount: 1 });
   });
 
   it("maps authenticated bounded Search lifecycle and scoped Top-K routes to public facades", async () => {

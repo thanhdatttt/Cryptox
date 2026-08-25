@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.createInMemoryBacktestingDependencies = exports.createBacktestingService = exports.verifyReplay = exports.listExperimentTrades = exports.scoreExperiment = exports.listSearchExperimentSummaries = exports.readExperimentSummary = exports.listAttemptTrades = exports.readAttempt = exports.removePendingJobs = exports.cancelManualCandidate = exports.cancelSearchCandidates = exports.listSearchCandidates = exports.summarizeSearchCandidates = exports.status = exports.submitSearchCandidate = exports.startManual = exports.readBenchmarkScope = exports.createBenchmarkScope = exports.simulateBacktest = void 0;
+exports.createInMemoryBacktestingDependencies = exports.createBacktestingService = exports.verifyReplay = exports.listExperimentTrades = exports.scoreExperiment = exports.listSearchExperimentSummaries = exports.readExperimentSummary = exports.listAttemptTrades = exports.readAttempt = exports.removePendingJobs = exports.cancelManualCandidate = exports.cancelSearchCandidates = exports.listSearchCandidates = exports.summarizeSearchCandidates = exports.status = exports.processQueueJob = exports.reconcileQueue = exports.submitSearchCandidate = exports.startManual = exports.readBenchmarkScope = exports.createBenchmarkScope = exports.simulateBacktest = void 0;
 const service_1 = require("../application/service");
 var simulator_1 = require("../domain/simulator");
 Object.defineProperty(exports, "simulateBacktest", { enumerable: true, get: function () { return simulator_1.simulateBacktest; } });
@@ -13,6 +13,10 @@ const startManual = (command, options) => defaultService.startManual(command, op
 exports.startManual = startManual;
 const submitSearchCandidate = (command) => defaultService.submitSearchCandidate(command);
 exports.submitSearchCandidate = submitSearchCandidate;
+const reconcileQueue = (limit) => defaultService.reconcileQueue(limit);
+exports.reconcileQueue = reconcileQueue;
+const processQueueJob = (job, delivery) => defaultService.processQueueJob(job, delivery);
+exports.processQueueJob = processQueueJob;
 const status = (candidateId, options) => defaultService.status(candidateId, options);
 exports.status = status;
 const summarizeSearchCandidates = (searchRunId) => defaultService.summarizeSearchCandidates(searchRunId);

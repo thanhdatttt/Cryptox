@@ -58,7 +58,7 @@ describe("search runtime", () => {
     await expect(start(config, owner)).rejects.toThrow("NO_BACKTEST_COORDINATOR_CONFIGURED");
   });
 
-  it("runs deterministic generation through Backtesting, Evaluation, and Top-K Leaderboard projections", async () => {
+  it("submits deterministic generation to the durable Backtesting queue without assuming inline completion", async () => {
     const snapshot = { id: "snapshot-1", pair: "BTCUSDT", pairMetadata: { pair: "BTCUSDT", baseAsset: "BTC", quoteAsset: "USDT", settlementAsset: "USDT" }, timeframe: "1h" as const, range: { from: "2025-01-01T00:00:00.000Z", to: "2025-01-01T03:00:00.000Z" }, candleCount: 3, sha256: "a".repeat(64), createdAt: "2025-01-01T00:00:00.000Z" };
     const candles = [
       { pair: "BTCUSDT", timeframe: "1h" as const, timestamp: "2025-01-01T00:00:00.000Z", open: 100, high: 102, low: 99, close: 101, volume: 1, isClosed: true },
@@ -74,14 +74,10 @@ describe("search runtime", () => {
 
     const started = await search.start({ searchSpace: { availableStrategies: [definition] }, stopCondition: { maxCandidates: 2 }, generatorType: "RANDOM", leaderboardScopeId: scope.id, maxInFlight: 1 }, owner);
     const status = await search.status(started.searchRunId, owner);
-    const ranking = await search.leaderboard(started.searchRunId, owner);
 
-    expect(status).toMatchObject({ state: "COMPLETED", stopReason: "MAX_CANDIDATES", candidatesTested: 2 });
-    await expect(backtesting.listSearchCandidates(started.searchRunId, { limit: 10 })).resolves.toMatchObject({ items: [expect.anything(), expect.anything()] });
-    expect(ranking).toHaveLength(2);
-    await expect(leaderboard.topK(scope.id)).resolves.toHaveLength(2);
-    const scoredExperiment = await backtesting.readExperimentSummary(ranking[0]!.experimentResultId, { ownerUserId: "user-1" });
-    expect(scoredExperiment).toMatchObject({ rankEligible: true });
-    expect(scoredExperiment.overallScore).toBeGreaterThan(0);
+    expect(status).toMatchObject({ state: "RUNNING", candidatesTested: 1, queuedCount: 1 });
+    await expect(backtesting.listSearchCandidates(started.searchRunId, { limit: 10 })).resolves.toMatchObject({ items: [expect.objectContaining({ status: "QUEUED" })] });
+    await expect(search.leaderboard(started.searchRunId, owner)).resolves.toEqual([]);
+    await expect(leaderboard.topK(scope.id)).resolves.toEqual([]);
   });
 });

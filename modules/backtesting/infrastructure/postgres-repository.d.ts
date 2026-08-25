@@ -1,7 +1,7 @@
 import type { EvaluationMetrics } from "modules/evaluation/api";
 import type { Candle, DatasetSnapshotRef } from "modules/market-data/api";
 import type { BacktestAttemptAudit, BacktestAttemptProgress, CompletedBacktestResult, Trade } from "../domain/contracts";
-import type { BacktestingRepository, StoredBenchmarkScope, StoredCandidate, StoredExperiment } from "../application/ports";
+import type { BacktestDispatch, BacktestingRepository, StoredBenchmarkScope, StoredCandidate, StoredExperiment, WorkerAttemptClaim } from "../application/ports";
 export interface BacktestingSqlClient {
     query<Row>(text: string, values: unknown[]): Promise<{
         rows: Row[];
@@ -29,14 +29,43 @@ export declare class PostgresBacktestingRepository implements BacktestingReposit
     private candidateFrom;
     private candidateSql;
     createCandidate(input: StoredCandidate, key?: string): Promise<StoredCandidate>;
+    createQueuedSubmission(input: {
+        candidate: StoredCandidate;
+        dispatch: BacktestDispatch;
+        submissionIdempotencyKey?: string;
+    }): Promise<StoredCandidate>;
     findCandidateBySubmission(ownerUserId: string, key: string): Promise<StoredCandidate | undefined>;
     readCandidate(candidateId: string): Promise<StoredCandidate | undefined>;
     updateCandidate(input: StoredCandidate): Promise<void>;
+    readDispatch(jobId: string): Promise<BacktestDispatch | undefined>;
+    listPendingDispatches(limit: number): Promise<BacktestDispatch[]>;
+    markDispatchDispatched(jobId: string, dispatchedAt: string): Promise<void>;
+    markDispatchFailed(jobId: string, error: string, at: string): Promise<void>;
+    markDispatchCancelled(jobId: string, at: string): Promise<void>;
     listCandidatesBySearchRun(searchRunId: string): Promise<StoredCandidate[]>;
     createAttempt(input: BacktestAttemptAudit): Promise<void>;
     updateAttempt(input: BacktestAttemptAudit): Promise<void>;
     readAttempt(attemptId: string): Promise<BacktestAttemptAudit | undefined>;
     listAttempts(candidateId: string): Promise<BacktestAttemptProgress[]>;
+    claimWorkerAttempt(input: {
+        candidateId: string;
+        queueJobId: string;
+        deliveryAttempt: number;
+        attemptId: string;
+        fenceToken: string;
+        now: string;
+        leaseExpiresAt: string;
+        workerRuntimeVersion: string;
+        workerRuntimeSha256: string;
+    }): Promise<WorkerAttemptClaim | undefined>;
+    failWorkerAttempt(input: {
+        candidate: StoredCandidate;
+        attempt: BacktestAttemptAudit;
+        fenceToken: string;
+        retrying: boolean;
+        now: string;
+        error: string;
+    }): Promise<void>;
     private saveTrade;
     completeAttempt(input: {
         candidate: StoredCandidate;
@@ -44,6 +73,7 @@ export declare class PostgresBacktestingRepository implements BacktestingReposit
         result: CompletedBacktestResult;
         metrics: EvaluationMetrics;
         experiment: StoredExperiment;
+        fenceToken?: string;
     }): Promise<void>;
     listTrades(attemptId: string): Promise<Trade[]>;
     readExperiment(experimentId: string): Promise<StoredExperiment | undefined>;

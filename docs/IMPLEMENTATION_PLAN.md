@@ -42,22 +42,25 @@ The audit also found source-adjacent generated JavaScript/declaration files that
    - Persist search runs, candidate projections, and leaderboard entries; expose authenticated REST commands and reads.
    - Acceptance: a bounded search generates deterministic strategies without external credentials, submits/evaluates them through Backtesting, and serves scope-specific rankings with lifecycle controls. Search runs and Leaderboard entries are durable; candidate and experiment records remain Backtesting-owned durable projections.
 
-4. **Replace the Backtesting worker/queue skeleton with durable dispatch and recovery**
-   - Replace `apps/backtest-worker` placeholder adapters and the Backtesting queue placeholder with a real job dispatch/consume/complete path.
-   - Move the synchronous manual processor behind that queue boundary; persist job state and retry/recovery outcomes.
-   - Acceptance: an accepted backtest survives a process restart, is consumed by the worker exactly once per attempt, and completes its durable audit records.
+4. **Replace the Backtesting worker/queue skeleton with durable dispatch and recovery** *(completed; commit pending)*
+   - Replace `apps/backtest-worker` and the Backtesting queue placeholder with BullMQ/Redis dispatch and consumption.
+   - Persist a transactional dispatch record before publishing, use a stable job identity, and make recovery replay undispatched work after a process failure.
+   - Use a database lease/fencing token at worker execution and completion so duplicate broker deliveries cannot duplicate trades or experiments. Configure bounded retries with deterministic backoff and durable retry/terminal state.
+   - Acceptance: a queued submission is durable before Redis publication, can be recovered after dispatch failure, is processed at most once under a valid fence, records retry/terminal outcomes, and completes normal attempt/trade/result records through the worker process.
 
-5. **Deliver live frontend flows for implemented APIs**
-   - Replace hard-coded demo paths with authenticated REST/WebSocket transport and loading/error/empty states for strategy, market charts, backtests/trades, discovery/leaderboard, and news.
-   - Acceptance: the supplied screen flows operate against the composed backend without direct Binance payload handling in the browser.
+5. **Complete durable Market Data, News, and Sentiment backend flows**
+   - Add PostgreSQL migrations/repositories for normalized market candles/snapshots, news, sentiment analyses, and sentiment snapshots.
+   - Make configured Binance access real without fabricating a provider success on failure; supply a concrete local/demo news provider and deterministic sentiment fallback with model/version provenance.
+   - Expose the required authenticated REST commands and reads and prove collect → normalize → persist → analyze and snapshot retrieval with integration fixtures.
 
-6. **Complete market and news/sentiment production adapters**
-   - Persist normalized market/news data as required by the pipeline; make Binance realtime/history and the configured news collection → store → sentiment flow concrete, resilient, and observable.
-   - Acceptance: adapter-contract tests plus an integration fixture prove the full collect/normalize/store/analyze and realtime update paths.
+6. **Close remaining backend transport and end-to-end composition gaps**
+   - Replace remaining backend/worker public placeholders, compose all modules without `undefined as never`, and complete authenticated Strategy, Market Data, Backtesting, Search, Leaderboard, News, and Sentiment transport surfaces.
+   - Make the Search lifecycle work over queued Backtesting: generate → persist → dispatch → worker execute → evaluate → rank → retrieve, including lifecycle/recovery visibility.
+   - Acceptance: module-boundary integration tests prove the full authenticated backend flow without controller-owned domain logic or undeclared external credentials.
 
-7. **Docker-backed integration and final traceability**
-   - Run PostgreSQL/Redis/backend/worker/frontend together, apply migrations, execute an end-to-end smoke flow, close remaining visual/requirements-map gaps, and remove obsolete placeholders.
-   - Acceptance: no assignment-required public `NOT_IMPLEMENTED` implementation remains; full tests, build, lint, architecture check, and Docker-backed validation pass.
+7. **Docker-backed backend integration and final traceability**
+   - Make Docker Compose run PostgreSQL, Redis, backend, and the backtest worker; apply migrations and execute a real end-to-end validation.
+   - Acceptance: no assignment-required backend public API, worker, queue, repository, or facade remains a `NOT_IMPLEMENTED` implementation or placeholder; full tests, build, lint, architecture check, and Docker-backed validation pass. If Docker is unavailable, record the exact evidence and stop rather than claiming completion.
 
 ## Execution discipline
 

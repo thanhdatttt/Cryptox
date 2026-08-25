@@ -1,4 +1,5 @@
 import type { BacktestAttemptAudit, BacktestSubmissionAccepted, BenchmarkScopeSummary, CandidateProgress, CancellationUnitOfWork, CreateLeaderboardScopeCommand, ExperimentResultSummary, ReplayVerificationResult, StartManualBacktestCommand, SubmitSearchCandidateCommand, Trade } from "../domain/contracts";
+import type { BacktestQueueJob, BacktestQueueReturn } from "@cryptox/contracts/queue";
 export { simulateBacktest } from "../domain/simulator";
 export type { SimulationInput } from "../domain/simulator";
 export type { CandidateStatus, BacktestSubmissionAccepted, CancellationUnitOfWork, CompletionUnitOfWork, Trade, CompletedBacktestResult, GeneratorType, CreateLeaderboardScopeCommand, StartManualBacktestCommand, SubmitSearchCandidateCommand, BenchmarkScopeSummary, ReplayVerificationResult, CandidateProgress, BacktestAttemptProgress, BacktestAttemptAudit, ExperimentResult, ExperimentResultSummary } from "../domain/contracts";
@@ -45,6 +46,14 @@ export interface BacktestLogApi {
         submissionIdempotencyKey?: string;
     }): Promise<BacktestSubmissionAccepted>;
     submitSearchCandidate(command: SubmitSearchCandidateCommand): Promise<BacktestSubmissionAccepted>;
+    reconcileQueue(limit?: number): Promise<{
+        dispatched: number;
+        pending: number;
+    }>;
+    processQueueJob(job: BacktestQueueJob, delivery: {
+        attemptNumber: number;
+        fenceToken?: string;
+    }): Promise<BacktestQueueReturn>;
     status(candidateId: string, options?: BacktestReadOptions): Promise<CandidateProgress>;
     summarizeSearchCandidates(searchRunId: string): Promise<SearchCandidateSummary>;
     listSearchCandidates(searchRunId: string, page: SearchCandidatePageRequest): Promise<SearchCandidatePage>;
@@ -68,6 +77,8 @@ export declare const createBenchmarkScope: BacktestLogApi["createBenchmarkScope"
 export declare const readBenchmarkScope: BacktestLogApi["readBenchmarkScope"];
 export declare const startManual: BacktestLogApi["startManual"];
 export declare const submitSearchCandidate: BacktestLogApi["submitSearchCandidate"];
+export declare const reconcileQueue: BacktestLogApi["reconcileQueue"];
+export declare const processQueueJob: BacktestLogApi["processQueueJob"];
 export declare const status: BacktestLogApi["status"];
 export declare const summarizeSearchCandidates: BacktestLogApi["summarizeSearchCandidates"];
 export declare const listSearchCandidates: BacktestLogApi["listSearchCandidates"];

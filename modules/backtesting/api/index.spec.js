@@ -144,26 +144,40 @@ const candle = (timestamp, open, close) => ({
         const snapshot = { id: "snapshot-1", pair: "BTCUSDT", pairMetadata: { pair: "BTCUSDT", baseAsset: "BTC", quoteAsset: "USDT", settlementAsset: "USDT" }, timeframe: "1h", range: { from: "2025-01-01T00:00:00.000Z", to: "2025-01-01T03:00:00.000Z" }, candleCount: 3, sha256: "s".repeat(64), createdAt: "2025-01-01T00:00:00.000Z" };
         const candles = [candle("2025-01-01T00:00:00.000Z", 100, 101), candle("2025-01-01T01:00:00.000Z", 102, 105), candle("2025-01-01T02:00:00.000Z", 106, 110)];
         let sequence = 0;
+        const queue = new service_1.InMemoryBacktestQueue();
+        let transientFailures = 1;
         const service = (0, service_1.createBacktestingService)({
             ...(0, service_1.createInMemoryBacktestingDependencies)(),
+            queue,
             marketData: { readDatasetSnapshot: async () => ({ snapshot, candles }) },
             strategy: {
-                resolveStrategy: async () => ({ name: "test", category: "TREND", analyze: (context) => context.candles.length === 1 ? "BUY" : "HOLD" }),
+                resolveStrategy: async () => {
+                    if (transientFailures-- > 0)
+                        throw new Error("TRANSIENT_STRATEGY_ARTIFACT_FAILURE");
+                    return { name: "test", category: "TREND", analyze: (context) => context.candles.length === 1 ? "BUY" : "HOLD" };
+                },
                 combineSignals: (_definition, signals) => signals[0]?.signal ?? "HOLD",
             },
             evaluation: (0, bootstrap_1.createEvaluationModule)(),
-            clock: { now: () => `2025-01-01T0${sequence++}:00:00.000Z` },
+            clock: { now: () => "2025-01-01T00:00:00.000Z" },
             idGenerator: () => `id-${sequence++}`,
         });
         const definition = { id: "definition-1", logicalFamilyKey: "strategy:test", strategyName: "TEST", implementationVersion: "1", implementationSha256: "a".repeat(64), version: 1, parameters: {}, createdAt: "2025-01-01T00:00:00.000Z" };
         const composite = { id: "composite-1", logicalFamilyKey: "composite:test", version: 1, method: "MAJORITY_VOTE", components: [{ strategyDefinitionId: definition.id, weight: 0 }], createdAt: "2025-01-01T00:00:00.000Z" };
         const scope = await service.createBenchmarkScope({ name: "BTC fixture", datasetSnapshot: snapshot, initialCapital: 1000, feeRatePercent: 0, slippageBps: 0, scoreFormulaId: "MVP_MANUAL_V1", workerRuntimeVersion: "1", workerRuntimeSha256: "b".repeat(64), evaluationRuntimeVersion: "1", evaluationRuntimeSha256: "c".repeat(64) }, { ownerUserId: "user-1", scopeIdempotencyKey: "scope-key" });
-        const accepted = await service.startManual({ leaderboardScopeId: scope.id, strategyDefinitions: [definition], compositeDefinition: composite, maxAttempts: 1 }, { ownerUserId: "user-1", submissionIdempotencyKey: "submission-key" });
-        (0, vitest_1.expect)(accepted.status).toBe("COMPLETED");
-        await (0, vitest_1.expect)(service.startManual({ leaderboardScopeId: scope.id, strategyDefinitions: [definition], compositeDefinition: composite, maxAttempts: 1 }, { ownerUserId: "user-1", submissionIdempotencyKey: "submission-key" })).resolves.toEqual(accepted);
+        const accepted = await service.startManual({ leaderboardScopeId: scope.id, strategyDefinitions: [definition], compositeDefinition: composite, maxAttempts: 2 }, { ownerUserId: "user-1", submissionIdempotencyKey: "submission-key" });
+        (0, vitest_1.expect)(accepted).toMatchObject({ candidateId: accepted.jobId, status: "QUEUED" });
+        await (0, vitest_1.expect)(service.startManual({ leaderboardScopeId: scope.id, strategyDefinitions: [definition], compositeDefinition: composite, maxAttempts: 2 }, { ownerUserId: "user-1", submissionIdempotencyKey: "submission-key" })).resolves.toEqual(accepted);
+        const job = queue.jobs.get(accepted.jobId);
+        (0, vitest_1.expect)(job).toMatchObject({ jobId: accepted.candidateId, maxAttempts: 2 });
+        await (0, vitest_1.expect)(service.processQueueJob(job, { attemptNumber: 1, fenceToken: "worker-claim-1" })).rejects.toThrow("TRANSIENT_STRATEGY_ARTIFACT_FAILURE");
+        await (0, vitest_1.expect)(service.status(accepted.candidateId, { ownerUserId: "user-1" })).resolves.toMatchObject({ status: "RETRY_WAIT", attempts: [{ status: "FAILED", failureCategory: "RETRYABLE" }] });
+        await (0, vitest_1.expect)(service.processQueueJob(job, { attemptNumber: 2, fenceToken: "worker-claim-2" })).resolves.toMatchObject({ status: "COMPLETED", candidateId: accepted.candidateId });
+        await (0, vitest_1.expect)(service.processQueueJob(job, { attemptNumber: 2, fenceToken: "stale-claim" })).resolves.toMatchObject({ status: "IGNORED", reason: "ALREADY_TERMINAL" });
         const progress = await service.status(accepted.candidateId, { ownerUserId: "user-1" });
-        (0, vitest_1.expect)(progress).toMatchObject({ status: "COMPLETED", attempts: [{ status: "COMPLETED" }] });
-        const attempt = await service.readAttempt(progress.attempts[0].attemptId, { ownerUserId: "user-1" });
+        (0, vitest_1.expect)(progress).toMatchObject({ status: "COMPLETED", attempts: [{ status: "FAILED" }, { status: "COMPLETED" }] });
+        const completedProgress = progress.attempts.find((attempt) => attempt.status === "COMPLETED");
+        const attempt = await service.readAttempt(completedProgress.attemptId, { ownerUserId: "user-1" });
         const trades = await service.listAttemptTrades(attempt.attemptId, { limit: 10 }, { ownerUserId: "user-1" });
         (0, vitest_1.expect)(trades.items).toHaveLength(1);
         const experiment = await service.readExperimentSummary(progress.experimentResultId, { ownerUserId: "user-1" });

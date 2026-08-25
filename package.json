@@ -13,6 +13,7 @@
     "smoke:dev": "node scripts/smoke-dev.mjs",
     "start": "npm run start:backend",
     "start:backend": "node scripts/start-backend.mjs",
+    "start:worker": "npm run start --workspace=@cryptox/backtest-worker",
     "test": "npm run test --workspaces --if-present",
     "test:workflow": "node --test scripts/start-backend.test.mjs",
     "arch:check": "dependency-cruise --config .dependency-cruiser.js --exclude dist --exclude d.ts modules apps packages",

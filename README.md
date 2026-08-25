@@ -72,18 +72,23 @@ npm start
 
 The same commands work in Windows PowerShell, Command Prompt, macOS, and Linux. The launcher sets the compiled module resolution path in Node itself, not through shell-specific environment-variable syntax.
 
-### Persist accounts with PostgreSQL (optional for local development)
+### Run the durable backtest worker with PostgreSQL and Redis
 
-The backend uses its in-memory Auth repository when `DATABASE_URL` is absent. To use the PostgreSQL repository, start the database service, apply the migrations, and set both runtime variables before starting the backend:
+The backend uses in-memory adapters only when `DATABASE_URL` and `REDIS_URL` are absent. The real durable Backtesting path requires PostgreSQL and Redis. Start both services, apply the migrations, and set the runtime variables before starting the backend and worker:
 
 ```powershell
-docker compose -f infra/docker-compose.yml up -d postgres
+docker compose -f infra/docker-compose.yml up -d postgres redis
 $env:DATABASE_URL = "postgres://cryptox:cryptox@localhost:5432/cryptox"
+$env:REDIS_URL = "redis://localhost:6379"
 $env:JWT_SECRET = "replace-this-with-a-long-random-production-secret"
 npm run db:migrate
+npm run build
+npm run start:backend
+# In another terminal with the same DATABASE_URL and REDIS_URL:
+npm run start:worker
 ```
 
-The same `DATABASE_URL` and `JWT_SECRET` must be present in the backend process. The migrations create the `users` table, versioned Strategy Library tables, Backtesting-owned input-snapshot/benchmark-scope/candidate/attempt/trade/experiment-result tables, plus durable Search-run and Leaderboard-entry tables. With PostgreSQL enabled, authenticated scope/manual-backtest/Search/Leaderboard endpoints persist this audit trail. Search defaults to a deterministic offline generator over the owner’s saved strategy definitions; it does not require LLM credentials. The asynchronous worker/queue flow remains a future implementation step.
+The same `DATABASE_URL`, `REDIS_URL`, and `JWT_SECRET` must be present in the backend process; the worker requires the first two. Migrations create the users, versioned Strategy Library, Backtesting input-snapshot/scope/candidate/attempt/trade/experiment, durable queue-dispatch/fence, Search-run, and Leaderboard tables. A manual backtest first commits its candidate and dispatch record to PostgreSQL, then publishes one BullMQ job with `jobId = candidateId`. The independently runnable worker claims the delivery under a database fence, persists retries and result records, and returns a duplicate-safe terminal result. Search defaults to a deterministic offline generator over the owner’s saved strategy definitions; it does not require LLM credentials.
 
 The default frontend data is deliberately labelled as demo data. Set `MARKET_DATA_PROVIDER=BINANCE` when you want the backend market-data boundary to fetch and subscribe to Binance; browser clients still never consume Binance payloads directly.
 

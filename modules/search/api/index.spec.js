@@ -51,7 +51,7 @@ const owner = { ownerUserId: "user-1" };
     (0, vitest_1.it)("keeps the static lifecycle facade explicit while composed loops are stateful", async () => {
         await (0, vitest_1.expect)((0, index_1.start)(config, owner)).rejects.toThrow("NO_BACKTEST_COORDINATOR_CONFIGURED");
     });
-    (0, vitest_1.it)("runs deterministic generation through Backtesting, Evaluation, and Top-K Leaderboard projections", async () => {
+    (0, vitest_1.it)("submits deterministic generation to the durable Backtesting queue without assuming inline completion", async () => {
         const snapshot = { id: "snapshot-1", pair: "BTCUSDT", pairMetadata: { pair: "BTCUSDT", baseAsset: "BTC", quoteAsset: "USDT", settlementAsset: "USDT" }, timeframe: "1h", range: { from: "2025-01-01T00:00:00.000Z", to: "2025-01-01T03:00:00.000Z" }, candleCount: 3, sha256: "a".repeat(64), createdAt: "2025-01-01T00:00:00.000Z" };
         const candles = [
             { pair: "BTCUSDT", timeframe: "1h", timestamp: "2025-01-01T00:00:00.000Z", open: 100, high: 102, low: 99, close: 101, volume: 1, isClosed: true },
@@ -66,13 +66,9 @@ const owner = { ownerUserId: "user-1" };
         const search = (0, index_1.createSearchModule)({ ...(0, index_1.createInMemorySearchDependencies)(), backtestCoordinator: backtesting, leaderboardService: leaderboard, clock: { now: () => "2025-01-01T03:00:00.000Z" }, idGenerator: () => "search-run-1" });
         const started = await search.start({ searchSpace: { availableStrategies: [definition] }, stopCondition: { maxCandidates: 2 }, generatorType: "RANDOM", leaderboardScopeId: scope.id, maxInFlight: 1 }, owner);
         const status = await search.status(started.searchRunId, owner);
-        const ranking = await search.leaderboard(started.searchRunId, owner);
-        (0, vitest_1.expect)(status).toMatchObject({ state: "COMPLETED", stopReason: "MAX_CANDIDATES", candidatesTested: 2 });
-        await (0, vitest_1.expect)(backtesting.listSearchCandidates(started.searchRunId, { limit: 10 })).resolves.toMatchObject({ items: [vitest_1.expect.anything(), vitest_1.expect.anything()] });
-        (0, vitest_1.expect)(ranking).toHaveLength(2);
-        await (0, vitest_1.expect)(leaderboard.topK(scope.id)).resolves.toHaveLength(2);
-        const scoredExperiment = await backtesting.readExperimentSummary(ranking[0].experimentResultId, { ownerUserId: "user-1" });
-        (0, vitest_1.expect)(scoredExperiment).toMatchObject({ rankEligible: true });
-        (0, vitest_1.expect)(scoredExperiment.overallScore).toBeGreaterThan(0);
+        (0, vitest_1.expect)(status).toMatchObject({ state: "RUNNING", candidatesTested: 1, queuedCount: 1 });
+        await (0, vitest_1.expect)(backtesting.listSearchCandidates(started.searchRunId, { limit: 10 })).resolves.toMatchObject({ items: [vitest_1.expect.objectContaining({ status: "QUEUED" })] });
+        await (0, vitest_1.expect)(search.leaderboard(started.searchRunId, owner)).resolves.toEqual([]);
+        await (0, vitest_1.expect)(leaderboard.topK(scope.id)).resolves.toEqual([]);
     });
 });

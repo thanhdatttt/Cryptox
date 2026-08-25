@@ -1,21 +1,32 @@
-import { createBacktestingModule, createInMemoryBacktestingDependencies } from "modules/backtesting/api/bootstrap";
-import { createMarketDataSnapshotReader } from "modules/market-data/api/snapshot-reader";
-import { createSentimentModule } from "modules/sentiment/api/bootstrap";
+import { Pool } from "pg";
+import { BullMqBacktestWorker, createBacktestingModule, createInMemoryBacktestingDependencies, createPostgresBacktestingDependencies } from "modules/backtesting/api/bootstrap";
+import type { BacktestLogApi } from "modules/backtesting/api";
 import { createStrategyModule } from "modules/strategy/api/bootstrap";
 
-export function composeWorkerModules(): Record<string, unknown> {
-  const marketData = createMarketDataSnapshotReader({ snapshotRepository: { read: async () => undefined, create: async () => { throw new Error("NOT_IMPLEMENTED"); } }, clock: { now: () => new Date().toISOString() }, observability: { record: () => undefined } });
-  const sentiment = createSentimentModule({
-    analysis: { analyze: async () => { throw new Error("NOT_IMPLEMENTED"); } },
-    resultRepository: { insert: async (result) => result, readLatestForNews: async () => undefined, readForSnapshot: async () => [] },
-    snapshotRepository: { insertSealed: async (ref) => ref, getRef: async () => undefined, readSealed: async () => undefined },
+export interface WorkerModules {
+  backtesting: BacktestLogApi;
+  start(): BullMqBacktestWorker;
+}
+
+export interface WorkerCompositionOptions {
+  databaseUrl?: string;
+  redisUrl?: string;
+  pool?: Pool;
+}
+
+export function composeWorkerModules(options: WorkerCompositionOptions = {}): WorkerModules {
+  const databaseUrl = options.databaseUrl ?? process.env.DATABASE_URL;
+  const redisUrl = options.redisUrl ?? process.env.REDIS_URL;
+  if (!databaseUrl) throw new Error("BACKTEST_WORKER_DATABASE_URL_REQUIRED");
+  if (!redisUrl) throw new Error("BACKTEST_WORKER_REDIS_URL_REQUIRED");
+  const inMemory = createInMemoryBacktestingDependencies();
+  const pool = options.pool ?? new Pool({ connectionString: databaseUrl });
+  const backtesting = createBacktestingModule(createPostgresBacktestingDependencies(pool, {
+    marketData: inMemory.marketData,
+    strategy: createStrategyModule(),
+    evaluation: inMemory.evaluation,
+    queue: inMemory.queue,
     clock: { now: () => new Date().toISOString() },
-  });
-  const modules = {
-    backtesting: createBacktestingModule({ ...createInMemoryBacktestingDependencies(), marketData, strategy: createStrategyModule(undefined as never) }),
-    strategy: createStrategyModule(undefined as never),
-    marketDataSnapshotReader: marketData,
-    sentimentRead: sentiment,
-  };
-  return modules;
+  }));
+  return { backtesting, start: () => new BullMqBacktestWorker(redisUrl, backtesting, Number(process.env.BACKTEST_WORKER_CONCURRENCY ?? "1")) };
 }

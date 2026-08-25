@@ -1,2 +1,3 @@
-This layer owns persistence and queue adapters for Backtesting. The queue
-adapter boundary is represented by the adjacent queue placeholder.
+This layer owns Backtesting persistence and the BullMQ/Redis queue adapter.
+PostgreSQL remains authoritative for dispatch, attempt, fence, and result state;
+Redis only delivers the bounded worker job.
