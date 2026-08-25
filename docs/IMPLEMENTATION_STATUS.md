@@ -4,8 +4,8 @@
 
 - Branch: `implement`
 - Project status: **Reopened — prior completion claim withdrawn on 2026-08-24**
-- Current feature: **7. Close remaining backend REST transport and facade gaps** *(in progress)*
-- Next feature: **8. Docker-backed backend integration and final traceability**
+- Current feature: **8. Docker-backed backend integration and final traceability** *(in progress)*
+- Next feature: **none — final backend validation gate**
 
 ## Audit summary
 
@@ -30,7 +30,7 @@ The previous final-validation claim did not establish the assignment-required pr
 | `d168167` | Durable Backtesting BullMQ worker and recovery | Completed and validated: PostgreSQL dispatch/fence migration, transactional candidate-plus-dispatch persistence, Redis/BullMQ dispatch with bounded exponential retry, worker consumption, database claim fencing, worker-side result/retry persistence, restart reconciliation of pending dispatches, and portable worker startup. |
 | `f7fc06e` | Durable Market Data, News, and Sentiment flows | Completed and validated: migration `007`, PostgreSQL repositories for normalized candles/snapshots, news, analyses, and sentiment snapshots; offline demo News provider; deterministic `LOCAL_LEXICON` Sentiment adapter with model/version provenance; authenticated Market, News, and Sentiment REST routes. |
 | `956b1c5` | Durable Backtesting completion, ranking, and Search advancement | Completed and validated: migration `008`; a durable fenced completion processor; BullMQ terminal listener plus periodic recovery; idempotent evaluation/experiment/Leaderboard admission; and callback/recovery-driven bounded Search advancement. |
-| pending | Backend REST and Market transport completion | Validated: owner-scoped strategy-library/scope reads, complete market query mapping, manual cancellation, Search candidate history, experiment visualization/replay reads, required `/leaderboard?scopeId=` and `/leaderboard-scopes` surfaces, concealed cross-owner 404 mapping, and authenticated normalized Market WebSocket subscription control/update messages. Commit hash will be recorded immediately after committing. |
+| `0649bb5` | Backend REST and Market transport completion | Completed and validated: owner-scoped strategy-library/scope reads, complete market query mapping, manual cancellation, Search candidate history, experiment visualization/replay reads, required `/leaderboard?scopeId=` and `/leaderboard-scopes` surfaces, concealed cross-owner 404 mapping, and authenticated normalized Market WebSocket subscription control/update messages. |
 
 ## Latest validation
 
@@ -95,6 +95,9 @@ The previous final-validation claim did not establish the assignment-required pr
 - `npm run lint`: passed — all workspace TypeScript no-emit checks complete.
 - `npm run arch:check`: passed — dependency-cruiser reported no violations across 757 modules and 1,033 dependencies.
 - `npm run smoke:backend`: passed — compiled Nest backend registered `/leaderboard-scopes`, `/backtests/:candidateId/cancel`, `/search-runs/:searchRunId/candidates`, `/experiments/:experimentId/visualization`, `/experiments/:experimentId/replay`, `/leaderboard`, and the MarketGateway subscription handler; `GET /health` passed.
+- Feature 8 local validation: `npm test` passed — 58 tests across all workspaces; `npm run build` passed; `npm run lint` passed; `npm run arch:check` passed with no violations across 757 modules and 1,033 dependencies; `npm run smoke:backend` passed with the full authenticated route inventory; `git diff --check` passed.
+- Compose migration wiring: `infra/docker-compose.yml` now runs a one-shot `migrate` service and gates backend/worker startup on `service_completed_successfully`; `infra/docker/backend.Dockerfile` includes `infra/db/migrations` for the migration image.
+- `docker compose version`: blocked — PowerShell reports `docker : The term 'docker' is not recognized as a name of a cmdlet, function, script file, or executable program.` No Docker-backed migration or end-to-end validation could run in this environment.
 
 ## Current decisions and assumptions
 
@@ -115,6 +118,7 @@ The previous final-validation claim did not establish the assignment-required pr
 - `MVP_MANUAL_V1` is the shared default score-formula identity for benchmark scopes and the deterministic Leaderboard formula, preventing an unscorable default scope.
 - Workers only persist attempt/trade simulation outcomes and move a candidate to `PROCESSING_RESULT`. A completion claim with a database lease/fencing token then performs evaluation, immutable experiment staging, Leaderboard scoring/admission, final candidate state, and finally the best-effort Search callback. This ordering makes duplicate terminal signals and restarts safe.
 - Queue events are advisory. `BullMqBacktestCompletionListener` verifies terminal job state before forwarding, while startup plus a one-second unref'd reconciliation watchdog repair missed QueueEvents and process due completion retries. Completion retries are capped at five claims with a deterministic one-second delay.
+- Docker Compose uses the backend image for a one-shot migration service. PostgreSQL readiness is required before migrations, and backend/worker services require successful migration completion before starting, so container startup cannot race the schema application step.
 - Search advancement is owned by Search: the Backtesting completion processor only invokes its public candidate-finished callback after durable finalization. Search startup/periodic reconciliation fills any unfinished active run, so an unavailable callback cannot permanently consume a bounded slot.
 - Backend transport remains an adapter: controllers authenticate with Auth, validate transport primitives, and call module public APIs; they do not read PostgreSQL/Redis or calculate domain results. Candidate projections explicitly strip owner, strategy, composite, queue, and fence internals.
 - The required persistent scope surface is `/leaderboard-scopes` (the earlier `/backtest-scopes` path remains an alias), and the required board read is `/leaderboard?scopeId=...` (the earlier path-style aliases remain for compatibility). Manual submission returns `202` and uses `5` bps when slippage is omitted.
@@ -123,6 +127,6 @@ The previous final-validation claim did not establish the assignment-required pr
 
 ## Unresolved decisions and blockers
 
-- Docker-backed PostgreSQL/Redis/backend/worker validation remains the only unresolved completion gate. The npm install emitted 10 audit findings (8 moderate, 2 high) and pending install-script notices; these do not block compilation/tests but remain operational limitations to review.
-- Docker-backed validation has not yet been performed successfully for the actual assignment flow and remains a final required gate (feature 8).
+- Docker-backed PostgreSQL/Redis/backend/worker validation remains the only unresolved completion gate. Docker CLI/Compose is unavailable (`docker` is not recognized), so migrations and the real assignment flow have not been executed in containers. Install/start Docker and rerun the final gate before declaring backend completion.
+- The npm install emitted 10 audit findings (8 moderate, 2 high) and pending install-script notices; these do not block compilation/tests but remain operational limitations to review.
 - The local Codex runtime exposes Node but not `npm` on `PATH`; a system npm executable was located at `C:\Program Files\nodejs\npm.cmd` for validation. The repository commands themselves must remain normal `npm ...` commands for developers.

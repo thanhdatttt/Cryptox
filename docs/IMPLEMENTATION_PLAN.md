@@ -59,12 +59,12 @@ The audit also found source-adjacent generated JavaScript/declaration files that
    - On each idempotent terminal completion/failure, release the corresponding Search slot and advance its bounded deterministic loop.
    - Acceptance: integration tests prove queued generate → worker → completion processor → evaluate → rank → next slot, duplicate terminal notifications, and exhausted retry handling.
 
-7. **Close remaining backend REST transport and facade gaps** *(in progress)*
+7. **Close remaining backend REST transport and facade gaps** *(completed in `0649bb5`)*
    - Complete and verify all authenticated Strategy, Market Data, Backtesting, Search, Leaderboard, News, and Sentiment transport surfaces; remove or replace any remaining assignment-required facade or adapter placeholder found by the post-completion audit.
    - Add the normalized authenticated Market WebSocket transport using the declared npm Nest/socket.io dependencies and the shared versioned market message contract.
    - Acceptance: module-boundary REST/WebSocket integration tests prove the full authenticated backend flow without controller-owned domain logic or undeclared external credentials.
 
-8. **Docker-backed backend integration and final traceability**
+8. **Docker-backed backend integration and final traceability** *(in progress)*
    - Make Docker Compose run PostgreSQL, Redis, backend, and the backtest worker; apply migrations and execute a real end-to-end validation.
    - Acceptance: no assignment-required backend public API, worker, queue, repository, or facade remains a `NOT_IMPLEMENTED` implementation or placeholder; full tests, build, lint, architecture check, and Docker-backed validation pass. If Docker is unavailable, record the exact evidence and stop rather than claiming completion.
 

@@ -22,6 +22,16 @@ services:
       timeout: 3s
       retries: 10
 
+  migrate:
+    build:
+      context: ..
+      dockerfile: infra/docker/backend.Dockerfile
+    environment:
+      DATABASE_URL: postgres://cryptox:cryptox@postgres:5432/cryptox
+    command: ["npm", "run", "db:migrate"]
+    depends_on:
+      postgres: { condition: service_healthy }
+
   backend:
     build:
       context: ..
@@ -34,6 +44,7 @@ services:
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/health"]
       interval: 5s
@@ -50,6 +61,7 @@ services:
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
     healthcheck:
       test: ["CMD", "node", "-e", "process.exit(0)"]
       interval: 5s
