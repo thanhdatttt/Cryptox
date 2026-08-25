@@ -6,7 +6,8 @@ export type StrategyDescriptor = { name: string; displayName: string; descriptio
 export type StrategyDefinition = { id: string; strategyName: string; parameters: Record<string, number | string>; version: number; createdAt: string; familyName?: string };
 export type Composite = { id: string; method: string; components: Array<{ strategyDefinitionId: string; weight: number }>; thresholds?: { buy: number; sell: number }; createdAt: string };
 export type Scope = { id: string; name: string; pair: string; timeframe: Timeframe; datasetRange: { from: string; to: string }; datasetSnapshotId: string; initialCapital: number; feeRatePercent: number; slippageBps: number; scoreFormulaId: string; createdAt: string };
-export type Candidate = { candidateId: string; status: string; attempts: Array<{ attemptId: string; attemptNumber: number; status: string }>; experimentResultId?: string; lastError?: string; updatedAt: string };
+export type Candidate = { candidateId: string; status: string; attempts?: Array<{ attemptId: string; attemptNumber: number; status: string }>; experimentResultId?: string; lastError?: string; updatedAt?: string };
+export type NewsItem = { id: string; title: string; content: string; source: string; publishedAt: string; crawledAt: string; relatedCoins: string[]; url: string; sentiment?: { newsId: string; label: "POSITIVE" | "NEUTRAL" | "NEGATIVE"; score: number; modelName: string; modelVersion: string; analyzedAt: string } };
 
 const runtimeEnv = (import.meta as ImportMeta & { env?: { VITE_BACKEND_URL?: string } }).env;
 const base = runtimeEnv?.VITE_BACKEND_URL?.replace(/\/$/, "") || "http://localhost:3000";
@@ -45,7 +46,7 @@ export const api = {
   cancel: (id: string) => request<void>(`/backtests/${id}/cancel`, { method: "POST" }),
   experiment: (id: string) => request<any>(`/experiments/${id}`),
   experimentTrades: (id: string) => request<{ items: any[]; nextCursor?: string }>(`/experiments/${id}/trades?limit=100`),
-  visualization: (id: string) => request<any>(`/experiments/${id}/visualization?limit=1000`),
+  visualization: (id: string, options: { highlightTradeId?: string } = {}) => request<any>(`/experiments/${id}/visualization?limit=1000${options.highlightTradeId ? `&highlightTradeId=${encodeURIComponent(options.highlightTradeId)}` : ""}`),
   replay: (id: string) => request<any>(`/experiments/${id}/replay`, { method: "POST" }),
   search: (body: unknown) => request<{ searchRunId: string }>("/search-runs", json(body)),
   searchStatus: (id: string) => request<any>(`/search-runs/${id}`),
@@ -55,7 +56,7 @@ export const api = {
   resumeSearch: (id: string) => request<void>(`/search-runs/${id}/resume`, { method: "POST" }),
   cancelSearch: (id: string) => request<void>(`/search-runs/${id}/cancel`, { method: "POST" }),
   leaderboard: (scopeId: string) => request<any[]>(`/leaderboard?scopeId=${encodeURIComponent(scopeId)}`),
-  news: () => request<any[]>("/news"),
+  news: () => request<NewsItem[]>("/news"),
   sentiment: (newsId: string) => request<any>(`/sentiment/news/${newsId}`),
   collectNews: () => request<void>("/news/collect", { method: "POST" }),
 };

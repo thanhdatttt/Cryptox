@@ -1,4 +1,4 @@
-export type Timeframe = "1m" | "5m" | "15m" | "1h" | "4h";
+export type Timeframe = "1m" | "5m" | "15m" | "1h" | "4h" | "1d";
 
 export interface UiCandle {
   timestamp: string;
