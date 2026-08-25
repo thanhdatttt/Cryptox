@@ -36,7 +36,8 @@ async function main() {
   const frontendDirectory = resolve(repositoryRoot, "apps", "frontend");
   const viteArguments = [resolve(frontendDirectory, "node_modules", "vite", "bin", "vite.js"), "--host", "0.0.0.0"];
   if (process.env.FRONTEND_PORT) viteArguments.push("--port", process.env.FRONTEND_PORT);
-  const frontend = run(process.execPath, viteArguments, { cwd: frontendDirectory });
+  const backendPort = process.env.PORT ?? "3000";
+  const frontend = run(process.execPath, viteArguments, { cwd: frontendDirectory, env: { ...process.env, VITE_BACKEND_URL: process.env.VITE_BACKEND_URL ?? `http://127.0.0.1:${backendPort}` } });
   const children = [backend, frontend];
   let stopping = false;
   const stop = () => {

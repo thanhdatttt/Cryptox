@@ -28,6 +28,8 @@ The frontend now also renders candidate history and authoritative Search pause/r
 
 The frontend specification includes `POST /strategy-generations` for authenticated text/URL generation, but the current backend has no controller, application port, source loader, generation adapter, or persistence table for that contract. `GenerationPanel` calls this endpoint and exposes the backend error without inventing local strategy logic; it cannot claim successful generation until the backend contract is implemented. This is the only known required endpoint mismatch and is intentionally recorded here rather than hidden behind demo data.
 
+The backend bootstrap now explicitly enables bearer-token CORS for the separately served Vite frontend, and the Market Gateway enables the matching Socket.IO origin policy. Without these narrow transport fixes, a browser could reach the API from the Compose/local frontend origin but the browser would block HTTP or WebSocket responses.
+
 Known gaps to validate next: browser-level Compose flow and the backend-owned strategy-generation contract above. These are recorded rather than hidden behind demo fallbacks; the UI displays backend empty/error states when records are absent.
 
 ## Audit summary

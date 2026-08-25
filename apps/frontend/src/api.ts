@@ -1,3 +1,5 @@
+import { io } from "socket.io-client";
+
 export type Timeframe = "1m" | "5m" | "15m" | "1h" | "4h" | "1d";
 export type ApiCandle = { pair: string; timeframe: Timeframe; timestamp: string; open: number; high: number; low: number; close: number; volume: number; isClosed: boolean };
 export type StrategyDescriptor = { name: string; displayName: string; description: string; category: string; parameters: Array<{ key: string; label: string; type: string; required: boolean; defaultValue: number | string; minimum?: number; maximum?: number; step?: number; options?: string[] }> };
@@ -59,7 +61,8 @@ export const api = {
 };
 
 export function marketSocket(onMessage: (message: any) => void, onState: (state: string) => void, subscriptions: Array<{ pair: string; timeframe: Timeframe }>): () => void {
-  const url = `${base.replace(/^http/, "ws")}/socket.io/?EIO=4&transport=websocket`; let socket: WebSocket | undefined; let closed = false; let retryTimer: number | undefined; let retryDelay = 500;
-  const connect = () => { if (closed) return; onState(retryDelay === 500 ? "CONNECTING" : "RECONNECTING"); socket = new WebSocket(url); const current = socket; const send = (payload: unknown) => current.send(`42${JSON.stringify(["market", payload])}`); current.onopen = () => { retryDelay = 500; onState("CONNECTED"); current.send("40/market,"); send({ schemaVersion: 1, action: "SUBSCRIBE", requestId: crypto.randomUUID(), subscriptions }); }; current.onmessage = (event) => { const text = String(event.data); if (text === "2") { current.send("3"); return; } if (!text.startsWith("42")) return; try { const packet = JSON.parse(text.slice(2)); if (packet[0] === "market") onMessage(packet[1]); } catch { onState("ERROR"); } }; current.onerror = () => onState("ERROR"); current.onclose = () => { if (closed) return; onState("RECONNECTING"); retryTimer = window.setTimeout(() => { retryDelay = Math.min(retryDelay * 2, 5000); connect(); }, retryDelay); }; };
-  connect(); return () => { closed = true; if (retryTimer !== undefined) window.clearTimeout(retryTimer); socket?.close(); onState("DISCONNECTED"); };
+  onState("CONNECTING"); const socket = io(`${base}/market`, { transports: ["websocket"], auth: { token }, reconnection: true, reconnectionAttempts: Infinity, reconnectionDelay: 500, reconnectionDelayMax: 5000 });
+  socket.on("connect", () => { onState("CONNECTED"); socket.emit("market", { schemaVersion: 1, action: "SUBSCRIBE", requestId: crypto.randomUUID(), subscriptions }); });
+  socket.on("market", onMessage); socket.on("connect_error", () => onState("ERROR")); socket.io.on("reconnect_attempt", () => onState("RECONNECTING")); socket.on("disconnect", reason => { if (reason !== "io client disconnect") onState("RECONNECTING"); });
+  return () => { socket.disconnect(); onState("DISCONNECTED"); };
 }

@@ -1,10 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { io } from "socket.io-client";
 import { api, marketSocket, session } from "./api";
+
+vi.mock("socket.io-client", () => ({ io: vi.fn() }));
 
 const response = (body: unknown, status = 200) => new Response(body === undefined ? undefined : JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 
 describe("frontend backend transport", () => {
-  beforeEach(() => { session.set(null); vi.restoreAllMocks(); });
+  beforeEach(() => { session.set(null); vi.clearAllMocks(); });
 
   it("persists the token returned by login and sends it to /me", async () => {
     const fetchMock = vi.fn()
@@ -31,27 +34,20 @@ describe("frontend backend transport", () => {
     expect(session.token).toBeNull();
   });
 
-  it("sends the authenticated Socket.IO Engine.IO namespace subscription and parses market events", async () => {
-    class FakeSocket {
-      static last: FakeSocket | undefined;
-      onopen?: () => void; onmessage?: (event: { data: string }) => void; onerror?: () => void; onclose?: () => void;
-      sent: string[] = []; closed = false;
-      constructor(public readonly url: string) { FakeSocket.last = this; }
-      send(value: string) { this.sent.push(value); }
-      close() { this.closed = true; this.onclose?.(); }
-    }
-    vi.stubGlobal("WebSocket", FakeSocket);
+  it("uses the authenticated Socket.IO namespace subscription and forwards market events", () => {
+    const handlers = new Map<string, (value?: unknown) => void>(); const ioHandlers = new Map<string, () => void>();
+    const socket = { on: (event: string, handler: (value?: unknown) => void) => { handlers.set(event, handler); return socket; }, emit: vi.fn(), disconnect: vi.fn(), io: { on: (event: string, handler: () => void) => { ioHandlers.set(event, handler); return socket.io; } } };
+    vi.mocked(io).mockReturnValue(socket as never);
     vi.stubGlobal("crypto", { randomUUID: () => "request-1" });
     const messages: unknown[] = []; const states: string[] = [];
     const stop = marketSocket(message => messages.push(message), state => states.push(state), [{ pair: "BTCUSDT", timeframe: "1h" }]);
-    const socket = FakeSocket.last as FakeSocket;
-    socket.onopen?.();
-    socket.onmessage?.({ data: '42["market",{"type":"CANDLE","payload":{"pair":"BTCUSDT"}}]' });
+    handlers.get("connect")?.();
+    handlers.get("market")?.({ type: "CANDLE", payload: { pair: "BTCUSDT" } });
     stop();
-    expect(socket.sent[0]).toBe("40/market,");
-    expect(socket.sent[1]).toContain('"action":"SUBSCRIBE"');
+    expect(io).toHaveBeenCalledWith(expect.stringMatching(/\/market$/), expect.objectContaining({ auth: { token: null }, transports: ["websocket"] }));
+    expect(socket.emit).toHaveBeenCalledWith("market", expect.objectContaining({ action: "SUBSCRIBE", subscriptions: [{ pair: "BTCUSDT", timeframe: "1h" }] }));
     expect(messages).toEqual([{ type: "CANDLE", payload: { pair: "BTCUSDT" } }]);
     expect(states).toEqual(["CONNECTING", "CONNECTED", "DISCONNECTED"]);
-    expect(socket.closed).toBe(true);
+    expect(socket.disconnect).toHaveBeenCalledOnce();
   });
 });

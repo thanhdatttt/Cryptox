@@ -21,7 +21,7 @@ const tokenFrom = (client: MarketSocketClient): string | undefined => {
   return typeof header === "string" && header.startsWith("Bearer ") ? header.slice("Bearer ".length) : undefined;
 };
 
-@WebSocketGateway({ namespace: "/market", transports: ["websocket"] })
+@WebSocketGateway({ namespace: "/market", transports: ["websocket"], cors: { origin: true } })
 export class MarketGateway {
   constructor(@Inject("BACKEND_MODULES") private readonly modules: BackendModules) {}
 
