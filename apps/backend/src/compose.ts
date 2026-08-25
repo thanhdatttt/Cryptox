@@ -34,12 +34,14 @@ export interface BackendModules extends Record<string, unknown> {
 
 export function composeAllModules(): BackendModules {
   const postgres = process.env.DATABASE_URL ? new Pool({ connectionString: process.env.DATABASE_URL }) : undefined;
+  const marketDataProvider = (process.env.MARKET_DATA_PROVIDER ?? "BINANCE").toUpperCase();
+  if (marketDataProvider !== "BINANCE" && marketDataProvider !== "DEMO") throw new Error(`Unsupported MARKET_DATA_PROVIDER: ${marketDataProvider}`);
   const inMemoryBacktesting = createInMemoryBacktestingDependencies();
   const queue = process.env.REDIS_URL ? new BullMqBacktestQueue(process.env.REDIS_URL) : inMemoryBacktesting.queue;
   const marketData = createMarketDataModule({
     candleRepository: postgres ? new PostgresCandleRepository(postgres) : undefined,
     snapshotRepository: postgres ? new PostgresSnapshotRepository(postgres) : undefined,
-    providerRegistry: process.env.MARKET_DATA_PROVIDER === "BINANCE" ? { defaultProvider: createBinanceMarketDataAdapter() } : undefined,
+    providerRegistry: { defaultProviderId: marketDataProvider, ...(marketDataProvider === "BINANCE" ? { defaultProvider: createBinanceMarketDataAdapter() } : {}) },
   });
   const strategy = postgres
     ? createStrategyModule(createPostgresStrategyDependencies(postgres))

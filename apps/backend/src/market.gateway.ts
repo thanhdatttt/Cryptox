@@ -75,7 +75,7 @@ export class MarketGateway {
           client.data.unsubscribe = await this.modules.marketData.subscribeMarketData(next, (update) => this.forward(client, update));
         } catch (error) {
           client.data.subscriptions = [];
-          const code = error instanceof Error && /^[A-Z0-9_]+$/.test(error.message) ? error.message : "MARKET_DATA_UNAVAILABLE";
+          const code = error && typeof error === "object" && "code" in error && typeof (error as { code?: unknown }).code === "string" ? (error as { code: string }).code : error instanceof Error && /^[A-Z0-9_]+$/.test(error.message) ? error.message : "MARKET_DATA_UNAVAILABLE";
           this.send(client, { schemaVersion: 1, type: "ERROR", sentAt: new Date().toISOString(), requestId: message.requestId, payload: { code, message: "Market data subscription failed.", retryable: true } });
           return;
         }

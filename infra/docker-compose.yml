@@ -33,12 +33,15 @@ services:
       postgres: { condition: service_healthy }
 
   seed-dev-market:
+    profiles: ["demo"]
     build:
       context: ..
       dockerfile: infra/docker/backend.Dockerfile
     environment:
       DATABASE_URL: postgres://cryptox:cryptox@postgres:5432/cryptox
       NODE_ENV: development
+      MARKET_DATA_PROVIDER: DEMO
+      MARKET_DATA_SEED_MODE: DEMO
     command: ["npm", "run", "seed:dev"]
     depends_on:
       postgres: { condition: service_healthy }
@@ -52,6 +55,9 @@ services:
       PORT: 3000
       DATABASE_URL: postgres://cryptox:cryptox@postgres:5432/cryptox
       REDIS_URL: redis://redis:6379
+      MARKET_DATA_PROVIDER: ${MARKET_DATA_PROVIDER:-BINANCE}
+      MARKET_DATA_BINANCE_REST_URL: ${MARKET_DATA_BINANCE_REST_URL:-https://api.binance.com}
+      MARKET_DATA_BINANCE_WS_URL: ${MARKET_DATA_BINANCE_WS_URL:-wss://stream.binance.com:9443}
     ports: ["3000:3000"]
     depends_on:
       postgres: { condition: service_healthy }

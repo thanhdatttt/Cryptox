@@ -186,4 +186,25 @@ describe("backend composition", () => {
     expect(emitted).toContainEqual(["market", expect.objectContaining({ type: "SUBSCRIPTION_ACK", requestId: "request-1" })]);
     expect(emitted).toContainEqual(["market", expect.objectContaining({ type: "MARKET_TICK", payload: { pair: "BTCUSDT", price: 100, timestamp: "2025-01-01T00:00:00.000Z" } })]);
   });
+
+  it("replaces a client's upstream subscription set when panels change", async () => {
+    const requested: unknown[] = [];
+    const modules = {
+      auth: { verify: async () => ({ userId: "user-1" }) },
+      marketData: { subscribeMarketData: async (subscriptions: unknown) => { requested.push(subscriptions); return async () => undefined; } },
+    } as unknown as BackendModules;
+    const socket = { id: "socket-2", handshake: { auth: { token: "token" }, headers: {} }, data: {}, emit: () => undefined, disconnect: () => undefined };
+    const gateway = new MarketGateway(modules);
+
+    await gateway.handleConnection(socket);
+    await gateway.command(socket, { schemaVersion: 1, action: "SUBSCRIBE", requestId: "request-1", subscriptions: [{ pair: "BTCUSDT", timeframe: "1m" }] });
+    await gateway.command(socket, { schemaVersion: 1, action: "SUBSCRIBE", requestId: "request-2", subscriptions: [{ pair: "BTCUSDT", timeframe: "5m" }] });
+    await gateway.command(socket, { schemaVersion: 1, action: "UNSUBSCRIBE", requestId: "request-3", subscriptions: [{ pair: "BTCUSDT", timeframe: "1m" }] });
+
+    expect(requested).toEqual([
+      [{ pair: "BTCUSDT", timeframe: "1m" }],
+      [{ pair: "BTCUSDT", timeframe: "1m" }, { pair: "BTCUSDT", timeframe: "5m" }],
+      [{ pair: "BTCUSDT", timeframe: "5m" }],
+    ]);
+  });
 });
