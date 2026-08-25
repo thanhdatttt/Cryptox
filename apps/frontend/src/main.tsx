@@ -1,13 +1,14 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { api, session, type Composite, type NewsItem, type Scope, type StrategyDefinition, type StrategyDescriptor } from "./api";
-import { BacktestScreen, GenerationPanel, LiveMarket, RankingTable, SearchScreen } from "./features";
+import { BacktestScreen, GenerationPanel, RankingTable, SearchScreen } from "./features";
+import { MarketScreen } from "./market";
 import { equalWeights } from "./state";
 import { sentimentDistribution } from "./visuals";
 import "./style.css";
 
 type Screen = "market" | "strategy" | "backtest" | "search" | "leaderboard" | "news" | "settings";
-const nav: Array<[Screen, string]> = [["market", "Market"], ["strategy", "Strategy Library"], ["backtest", "Backtest"], ["search", "Search"], ["leaderboard", "Leaderboard"], ["news", "News"], ["settings", "Settings"]];
+const nav: Array<[Screen, string, string]> = [["market", "Realtime", "∿"], ["strategy", "Strategy Library", "⌘"], ["backtest", "Backtest", "▥"], ["search", "Search", "⌕"], ["leaderboard", "Leaderboard", "▥"], ["news", "News", "▤"], ["settings", "Settings", "⚙"]];
 const Panel = ({ title, children, className = "" }: { title?: string; children: React.ReactNode; className?: string }) => <section className={`panel ${className}`}>{title && <h2>{title}</h2>}{children}</section>;
 const Btn = ({ children, primary, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & { primary?: boolean }) => <button {...props} className={`btn ${primary ? "primary" : ""}`}>{children}</button>;
 const ErrorBox = ({ error }: { error: unknown }) => error ? <p className="error">{error instanceof Error ? error.message : String(error)}</p> : null;
@@ -39,6 +40,13 @@ function Leaderboard() { const scopes = useAsync(api.scopes, []); const [scopeId
 
 function Settings({ onLogout }: { onLogout: () => void }) { const me = useAsync(api.me, []); return <><Heading title="Settings" text="Authenticated session and backend connection." /><Panel title="Session">{me.loading ? <Loading /> : me.error ? <ErrorBox error={me.error} /> : <p>Authenticated user: {me.data?.userId}</p>}<Btn onClick={onLogout}>Log out</Btn></Panel></>; }
 
-function App() { const [authenticated, setAuthenticated] = useState(Boolean(session.token)); const [screen, setScreen] = useState<Screen>("market"); useEffect(() => { if (session.token) api.me().catch(() => setAuthenticated(false)); }, []); const body = useMemo(() => screen === "market" ? <LiveMarket /> : screen === "strategy" ? <><Strategy /><GenerationPanel /></> : screen === "backtest" ? <BacktestScreen /> : screen === "search" ? <SearchScreen /> : screen === "leaderboard" ? <Leaderboard /> : screen === "news" ? <News /> : <Settings onLogout={() => { session.set(null); setAuthenticated(false); }} />, [screen, authenticated]); if (!authenticated) return <Auth onAuthenticated={() => setAuthenticated(true)} />; return <div className="app"><aside><div className="brand"><span>⚗</span><b>Crypto<br />Strategy Lab</b></div><nav>{nav.map(([id, label]) => <button className={screen === id ? "active" : ""} onClick={() => setScreen(id)} key={id}>{label}</button>)}</nav><div className="side-bottom"><div>Backend-backed workspace</div><button onClick={() => setScreen("settings")}>Authenticated session</button></div></aside><main><header><span>Workspace / {nav.find(([id]) => id === screen)?.[1]}</span><span>Authenticated</span></header>{body}</main></div>; }
+function App() {
+  const [authenticated, setAuthenticated] = useState(Boolean(session.token));
+  const [screen, setScreen] = useState<Screen>("market");
+  useEffect(() => { if (session.token) api.me().catch(() => setAuthenticated(false)); }, []);
+  const body = useMemo(() => screen === "market" ? <MarketScreen /> : screen === "strategy" ? <><Strategy /><GenerationPanel /></> : screen === "backtest" ? <BacktestScreen /> : screen === "search" ? <SearchScreen /> : screen === "leaderboard" ? <Leaderboard /> : screen === "news" ? <News /> : <Settings onLogout={() => { session.set(null); setAuthenticated(false); }} />, [screen, authenticated]);
+  if (!authenticated) return <Auth onAuthenticated={() => setAuthenticated(true)} />;
+  return <div className="app"><aside><div className="brand"><span>⚗</span><b>Crypto<br />Strategy Lab</b></div><nav>{nav.map(([id, label, icon]) => <button className={screen === id ? "active" : ""} onClick={() => setScreen(id)} key={id}><span className="nav-icon">{icon}</span><span>{label}</span></button>)}</nav><div className="side-bottom"><div className="account-card workspace-account"><span className="account-icon">✦</span><span><b>Live workspace</b><small>Backend connected</small></span></div><button className="account-card user-account" onClick={() => setScreen("settings")}><span className="account-icon">●</span><span><b>Authenticated account</b><small>Session secured</small></span><span className="account-chevron">⌄</span></button></div></aside><main><header className={`app-header ${screen === "market" ? "market-shell-header" : ""}`}><span>Workspace / {nav.find(([id]) => id === screen)?.[1]}</span><span>Authenticated</span></header>{body}</main></div>;
+}
 
 createRoot(document.getElementById("root")!).render(<App />);

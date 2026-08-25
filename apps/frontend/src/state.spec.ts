@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canAddChart, equalWeights, initialChartPanels, mergeCandle, parameterDefaults } from "./state";
+import { canAddChart, equalWeights, initialChartPanels, marketConnectionSummary, mergeCandle, parameterDefaults } from "./state";
 
 describe("frontend presentation state", () => {
   it("keeps four independent initial chart selections and caps additional panels", () => {
@@ -22,5 +22,12 @@ describe("frontend presentation state", () => {
   it("starts a selected composite with backend-valid equal weights", () => {
     expect(equalWeights(["ma", "rsi"])).toEqual({ ma: 0.5, rsi: 0.5 });
     expect(equalWeights([])).toEqual({});
+  });
+
+  it("summarizes live connection state without hiding paused or failed panels", () => {
+    expect(marketConnectionSummary(["CONNECTED", "CONNECTED"], true)).toEqual({ label: "Receiving data", tone: "connected" });
+    expect(marketConnectionSummary(["CONNECTED", "RECONNECTING"], true)).toEqual({ label: "Reconnecting", tone: "pending" });
+    expect(marketConnectionSummary(["ERROR"], true)).toEqual({ label: "Connection error", tone: "error" });
+    expect(marketConnectionSummary(["CONNECTED"], false)).toEqual({ label: "Realtime paused", tone: "paused" });
   });
 });
