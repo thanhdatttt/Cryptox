@@ -1,5 +1,5 @@
 import { Inject } from "@nestjs/common";
-import { MessageBody, SubscribeMessage, WebSocketGateway } from "@nestjs/websockets";
+import { ConnectedSocket, MessageBody, SubscribeMessage, WebSocketGateway } from "@nestjs/websockets";
 import type { MarketWebSocketClientMessage, MarketWebSocketServerMessage } from "@cryptox/contracts/websocket/market-data";
 import type { MarketDataUpdate, MarketSubscription, Timeframe } from "modules/market-data/api";
 import type { BackendModules } from "./compose";
@@ -43,7 +43,7 @@ export class MarketGateway {
   }
 
   @SubscribeMessage("market")
-  async command(client: MarketSocketClient, @MessageBody() message: MarketWebSocketClientMessage): Promise<void> {
+  async command(@ConnectedSocket() client: MarketSocketClient, @MessageBody() message: MarketWebSocketClientMessage): Promise<void> {
     if (!client.data.userId) return;
     if (!message || message.schemaVersion !== 1 || (message.action !== "SUBSCRIBE" && message.action !== "UNSUBSCRIBE") || typeof message.requestId !== "string" || !Array.isArray(message.subscriptions)) {
       this.send(client, { schemaVersion: 1, type: "ERROR", sentAt: new Date().toISOString(), payload: { code: "INVALID_SUBSCRIPTION", message: "The market subscription command is invalid.", retryable: false } });
