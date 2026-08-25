@@ -3,13 +3,13 @@
 ## Current state
 
 - Branch: `implement`
-- Project status: **Reopened — prior completion claim withdrawn on 2026-08-24**
-- Current feature: **8. Docker-backed backend integration and final traceability** *(in progress)*
+- Project status: **Backend validation complete — commit pending**
+- Current feature: **8. Docker-backed backend integration and final traceability** *(validated; commit pending)*
 - Next feature: **none — final backend validation gate**
 
 ## Audit summary
 
-The previous final-validation claim did not establish the assignment-required product flow. The reopened audit findings for the Backtesting queue and for `undefined as never` News/Sentiment composition have now been repaired in features 4 and 5. Feature 6 now also repairs the ADR-003 completion gap: workers persist terminal simulation data only; a fenced completion processor durably evaluates, stages the experiment, scores/admit Top-K entries, and advances Search. BullMQ terminal events, startup reconciliation, and a periodic watchdog recover lost notifications. REST transport and Docker validation remain later gates.
+The previous final-validation claim did not establish the assignment-required product flow. The reopened audit findings for the Backtesting queue and for `undefined as never` News/Sentiment composition have now been repaired in features 4 and 5. Feature 6 now also repairs the ADR-003 completion gap: workers persist terminal simulation data only; a fenced completion processor durably evaluates, stages the experiment, scores/admit Top-K entries, and advances Search. BullMQ terminal events, startup reconciliation, and a periodic watchdog recover lost notifications. Feature 8 has now passed the real Docker-backed migration and end-to-end gate.
 
 ## Completed historical milestones (not evidence of full completion)
 
@@ -42,8 +42,7 @@ The previous final-validation claim did not establish the assignment-required pr
 - `npm run build`: passed — all workspaces compiled and the frontend production bundle was generated.
 - `npm run lint`: passed — all workspace TypeScript no-emit checks completed successfully.
 - `npm run arch:check`: passed — dependency-cruiser reported no violations across 470 modules and 551 dependencies.
-- Docker-backed validation is intentionally not run for this local-workflow feature; it remains a required final integration gate in feature 7.
-- `docker --version`: could not run because Docker CLI is not installed in this environment. No PostgreSQL container was available to apply migrations `004` and `005` here; repository SQL behavior is covered by focused tests, and live migration/application remains a Docker-backed final gate.
+- Historical Feature 1 note: Docker-backed validation was intentionally deferred at that point; it was completed in Feature 8 below.
 - `npm test --workspace=@cryptox/backtesting`: passed — 7 tests: deterministic simulator behavior plus manual scope/candidate/attempt/trade/result/replay flow and PostgreSQL persistence/rehydration coverage.
 - `npm test --workspace=@cryptox/backend`: passed — 5 tests, including authenticated scope, manual backtest, attempt, and experiment transport mappings.
 - `npm test`: passed — 43 tests across all workspaces.
@@ -97,7 +96,11 @@ The previous final-validation claim did not establish the assignment-required pr
 - `npm run smoke:backend`: passed — compiled Nest backend registered `/leaderboard-scopes`, `/backtests/:candidateId/cancel`, `/search-runs/:searchRunId/candidates`, `/experiments/:experimentId/visualization`, `/experiments/:experimentId/replay`, `/leaderboard`, and the MarketGateway subscription handler; `GET /health` passed.
 - Feature 8 local validation: `npm test` passed — 58 tests across all workspaces; `npm run build` passed; `npm run lint` passed; `npm run arch:check` passed with no violations across 757 modules and 1,033 dependencies; `npm run smoke:backend` passed with the full authenticated route inventory; `git diff --check` passed.
 - Compose migration wiring: `infra/docker-compose.yml` now runs a one-shot `migrate` service and gates backend/worker startup on `service_completed_successfully`; `infra/docker/backend.Dockerfile` includes `infra/db/migrations` for the migration image.
-- `docker compose version`: blocked — PowerShell reports `docker : The term 'docker' is not recognized as a name of a cmdlet, function, script file, or executable program.` No Docker-backed migration or end-to-end validation could run in this environment.
+- `docker --version`: passed — Docker Desktop 29.7.2; `docker compose version`: passed — Compose v5.4.0.
+- `docker compose -f infra/docker-compose.yml config --quiet`: passed.
+- `docker compose -f infra/docker-compose.yml up --build -d`: passed after adding the repository `scripts/` directory to both runtime images. PostgreSQL and Redis became healthy; the migration service exited 0; backend and backtest-worker became healthy; frontend became healthy. The first build exposed `MODULE_NOT_FOUND: /app/scripts/start-backend.mjs` and `/app/scripts/start-worker.mjs`, which was fixed within this feature before the successful rerun.
+- Docker-backed E2E: passed against the live REST/Redis/PostgreSQL stack. Registered/logged in a user; created and persisted an MA definition and weighted composite; read 12 normalized PostgreSQL candles; created a durable snapshot/scope; submitted a `202 QUEUED` manual backtest; observed the BullMQ worker complete it; retrieved completed attempt, 2 trades, experiment, and leaderboard entry; replay returned `MATCH`; started deterministic Search with one candidate and observed `COMPLETED`, one candidate, and one Search leaderboard entry.
+- Docker-backed durable row check: passed with 1 user, 1 strategy definition, 1 composite, 12 market candles, 1 market snapshot, 1 scope, 2 candidates, 2 queue dispatches, 2 attempts, 4 trades, 2 experiments, 1 search run, and 2 leaderboard entries. Redis was reachable and the worker log reported `backtest worker ready`.
 
 ## Current decisions and assumptions
 
@@ -121,12 +124,12 @@ The previous final-validation claim did not establish the assignment-required pr
 - Docker Compose uses the backend image for a one-shot migration service. PostgreSQL readiness is required before migrations, and backend/worker services require successful migration completion before starting, so container startup cannot race the schema application step.
 - Search advancement is owned by Search: the Backtesting completion processor only invokes its public candidate-finished callback after durable finalization. Search startup/periodic reconciliation fills any unfinished active run, so an unavailable callback cannot permanently consume a bounded slot.
 - Backend transport remains an adapter: controllers authenticate with Auth, validate transport primitives, and call module public APIs; they do not read PostgreSQL/Redis or calculate domain results. Candidate projections explicitly strip owner, strategy, composite, queue, and fence internals.
+- Docker runtime images copy the repository `scripts/` directory because the npm workspace start scripts invoke cross-platform Node launchers from `/app/scripts`. Compose applies migrations as a successful one-shot dependency before backend and worker startup.
 - The required persistent scope surface is `/leaderboard-scopes` (the earlier `/backtest-scopes` path remains an alias), and the required board read is `/leaderboard?scopeId=...` (the earlier path-style aliases remain for compatibility). Manual submission returns `202` and uses `5` bps when slippage is omitted.
 - Market WebSocket messages use the repository's versioned `@cryptox/contracts/websocket/market-data` shape on the `/market` namespace and `market` event. The gateway authenticates the bearer token during connection, forwards only normalized tick/candle/status updates, and sends correlated subscription acknowledgements/errors.
 - The repository’s OpenSpec apply skill was consulted, but the `openspec` CLI is not installed in this checkout. The durable plan/status documents remain the continuation record until that tooling is available.
 
 ## Unresolved decisions and blockers
 
-- Docker-backed PostgreSQL/Redis/backend/worker validation remains the only unresolved completion gate. Docker CLI/Compose is unavailable (`docker` is not recognized), so migrations and the real assignment flow have not been executed in containers. Install/start Docker and rerun the final gate before declaring backend completion.
 - The npm install emitted 10 audit findings (8 moderate, 2 high) and pending install-script notices; these do not block compilation/tests but remain operational limitations to review.
 - The local Codex runtime exposes Node but not `npm` on `PATH`; a system npm executable was located at `C:\Program Files\nodejs\npm.cmd` for validation. The repository commands themselves must remain normal `npm ...` commands for developers.

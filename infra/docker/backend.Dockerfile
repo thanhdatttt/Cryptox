@@ -7,6 +7,7 @@ COPY modules ./modules
 COPY packages ./packages
 COPY apps/backend ./apps/backend
 COPY infra ./infra
+COPY scripts ./scripts
 RUN npm install && npm run build --workspace @cryptox/backend
 EXPOSE 3000
 CMD ["npm", "run", "start", "--workspace", "@cryptox/backend"]
