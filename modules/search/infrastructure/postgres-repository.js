@@ -1,6 +1,7 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.createPostgresSearchDependencies = exports.PostgresSearchRunRepository = void 0;
+const node_crypto_1 = require("node:crypto");
 const service_1 = require("../application/service");
 const value = (input) => typeof input === "string" ? JSON.parse(input) : input;
 const date = (input) => input === null ? undefined : new Date(input).toISOString();
@@ -18,5 +19,5 @@ class PostgresSearchRunRepository {
     async listRunning() { const result = await this.pool.query(`SELECT ${this.fields()} FROM search_runs WHERE state = 'RUNNING'`, []); return result.rows.map(run); }
 }
 exports.PostgresSearchRunRepository = PostgresSearchRunRepository;
-const createPostgresSearchDependencies = (pool, input) => ({ ...(0, service_1.createInMemorySearchDependencies)(), ...input, generators: input.generators ?? (0, service_1.createInMemorySearchDependencies)().generators, searchRunRepository: new PostgresSearchRunRepository(pool) });
+const createPostgresSearchDependencies = (pool, input) => ({ ...(0, service_1.createInMemorySearchDependencies)(), ...input, idGenerator: input.idGenerator ?? node_crypto_1.randomUUID, generators: input.generators ?? (0, service_1.createInMemorySearchDependencies)().generators, searchRunRepository: new PostgresSearchRunRepository(pool) });
 exports.createPostgresSearchDependencies = createPostgresSearchDependencies;

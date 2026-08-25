@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type { SearchModuleDependencies, SearchRunRepository } from "../application/ports";
 import { createInMemorySearchDependencies } from "../application/service";
 import type { SearchRun } from "../domain/contracts";
@@ -18,4 +19,4 @@ export class PostgresSearchRunRepository implements SearchRunRepository {
   async listRunning(): Promise<SearchRun[]> { const result = await this.pool.query<SearchRunRow>(`SELECT ${this.fields()} FROM search_runs WHERE state = 'RUNNING'`, []); return result.rows.map(run); }
 }
 
-export const createPostgresSearchDependencies = (pool: SearchSqlClient, input: Omit<SearchModuleDependencies, "searchRunRepository" | "generators"> & { generators?: SearchModuleDependencies["generators"] }): SearchModuleDependencies => ({ ...createInMemorySearchDependencies(), ...input, generators: input.generators ?? createInMemorySearchDependencies().generators, searchRunRepository: new PostgresSearchRunRepository(pool) });
+export const createPostgresSearchDependencies = (pool: SearchSqlClient, input: Omit<SearchModuleDependencies, "searchRunRepository" | "generators"> & { generators?: SearchModuleDependencies["generators"]; idGenerator?: () => string }): SearchModuleDependencies => ({ ...createInMemorySearchDependencies(), ...input, idGenerator: input.idGenerator ?? randomUUID, generators: input.generators ?? createInMemorySearchDependencies().generators, searchRunRepository: new PostgresSearchRunRepository(pool) });

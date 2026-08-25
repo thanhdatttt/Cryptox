@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PostgresSearchRunRepository } from "./postgres-repository";
+import { PostgresSearchRunRepository, createPostgresSearchDependencies } from "./postgres-repository";
 
 const run = {
   searchRunId: "run-1", ownerUserId: "00000000-0000-0000-0000-000000000001", leaderboardScopeId: "scope-1", generatorType: "RANDOM" as const,
@@ -19,5 +19,18 @@ describe("PostgresSearchRunRepository", () => {
     expect(calls.some((call) => call.text.startsWith("INSERT INTO search_runs") && call.values.includes(run.ownerUserId))).toBe(true);
     expect(calls.some((call) => call.text.startsWith("UPDATE search_runs") && call.values.includes("COMPLETED"))).toBe(true);
     expect(calls.flatMap((call) => call.values)).toContain(JSON.stringify(run.searchSpace));
+  });
+
+  it("uses unique UUID run IDs for PostgreSQL composition instead of the in-memory sequence", () => {
+    const dependencies = createPostgresSearchDependencies({ query: async () => ({ rows: [] }) }, {
+      backtestCoordinator: {} as never,
+      leaderboardService: {} as never,
+      clock: { now: () => "2025-01-01T00:00:00.000Z" },
+    });
+    const first = dependencies.idGenerator?.();
+    const second = dependencies.idGenerator?.();
+    expect(first).toMatch(/^[0-9a-f-]{36}$/);
+    expect(second).toMatch(/^[0-9a-f-]{36}$/);
+    expect(second).not.toBe(first);
   });
 });
