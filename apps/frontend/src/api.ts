@@ -1,0 +1,61 @@
+export type Timeframe = "1m" | "5m" | "15m" | "1h" | "4h" | "1d";
+export type ApiCandle = { pair: string; timeframe: Timeframe; timestamp: string; open: number; high: number; low: number; close: number; volume: number; isClosed: boolean };
+export type StrategyDescriptor = { name: string; displayName: string; description: string; category: string; parameters: Array<{ key: string; label: string; type: string; required: boolean; defaultValue: number | string; minimum?: number; maximum?: number; step?: number; options?: string[] }> };
+export type StrategyDefinition = { id: string; strategyName: string; parameters: Record<string, number | string>; version: number; createdAt: string; familyName?: string };
+export type Composite = { id: string; method: string; components: Array<{ strategyDefinitionId: string; weight: number }>; thresholds?: { buy: number; sell: number }; createdAt: string };
+export type Scope = { id: string; name: string; pair: string; timeframe: Timeframe; datasetRange: { from: string; to: string }; datasetSnapshotId: string; initialCapital: number; feeRatePercent: number; slippageBps: number; scoreFormulaId: string; createdAt: string };
+export type Candidate = { candidateId: string; status: string; attempts: Array<{ attemptId: string; attemptNumber: number; status: string }>; experimentResultId?: string; lastError?: string; updatedAt: string };
+
+const runtimeEnv = (import.meta as ImportMeta & { env?: { VITE_BACKEND_URL?: string } }).env;
+const base = runtimeEnv?.VITE_BACKEND_URL?.replace(/\/$/, "") || "http://localhost:3000";
+const storage = typeof localStorage === "undefined" ? undefined : localStorage;
+let token = storage?.getItem("cryptox.token") ?? null;
+export const session = { get token() { return token; }, set(value: string | null) { token = value; value ? storage?.setItem("cryptox.token", value) : storage?.removeItem("cryptox.token"); } };
+
+export class ApiError extends Error { constructor(public readonly status: number, message: string) { super(message); } }
+async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const headers = new Headers(init.headers); headers.set("content-type", "application/json"); if (token) headers.set("authorization", `Bearer ${token}`);
+  const response = await fetch(`${base}${path}`, { ...init, headers });
+  if (!response.ok) { let message = `Request failed (${response.status})`; try { const body = await response.json(); message = body.message || body.error || message; } catch { /* non-json error */ } if (response.status === 401) session.set(null); throw new ApiError(response.status, message); }
+  if (response.status === 204) return undefined as T;
+  const text = await response.text();
+  return (text ? JSON.parse(text) : undefined) as T;
+}
+const json = (body: unknown, extra?: HeadersInit): RequestInit => ({ method: "POST", body: JSON.stringify(body), headers: extra });
+export const api = {
+  register: (email: string, password: string) => request<void>("/auth/register", json({ email, password })),
+  login: async (email: string, password: string) => { const result = await request<{ token: string }>("/auth/login", json({ email, password })); session.set(result.token); return request<{ userId: string }>("/auth/me"); },
+  me: () => request<{ userId: string }>("/auth/me"),
+  strategies: () => request<StrategyDescriptor[]>("/strategies"),
+  definitions: () => request<StrategyDefinition[]>("/strategies/definitions"),
+  define: (strategyName: string, parameters: Record<string, number | string>) => request<StrategyDefinition>("/strategies", json({ strategyName, parameters })),
+  composites: () => request<Composite[]>("/strategies/composites"),
+  defineComposite: (method: string, components: Array<{ strategyDefinitionId: string; weight: number }>) => request<Composite>("/strategies/composites", json({ method, components })),
+  candles: (pair: string, timeframe: Timeframe, limit = 1000) => request<{ candles: ApiCandle[]; complete: boolean; asOf: string }>(`/market/candles?pair=${encodeURIComponent(pair)}&timeframe=${timeframe}&limit=${limit}`),
+  snapshot: (body: { pair: string; timeframe: Timeframe; from: string; to: string }) => request<{ id: string }>("/market/snapshots", json(body)),
+  scopes: () => request<Scope[]>("/leaderboard-scopes"),
+  createScope: (body: unknown) => request<Scope>("/leaderboard-scopes", json(body)),
+  backtest: (body: unknown) => request<{ candidateId: string; status: string }>("/backtests", json(body, { "idempotency-key": crypto.randomUUID() })),
+  candidate: (id: string) => request<Candidate>(`/backtests/${id}`),
+  cancel: (id: string) => request<void>(`/backtests/${id}/cancel`, { method: "POST" }),
+  experiment: (id: string) => request<any>(`/experiments/${id}`),
+  visualization: (id: string) => request<any>(`/experiments/${id}/visualization?limit=1000`),
+  replay: (id: string) => request<any>(`/experiments/${id}/replay`, { method: "POST" }),
+  search: (body: unknown) => request<{ searchRunId: string }>("/search-runs", json(body)),
+  searchStatus: (id: string) => request<any>(`/search-runs/${id}`),
+  searchCandidates: (id: string) => request<{ items: Candidate[] }>(`/search-runs/${id}/candidates?limit=100`),
+  searchLeaderboard: (id: string) => request<any[]>(`/search-runs/${id}/leaderboard`),
+  leaderboard: (scopeId: string) => request<any[]>(`/leaderboard?scopeId=${encodeURIComponent(scopeId)}`),
+  news: () => request<any[]>("/news"),
+  collectNews: () => request<void>("/news/collect", { method: "POST" }),
+};
+
+export function marketSocket(onMessage: (message: any) => void, onState: (state: string) => void, subscriptions: Array<{ pair: string; timeframe: Timeframe }>): () => void {
+  const url = `${base.replace(/^http/, "ws")}/socket.io/?EIO=4&transport=websocket`;
+  const socket = new WebSocket(url); let closed = false;
+  const send = (payload: unknown) => socket.send(`42${JSON.stringify(["market", payload])}`);
+  socket.onopen = () => { onState("CONNECTED"); socket.send("40/market,"); send({ schemaVersion: 1, action: "SUBSCRIBE", requestId: crypto.randomUUID(), subscriptions }); };
+  socket.onmessage = (event) => { const text = String(event.data); if (text === "2") { socket.send("3"); return; } if (!text.startsWith("42")) return; try { const packet = JSON.parse(text.slice(2)); if (packet[0] === "market") onMessage(packet[1]); } catch { onState("ERROR"); } };
+  socket.onerror = () => onState("ERROR"); socket.onclose = () => { if (!closed) onState("RECONNECTING"); };
+  return () => { closed = true; socket.close(); onState("DISCONNECTED"); };
+}

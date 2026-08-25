@@ -3,9 +3,26 @@
 ## Current state
 
 - Branch: `implement`
-- Project status: **Backend complete — validated on 2026-08-25**
-- Current feature: **none — backend definition of done satisfied**
-- Next feature: **none — final backend validation gate**
+- Project status: **Frontend live backend integration in progress — first integration slice implemented on 2026-08-25**
+- Current feature: **Frontend API client, authentication, market transport, strategy/library, backtest, Search, Leaderboard, News, and Settings screens wired to public backend contracts**
+- Next feature: **browser/Compose validation and focused frontend coverage**
+
+## Frontend integration audit (2026-08-25)
+
+The former `apps/frontend/src/main.tsx` was a reference-screen presentation with hard-coded candles, strategies, trades, news, leaderboard rows, demo user text, and a `Demo transport` status. It has been replaced by a live integration shell. `apps/frontend/src/api.ts` is the only frontend transport boundary and persists the JWT in `localStorage`.
+
+| Frontend surface | Backend contract | Status |
+| --- | --- | --- |
+| Register, login, session restore, logout | `POST /auth/register`, `POST /auth/login`, `GET /auth/me` | Implemented |
+| Strategy plugins, definitions, composites | `GET /strategies`, `POST /strategies`, `GET/POST /strategies/definitions|composites` | Implemented |
+| Market history, snapshots, live updates | `GET /market/candles`, `POST /market/snapshots`, authenticated Socket.IO `/market` | Implemented; native Socket.IO Engine.IO framing is covered by the client boundary |
+| Scope and queued manual backtesting | `GET/POST /leaderboard-scopes`, `POST/GET /backtests/:candidateId` | Implemented with polling lifecycle |
+| Experiment, replay, visualization | `GET /experiments/:id`, `POST .../replay`, `GET .../visualization` | Implemented |
+| Search lifecycle and ranking | `POST/GET /search-runs`, `GET /search-runs/:id/leaderboard` | Implemented with polling |
+| Leaderboard | `GET /leaderboard?scopeId=` | Implemented |
+| News | `GET /news`, `POST /news/collect` | Implemented |
+
+Known gaps to validate next: browser-level Compose flow, richer visualization rendering beyond the backend payload summary, and focused component tests for auth/API lifecycle states. These are recorded rather than hidden behind demo fallbacks; the UI displays backend empty/error states when records are absent.
 
 ## Audit summary
 
