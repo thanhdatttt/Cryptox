@@ -50,7 +50,7 @@ export type MarketConnectionSummary = { label: string; tone: "connected" | "pend
 
 export const marketConnectionSummary = (states: string[], realtimeEnabled: boolean): MarketConnectionSummary => {
   if (!realtimeEnabled) return { label: "Realtime paused", tone: "paused" };
-  if (states.some((state) => state === "ERROR")) return { label: "Connection error", tone: "error" };
+  if (states.some((state) => state === "ERROR" || state === "DISCONNECTED")) return { label: "Connection error", tone: "error" };
   if (states.some((state) => state === "RECONNECTING")) return { label: "Reconnecting", tone: "pending" };
   if (states.some((state) => state === "CONNECTING")) return { label: "Connecting", tone: "pending" };
   if (states.length > 0 && states.every((state) => state === "CONNECTED")) return { label: "Receiving data", tone: "connected" };

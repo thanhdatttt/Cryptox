@@ -28,6 +28,7 @@ describe("frontend presentation state", () => {
     expect(marketConnectionSummary(["CONNECTED", "CONNECTED"], true)).toEqual({ label: "Receiving data", tone: "connected" });
     expect(marketConnectionSummary(["CONNECTED", "RECONNECTING"], true)).toEqual({ label: "Reconnecting", tone: "pending" });
     expect(marketConnectionSummary(["ERROR"], true)).toEqual({ label: "Connection error", tone: "error" });
+    expect(marketConnectionSummary(["DISCONNECTED"], true)).toEqual({ label: "Connection error", tone: "error" });
     expect(marketConnectionSummary(["CONNECTED"], false)).toEqual({ label: "Realtime paused", tone: "paused" });
   });
 });
