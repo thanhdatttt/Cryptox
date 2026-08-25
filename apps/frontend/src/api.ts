@@ -3,8 +3,9 @@ import { io } from "socket.io-client";
 export type Timeframe = "1m" | "5m" | "15m" | "1h" | "4h" | "1d";
 export type ApiCandle = { pair: string; timeframe: Timeframe; timestamp: string; open: number; high: number; low: number; close: number; volume: number; isClosed: boolean; source?: string };
 export type StrategyDescriptor = { name: string; displayName: string; description: string; category: string; parameters: Array<{ key: string; label: string; type: string; required: boolean; defaultValue: number | string; minimum?: number; maximum?: number; step?: number; options?: string[] }> };
-export type StrategyDefinition = { id: string; strategyName: string; parameters: Record<string, number | string>; version: number; createdAt: string; familyName?: string };
+export type StrategyDefinition = { id: string; logicalFamilyKey?: string; strategyName: string; parameters: Record<string, number | string>; version: number; createdAt: string; familyName?: string; implementationVersion?: string; implementationSha256?: string };
 export type Composite = { id: string; method: string; components: Array<{ strategyDefinitionId: string; weight: number }>; thresholds?: { buy: number; sell: number }; createdAt: string };
+export type StrategyGenerationResult = { generationId: string; kind: "SINGLE" | "COMPOSITE"; strategyDefinition?: StrategyDefinition; compositeStrategyDefinition?: Composite; modelName?: string; modelVersion?: string; promptVersion?: string };
 export type Scope = { id: string; name: string; pair: string; timeframe: Timeframe; datasetRange: { from: string; to: string }; datasetSnapshotId: string; initialCapital: number; feeRatePercent: number; slippageBps: number; scoreFormulaId: string; createdAt: string };
 export type Candidate = { candidateId: string; status: string; attempts?: Array<{ attemptId: string; attemptNumber: number; status: string }>; experimentResultId?: string; lastError?: string; updatedAt?: string };
 export type NewsItem = { id: string; title: string; content: string; source: string; publishedAt: string; crawledAt: string; relatedCoins: string[]; url: string; sentiment?: { newsId: string; label: "POSITIVE" | "NEUTRAL" | "NEGATIVE"; score: number; modelName: string; modelVersion: string; analyzedAt: string } };
@@ -34,7 +35,7 @@ export const api = {
   define: (strategyName: string, parameters: Record<string, number | string>) => request<StrategyDefinition>("/strategies", json({ strategyName, parameters })),
   composites: () => request<Composite[]>("/strategies/composites"),
   defineComposite: (method: string, components: Array<{ strategyDefinitionId: string; weight: number }>) => request<Composite>("/strategies/composites", json({ method, components })),
-  generateStrategy: (body: { sourceType: "TEXT"; text: string } | { sourceType: "URL"; url: string }) => request<any>("/strategy-generations", json(body)),
+  generateStrategy: (body: { sourceType: "TEXT"; text: string } | { sourceType: "URL"; url: string }) => request<StrategyGenerationResult>("/strategy-generations", json(body)),
   candles: (pair: string, timeframe: Timeframe, limit = 1000) => request<{ candles: ApiCandle[]; range: { from: string; to: string }; complete: boolean; asOf: string }>(`/market/candles?pair=${encodeURIComponent(pair)}&timeframe=${timeframe}&limit=${limit}`),
   snapshot: (body: { pair: string; timeframe: Timeframe; from: string; to: string }) => request<{ id: string }>("/market/snapshots", json(body)),
   scopes: () => request<Scope[]>("/leaderboard-scopes"),

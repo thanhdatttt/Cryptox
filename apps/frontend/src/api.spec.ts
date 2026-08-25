@@ -27,6 +27,14 @@ describe("frontend backend transport", () => {
     await expect(api.collectNews()).resolves.toBeUndefined();
   });
 
+  it("sends prompt generation through the authenticated backend contract and preserves provenance", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(response({ generationId: "generation-1", kind: "SINGLE", strategyDefinition: { id: "definition-1", strategyName: "RSI", parameters: { period: 14 }, version: 1, createdAt: "2025-01-01T00:00:00.000Z" }, modelName: "LOCAL_DETERMINISTIC", modelVersion: "1.0.0", promptVersion: "1" }));
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await api.generateStrategy({ sourceType: "TEXT", text: "RSI below 30" });
+    expect(result.modelName).toBe("LOCAL_DETERMINISTIC");
+    expect(fetchMock).toHaveBeenCalledWith(expect.stringMatching(/\/strategy-generations$/), expect.objectContaining({ method: "POST", body: JSON.stringify({ sourceType: "TEXT", text: "RSI below 30" }) }));
+  });
+
   it("surfaces backend error messages and clears an invalid session", async () => {
     session.set("expired-token");
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response({ message: "Bearer token is invalid." }, 401)));

@@ -65,6 +65,13 @@ Sources reviewed, in priority order: the 54-page assignment PDF, `crypto-strateg
 
 Commits for the corrected frontend modules: `0c22960 feat(frontend): align live screens with assignment references` and `7d2c247 fix(frontend): default composite weights evenly`. Focused frontend validation passed with 11 tests, including chart bounds/formatting, sentiment aggregation, composite weight defaults, API transport, and state behavior.
 
+### Strategy screen reference audit refinement (2026-08-25)
+
+- The Strategy route now uses the same compact authenticated shell as Realtime and matches the supplied `strategy.jpg` workspace: prompt/URL input, backend-returned summary cards, readable JSON with copy action, validation/provenance/save state, and a persisted recent-library table. The catalog/manual definition and weighted-composite areas remain available below the reference workspace so existing live authoring behavior is preserved.
+- Compose browser verification passed against the rebuilt frontend: prompt generation and URL generation both used authenticated `POST /strategy-generations`, rendered the returned definition and `LOCAL_DETERMINISTIC` provenance, refreshed `GET /strategies/definitions`, and saved a two-component `WEIGHTED_SCORE` composite through `POST /strategies/composites`.
+- Empty, loading, validation, and backend-error states are rendered in the reference card language. The UI does not invent LONG/SHORT condition cards; the public Strategy contract returns plugin parameters and provenance, not condition expressions.
+- Focused Strategy validation passed: 15 frontend tests, including API request/provenance mapping and generated-definition/composite helper behavior.
+
 ### Final live validation evidence
 
 - Fresh browser registration/login, persisted-session reload, logout, and protected-route return to sign-in passed against the containers.
