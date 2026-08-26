@@ -23,3 +23,518 @@ body{min-width:0;background:#f8fafc;color:#17233a}.app>aside{position:fixed;inse
 @media(max-width:1320px){.market-pair-control,.market-pair-control select{min-width:150px;width:150px}.market-panel-controls{flex-wrap:wrap}.market-panel-status{margin-left:0}.market-chart-card{padding-left:13px;padding-right:13px}}
 @media(max-width:760px){.market-pair-control,.market-pair-control select{width:100%;min-width:0}.market-panel-controls label:first-child,.market-panel-controls label:first-child select{width:112px;max-width:100%}.market-panel-controls{align-items:flex-end}.market-primary-button,.market-remove{flex:0 0 auto}.market-panel-status{margin-left:0}.market-card-heading h2{font-size:16px}.market-card-price strong{font-size:17px}}
 .market-remove svg{width:16px;height:16px;display:block;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.market-remove{display:inline-flex;align-items:center;justify-content:center;gap:6px}
+/* Typography system: keep the product readable while preserving the compact data visualizations. */
+:root {
+  --font-body: "DM Sans", system-ui, sans-serif;
+  --font-heading: Manrope, sans-serif;
+  --type-page-title: 28px;
+  --type-card-title: 16px;
+  --type-body: 14px;
+  --type-control: 14px;
+  --type-support: 13px;
+  --type-meta: 12px;
+  --type-dense: 12px;
+  --leading-heading: 1.25;
+  --leading-body: 1.5;
+  --leading-control: 1.35;
+  --leading-support: 1.45;
+}
+
+html,
+body {
+  font-family: var(--font-body);
+  font-size: var(--type-body);
+  line-height: var(--leading-body);
+}
+
+body,
+button,
+input,
+textarea,
+select {
+  font-family: var(--font-body);
+}
+
+body {
+  color: #17233a;
+}
+
+h1,
+h2,
+h3 {
+  line-height: var(--leading-heading);
+}
+
+button,
+input,
+textarea,
+select {
+  font-size: var(--type-control);
+  line-height: var(--leading-control);
+}
+
+p {
+  line-height: var(--leading-body);
+}
+
+small {
+  font-size: var(--type-support);
+  line-height: var(--leading-support);
+}
+
+code,
+pre {
+  font-size: var(--type-meta);
+  line-height: var(--leading-support);
+}
+
+.brand {
+  line-height: 1.2;
+}
+
+nav button,
+.side-bottom > div,
+.side-bottom > button,
+.account-card b {
+  font-size: var(--type-control);
+  line-height: var(--leading-control);
+}
+
+nav button i,
+.nav-icon {
+  font-size: 21px;
+}
+
+.side-bottom small,
+.account-card small {
+  font-size: var(--type-support);
+  line-height: var(--leading-support);
+}
+
+.app > main > header {
+  font-size: var(--type-body);
+  line-height: var(--leading-body);
+}
+
+.heading h1,
+.market-header h1,
+.strategy-header h1 {
+  font-size: var(--type-page-title);
+  line-height: var(--leading-heading);
+}
+
+.heading p,
+.market-header p,
+.strategy-header p {
+  font-size: var(--type-body);
+  line-height: var(--leading-body);
+}
+
+.status,
+.strategy-source-pill,
+.market-source-pill,
+.market-receiving-pill,
+.connection-pill,
+.market-panel-status,
+.signal,
+.market-signal,
+.badge {
+  font-size: var(--type-control);
+  line-height: var(--leading-control);
+}
+
+.panel h2,
+.market-side-title h2,
+.market-card-heading h2 {
+  font-size: var(--type-card-title);
+  line-height: var(--leading-heading);
+}
+
+.panel h3 {
+  font-size: var(--type-card-title);
+  line-height: var(--leading-heading);
+}
+
+.toolbar b,
+.range > b,
+.field,
+.chart-controls label,
+.scope-select,
+.market-controlbar b,
+.market-pair-control,
+.market-timeframe-control > b,
+.market-realtime-control > b,
+.market-panel-controls label,
+.strategy-label {
+  font-size: var(--type-control);
+  line-height: var(--leading-control);
+}
+
+.btn,
+.link,
+.link-button,
+.field button,
+.range button,
+.market-timeframe-control button,
+.market-add-chart,
+.market-primary-button,
+.market-remove,
+.strategy-input-tabs button,
+.strategy-input-actions .btn,
+.strategy-json-toolbar button {
+  font-size: var(--type-control);
+  line-height: var(--leading-control);
+}
+
+.field input,
+.field select,
+.chart-controls input,
+.chart-controls select,
+.scope-select select,
+.market-pair-control input,
+.market-pair-control select,
+.market-panel-controls input,
+.market-panel-controls select,
+.strategy-label input,
+.strategy-label select,
+.strategy-label textarea,
+.strategy-weight-row input:last-child {
+  font-size: var(--type-control);
+  line-height: var(--leading-control);
+}
+
+table,
+.strategy-table,
+th,
+td {
+  font-size: var(--type-control);
+  line-height: var(--leading-control);
+}
+
+.strategy-table td > b,
+.strategy-table td > small,
+.strategy-table-status,
+.long,
+.short {
+  font-size: var(--type-control);
+  line-height: var(--leading-control);
+}
+
+.table-scroll,
+.strategy-table-scroll,
+.recent-ticks {
+  overflow-x: auto;
+}
+
+.error,
+.success,
+.muted,
+.strategy-error,
+.market-error {
+  font-size: var(--type-support);
+  line-height: var(--leading-support);
+}
+
+.empty-state,
+.strategy-empty {
+  font-size: var(--type-body);
+  line-height: var(--leading-body);
+}
+
+.empty-state b,
+.strategy-empty b,
+.market-empty-workspace h2,
+.market-empty-chart b {
+  font-size: var(--type-card-title);
+  line-height: var(--leading-heading);
+}
+
+.empty-state small,
+.strategy-empty small,
+.market-empty-workspace p,
+.market-empty-chart small {
+  font-size: var(--type-support);
+  line-height: var(--leading-support);
+}
+
+.chart-head b,
+.chart-meta,
+.chart footer,
+.chart-legend,
+.chart-footer,
+.market-chart-caption,
+.market-card-footer,
+.market-history-state,
+.market-last-price-text,
+.market-axis-label,
+.marker text {
+  font-size: var(--type-dense);
+  line-height: var(--leading-support);
+}
+
+.chart-head em,
+.market-card-heading small,
+.market-card-price em,
+.market-card-price > span {
+  font-size: var(--type-support);
+  line-height: var(--leading-support);
+}
+
+.chart text {
+  font-size: var(--type-dense);
+}
+
+.chart-meta strong,
+.market-card-price strong {
+  font-size: 18px;
+  line-height: var(--leading-heading);
+}
+
+.chart-legend,
+.chart-footer,
+.market-chart-caption,
+.market-card-footer,
+.market-card-footer button,
+.market-empty-side,
+.market-legend p,
+.update-rule p,
+.connection-card dl,
+.market-side-title > span:not(.connection-pill) {
+  font-size: var(--type-support);
+  line-height: var(--leading-support);
+}
+
+.market-panel-controls input {
+  width: 100px;
+}
+
+.market-panel-controls select {
+  width: 84px;
+}
+
+.strategy small,
+.strategy-counter,
+.strategy-contract-note,
+.strategy-error,
+.strategy-provenance,
+.strategy-library-heading,
+.strategy-validation-item small,
+.strategy-validation-status span,
+.strategy-json-toolbar,
+.scope-list span,
+.validation-grid span,
+.strategy-composite-intro span,
+.strategy-composites-list small,
+.strategy-composites-list > article > span,
+.strategy-weight-row small,
+.strategy-manual-form > div > small,
+.saved-library article span,
+.pagination,
+.legend,
+.trade-pagination {
+  font-size: var(--type-support);
+  line-height: var(--leading-support);
+}
+
+.strategy-summary-card,
+.strategy-summary-card b,
+.strategy-weight-row b,
+.strategy-composite-intro b,
+.strategy-composites-list > b,
+.strategy-manual-form > div > b,
+.vote,
+.signal-card,
+.loop,
+.radio,
+.extract > div,
+.heal,
+.integration,
+.settings p,
+.settings-value,
+.news-item b,
+.news-item p,
+.news article b,
+.news article p,
+.flow,
+.check-inline {
+  font-size: var(--type-body);
+  line-height: var(--leading-body);
+}
+
+.strategy-summary-card strong,
+.signal-card strong,
+.extract strong,
+.formula,
+.iteration,
+.search-summary strong {
+  line-height: var(--leading-heading);
+}
+
+.strategy-summary-card small,
+.strategy-validation-item small,
+.strategy-provenance,
+.strategy-composites-list code,
+.strategy-json-panel pre,
+.strategy pre,
+.extract pre,
+.settings-value code,
+.news-item small,
+.news-item time,
+.news time,
+.sent-label,
+.events,
+.radio small,
+.iteration small {
+  font-size: var(--type-meta);
+  line-height: var(--leading-support);
+}
+
+.tags,
+.sentiment i {
+  font-size: var(--type-meta);
+  line-height: var(--leading-control);
+}
+
+.metric-grid b,
+.search-summary b,
+.metric-grid strong,
+.search-summary strong {
+  line-height: var(--leading-support);
+}
+
+.metric-grid b,
+.search-summary b {
+  font-size: var(--type-meta);
+}
+
+.metric-grid strong,
+.search-summary strong {
+  font-size: 18px;
+}
+
+.sent-label,
+.sentiment-panel .sentiment-row {
+  font-size: var(--type-support);
+  line-height: var(--leading-support);
+}
+
+.settings-value b {
+  font-size: var(--type-body);
+}
+
+.settings-value small {
+  font-size: var(--type-support);
+  line-height: var(--leading-support);
+}
+
+.account-card b {
+  font-size: var(--type-control);
+}
+
+@media (max-width: 1320px) {
+  .heading,
+  .market-header,
+  .strategy-header,
+  .toolbar,
+  .news-toolbar {
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 760px) {
+  :root {
+    --type-page-title: 24px;
+  }
+
+  .status,
+  .strategy-source-pill,
+  .market-source-pill,
+  .market-receiving-pill,
+  .connection-pill,
+  .market-panel-status {
+    white-space: normal;
+    max-width: 100%;
+  }
+
+  .market-card-price,
+  .market-card-footer {
+    flex-wrap: wrap;
+  }
+
+  .market-card-footer span {
+    white-space: normal;
+  }
+
+  .metric-grid > div,
+  .search-summary > div {
+    min-height: 80px;
+  }
+
+  .lifecycle span {
+    min-width: 110px;
+  }
+
+  .validation-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .news-item time {
+    white-space: normal;
+  }
+}
+/* Typography specificity guardrails for legacy screen selectors. */
+.chart-head b,
+.market-chart-card .market-card-heading h2 {
+  font-size: var(--type-card-title);
+  line-height: var(--leading-heading);
+}
+
+.chart footer em {
+  font-size: var(--type-support);
+  line-height: var(--leading-support);
+}
+
+.strategy-plugin small,
+.strategy-plugin-card small {
+  font-size: var(--type-meta);
+  line-height: var(--leading-support);
+}
+
+.strategy-plugin-card b,
+.strategy-manual-form .btn,
+.strategy-validation-panel > .btn {
+  font-size: var(--type-control);
+  line-height: var(--leading-control);
+}
+
+.strategy-validation-status b,
+.strategy-composites-list strong,
+.strategy-composites-list > article > span {
+  font-size: var(--type-body);
+  line-height: var(--leading-body);
+}
+
+.vote-head {
+  font-size: var(--type-support);
+  line-height: var(--leading-support);
+}
+
+.lifecycle span,
+.market-tick-side,
+.market-card-footer button {
+  font-size: var(--type-control);
+  line-height: var(--leading-control);
+}
+
+.market-chart-limit-state,
+.update-rule > b {
+  font-size: var(--type-support);
+  line-height: var(--leading-support);
+}
+
+.news-pipeline .flow,
+.flow span,
+.heal strong {
+  font-size: var(--type-body);
+  line-height: var(--leading-body);
+}
