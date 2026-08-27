@@ -4,6 +4,14 @@
 
 Accepted — 2026-08-13
 
+- **Last reviewed:** 2026-08-27
+- **Related decisions:** [ADR-005](./ADR_005_module_first_structure.md), [ADR-006](./ADR_006_local_backtest_execution.md)
+- **Canonical architecture:** [Architecture](../architecture.md)
+
+### 2026-08-27 scope clarification
+
+This decision remains accepted for its transport boundary: WebSocket is for normalized realtime market data only, while commands and queries use REST. Authentication is deferred from the MVP, so the historical word "authenticated" below does not establish an active authentication requirement. The historical `202 Accepted` guidance applies when a command is exposed as asynchronous; this ADR does not require every bounded-local operation to use that response status.
+
 ## Context
 
 The dashboard must display live ticks/candles and exchange connection health without repeatedly polling `GET /price`. Other frontend features — strategy configuration, Search Run progress, experiments, Leaderboard, and news — tolerate request/response latency and do not require a permanent push channel.

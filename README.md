@@ -1,158 +1,105 @@
-<p align="center"><h1 align="center">CRYPTOX</h1></p>
-<p align="center">
-<em>SOFTWARE ARCHITECTURE & DESIGN — CRYPTO STRATEGY LAB</em>
-</p>
-<br>
+# Cryptox - Crypto Strategy Lab
 
-## 🔗 Table of Contents
+Cryptox is a university project for experimenting with extensible crypto-trading
+strategies. The grading focus is software architecture: provider isolation,
+strategy extensibility, bounded search, reproducible backtesting, evaluation,
+ranking, visualization, news, and sentiment—not real-money profitability.
 
-- [📍 Overview](#-overview)
-- [👥 Team members](#-team-members)
-- [📁 Target Project Structure](#-target-project-structure)
-- [👾 Features](#-features)
-- [🧭 Architecture Principles](#-architecture-principles)
-- [🧰 OpenSpec - AI-driven Development](#-openspec---ai-driven-development)
-- [📜 License](#-license)
+## Current status
 
----
+The repository contains a TypeScript monorepo scaffold, public API/type surfaces,
+placeholder tests, and architecture/specification material. Most business APIs
+still throw `NOT_IMPLEMENTED`, the frontend is a placeholder, and there is no
+verified end-to-end demo. Documentation describes the approved target while
+explicitly distinguishing it from the current implementation.
 
-# 📍 Overview
+The instructor assignment is the highest authority. Start here:
 
-This project builds a platform to **add, combine, backtest, rank, and continuously search** crypto trading strategies, with news/sentiment as an auxiliary input signal. The grading target is the **software architecture** itself - extensibility, decoupling, scalability, and reproducibility - not the profitability of any strategy.
+1. [Reviewed requirements](docs/requirements.md)
+2. [Architecture](docs/architecture.md)
+3. [Conceptual data model](docs/data-model.md)
+4. [Architectural decisions](docs/adr/)
+5. [Active capability specifications](openspec/specs/)
+6. [Contributor rules](AGENTS.md)
 
-The chosen style is a **synchronous Modular Monolith with an asynchronous Backtest Worker Pool**. The frontend uses REST for commands and queries, a dedicated WebSocket only for realtime market data, and BullMQ only for dispatching/completing backtest work. There is no general domain Event Bus.
+## Approved architecture
 
-Architectural Decision Records (ADRs) capture the reasoning behind the key design choices: a module-first layered structure, a market-only WebSocket, Plugin Architecture for strategies, a Job Queue as the only asynchronous backend boundary, and an isolated Sentiment module.
+The target is a **Synchronous Modular Monolith**. Business modules collaborate
+through public in-process APIs. REST handles commands and queries; WebSocket is
+restricted to realtime market delivery. Backtests target a bounded local executor
+behind a replaceable execution port. Distributed queue/worker infrastructure is a
+future evolution option, not an MVP requirement.
 
----
+See [docs/architecture.md](docs/architecture.md) for module responsibilities,
+dependency directions, flows, failure isolation, observability, and evolution.
 
-# 👥 Team members
+## Repository navigation
 
-| Fullname        | Student ID | Role      |
-| --------------- | ---------- | --------- |
-| Pham Thanh Dat  | 23127170   | Developer |
-| Tran Khon Chi   | 23127032   | Developer |
-| Mai Xuan Hung   | 23127372   | Developer |
-| Nguyen Van Minh | 23127422   | Developer |
-| Giao Thai Bao   | 23127526   | Developer |
+| Path | Purpose |
+|---|---|
+| `apps/` | Backend, frontend, and historical worker composition scaffolds |
+| `modules/` | Business modules and their public APIs |
+| `packages/` | Shared transport/technical contracts |
+| `infra/` | Current database and local runtime scaffolding; not the approved MVP topology definition |
+| `docs/` | Assignment, requirements, architecture, data model, ADRs, and later-stage backlog |
+| `openspec/specs/` | Concise active capability specifications |
+| `openspec/changes/archive/` | Historical, non-authoritative change records |
 
----
+## Install and repository checks
 
-# 📁 Target Project Structure
-
-The repository currently contains the architecture/OpenSpec documents. The tree below is the **planned implementation layout**, not a claim that all folders and deployables already exist.
-
-```
-cryptox/                               ← Repository root
-├── README.md
-├── openspec/
-│   ├── config.yaml
-│   ├── specs/
-│   └── changes/                         ← Proposed changes (propose → apply → archive)
-│
-├── docs/
-│   ├── design/                          ← Architecture, database design, data-flow docs
-│   │   ├── architecture.md
-│   │   ├── component-contracts.md
-│   │   ├── data-model.md
-│   │   ├── data-flow.md
-│   │   └── tech-stack.md
-│   │   └── project-structure.md
-│   └── adr/                             ← Architectural Decision Records
-│       ├── ADR_001_websocket.md
-│       ├── ADR_002_plugin_architecture.md
-│       ├── ADR_003_jobqueue.md
-│       ├── ADR_004_sentiment_isolated_module.md
-│       └── ADR_005_module_first_structure.md
-│
-├── modules/                          ← Business modules; not deployable processes
-│   ├── market-data/                  ← Exchange adapter + market WebSocket boundary
-│   ├── strategy/                     ← Strategy, registry, plugins, composites
-│   ├── search/                       ← Generators + bounded search orchestration
-│   ├── backtesting/                  ← Coordinator, worker runtime, completion
-│   ├── evaluation/                   ← Return, Win Rate, MDD, Sharpe, Profit Factor
-│   ├── leaderboard/                  ← Ranking of experiment results
-│   ├── news/                         ← Provider abstraction (RSS, NewsAPI, ...)
-│   └── sentiment/                    ← ML inference behind an explicit interface
-│
-├── apps/
-│   ├── backend/                        ← Composes modules; exposes REST + market-only WS
-│   ├── backtest-worker/                ← Independently scalable deployable
-│   └── frontend/                       ← Charts, strategy builder, leaderboard, news tab
-│
-├── packages/
-│   └── contracts/                      ← REST, WebSocket, and queue protocol contracts
-│
-├── infra/
-│   ├── docker-compose.yml              ← DB, queue, and deployable apps
-│   └── db/migrations/
-│
-└── .github/workflows/                  ← CI: lint, test, openspec validate
-```
-
----
-
-# 👾 Features
-
-- 🔌 **Plugin-based strategies** — new indicator strategies (e.g. MACD) register via `StrategyRegistry.register(...)` without edits to the Backtester, Evaluator, Leaderboard, or frontend core.
-- 📡 **Realtime market data** — exchange adapters normalize `MarketTick`/`Candle` contracts, streamed to the dashboard over WebSocket instead of polling `GET /price` in a loop.
-- 🧩 **Composable strategies** — a Composite Strategy layer combines multiple signals (majority vote / weighted score) without any single strategy knowing about the others.
-- 🔍 **Pluggable search engine** — random and domain-guided strategy-space search behind a common `StrategyGenerator` interface, swappable for genetic/Bayesian search later.
-- 🧪 **Independent evaluation** — Return, Win Rate, Max Drawdown, Profit Factor, Sharpe Ratio computed by a dedicated Evaluation module, never inline in a strategy or the backtester.
-- 🏆 **Scoped Leaderboard & reproducibility** — every non-cancelled Candidate whose pipeline succeeds becomes a permanent scored Experiment; rank-eligible results appear in the Search Run ranking, while a persistent Top-10 compares Manual and Search Experiments only inside the same immutable benchmark scope and pins strategy/formula/data plus worker/evaluation runtime versions. Zero-trade results remain auditable but are not ranked.
-- ♻️ **Bounded continuous loop** — the generate → backtest → evaluate → rank pipeline runs with an explicit stop condition, not an unbounded `while(true)`.
-- ⚙️ **Focused asynchronous boundary** — only backtest dispatch/completion uses BullMQ; ordinary backend collaboration uses explicit in-process calls.
-- 📰 **Fault-isolated news & sentiment** — the News Collector invokes Sentiment behind an explicit timeout/error boundary; if inference fails, realtime charts and core trading flows are unaffected.
-- 🖥️ **Business-logic-free dashboard** — the frontend renders data and dispatches commands only. It uses REST for search progress, experiments, Leaderboard, and news; only market data uses WebSocket.
-
----
-
-# 🧭 Architecture Principles
-
-The instructor assignment, reviewed requirements, accepted ADRs, and approved
-architecture govern product and architecture decisions. `AGENTS.md` provides the
-operational rules for making changes:
-
-1. Strategies are pure — no I/O, no exchange calls, no DB, no rendering.
-2. No hard-coded branching on strategy identity; new strategies self-register.
-3. The frontend contains no business logic.
-4. External systems (exchanges, news providers) are reached only through adapters behind ports.
-5. Backend modules collaborate through explicit in-process interfaces. Asynchronous messaging is restricted to backtest job submission and completion/failure delivery.
-6. Strategy definitions are versioned and never overwritten.
-7. Search/backtesting at scale uses workers with bounded stop conditions.
-8. Evaluation is separate from strategy and backtester implementation.
-9. A failing auxiliary module (e.g. sentiment) must not take down core flows.
-10. Inside each module, dependencies point `api → application → domain`; infrastructure implements application ports.
-11. Modules collaborate through public APIs only; no deep imports into another module's domain or infrastructure.
-12. `apps/` composes deployable processes, `packages/` contains reusable protocol/technical code, and `infra/` contains operational setup.
-13. `backtesting` owns Candidate lifecycle/persistence; `search` owns Search Run orchestration only.
-14. `news` owns News items, `sentiment` owns sentiment results/snapshots, and cross-module inputs use neutral contracts.
-15. `packages/contracts/queue` is the canonical serialized Backtest wire schema; the BullMQ adapter remains inside Backtesting infrastructure.
-16. Search consumes Backtesting Candidate projections and cancellation/submission facades; it never owns or writes Candidate persistence directly.
-
----
-
-# 🧰 OpenSpec - AI-driven Development
-
-This project is built spec-first with [OpenSpec](https://github.com/Fission-AI/OpenSpec):
+Prerequisite: a current Node.js/npm environment compatible with the checked-in
+lockfile.
 
 ```bash
-openspec list            # active change proposals
-openspec show <change>   # inspect a proposal
-openspec validate <change>
+npm install
+npm run build
+npm test
+npm run lint
+npm run arch:check
 ```
 
-Flow for any new feature: `/opsx:propose` → review `openspec/changes/<change>/proposal.md`, `design.md`,
-and `tasks.md` → `/opsx:apply` → verify → `/opsx:archive` (merges the delta spec
-into `openspec/specs/`).
+These are the commands declared by the repository manifests. They validate the
+current scaffold; they do not prove that the product capabilities are implemented.
+Stage 2 did not repair or change dependencies, scripts, tests, or architecture-check
+configuration. Any unavailable or failing command must be reported as
+`BLOCKED`/`UNVERIFIED`, never treated as a pass.
 
----
+The frontend manifest currently exposes:
 
-# 📜 License
+```bash
+npm run dev --workspace @cryptox/frontend
+```
 
-This project is developed for educational purposes only.
+Backend and worker entrypoints are scaffolds, not a functional Crypto Strategy Lab
+demo. Functional run and demo instructions must be added only when verified behavior
+exists.
 
-Copyright © 2026
-All rights reserved by the project team.
+## Approved MVP and deferred work
 
-This software may not be copied, modified, or distributed for commercial purposes without permission from the authors.
+The exact approved scope is maintained in [docs/requirements.md](docs/requirements.md).
+Authentication, ownership/multitenancy, AI/LLM strategy authoring, optional
+Long/Short and risk controls, mandatory Redis/BullMQ, distributed protocols,
+Genetic/Bayesian implementations, microservices, Kafka, CQRS, and Event Sourcing
+are deferred. Historical documents may discuss them only as history or future
+evolution.
+
+Implementation/tooling inconsistencies discovered during documentation refinement
+are recorded in
+[docs/post-harness-source-reconciliation.md](docs/post-harness-source-reconciliation.md).
+They are intentionally not implemented during Stage 2.
+
+## Team
+
+| Full name | Student ID | Role |
+|---|---:|---|
+| Pham Thanh Dat | 23127170 | Developer |
+| Tran Khon Chi | 23127032 | Developer |
+| Mai Xuan Hung | 23127372 | Developer |
+| Nguyen Van Minh | 23127422 | Developer |
+| Giao Thai Bao | 23127526 | Developer |
+
+## License
+
+Developed for educational purposes. Copyright © 2026 by the project team. The
+software may not be copied, modified, or distributed commercially without the
+team's permission.

@@ -2,7 +2,18 @@
 
 ## Status
 
-Accepted — 2026-08-13
+Superseded for MVP
+
+- **Decision date:** 2026-08-13
+- **Superseded on:** 2026-08-27
+- **Superseded by:** [ADR-006](./ADR_006_local_backtest_execution.md)
+- **Related decision:** [ADR-005](./ADR_005_module_first_structure.md)
+
+### 2026-08-27 supersession notice
+
+ADR-006 replaces the active MVP execution topology with a bounded local executor behind a Backtest Execution Port. The BullMQ/Redis worker topology, queue wire protocol, leases, fencing, watchdogs, reconciliation, and distributed retry budgets described below are preserved as historical reasoning and a possible future scale-out option; they are not current MVP requirements. The conclusion that Cryptox does not need a general Event Bus remains compatible with ADR-006.
+
+The following 2026-08-14 boundary clarification is retained as history; its statement that the BullMQ-only decision remained unchanged was later superseded for the MVP by ADR-006.
 
 Boundary clarification: ADR-005 (2026-08-14) amends the project-structure and ownership context referenced here; the BullMQ-only queue decision remains unchanged.
 
