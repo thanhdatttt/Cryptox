@@ -11,8 +11,11 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
-    "arch:check": "dependency-cruiser --config .dependency-cruiser.js --exclude \"(^|/)dist/\" --validate modules apps packages",
-    "artifacts:check": "node scripts/check-source-sidecars.cjs"
+    "arch:check": "dependency-cruiser --config .dependency-cruiser.js --exclude \"(^|/)dist/\" --validate modules apps packages && node scripts/check-architecture-rules.mjs",
+    "artifacts:check": "node scripts/check-source-sidecars.cjs",
+    "scope:check": "node scripts/check-deferred-scope.cjs",
+    "runtime:smoke": "node scripts/smoke-backend.cjs",
+    "verify:stage4a": "npm run build && npm run typecheck && npm test && npm run arch:check && npm run artifacts:check && npm run scope:check && npm run runtime:smoke"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

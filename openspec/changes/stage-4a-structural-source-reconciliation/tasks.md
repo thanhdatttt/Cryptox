@@ -40,7 +40,7 @@
 
 ## Wave 5 — structural verification
 
-- [ ] Repair and expand architecture checks for the Stage 4A invariants.
-- [ ] Run clean install, build, typecheck, focused tests, architecture/cycle,
+- [x] Repair and expand architecture checks for the Stage 4A invariants.
+- [x] Run clean install, build, typecheck, focused tests, architecture/cycle,
   sidecar, leakage, runtime-smoke, diff, and final status audits.
-- [ ] Commit the verification gate and complete the Definition-of-Done report.
+- [x] Commit the verification gate and complete the Definition-of-Done report.
