@@ -2,8 +2,17 @@
 
 - **Status:** Accepted
 - **Date:** 2026-08-14
+- **Last reviewed:** 2026-08-27
 - **Decision owners:** Cryptox team
-- **Relationship:** Amends the boundary/ownership context of ADR-003 and ADR-004 and records the implementation-boundary clarification for ADR-002; it does not supersede the underlying plugin, BullMQ-only, or internal News/Sentiment isolation decisions.
+- **Amended by:** [ADR-006](./ADR_006_local_backtest_execution.md)
+- **Related decisions:** [ADR-001](./ADR_001_websocket.md), [ADR-002](./ADR_002_plugin_architecture.md), [ADR-004](./ADR_004_sentiment_isolated_module.md), [ADR-007](./ADR_007_practical_reproducibility.md)
+- **Original relationship (2026-08-14, preserved):** "Amends the boundary/ownership context of ADR-003 and ADR-004 and records the implementation-boundary clarification for ADR-002; it does not supersede the underlying plugin, BullMQ-only, or internal News/Sentiment isolation decisions." ADR-006 later superseded the BullMQ-only portion for the MVP.
+
+## 2026-08-27 amendment
+
+The module-first structure, layer direction, ownership boundaries, and public-API rule remain accepted. ADR-006 replaces the dedicated Backtest Worker Pool and BullMQ topology as the active MVP choice with a bounded local executor behind a Backtest Execution Port. References below to a worker deployable, queue adapter, queue schema, completion processor, or BullMQ topology are preserved historical design detail and are deferred rather than current MVP requirements.
+
+The historical statement below that the repository contained only design and OpenSpec documents is no longer true. The repository now contains TypeScript module and application scaffolding, but most public operations remain placeholders rather than implemented product behavior.
 
 ## Context
 

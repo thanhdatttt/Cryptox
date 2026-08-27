@@ -4,6 +4,14 @@
 
 Accepted — 2026-08-13
 
+- **Last reviewed:** 2026-08-27
+- **Partially superseded for MVP by:** [ADR-007](./ADR_007_practical_reproducibility.md)
+- **Related decisions:** [ADR-005](./ADR_005_module_first_structure.md), [ADR-006](./ADR_006_local_backtest_execution.md)
+
+### 2026-08-27 scope clarification
+
+The plugin/registry decision, pure strategy contract, and immutable versioned definitions remain accepted. ADR-007 replaces the MVP requirement for exact implementation hashes, retained executable artifacts, and indefinite artifact availability with practical experiment provenance. A strategy definition must still identify its strategy type, definition version, and normalized parameters. Exact binary replay is promised only when the corresponding data and code artifacts were actually retained.
+
 Boundary clarification: ADR-005 (2026-08-14) records the stable logical-family allocation and Composite validation invariants; the plugin/registry decision remains unchanged.
 
 ## Context
