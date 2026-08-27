@@ -39,5 +39,6 @@ These decisions are frozen for MVP V1 and are not to be re-opened by workers.
 integration, validation, and checkpoint commits. `HANDOFF.md` is replaced after
 each wave and contains only the latest resumable checkpoint.
 
-OpenSpec CLI validation is currently unavailable and must remain reported as
-UNVERIFIED until a separately approved tooling task restores it.
+OpenSpec CLI validation was unavailable at P-00. C-01 restored access through the
+project's approved `npx` invocation and strict validation now passes; future
+checkpoints must report the actual CLI result rather than the historical limitation.

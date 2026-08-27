@@ -3,91 +3,105 @@
 ## Resume here
 
 - **Current stage:** MVP Implementation
-- **Current wave:** Wave 1 — executable contract and behavior freeze
+- **Completed wave:** Wave 1 — executable contract and behavior freeze
+- **Next frontier:** Wave 2
 - **Branch:** `MVP_IMPLEMENTATION`
-- **P-00 base HEAD:** `6786949f8bc9e72f4f08808a468bea1f62fd9b60`
+- **Contract-freeze commit:** `d7136318ecc5ca98670db4c260974a64d0fcbbfe`
 - **Checkpoint HEAD:** The commit containing this file; resolve it with
-  `git rev-parse HEAD` or `git log -1 --oneline` after checkout.
-- **Task state:** P-00 DONE; C-01 READY; every other task BLOCKED.
-- **Next action:** Execute C-01 only. Do not begin code-task fan-out until its
-  contracts are reviewed, validated, committed, and recorded in this checkpoint.
+  `git rev-parse HEAD` after checkout.
+- **Task state:** P-00 and C-01 DONE. D-01, S-01, E-01, and F-01 READY. Every
+  other unfinished task remains BLOCKED by the approved DAG.
+- **Work started after C-01:** None.
 
-Read [`AGENTS.md`](../../AGENTS.md), then the authority chain it specifies, the
-active [`mvp-implementation` change](../../openspec/changes/mvp-implementation/),
-the full [`MVP_PLAN.md`](MVP_PLAN.md), and the mutable [`TASKS.md`](TASKS.md).
+Read [`AGENTS.md`](../../AGENTS.md), the authority chain it specifies, the active
+[`mvp-implementation` change](../../openspec/changes/mvp-implementation/), the
+full [`MVP_PLAN.md`](MVP_PLAN.md), and the mutable [`TASKS.md`](TASKS.md) before
+claiming one READY packet.
 
-## Decisions that are closed
+## C-01 result
 
-- Ranking is versioned `LINEAR_REQUIRED_V1`: 50% Return, 30% Win Rate, minus
-  20% drawdown magnitude; eligibility and deterministic ties are defined in the
-  plan; Top-K is configurable with demo default K=10.
-- Built-ins follow `TECHNICAL_PROFILES_V1`: SMA 20/50, Wilder RSI 14/30/70,
-  Bollinger SMA20/population deviation/2x, and prior-window Support/Resistance
-  with 20 candles and 0.5% proximity. Signals execute no earlier than the next
-  candle open.
-- Composites use equal-weight `MAJORITY_VOTE_V1`; a unique highest BUY/SELL/HOLD
-  count wins and every tie yields HOLD.
-- CoinDesk Data API is the primary live News adapter; deterministic tests and
-  acceptance use fixtures.
-- Sentiment is deterministic local `LEXICON_V1`. Do not introduce hosted APIs,
-  model downloads, ONNX, Transformers, or LLM infrastructure.
-- Demo defaults are BTCUSDT, 5m/15m/1h/4h, 30 days, 10,000 USDT, 0.1% fee,
-  zero slippage, one full-capital long position, and K=10; these remain configurable.
+C-01 froze canonical public module contracts and application ports for Market
+Data, Strategy, Search, Backtesting, Evaluation, Leaderboard, News, and
+Sentiment. It also froze self-contained REST DTOs/validators, market-only
+WebSocket messages, generic visualization traces, deterministic Search identity,
+bounded execution seams, honest replay provenance, ranking configuration, and a
+TypeScript gate for contract fixtures.
 
-Do not reopen these choices during implementation. A genuinely new business
-decision returns to human review and updates the approved change before code.
+Canonical source owners remain:
 
-## Dependency and execution guardrails
+- module public contracts under `modules/*/api/contracts.ts`;
+- replaceable application ports under their owning module's `application/ports.ts`;
+- REST DTOs under `packages/contracts/rest/`;
+- market-only WebSocket DTOs under `packages/contracts/websocket/`.
 
-The controlling computation path is:
+Consumers must use public module barrels. Packages remain self-contained and do
+not import business modules. Existing runtime stubs remain intentionally
+unimplemented; C-01 added no provider, persistence, strategy, simulator, search,
+ranking, controller, or frontend feature implementation.
 
-```text
-P-00 -> C-01 -> S-01 -> B-01 -> B-02 -> I-01 -> I-02
-```
+## Frozen V1 decisions
 
-D-01, E-01, and L-01 are parallel prerequisites that must finish before B-02.
-B-01 starts after C-01 and S-01 using fixtures and fake strategies; it must not
-wait for M-01 or real built-ins. B-02 starts after D-01, S-01, B-01, E-01, and
-L-01; M-01 and S-02/S-03 are integration dependencies before I-01/I-02. Q-01
-starts after C-01 and S-01 against fakes, then needs D-01/L-01/B-02 to finish.
+- `LINEAR_REQUIRED_V1`: 50% Return, 30% Win Rate, minus 20% drawdown magnitude;
+  successful finite results with at least one trade are eligible; deterministic
+  tie order is frozen; K is configurable with default 10.
+- `TECHNICAL_PROFILES_V1`: approved MA, Wilder RSI, population-deviation
+  Bollinger, and `SUPPORT_RESISTANCE_V1` behavior.
+- `SUPPORT_RESISTANCE_V1`: prior 20 completed candles, current excluded; support
+  is minimum LOW and resistance maximum HIGH; 0.5% zones; bullish/bearish candle
+  rejection confirmation; ambiguity, overlap, both/neither conditions,
+  insufficient history, and breakouts yield HOLD.
+- `MAJORITY_VOTE_V1`: at least two distinct immutable definitions, equal votes
+  across BUY/SELL/HOLD, unique highest wins, tie yields HOLD.
+- `BACKTEST_EXECUTION_V1`: deterministic single-position long-only full-cash
+  execution at t+1 OPEN, fee on both sides, adverse configured slippage, exact
+  quantity/net-PnL formulas, ignored repeated/inapplicable signals, and final
+  candle CLOSE liquidation with fee/slippage.
+- `LEXICON_V1`: deterministic local, replaceable, model-neutral Sentiment with
+  provider/profile/model provenance; no hosted inference or model downloads.
+- Demo defaults remain configurable: BTCUSDT, 5m/15m/1h/4h, 30 days, 10,000
+  USDT, 0.1% fee per side, zero slippage, and K=10.
 
-Only the Manager changes states in `TASKS.md`. Maximum useful concurrency after
-the C-01 checkpoint is one Manager plus three workers with disjoint write scopes.
+Do not reopen these decisions without higher-authority evidence or human review.
 
-## P-00 result
+## Validation evidence
 
-- Completed Stage 4A was archived at
-  [`openspec/changes/archive/2026-08-27-stage-4a-structural-source-reconciliation`](../../openspec/changes/archive/2026-08-27-stage-4a-structural-source-reconciliation/).
-- Its one-time structural delta was not copied into canonical capability specs;
-  the closure explains why and records OpenSpec CLI validation as UNVERIFIED.
-- Active governance now lives at
-  [`openspec/changes/mvp-implementation`](../../openspec/changes/mvp-implementation/).
-- The only Stage 5.1 additions under `docs/implementation/` are this checkpoint,
-  the full plan, and the mutable task board.
-- No application source, executable contract, migration, runtime, dependency, or
-  feature implementation was changed in P-00.
+- Three independent read-only C-01 reviews: PASS.
+- Root build: PASS.
+- Root typecheck, including contract fixtures: PASS.
+- Root lint: PASS.
+- Root tests: PASS, 49 tests.
+- Architecture dependency checks: PASS, 26 modules / 40 dependencies and all
+  negative fixtures detected.
+- Source-artifact check: PASS.
+- Deferred-scope check: PASS.
+- `git diff --check`: PASS.
+- OpenSpec strict validation for `mvp-implementation`: PASS.
 
-## Validation status and limitations
+Live Binance/CoinDesk credentials, PostgreSQL/Docker, real providers, migrations,
+and application runtime behavior are later task concerns and were not required
+for C-01.
 
-- Documentation links, task inventory/state, dependency corrections, approved
-  decision persistence, changed-path scope, and whitespace checks: PASS.
-- Repository architecture, artifact, and deferred-scope checks: PASS.
-- Formal OpenSpec CLI validation: **UNVERIFIED** because the CLI is unavailable;
-  no substitute is reported as formal OpenSpec validation.
-- Runtime build/typecheck/test suites were not rerun for this documentation-only
-  checkpoint. The previously reviewed Stage 5 baseline at the base HEAD passed;
-  P-00 makes no executable changes.
-- Public Binance/CoinDesk access, credentials, and PostgreSQL/Docker remain later
-  task concerns and do not block C-01.
+## READY/BLOCKED recomputation
+
+Newly READY after C-01:
+
+1. D-01 — Minimal MVP Persistence Foundation.
+2. S-01 — Strategy Registry, Definitions and Composite Core.
+3. E-01 — Independent Evaluation.
+4. F-01 — Frontend Chart and Client Foundation.
+
+All remaining tasks stay BLOCKED exactly as recorded in `TASKS.md`. In
+particular, do not start B-01 until S-01 is DONE, and do not start persistence-
+dependent capability packets until D-01 is DONE.
 
 ## Fresh-agent restart procedure
 
-1. Confirm the branch and checkpoint HEAD, then verify the working tree is clean.
-2. Read the authority chain and the five active program artifacts linked above.
-3. Confirm `TASKS.md` still shows exactly C-01 READY and every other unfinished
-   task BLOCKED.
-4. Claim C-01, record its owner/branch/starting commit, and change it to
-   IN_PROGRESS before editing within its bounded contract scope.
-5. Stop for human review if C-01 exposes a materially new product decision.
-6. When C-01 passes all applicable checks, update `TASKS.md`, replace this file
-   with the new checkpoint, and create the next coherent local commit.
+1. Confirm `MVP_IMPLEMENTATION`, resolve the checkpoint HEAD, and verify a clean
+   worktree.
+2. Follow the full authority reading order and inspect the contract-freeze commit.
+3. Confirm `TASKS.md` shows exactly D-01, S-01, E-01, and F-01 READY.
+4. Select and claim only an approved READY packet; record owner, branch, and
+   starting commit before editing.
+5. Treat the C-01 public contracts and V1 profiles as frozen inputs. Any proposed
+   change requires Manager review and an approved change in scope.
+6. Preserve disjoint write scopes and do not exceed useful concurrency.

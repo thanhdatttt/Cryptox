@@ -12,21 +12,21 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 | Task | State | Wave | Critical | Owner | Latest branch / commit | Validation |
 |---|---|---:|---|---|---|---|
 | P-00 | DONE | 0 | YES | Manager | `MVP_IMPLEMENTATION` / containing P-00 checkpoint commit | Repository/documentation checks PASS; OpenSpec CLI UNVERIFIED |
-| C-01 | READY | 1 | YES | Unassigned contract specialist | — | Not started |
-| D-01 | BLOCKED | 2 | YES — B-02 gate | Unassigned persistence specialist | — | Not started |
+| C-01 | DONE | 1 | YES | Manager | `MVP_IMPLEMENTATION` / `d7136318ecc5ca98670db4c260974a64d0fcbbfe` | Reviews and all C-01 gates PASS |
+| D-01 | READY | 2 | YES — B-02 gate | Unassigned persistence specialist | — | Ready after C-01 |
 | M-01 | BLOCKED | 2 | Integration | Unassigned Market Data worker | — | Not started |
 | M-02 | BLOCKED | 3 | Integration | Unassigned Market Data worker | — | Not started |
-| S-01 | BLOCKED | 2 | YES | Unassigned Strategy core worker | — | Not started |
+| S-01 | READY | 2 | YES | Unassigned Strategy core worker | — | Ready after C-01 |
 | S-02 | BLOCKED | 3 | Integration | Unassigned Strategy worker A | — | Not started |
 | S-03 | BLOCKED | 3 | Integration | Unassigned Strategy worker B | — | Not started |
-| E-01 | BLOCKED | 2 | YES — B-02 gate | Unassigned Evaluation worker | — | Not started |
+| E-01 | READY | 2 | YES — B-02 gate | Unassigned Evaluation worker | — | Ready after C-01 |
 | L-01 | BLOCKED | 2 | YES — B-02 gate | Unassigned Leaderboard worker | — | Not started |
 | B-01 | BLOCKED | 3 | YES | Unassigned Backtesting domain worker | — | Not started |
 | B-02 | BLOCKED | 4 | YES | Unassigned Backtesting application worker | — | Not started |
 | Q-01 | BLOCKED | 3–4 | Integration | Unassigned Search worker | — | Not started |
 | N-01 | BLOCKED | 2 | Integration | Unassigned News worker | — | Not started |
 | N-02 | BLOCKED | 2 | Integration | Unassigned Sentiment worker | — | Not started |
-| F-01 | BLOCKED | 2 | Integration | Unassigned Frontend worker | — | Not started |
+| F-01 | READY | 2 | Integration | Unassigned Frontend worker | — | Ready after C-01 |
 | F-02 | BLOCKED | 3 | Integration | Unassigned Frontend worker | — | Not started |
 | I-01 | BLOCKED | 5 | YES | Manager / integration worker | — | Not started |
 | I-02 | BLOCKED | 6 | YES | Manager plus independent reviewers | — | Not started |
@@ -55,7 +55,7 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 - **Requirement IDs:** `CSL-R-MD-01`, `CSL-R-MD-02`, `CSL-R-ST-01`–`04`,
   `CSL-R-SE-01`, `CSL-R-SE-02`, `CSL-R-BT-01`, `CSL-R-EV-01`, `CSL-R-LB-01`,
   `CSL-R-VIS-01`, `CSL-R-NW-01`, `CSL-R-SN-01`, `CSL-R-RP-01`, `CSL-R-OB-01`
-- **State / owner / wave:** READY / Unassigned contract specialist / Wave 1
+- **State / owner / wave:** DONE / Manager / Wave 1
 - **Critical / parallelism:** YES / NO
 - **Start dependencies:** P-00
 - **Integration dependencies:** None
@@ -63,8 +63,11 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
   search, and provenance contracts before implementation fans out.
 - **Write scope:** Canonical module API contracts and ports; REST DTOs; market WS
   mappings only when necessary; contract tests.
-- **Latest branch / commit:** —; record when work starts.
-- **Validation:** Not started.
+- **Latest branch / commit:** `MVP_IMPLEMENTATION` /
+  `d7136318ecc5ca98670db4c260974a64d0fcbbfe`.
+- **Validation:** Three independent read-only reviews PASS. Root build, typecheck
+  (including contract fixtures), lint, 49 tests, architecture, artifact,
+  deferred-scope, and diff checks PASS. OpenSpec strict validation PASS.
 - **Full packet:** [`MVP_PLAN.md#c-01--executable-contract-and-behavior-freeze`](MVP_PLAN.md#c-01--executable-contract-and-behavior-freeze)
 
 ### D-01 — Minimal MVP Persistence Foundation
@@ -72,7 +75,7 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 - **Requirement IDs:** `CSL-R-MD-01`, `CSL-R-ST-04`, `CSL-R-SE-02`,
   `CSL-R-BT-01`, `CSL-R-EV-01`, `CSL-R-LB-01`, `CSL-R-NW-01`, `CSL-R-SN-01`,
   `CSL-R-RP-01`, `CSL-R-OB-01`
-- **State / owner / wave:** BLOCKED / Unassigned persistence specialist / Wave 2
+- **State / owner / wave:** READY / Unassigned persistence specialist / Wave 2
 - **Critical / parallelism:** YES, gates B-02 / YES, with one DB writer
 - **Start dependencies:** C-01
 - **Integration dependencies:** None
@@ -115,7 +118,7 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 
 - **Requirement IDs:** `CSL-R-ST-01`, `CSL-R-ST-03`, `CSL-R-ST-04`,
   `CSL-R-AR-02`, `CSL-R-AR-03`, `CSL-R-RP-01`
-- **State / owner / wave:** BLOCKED / Unassigned Strategy core worker / Wave 2
+- **State / owner / wave:** READY / Unassigned Strategy core worker / Wave 2
 - **Critical / parallelism:** YES / YES after C-01
 - **Start dependencies:** C-01
 - **Integration dependencies:** D-01 for persistence completion
@@ -155,7 +158,7 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 ### E-01 — Independent Evaluation
 
 - **Requirement IDs:** `CSL-R-EV-01`, `CSL-R-RP-01`, `CSL-R-AR-02`, `CSL-R-AR-03`
-- **State / owner / wave:** BLOCKED / Unassigned Evaluation worker / Wave 2
+- **State / owner / wave:** READY / Unassigned Evaluation worker / Wave 2
 - **Critical / parallelism:** YES, gates B-02 / YES
 - **Start dependencies:** C-01
 - **Integration dependencies:** B-02
@@ -254,7 +257,7 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 ### F-01 — Frontend Chart and Client Foundation
 
 - **Requirement IDs:** `CSL-R-FE-01`, `CSL-R-MD-02`, `CSL-R-AR-03`
-- **State / owner / wave:** BLOCKED / Unassigned Frontend worker / Wave 2
+- **State / owner / wave:** READY / Unassigned Frontend worker / Wave 2
 - **Critical / parallelism:** Integration / YES
 - **Start dependencies:** C-01
 - **Integration dependencies:** M-02 and I-01
@@ -315,8 +318,7 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 
 ## State derivation at this checkpoint
 
-P-00 is DONE because its durable artifacts and governance state are complete.
-C-01 is the sole READY task because its only dependency is P-00. Every other task
-remains BLOCKED: each has C-01 itself or an unfinished descendant of C-01 in its
-start-dependency chain. No implementation fan-out is authorized before the C-01
-contract-freeze checkpoint.
+P-00 and C-01 are DONE. Strict recomputation from start dependencies makes D-01,
+S-01, E-01, and F-01 READY. Every other unfinished task remains BLOCKED by at
+least one unfinished start dependency. No newly READY task was started at this
+checkpoint.
