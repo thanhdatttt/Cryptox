@@ -1,9 +1,15 @@
 {
   "name": "@cryptox/contracts",
   "private": true,
+  "exports": {
+    "./rest": { "types": "./rest/index.ts", "require": "./dist/packages/contracts/rest/index.js" },
+    "./websocket": { "types": "./websocket/index.ts", "require": "./dist/packages/contracts/websocket/index.js" },
+    "./queue": { "types": "./queue/index.ts", "require": "./dist/packages/contracts/queue/index.js" }
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "tsc -p tsconfig.json --noEmit"
   }
 }

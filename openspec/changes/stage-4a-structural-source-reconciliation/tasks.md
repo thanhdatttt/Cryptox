@@ -8,11 +8,11 @@
 
 ## Wave 1 — build and resolution truth
 
-- [ ] Establish deterministic workspace package resolution, production output,
+- [x] Establish deterministic workspace package resolution, production output,
   explicit typecheck, cross-platform start behavior, and clean install/build.
-- [ ] Prove output isolation, remove exactly the stale module `.js`/`.d.ts`
+- [x] Prove output isolation, remove exactly the stale module `.js`/`.d.ts`
   sidecars, and add a recurrence guard.
-- [ ] Validate and commit Wave 1.
+- [x] Validate and commit Wave 1.
 
 ## Wave 2 — ownership and boundaries
 

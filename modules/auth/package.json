@@ -1,9 +1,16 @@
 {
   "name": "@cryptox/auth",
   "private": true,
+  "main": "./dist/modules/auth/api/index.js",
+  "types": "./api/index.ts",
+  "exports": {
+    ".": { "types": "./api/index.ts", "require": "./dist/modules/auth/api/index.js" },
+    "./bootstrap": { "types": "./api/bootstrap.ts", "require": "./dist/modules/auth/api/bootstrap.js" }
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "tsc -p tsconfig.json --noEmit"
   }
 }

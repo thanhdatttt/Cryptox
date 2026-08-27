@@ -3,8 +3,9 @@
   "private": true,
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "start": "NODE_PATH=dist node dist/apps/backtest-worker/src/main.js",
+    "start": "node ../../scripts/run-compiled.cjs dist apps/backtest-worker/src/main.js",
     "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
