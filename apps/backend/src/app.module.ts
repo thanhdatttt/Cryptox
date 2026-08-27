@@ -1,10 +1,17 @@
-import { Controller, Get, Module } from "@nestjs/common";
+import { Controller, Get, HttpCode, HttpStatus, Module } from "@nestjs/common";
+import { runtimeReadiness, type RuntimeReadiness } from "./compose";
 
-@Controller("health")
+@Controller()
 export class HealthController {
-  @Get()
-  health(): { status: string } {
-    return { status: "ok" };
+  @Get("live")
+  live(): { status: "live" } {
+    return { status: "live" };
+  }
+
+  @Get("ready")
+  @HttpCode(HttpStatus.SERVICE_UNAVAILABLE)
+  ready(): RuntimeReadiness {
+    return runtimeReadiness;
   }
 }
 

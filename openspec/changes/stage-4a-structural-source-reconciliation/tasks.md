@@ -34,9 +34,9 @@
 
 ## Wave 4 — runtime topology and truth
 
-- [ ] Remove mandatory Redis/worker topology, reconcile backend composition, and
+- [x] Remove mandatory Redis/worker topology, reconcile backend composition, and
   provide truthful liveness/readiness.
-- [ ] Run focused runtime smoke checks and commit Wave 4.
+- [x] Run focused runtime smoke checks and commit Wave 4.
 
 ## Wave 5 — structural verification
 
