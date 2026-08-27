@@ -1,2 +1,2 @@
-This layer owns persistence and queue adapters for Backtesting. The queue
-adapter boundary is represented by the adjacent queue placeholder.
+This layer will own Backtesting persistence and execution adapters. No adapter is
+implemented in the Stage 4A ownership reconciliation.

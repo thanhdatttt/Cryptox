@@ -1,4 +1,12 @@
-export type { NewsModuleDependencies } from "../application/ports";
+export type {
+  NewsCollectionRequest,
+  NewsModuleDependencies,
+  NewsObservability,
+  NewsProvider,
+  NewsRepository,
+  NewsSentimentPort,
+  SentimentReadService,
+} from "../application/ports";
 import type { NewsModuleDependencies } from "../application/ports";
 import type { NewsModulePublicApi } from "./index";
 import { collect, readNews } from "./index";

@@ -1,9 +1,16 @@
-export type { SentimentModuleDependencies } from "../application/ports";
+export type {
+  Clock,
+  SentimentModuleDependencies,
+  SentimentObservability,
+  SentimentProvider,
+  SentimentProviderResult,
+  SentimentResultRepository,
+} from "../application/ports";
 import type { SentimentModuleDependencies } from "../application/ports";
 import type { SentimentModulePublicApi } from "./index";
-import { analyze, createSnapshot, readLatestForNews, readSnapshot } from "./index";
+import { analyze, readLatestForNews } from "./index";
 export function createSentimentModule(
   _deps: SentimentModuleDependencies,
 ): SentimentModulePublicApi {
-  return { analyze, readLatestForNews, createSnapshot, readSnapshot };
+  return { analyze, readLatestForNews };
 }

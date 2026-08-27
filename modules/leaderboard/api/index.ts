@@ -1,36 +1,34 @@
-import type { CompletionUnitOfWork, ExperimentResult } from "modules/backtesting/api";
-import type { EvaluationMetrics } from "modules/evaluation/api";
 import type {
+  CreateLeaderboardScopeCommand,
   LeaderboardEntry,
   LeaderboardScope,
   LeaderboardSubmissionResult,
+  RankableExperiment,
   ScoredEvaluation,
   SearchRunRankingEntry,
-  CreateLeaderboardScopeCommand,
-} from "../domain/contracts";
-export type {
-  ScoreFormula,
-  LeaderboardScope,
-  ScoredEvaluation,
-  LeaderboardEntry,
-  SearchRunRankingEntry,
-  LeaderboardSubmissionResult,
-  CreateLeaderboardScopeCommand,
-} from "../domain/contracts";
-export interface LeaderboardModulePublicApi {
-  score(leaderboardScopeId: string, metrics: EvaluationMetrics): ScoredEvaluation;
-  topK(leaderboardScopeId: string): Promise<LeaderboardEntry[]>;
-  rankSearchRun(searchRunId: string): Promise<SearchRunRankingEntry[]>;
-  submit(
-    experiment: ExperimentResult,
-    unitOfWork: CompletionUnitOfWork,
-  ): Promise<LeaderboardSubmissionResult>;
-}
+} from "./contracts";
+import type { EvaluationMetrics } from "@cryptox/evaluation";
+
+export * from "./contracts";
+
 const notImplemented = (): never => {
   throw new Error("NOT_IMPLEMENTED");
 };
-export const score: LeaderboardModulePublicApi["score"] = () => notImplemented();
-export const topK: LeaderboardModulePublicApi["topK"] = async () => notImplemented();
-export const rankSearchRun: LeaderboardModulePublicApi["rankSearchRun"] = async () =>
+
+export const createLeaderboardScope = async (
+  _command: CreateLeaderboardScopeCommand,
+): Promise<LeaderboardScope> => notImplemented();
+export const getLeaderboardScope = async (_id: string): Promise<LeaderboardScope> =>
   notImplemented();
-export const submit: LeaderboardModulePublicApi["submit"] = async () => notImplemented();
+export const score = (
+  _leaderboardScopeId: string,
+  _metrics: EvaluationMetrics,
+): ScoredEvaluation => notImplemented();
+export const topK = async (_leaderboardScopeId: string): Promise<readonly LeaderboardEntry[]> =>
+  notImplemented();
+export const rankSearchRun = async (
+  _searchRunId: string,
+): Promise<readonly SearchRunRankingEntry[]> => notImplemented();
+export const submit = async (
+  _experiment: RankableExperiment,
+): Promise<LeaderboardSubmissionResult> => notImplemented();

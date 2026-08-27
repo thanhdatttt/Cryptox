@@ -1,9 +1,16 @@
 {
   "name": "@cryptox/backtesting",
   "private": true,
+  "main": "./dist/modules/backtesting/api/index.js",
+  "types": "./api/index.ts",
+  "exports": {
+    ".": { "types": "./api/index.ts", "import": "./api/index.ts", "require": "./dist/modules/backtesting/api/index.js" },
+    "./bootstrap": { "types": "./api/bootstrap.ts", "import": "./api/bootstrap.ts", "require": "./dist/modules/backtesting/api/bootstrap.js" }
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test": "vitest run --passWithNoTests",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "tsc -p tsconfig.json --noEmit"
   }
 }

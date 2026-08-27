@@ -1,20 +1,94 @@
-import type { Candle, DatasetSnapshotRef } from "../domain/contracts";
+import type {
+  Candle,
+  DatasetSnapshotRef,
+  MarketDataConnectionStatus,
+  MarketTick,
+  Pair,
+  ProviderId,
+  Timeframe,
+} from "../domain/contracts";
+
+export interface MarketDataHistoryRequest {
+  pair: Pair;
+  timeframe: Timeframe;
+  range?: { from: string; to: string };
+  limit?: number;
+  cursor?: string;
+  includeForming?: boolean;
+}
+
+export interface MarketDataHistoryResult {
+  range: { from: string; to: string };
+  candles: Candle[];
+  complete: boolean;
+  missingRanges: Array<{ from: string; to: string }>;
+  formingIncluded: boolean;
+  observedAt: string;
+  nextCursor?: string;
+}
+
+export interface MarketDataProviderSubscription {
+  pair: Pair;
+  timeframe: Timeframe;
+}
+
+export type MarketDataProviderUpdate =
+  | { kind: "TICK"; payload: MarketTick }
+  | { kind: "CANDLE"; payload: Candle }
+  | { kind: "CONNECTION_STATUS"; payload: MarketDataConnectionStatus };
+
+export interface MarketDataProvider {
+  readonly id: ProviderId;
+  readCandles(request: MarketDataHistoryRequest): Promise<MarketDataHistoryResult>;
+  subscribe(
+    subscriptions: readonly MarketDataProviderSubscription[],
+    sink: (update: MarketDataProviderUpdate) => void,
+  ): Promise<() => Promise<void>>;
+  shutdown(): Promise<void>;
+}
+
+export interface CandleRepository {
+  upsertMany(candles: readonly Candle[]): Promise<void>;
+  read(request: MarketDataHistoryRequest): Promise<Candle[]>;
+}
+
+export interface DatasetSnapshotCreateInput {
+  provider: ProviderId;
+  pair: Pair;
+  timeframe: Timeframe;
+  range: { from: string; to: string };
+}
+
+export interface DatasetSnapshotReadInput {
+  snapshotId: string;
+  cursor?: string;
+  limit?: number;
+}
+
+export interface DatasetSnapshotPage {
+  snapshot: DatasetSnapshotRef;
+  candles: Candle[];
+  nextCursor?: string;
+}
+
 export interface SnapshotRepository {
-  read(query: unknown): Promise<unknown>;
-  create(command: unknown): Promise<DatasetSnapshotRef>;
+  read(query: DatasetSnapshotReadInput): Promise<DatasetSnapshotPage | undefined>;
+  create(command: DatasetSnapshotCreateInput): Promise<DatasetSnapshotRef>;
 }
 export interface Clock {
   now(): string;
 }
 export interface MarketDataObservability {
-  record(event: string): void;
+  record(event: {
+    type: "PROVIDER_FAILURE" | "PROVIDER_RECONNECT" | "HISTORY_GAP";
+    providerId: ProviderId;
+    detail?: string;
+  }): void;
 }
 export interface MarketDataModuleDependencies {
-  providerRegistry: unknown;
-  candleRepository: unknown;
+  providers: readonly MarketDataProvider[];
+  candleRepository: CandleRepository;
   snapshotRepository: SnapshotRepository;
-  latestValueCache: unknown;
   clock: Clock;
   observability: MarketDataObservability;
 }
-export type _CandlePortMarker = Candle;

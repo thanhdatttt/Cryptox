@@ -1,10 +1,10 @@
-import type { NewsReadItem } from "../domain/contracts";
-export type {
-  NewsItem,
-  NewsReadItem,
-  NewsSentimentPort,
-  SentimentReadService,
-} from "../domain/contracts";
+import type { SentimentResult } from "@cryptox/sentiment";
+import type { NewsItem } from "../domain/contracts";
+export type { NewsItem } from "../domain/contracts";
+export type { NewsSentimentPort, SentimentReadService } from "../application/ports";
+export interface NewsReadItem extends NewsItem {
+  sentiment?: SentimentResult;
+}
 export interface NewsModulePublicApi {
   collect(): Promise<void>;
   readNews(): Promise<NewsReadItem[]>;

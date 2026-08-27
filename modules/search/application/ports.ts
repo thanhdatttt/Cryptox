@@ -1,13 +1,18 @@
-import type { GeneratorType, LoopStatus } from "../domain/contracts";
-export interface SearchRunRepository {
-  get(id: string): Promise<LoopStatus | undefined>;
+import type { BacktestExecutionPort } from "@cryptox/backtesting";
+import type { LeaderboardModulePublicApi } from "@cryptox/leaderboard";
+
+export interface SearchRunRepository<TSearchRun> {
+  get(id: string): Promise<TSearchRun | undefined>;
+  save(searchRun: TSearchRun): Promise<TSearchRun>;
 }
-export interface SearchModuleDependencies {
-  searchRunRepository: SearchRunRepository;
-  generators: Record<GeneratorType, import("../domain/contracts").StrategyGenerator>;
-  backtestCoordinator: import("modules/backtesting/api").BacktestLogApi;
-  leaderboardService: Pick<
-    import("modules/leaderboard/api").LeaderboardModulePublicApi,
-    "rankSearchRun"
-  >;
+
+export interface StrategyGeneratorPort<TSearchSpace, TCandidate> {
+  generate(searchSpace: TSearchSpace): TCandidate;
+}
+
+export interface SearchApplicationDependencies<TSearchRun, TSearchSpace, TCandidate> {
+  searchRunRepository: SearchRunRepository<TSearchRun>;
+  generators: { readonly RANDOM: StrategyGeneratorPort<TSearchSpace, TCandidate> };
+  backtestExecution: BacktestExecutionPort;
+  leaderboard: Pick<LeaderboardModulePublicApi, "rankSearchRun">;
 }

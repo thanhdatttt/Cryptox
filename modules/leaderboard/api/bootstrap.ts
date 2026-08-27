@@ -1,24 +1,34 @@
-export type { LeaderboardModuleDependencies } from "../application/ports";
-import type { LeaderboardModuleDependencies } from "../application/ports";
-import type { LeaderboardModulePublicApi } from "./index";
-import { rankSearchRun, score, submit, topK } from "./index";
-import type { CreateLeaderboardScopeCommand, LeaderboardScope } from "../domain/contracts";
+import type { LeaderboardApplicationDependencies } from "../application/ports";
+import type {
+  CreateLeaderboardScopeCommand,
+  LeaderboardEntry,
+  LeaderboardModulePublicApi,
+  LeaderboardScope,
+  RankingConfiguration,
+} from "./contracts";
+import {
+  createLeaderboardScope,
+  getLeaderboardScope,
+  rankSearchRun,
+  score,
+  submit,
+  topK,
+} from "./index";
+export type LeaderboardModuleDependencies = LeaderboardApplicationDependencies<
+  LeaderboardScope,
+  CreateLeaderboardScopeCommand,
+  LeaderboardEntry,
+  RankingConfiguration
+>;
 export function createLeaderboardModule(
   _deps: LeaderboardModuleDependencies,
-): LeaderboardModulePublicApi & {
-  createLeaderboardScope(command: CreateLeaderboardScopeCommand): Promise<LeaderboardScope>;
-  getLeaderboardScope(id: string): Promise<LeaderboardScope>;
-} {
+): LeaderboardModulePublicApi {
   return {
+    createLeaderboardScope,
+    getLeaderboardScope,
     score,
     topK,
     rankSearchRun,
     submit,
-    createLeaderboardScope: async () => {
-      throw new Error("NOT_IMPLEMENTED");
-    },
-    getLeaderboardScope: async () => {
-      throw new Error("NOT_IMPLEMENTED");
-    },
   };
 }

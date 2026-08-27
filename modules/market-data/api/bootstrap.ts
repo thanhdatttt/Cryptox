@@ -1,3 +1,18 @@
+export type {
+  CandleRepository,
+  Clock,
+  DatasetSnapshotCreateInput,
+  DatasetSnapshotPage,
+  DatasetSnapshotReadInput,
+  MarketDataHistoryRequest,
+  MarketDataHistoryResult,
+  MarketDataModuleDependencies,
+  MarketDataObservability,
+  MarketDataProvider,
+  MarketDataProviderSubscription,
+  MarketDataProviderUpdate,
+  SnapshotRepository,
+} from "../application/ports";
 import type { MarketDataModuleDependencies } from "../application/ports";
 import type { MarketDataModulePublicApi } from "./index";
 import {

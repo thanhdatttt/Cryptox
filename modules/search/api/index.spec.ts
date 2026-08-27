@@ -4,7 +4,7 @@ describe("search skeleton", () => {
   it("stubs start", async () => {
     await expect(
       start({
-        searchSpace: { availableStrategies: [] },
+        searchSpace: { availableStrategyDefinitionIds: [] },
         stopCondition: { maxCandidates: 1 },
         generatorType: "RANDOM",
         leaderboardScopeId: "scope",
