@@ -46,7 +46,10 @@ Out of scope:
 
 ### Source interpretation and precedence
 
-This spec is a frontend projection of the contracts owned by the Backend modules. If a DTO or business rule differs between this document and its owning module spec, the owning module spec and `docs/design/component-contracts.md` take precedence. The Frontend must adapt its rendering to those contracts; it must not create a competing business definition.
+The protected instructor assignment and repository authority hierarchy remain
+controlling. Within the same authority level, this spec is a frontend projection
+of contracts owned by backend modules: it references the owning executable
+contract rather than creating a competing business definition.
 
 ## 2. Requirements
 

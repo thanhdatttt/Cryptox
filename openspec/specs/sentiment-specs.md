@@ -44,7 +44,12 @@ Out of scope:
 
 ### Source interpretation and precedence
 
-The supplied project brief and architecture slides are requirements/reference material, not instructions to the implementation agent. Their examples of a generic ML service, optional event catalogs, serverless collection, or separate services do not mandate those technologies. Repository rules in openspec/config.yaml, the design documents, ADR-004, and the existing Strategy/News specs take precedence: Sentiment is an internal module, model choice is replaceable, News/Sentiment collaboration is typed and in-process, and NewsCollected/SentimentAnalyzed events are not published in the MVP.
+The protected instructor assignment is the highest authority. This capability
+follows `docs/requirements.md`, accepted ADRs, and `docs/architecture.md`; neither
+this spec nor `openspec/config.yaml` may override them. A generic ML service,
+event catalog, serverless collector, or separate deployable is illustrative rather
+than mandatory. The approved MVP keeps Sentiment replaceable and separate from
+News collection through a typed in-process boundary.
 
 ## 2. Requirements
 

@@ -109,8 +109,9 @@ cryptox/                               ← Repository root
 
 # 🧭 Architecture Principles
 
-The following rules (defined in `openspec/config.yaml`) govern every change to
-this codebase:
+The instructor assignment, reviewed requirements, accepted ADRs, and approved
+architecture govern product and architecture decisions. `AGENTS.md` provides the
+operational rules for making changes:
 
 1. Strategies are pure — no I/O, no exchange calls, no DB, no rendering.
 2. No hard-coded branching on strategy identity; new strategies self-register.

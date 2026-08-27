@@ -80,26 +80,19 @@ Out of scope:
 
 ### Source interpretation and precedence
 
-`docs/assignment/crypto-strategy-lab-final-project.md` is the assignment-fit
-reference. It requires historical simulation, the minimum evaluation metrics,
-Trade Detail, Buy/Sell and Entry/Exit visualization, reproducibility, and a
-separable Generate -> Backtest -> Evaluate -> Rank architecture. It labels
-Long/Short, stop-loss, take-profit, and position sizing as optional extensions;
-this project deliberately selects those extensions because the supplied
-`backtest.jpg` target shows one `MA Crossover` run producing both LONG and SHORT
-Trades with SL/TP and cost controls. The assignment and image define the desired
-capability, not hidden implementation instructions.
+The protected instructor assignment at
+`docs/assignment/Crypto Strategy Lab – Đồ án cuối kỳ.pdf` is the highest
+authority. It requires historical simulation, the minimum evaluation metrics,
+Buy/Sell and Entry/Exit visualization, reproducibility, and a separable
+Generate -> Backtest -> Evaluate -> Rank architecture. Long/Short, stop-loss,
+take-profit, and position sizing are optional extensions and are deferred from
+the approved MVP. This specification follows `docs/requirements.md`, accepted
+ADRs, and `docs/architecture.md`; it cannot override them.
 
-For implementation decisions, the owning canonical module spec wins:
-
-1. `evaluation-spec.md` owns metric formulas and edge-case statuses.
-2. `ranking-spec.md` owns benchmark scope, scoring, and Top-K admission.
-3. `strategy-spec.md` owns plugin signals and composite combination semantics.
-4. Market Data and Sentiment own sealed snapshot contracts.
-5. Auth and the active multi-tenant ownership change own `AuthContext` and
-   owner isolation.
-6. This document owns Candidate, Attempt, Trade, Experiment, simulation, replay,
-   and Backtest read projections.
+Within that hierarchy, Evaluation owns metric behavior, Leaderboard owns ranking
+behavior, Strategy owns signal/composition behavior, and Backtesting owns
+historical simulation and its read projections. Executable TypeScript contracts
+remain authoritative for their approved exact shape.
 
 This document may add an explicitly named Backtesting projection, but it MUST
 NOT redeclare an owned formula or silently widen a shared contract. If prose,

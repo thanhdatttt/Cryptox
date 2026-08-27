@@ -2,7 +2,7 @@
 
 ## 1. Design Principles Behind This Layout
 
-1. **OpenSpec is the target behavior source of truth.** The current repository contains architecture/OpenSpec documents; the implementation layout below is the planned structure. Behavior changes go through `openspec/changes/<change>/` (propose → apply → archive) before implementation.
+1. **The instructor assignment is the highest authority.** Reviewed requirements, accepted ADRs, approved architecture, and approved capability specs refine it in that order. OpenSpec supports reviewed changes but does not override those sources and is not mandatory for every small task.
 2. **Business modules live under `modules/`.** Cryptox is a synchronous Modular Monolith, not a collection of deployable microservices. Each module owns a business boundary and is composed inside `apps/backend`. The `backtesting` module is the only module with a second deployable composition in `apps/backtest-worker`.
 3. **Layers make dependency direction explicit inside a module.** A module may contain `api`, `application`, `domain`, and `infrastructure`. These are logical layers, not a requirement to create empty folders. Domain code remains pure; infrastructure implements application ports; API adapters remain thin.
 4. **Module boundaries are enforced by public APIs, not by folder names alone.** A module exposes an allowlisted runtime facade from `api/index` and an explicit composition/bootstrap facade from `api/bootstrap` when a process must wire its infrastructure. Other modules and apps may call those facades but may not import another module's `domain` or `infrastructure` internals directly.
@@ -18,7 +18,7 @@ cryptox/
 ├── packages/                        ← reusable protocols and technical libraries
 ├── infra/                           ← local environment, migrations, operations
 ├── docs/                            ← architecture and ADRs
-├── openspec/                        ← behavior source of truth and changes
+├── openspec/                        ← capability specifications and reviewed changes
 └── README.md
 ```
 

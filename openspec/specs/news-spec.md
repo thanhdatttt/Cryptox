@@ -47,7 +47,12 @@ Out of scope (owned by other modules or composition roots):
 
 ### Source interpretation and precedence
 
-The supplied project brief and architecture slides are requirements/reference material for this spec, not instructions to the implementation agent. Their examples of separate "News Service" or "Sentiment Service" deployables, `NewsCollected`/`SentimentAnalyzed` events, serverless collection, and richer query behavior are explanatory or optional. Where they conflict with the repository's accepted modular-monolith rules, `openspec/config.yaml`, the design documents, and ADRs take precedence: News and Sentiment are internal modules collaborating through typed in-process APIs, and no News/Sentiment domain events are published in the MVP.
+The protected instructor assignment is the highest authority. This capability
+follows `docs/requirements.md`, accepted ADRs, and `docs/architecture.md`; neither
+this spec nor `openspec/config.yaml` may override them. Assignment examples of
+separate deployables, event catalogs, or serverless collection are suggestions
+rather than mandatory technologies. The approved MVP keeps News and Sentiment as
+separate internal responsibilities collaborating through typed in-process APIs.
 
 ## 2. Requirements
 
