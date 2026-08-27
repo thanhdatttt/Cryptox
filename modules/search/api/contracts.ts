@@ -1,17 +1,32 @@
 import type { SearchRunRankingEntry } from "@cryptox/leaderboard";
+import type { BacktestConfiguration, MarketInputSelection } from "@cryptox/backtesting";
+import type { MajorityVoteProfileId } from "@cryptox/strategy";
 
 export const SEARCH_GENERATOR_TYPES = ["RANDOM"] as const;
 export type GeneratorType = (typeof SEARCH_GENERATOR_TYPES)[number];
 
 export interface GeneratedCandidate {
+  candidateKey: string;
+  compositeLogicalFamilyKey: string;
   strategyDefinitionIds: readonly string[];
-  compositeDefinitionId?: string;
+  combinationProfileId: MajorityVoteProfileId;
   generatedBy: GeneratorType;
 }
 
+export const SEARCH_CANDIDATE_IDENTITY_V1 = {
+  id: "SEARCH_CANDIDATE_IDENTITY_V1",
+  strategyDefinitionOrder: "ID_ASCENDING",
+  candidateKeyEncoding: "JSON_ARRAY_OF_COMBINATION_PROFILE_AND_ORDERED_DEFINITION_IDS",
+  compositeLogicalFamilyKey: "EQUAL_TO_CANDIDATE_KEY",
+} as const;
+
 export interface SearchSpaceConfig {
   availableStrategyDefinitionIds: readonly string[];
-  maxComponents?: number;
+  componentCount: {
+    minimum: number;
+    maximum: number;
+  };
+  requireDistinctComponents: true;
 }
 
 type StopConditionFields = {
@@ -27,23 +42,44 @@ export type StopCondition =
 
 export interface StrategyGenerator {
   readonly type: GeneratorType;
-  generate(searchSpace: SearchSpaceConfig): GeneratedCandidate;
+  generate(request: CandidateGenerationRequest): GeneratedCandidate;
 }
 
-export type SearchRunState = "CREATED" | "RUNNING" | "PAUSED" | "COMPLETED" | "CANCELLED" | "FAILED";
+export interface CandidateGenerationRequest {
+  searchSpace: SearchSpaceConfig;
+  randomSeed: string;
+  iterationNumber: number;
+  previouslyGeneratedCandidateKeys: readonly string[];
+}
+
+export interface SearchCandidateTemplate {
+  marketInput: MarketInputSelection;
+  configuration: BacktestConfiguration;
+}
+
+export type SearchRunState =
+  | "CREATED"
+  | "RUNNING"
+  | "PAUSED"
+  | "COMPLETED"
+  | "CANCELLED"
+  | "FAILED";
 export type SearchRunStopReason =
   | "MAX_CANDIDATES"
   | "MAX_DURATION"
   | "NO_IMPROVEMENT"
+  | "SEARCH_SPACE_EXHAUSTED"
   | "USER_CANCELLED"
   | "ERROR";
 
 export interface SearchRunStatus {
   searchRunId: string;
   generatorType: GeneratorType;
+  randomSeed: string;
   searchSpace: SearchSpaceConfig;
   stopCondition: StopCondition;
   leaderboardScopeId: string;
+  candidateTemplate: SearchCandidateTemplate;
   maxInFlight: number;
   state: SearchRunState;
   activeCandidateIds: readonly string[];
@@ -64,7 +100,9 @@ export interface StartSearchCommand {
   searchSpace: SearchSpaceConfig;
   stopCondition: StopCondition;
   generatorType: GeneratorType;
+  randomSeed: string;
   leaderboardScopeId: string;
+  candidateTemplate: SearchCandidateTemplate;
   maxInFlight: number;
 }
 

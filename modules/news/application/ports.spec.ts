@@ -1,11 +1,16 @@
 import { describe, expect, it } from "vitest";
 import type { SentimentInput } from "@cryptox/sentiment";
-import type { NewsItem } from "../domain/contracts";
-import type { NewsProvider, NewsSentimentPort } from "./ports";
+import type {
+  NewsProvider,
+  NewsSentimentPort,
+  NormalizedNewsItemRecord,
+} from "./ports";
 
-function newsItem(id: string, source: string): NewsItem {
+function newsItem(id: string, source: string): NormalizedNewsItemRecord {
   return {
     id,
+    providerId: source,
+    providerItemId: id,
     title: `Title ${id}`,
     content: `Content ${id}`,
     source,
@@ -38,6 +43,8 @@ describe("News application ports", () => {
         newsId: input.newsId,
         label: "POSITIVE",
         score: 0.75,
+        providerId: "fake-provider",
+        analysisProfileId: "fake-profile",
         modelName: "fake-model",
         modelVersion: "1",
         analyzedAt: "2026-01-01T00:02:00Z",

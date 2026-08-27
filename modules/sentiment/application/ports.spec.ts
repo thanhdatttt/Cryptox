@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest";
-import type { SentimentInput } from "../domain/contracts";
-import type { SentimentProvider } from "./ports";
+import type { SentimentAnalysisInput, SentimentProvider } from "./ports";
 
-const input: SentimentInput = {
+const input: SentimentAnalysisInput = {
   newsId: "news-1",
   title: "Bitcoin update",
   content: "A normalized news item",
@@ -17,6 +16,8 @@ function fakeProvider(id: string, modelVersion: string): SentimentProvider {
     analyze: async () => ({
       label: "NEUTRAL",
       score: 0,
+      providerId: id,
+      analysisProfileId: "fake-profile",
       modelName: "fake-model",
       modelVersion,
     }),

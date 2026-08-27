@@ -1,23 +1,45 @@
-import type { SentimentInput, SentimentLabel, SentimentResult } from "../domain/contracts";
+export type SentimentLabel = "POSITIVE" | "NEUTRAL" | "NEGATIVE";
+
+export interface SentimentAnalysisInput {
+  newsId: string;
+  title: string;
+  content: string;
+  source: string;
+  publishedAt: string;
+  relatedCoins: readonly string[];
+}
+
+export interface SentimentStoredResult {
+  newsId: string;
+  label: SentimentLabel;
+  score: number;
+  providerId: string;
+  analysisProfileId: string;
+  modelName: string;
+  modelVersion: string;
+  analyzedAt: string;
+}
 
 export interface SentimentProviderResult {
   label: SentimentLabel;
   score: number;
+  providerId: string;
+  analysisProfileId: string;
   modelName: string;
   modelVersion: string;
 }
 
 export interface SentimentProvider {
   readonly id: string;
-  analyze(input: SentimentInput): Promise<SentimentProviderResult>;
+  analyze(input: SentimentAnalysisInput): Promise<SentimentProviderResult>;
 }
 
 export interface SentimentAnalysisService {
-  analyze(input: SentimentInput): Promise<SentimentResult>;
+  analyze(input: SentimentAnalysisInput): Promise<SentimentStoredResult>;
 }
 export interface SentimentResultRepository {
-  insert(result: SentimentResult): Promise<SentimentResult>;
-  readLatestForNews(newsId: string): Promise<SentimentResult | undefined>;
+  insert(result: SentimentStoredResult): Promise<SentimentStoredResult>;
+  readLatestForNews(newsId: string): Promise<SentimentStoredResult | undefined>;
 }
 export interface Clock {
   now(): string;
@@ -32,5 +54,5 @@ export interface SentimentModuleDependencies {
   provider: SentimentProvider;
   resultRepository: SentimentResultRepository;
   clock: Clock;
-  observability?: SentimentObservability;
+  observability: SentimentObservability;
 }

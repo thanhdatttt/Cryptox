@@ -1,9 +1,25 @@
 import { describe, expect, it } from "vitest";
-import { readCandles } from "./index";
-describe("market-data skeleton", () => {
-  it("has a typed not-implemented facade", async () => {
-    await expect(readCandles({ pair: "BTCUSDT", timeframe: "1h" })).rejects.toThrow(
-      "NOT_IMPLEMENTED",
+import * as marketDataApi from "./index";
+
+describe("market-data public entrypoint", () => {
+  it("allowlists normalized history, snapshot, and realtime operations", async () => {
+    expect(Object.keys(marketDataApi).sort()).toEqual(
+      [
+        "MARKET_DEMO_DEFAULTS_V1",
+        "MARKET_TIMEFRAMES",
+        "createDatasetSnapshot",
+        "readCandles",
+        "readDatasetSnapshot",
+        "shutdown",
+        "subscribeMarketData",
+      ].sort(),
     );
+    await expect(
+      marketDataApi.readCandles({
+        pair: "BTCUSDT",
+        timeframe: "1h",
+        range: { from: "2026-01-01T00:00:00Z", to: "2026-01-02T00:00:00Z" },
+      }),
+    ).rejects.toThrow("NOT_IMPLEMENTED");
   });
 });

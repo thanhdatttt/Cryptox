@@ -1,37 +1,41 @@
 import { describe, expect, it } from "vitest";
-import type {
-  MarketWebSocketClientMessage,
-  MarketWebSocketServerMessage,
-} from "./market-data";
-
-function payloadIdentity(message: MarketWebSocketServerMessage): string {
-  switch (message.type) {
-    case "MARKET_TICK":
-      return message.payload.pair;
-    case "CANDLE":
-      return `${message.payload.pair}:${message.payload.timeframe}`;
-    case "CONNECTION_STATUS":
-      return message.payload.provider;
-    case "SUBSCRIPTION_ACK":
-      return message.payload.action;
-    case "ERROR":
-      return message.payload.code;
-  }
-}
+import {
+  MARKET_WS_CLIENT_MESSAGE_TYPES,
+  MARKET_WS_SERVER_MESSAGE_TYPES,
+  parseMarketWebSocketClientMessage,
+  parseMarketWebSocketServerMessage,
+  type MarketWebSocketServerMessage,
+} from "@cryptox/contracts/websocket";
 
 describe("market WebSocket transport contracts", () => {
-  it("keeps client commands versioned and market-only", () => {
-    const message = {
-      schemaVersion: 1,
-      type: "SUBSCRIBE",
-      requestId: "request-1",
-      payload: { subscriptions: [{ pair: "BTCUSDT", timeframe: "5m" }] },
-    } satisfies MarketWebSocketClientMessage;
-
-    expect(message).toMatchObject({ schemaVersion: 1, type: "SUBSCRIBE" });
+  it("freezes market-only public discriminators", () => {
+    expect(MARKET_WS_CLIENT_MESSAGE_TYPES).toEqual(["SUBSCRIBE", "UNSUBSCRIBE"]);
+    expect(MARKET_WS_SERVER_MESSAGE_TYPES).toEqual([
+      "MARKET_TICK",
+      "CANDLE",
+      "CONNECTION_STATUS",
+      "SUBSCRIPTION_ACK",
+      "ERROR",
+    ]);
+    expect(MARKET_WS_SERVER_MESSAGE_TYPES).not.toContain("LEADERBOARD_UPDATED");
   });
 
-  it("narrows each server payload by its discriminator", () => {
+  it.each(["SUBSCRIBE", "UNSUBSCRIBE"] as const)(
+    "round-trips and validates %s",
+    (type) => {
+      const message = {
+        schemaVersion: 1,
+        type,
+        requestId: "request-1",
+        payload: { subscriptions: [{ pair: "BTCUSDT", timeframe: "5m" }] },
+      };
+      expect(parseMarketWebSocketClientMessage(JSON.parse(JSON.stringify(message)))).toEqual(
+        message,
+      );
+    },
+  );
+
+  it("round-trips every approved server message family", () => {
     const messages: MarketWebSocketServerMessage[] = [
       {
         schemaVersion: 1,
@@ -41,12 +45,77 @@ describe("market WebSocket transport contracts", () => {
       },
       {
         schemaVersion: 1,
+        type: "CANDLE",
+        sentAt: "2026-01-01T00:00:01Z",
+        payload: {
+          pair: "BTCUSDT",
+          timeframe: "5m",
+          timestamp: "2026-01-01T00:00:00Z",
+          open: 100,
+          high: 101,
+          low: 99,
+          close: 100,
+          volume: 1,
+          isClosed: true,
+        },
+      },
+      {
+        schemaVersion: 1,
+        type: "CONNECTION_STATUS",
+        sentAt: "2026-01-01T00:00:01Z",
+        payload: {
+          provider: "binance",
+          status: "CONNECTED",
+          lastEventAt: "2026-01-01T00:00:00Z",
+        },
+      },
+      {
+        schemaVersion: 1,
+        type: "SUBSCRIPTION_ACK",
+        sentAt: "2026-01-01T00:00:01Z",
+        requestId: "request-1",
+        payload: {
+          action: "SUBSCRIBE",
+          accepted: [
+            {
+              subscription: { pair: "BTCUSDT", timeframe: "5m" },
+              state: "ACTIVE",
+            },
+          ],
+          rejected: [],
+        },
+      },
+      {
+        schemaVersion: 1,
         type: "ERROR",
         sentAt: "2026-01-01T00:00:01Z",
         payload: { code: "PROVIDER_UNAVAILABLE", message: "temporarily unavailable" },
       },
     ];
 
-    expect(messages.map(payloadIdentity)).toEqual(["BTCUSDT", "PROVIDER_UNAVAILABLE"]);
+    expect(
+      messages.map((message) =>
+        parseMarketWebSocketServerMessage(JSON.parse(JSON.stringify(message))),
+      ),
+    ).toEqual(messages);
+  });
+
+  it("rejects non-market messages and malformed numeric payloads", () => {
+    expect(() =>
+      parseMarketWebSocketServerMessage({
+        schemaVersion: 1,
+        type: "LEADERBOARD_UPDATED",
+        sentAt: "2026-01-01T00:00:01Z",
+        payload: {},
+      }),
+    ).toThrow();
+    expect(() =>
+      parseMarketWebSocketServerMessage({
+        schemaVersion: 1,
+        type: "MARKET_TICK",
+        sentAt: "2026-01-01T00:00:01Z",
+        payload: { pair: "BTCUSDT", price: Number.NaN, timestamp: "now" },
+      }),
+    ).toThrow();
   });
 });

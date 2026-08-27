@@ -5,7 +5,7 @@ The authoritative detailed packets and dependency state are maintained in
 here are approval-level milestones, not a second operational task board.
 
 - [x] Persist the human-reviewed MVP program and decisions (P-00).
-- [ ] Freeze executable and transport contracts (C-01).
+- [x] Freeze executable and transport contracts (C-01).
 - [ ] Establish minimal approved MVP persistence (D-01).
 - [ ] Implement module capabilities and pure computation according to the approved
   dependency graph.

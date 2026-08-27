@@ -18,6 +18,8 @@ import {
   defineComposite,
   defineStrategy,
   listStrategies,
+  readCompositeDefinition,
+  readStrategyDefinition,
   resolveStrategy,
 } from "./index";
 export function createStrategyModule(_deps: StrategyModuleDependencies): StrategyModulePublicApi {
@@ -25,6 +27,8 @@ export function createStrategyModule(_deps: StrategyModuleDependencies): Strateg
     listStrategies,
     defineStrategy,
     defineComposite,
+    readStrategyDefinition,
+    readCompositeDefinition,
     resolveStrategy,
     combineSignals,
   };

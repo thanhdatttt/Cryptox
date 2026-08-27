@@ -1,10 +1,19 @@
 import { describe, expect, it } from "vitest";
 import * as sentimentApi from "./index";
-import { analyze } from "./index";
-describe("sentiment skeleton", () => {
-  it("keeps analysis as an explicit placeholder", async () => {
+
+describe("sentiment public entrypoint", () => {
+  it("allowlists model-neutral analysis and excludes superseded snapshots", async () => {
+    expect(Object.keys(sentimentApi).sort()).toEqual(
+      [
+        "LEXICON_V1",
+        "LEXICON_V1_ID",
+        "SENTIMENT_LABELS",
+        "analyze",
+        "readLatestForNews",
+      ].sort(),
+    );
     await expect(
-      analyze({
+      sentimentApi.analyze({
         newsId: "news-1",
         title: "Title",
         content: "Content",
@@ -13,10 +22,6 @@ describe("sentiment skeleton", () => {
         relatedCoins: ["BTC"],
       }),
     ).rejects.toThrow("NOT_IMPLEMENTED");
-  });
-
-  it("does not expose superseded snapshot operations", () => {
     expect(sentimentApi).not.toHaveProperty("createSnapshot");
-    expect(sentimentApi).not.toHaveProperty("readSnapshot");
   });
 });

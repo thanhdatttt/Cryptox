@@ -9,6 +9,8 @@ import type {
 import {
   createLeaderboardScope,
   getLeaderboardScope,
+  getRankingConfiguration,
+  listRankingConfigurations,
   rankSearchRun,
   score,
   submit,
@@ -26,6 +28,8 @@ export function createLeaderboardModule(
   return {
     createLeaderboardScope,
     getLeaderboardScope,
+    getRankingConfiguration,
+    listRankingConfigurations,
     score,
     topK,
     rankSearchRun,

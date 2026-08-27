@@ -7,10 +7,20 @@ export type {
   BacktestRunner,
   BacktestSubmission,
   BacktestTerminalOutcome,
-  BacktestingModuleDependencies,
+  BacktestingApplicationDependencies,
+  BacktestingUnitOfWork,
+  CandidateRepository,
+  ExperimentRepository,
 } from "../application/ports";
-import type { BacktestingModuleDependencies } from "../application/ports";
-import type { BacktestingModulePublicApi } from "./contracts";
+import type { BacktestingApplicationDependencies } from "../application/ports";
+import type {
+  BacktestingModulePublicApi,
+  CandidateProgress,
+  Experiment,
+  StartManualBacktestCommand,
+  SubmitSearchCandidateCommand,
+  Trade,
+} from "./contracts";
 import {
   cancelCandidate,
   cancelSearchCandidates,
@@ -23,6 +33,12 @@ import {
   submitSearchCandidate,
   summarizeSearchCandidates,
 } from "./index";
+export type BacktestingModuleDependencies = BacktestingApplicationDependencies<
+  CandidateProgress,
+  StartManualBacktestCommand | SubmitSearchCandidateCommand,
+  Experiment,
+  Trade
+>;
 export function createBacktestingModule(
   _deps: BacktestingModuleDependencies,
 ): BacktestingModulePublicApi {

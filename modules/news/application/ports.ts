@@ -1,5 +1,17 @@
-import type { NewsItem } from "../domain/contracts";
 import type { SentimentAnalysisService, SentimentResult } from "@cryptox/sentiment";
+
+export interface NormalizedNewsItemRecord {
+  id: string;
+  providerId: string;
+  providerItemId: string;
+  title: string;
+  content: string;
+  source: string;
+  publishedAt: string;
+  crawledAt: string;
+  relatedCoins: readonly string[];
+  url: string;
+}
 
 export interface NewsCollectionRequest {
   relatedCoins?: readonly string[];
@@ -9,11 +21,27 @@ export interface NewsCollectionRequest {
 
 export interface NewsProvider {
   readonly id: string;
-  fetch(request: NewsCollectionRequest): Promise<readonly NewsItem[]>;
+  fetch(request: NewsCollectionRequest): Promise<readonly NormalizedNewsItemRecord[]>;
+}
+
+export interface NewsReadRecordQuery {
+  relatedCoins?: readonly string[];
+  publishedFrom?: string;
+  publishedTo?: string;
+  limit: number;
+  cursor?: string;
+  order: "PUBLISHED_AT_DESC_PROVIDER_ID_ASC_PROVIDER_ITEM_ID_ASC";
+}
+
+export interface NewsRecordPage {
+  items: readonly NormalizedNewsItemRecord[];
+  nextCursor?: string;
 }
 export interface NewsRepository {
-  insert(item: NewsItem): Promise<NewsItem>;
-  readAll(): Promise<readonly NewsItem[]>;
+  upsertByProviderIdentity(
+    item: NormalizedNewsItemRecord,
+  ): Promise<{ item: NormalizedNewsItemRecord; inserted: boolean }>;
+  read(query: NewsReadRecordQuery): Promise<NewsRecordPage>;
 }
 export interface SentimentReadService {
   readLatestForNews(newsId: string): Promise<SentimentResult | undefined>;
@@ -30,5 +58,6 @@ export interface NewsModuleDependencies {
   providers: readonly NewsProvider[];
   newsRepository: NewsRepository;
   sentiment: NewsSentimentPort;
-  observability?: NewsObservability;
+  sentimentTimeoutMs: number;
+  observability: NewsObservability;
 }

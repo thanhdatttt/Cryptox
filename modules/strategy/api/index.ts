@@ -22,6 +22,10 @@ export const defineStrategy = async (
 export const defineComposite = async (
   _command: DefineCompositeCommand,
 ): Promise<CompositeStrategyDefinition> => notImplemented();
+export const readStrategyDefinition = async (_id: string): Promise<StrategyDefinition> =>
+  notImplemented();
+export const readCompositeDefinition = async (_id: string): Promise<CompositeStrategyDefinition> =>
+  notImplemented();
 export const resolveStrategy = async (_definition: StrategyDefinition): Promise<Strategy> =>
   notImplemented();
 export const combineSignals = (

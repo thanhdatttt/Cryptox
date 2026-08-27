@@ -1,6 +1,6 @@
 # MVP Delivery Capability Delta
 
-## Requirements
+## ADDED Requirements
 
 ### Requirement: Complete REQUIRED MVP coverage
 

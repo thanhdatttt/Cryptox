@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "../..",
+    "noEmit": true,
+    "composite": false,
+    "declaration": false
+  },
+  "include": [
+    "../../modules/*/api/**/*.spec.ts",
+    "../../modules/*/application/**/*.spec.ts",
+    "rest/**/*.spec.ts",
+    "websocket/**/*.spec.ts"
+  ],
+  "exclude": ["**/dist/**"]
+}

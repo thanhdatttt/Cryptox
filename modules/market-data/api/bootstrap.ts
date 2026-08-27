@@ -3,6 +3,7 @@ export type {
   Clock,
   DatasetSnapshotCreateInput,
   DatasetSnapshotPage,
+  DatasetSnapshotRecord,
   DatasetSnapshotReadInput,
   MarketDataHistoryRequest,
   MarketDataHistoryResult,

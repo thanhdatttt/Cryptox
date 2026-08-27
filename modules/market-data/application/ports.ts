@@ -1,6 +1,5 @@
 import type {
   Candle,
-  DatasetSnapshotRef,
   MarketDataConnectionStatus,
   MarketTick,
   Pair,
@@ -8,10 +7,28 @@ import type {
   Timeframe,
 } from "../domain/contracts";
 
+export type DatasetSnapshotRecord = {
+  id: string;
+  provider: ProviderId;
+  pair: Pair;
+  timeframe: Timeframe;
+  range: { from: string; to: string };
+  candleCount: number;
+  version?: string;
+  createdAt: string;
+} & (
+  | {
+      replayGuarantee: "EXACT_REPLAY_AVAILABLE";
+      version: string;
+      replayLimitation?: never;
+    }
+  | { replayGuarantee: "TRACEABLE"; replayLimitation: string }
+);
+
 export interface MarketDataHistoryRequest {
   pair: Pair;
   timeframe: Timeframe;
-  range?: { from: string; to: string };
+  range: { from: string; to: string };
   limit?: number;
   cursor?: string;
   includeForming?: boolean;
@@ -66,14 +83,14 @@ export interface DatasetSnapshotReadInput {
 }
 
 export interface DatasetSnapshotPage {
-  snapshot: DatasetSnapshotRef;
+  snapshot: DatasetSnapshotRecord;
   candles: Candle[];
   nextCursor?: string;
 }
 
 export interface SnapshotRepository {
   read(query: DatasetSnapshotReadInput): Promise<DatasetSnapshotPage | undefined>;
-  create(command: DatasetSnapshotCreateInput): Promise<DatasetSnapshotRef>;
+  create(command: DatasetSnapshotCreateInput): Promise<DatasetSnapshotRecord>;
 }
 export interface Clock {
   now(): string;

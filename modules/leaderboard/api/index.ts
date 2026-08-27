@@ -2,8 +2,9 @@ import type {
   CreateLeaderboardScopeCommand,
   LeaderboardEntry,
   LeaderboardScope,
+  LeaderboardSubmission,
   LeaderboardSubmissionResult,
-  RankableExperiment,
+  RankingConfiguration,
   ScoredEvaluation,
   SearchRunRankingEntry,
 } from "./contracts";
@@ -20,6 +21,10 @@ export const createLeaderboardScope = async (
 ): Promise<LeaderboardScope> => notImplemented();
 export const getLeaderboardScope = async (_id: string): Promise<LeaderboardScope> =>
   notImplemented();
+export const getRankingConfiguration = async (_id: string): Promise<RankingConfiguration> =>
+  notImplemented();
+export const listRankingConfigurations = async (): Promise<readonly RankingConfiguration[]> =>
+  notImplemented();
 export const score = (
   _leaderboardScopeId: string,
   _metrics: EvaluationMetrics,
@@ -30,5 +35,5 @@ export const rankSearchRun = async (
   _searchRunId: string,
 ): Promise<readonly SearchRunRankingEntry[]> => notImplemented();
 export const submit = async (
-  _experiment: RankableExperiment,
+  _submission: LeaderboardSubmission,
 ): Promise<LeaderboardSubmissionResult> => notImplemented();

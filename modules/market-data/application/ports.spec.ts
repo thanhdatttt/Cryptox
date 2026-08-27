@@ -24,7 +24,7 @@ function fakeProvider(id: string, close: number): MarketDataProvider {
   return {
     id,
     readCandles: async (input) => ({
-      range: input.range ?? request.range!,
+      range: input.range,
       candles: [candle],
       complete: true,
       missingRanges: [],
