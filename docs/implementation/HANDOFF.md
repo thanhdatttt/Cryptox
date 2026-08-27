@@ -2,106 +2,125 @@
 
 ## Resume here
 
-- **Current stage:** MVP Implementation
-- **Completed wave:** Wave 1 — executable contract and behavior freeze
-- **Next frontier:** Wave 2
+- **Current stage:** A-00 governance reconciliation is complete; no implementation
+  task was started.
 - **Branch:** `MVP_IMPLEMENTATION`
-- **Contract-freeze commit:** `d7136318ecc5ca98670db4c260974a64d0fcbbfe`
-- **Checkpoint HEAD:** The commit containing this file; resolve it with
+- **Pre-change C-01 commit:** `d7136318ecc5ca98670db4c260974a64d0fcbbfe`
+- **A-00 checkpoint HEAD:** The commit containing this file; resolve it with
   `git rev-parse HEAD` after checkout.
-- **Task state:** P-00 and C-01 DONE. D-01, S-01, E-01, and F-01 READY. Every
-  other unfinished task remains BLOCKED by the approved DAG.
-- **Work started after C-01:** None.
+- **DONE:** P-00, C-01, A-00.
+- **READY:** C-01A, E-01, F-01.
+- **BLOCKED by C-01A:** D-01 and S-01. All other unfinished work remains blocked
+  as recorded in [`TASKS.md`](TASKS.md).
 
-Read [`AGENTS.md`](../../AGENTS.md), the authority chain it specifies, the active
+Read [`AGENTS.md`](../../AGENTS.md), its complete authority chain, accepted
+[`ADR-008`](../adr/ADR_008_simple_auth_and_per_user_ownership.md), the active
 [`mvp-implementation` change](../../openspec/changes/mvp-implementation/), the
 full [`MVP_PLAN.md`](MVP_PLAN.md), and the mutable [`TASKS.md`](TASKS.md) before
 claiming one READY packet.
 
-## C-01 result
+## Historical checkpoint truth
 
-C-01 froze canonical public module contracts and application ports for Market
-Data, Strategy, Search, Backtesting, Evaluation, Leaderboard, News, and
-Sentiment. It also froze self-contained REST DTOs/validators, market-only
-WebSocket messages, generic visualization traces, deterministic Search identity,
-bounded execution seams, honest replay provenance, ranking configuration, and a
-TypeScript gate for contract fixtures.
+C-01 was correctly completed at `d7136318ecc5ca98670db4c260974a64d0fcbbfe`
+under the then-authoritative baseline, which deferred authentication and ownership.
+The instructor changed the assignment afterward. A-00 records that later change;
+it does not rewrite C-01 history or claim the new contracts are already executable.
 
-Canonical source owners remain:
+C-01 froze the original capability contracts, ports, REST/market-WebSocket DTOs,
+generic visualization traces, deterministic Search identity, bounded execution
+seams, replay provenance, and ranking configuration. A-00 changed documentation
+and governance only. C-01A is the single contract-reconciliation gate for Auth,
+trusted request identity, and ownership-sensitive contracts.
 
-- module public contracts under `modules/*/api/contracts.ts`;
-- replaceable application ports under their owning module's `application/ports.ts`;
-- REST DTOs under `packages/contracts/rest/`;
-- market-only WebSocket DTOs under `packages/contracts/websocket/`.
+## Approved post-C-01 decisions
 
-Consumers must use public module barrels. Packages remain self-contained and do
-not import business modules. Existing runtime stubs remain intentionally
-unimplemented; C-01 added no provider, persistence, strategy, simulator, search,
-ranking, controller, or frontend feature implementation.
+### Auth V1
 
-## Frozen V1 decisions
+- Real email/password registration, login, current-user lookup, absolute expiry,
+  and logout are REQUIRED by `CSL-R-AU-01`.
+- Passwords use Argon2id. Authentication uses cryptographically random opaque
+  sessions persisted server-side in PostgreSQL; only a token digest is stored.
+- Sessions have a fixed 24-hour absolute lifetime. V1 has no sliding renewal,
+  access/refresh-token pair, or JWT authorization model.
+- The cookie is HttpOnly, SameSite=Lax, Path=/, and has no Domain attribute.
+  Secure is required for HTTPS/deployed environments and may be disabled only for
+  explicit localhost HTTP development.
+- The server derives `AuthenticatedUserId` from the validated session. A client
+  `userId` is never authorization evidence. Unauthenticated private access is 401;
+  another user's private resource is exposed as 404.
 
-- `LINEAR_REQUIRED_V1`: 50% Return, 30% Win Rate, minus 20% drawdown magnitude;
-  successful finite results with at least one trade are eligible; deterministic
-  tie order is frozen; K is configurable with default 10.
-- `TECHNICAL_PROFILES_V1`: approved MA, Wilder RSI, population-deviation
-  Bollinger, and `SUPPORT_RESISTANCE_V1` behavior.
-- `SUPPORT_RESISTANCE_V1`: prior 20 completed candles, current excluded; support
-  is minimum LOW and resistance maximum HIGH; 0.5% zones; bullish/bearish candle
-  rejection confirmation; ambiguity, overlap, both/neither conditions,
-  insufficient history, and breakouts yield HOLD.
-- `MAJORITY_VOTE_V1`: at least two distinct immutable definitions, equal votes
-  across BUY/SELL/HOLD, unique highest wins, tie yields HOLD.
-- `BACKTEST_EXECUTION_V1`: deterministic single-position long-only full-cash
-  execution at t+1 OPEN, fee on both sides, adverse configured slippage, exact
-  quantity/net-PnL formulas, ignored repeated/inapplicable signals, and final
-  candle CLOSE liquidation with fee/slippage.
-- `LEXICON_V1`: deterministic local, replaceable, model-neutral Sentiment with
-  provider/profile/model provenance; no hosted inference or model downloads.
-- Demo defaults remain configurable: BTCUSDT, 5m/15m/1h/4h, 30 days, 10,000
-  USDT, 0.1% fee per side, zero slippage, and K=10.
+### Ownership V1
 
-Do not reopen these decisions without higher-authority evidence or human review.
+- Direct user-owned roots: StrategyDefinition, CompositeDefinition, SearchRun,
+  Candidate, and LeaderboardScope.
+- Inherited ownership: CompositeComponent through CompositeDefinition; Experiment
+  and Trade through Candidate/Experiment; EvaluationResult through Experiment;
+  LeaderboardEntry through LeaderboardScope.
+- Shared system data: Candle, Market Dataset/provenance, NewsItem,
+  SentimentResult, RankingConfiguration, and Strategy plugin descriptors.
+- Search-created Candidates inherit the trusted SearchRun owner. Leaderboard
+  scopes accept only same-owner Experiments. Owner filtering occurs before
+  pagination, ranking, or mutation.
+- Pure Strategy analysis, simulator, Evaluation, and scoring functions remain
+  identity-agnostic; ownership is enforced at authenticated application boundaries.
 
-## Validation evidence
+### Real-data and chart policy
 
-- Three independent read-only C-01 reviews: PASS.
-- Root build: PASS.
-- Root typecheck, including contract fixtures: PASS.
-- Root lint: PASS.
-- Root tests: PASS, 49 tests.
-- Architecture dependency checks: PASS, 26 modules / 40 dependencies and all
-  negative fixtures detected.
-- Source-artifact check: PASS.
-- Deferred-scope check: PASS.
-- `git diff --check`: PASS.
-- OpenSpec strict validation for `mvp-implementation`: PASS.
+- Deterministic fakes and fixtures remain valid for unit, contract, development,
+  failure, and reproducibility tests.
+- Final/demo evidence must use real Binance history and realtime delivery, a real
+  configured News source, real PostgreSQL application/Auth state, and application-
+  generated Backtest/Leaderboard results. Mock-only final/demo configuration must
+  fail clearly; unavailable external evidence is BLOCKED or UNVERIFIED, never PASS.
+- The existing `lightweight-charts` 4.2.3 dependency is retained behind a frontend
+  adapter. Do not build a custom candlestick engine or move business logic into it.
+- The executable deferred-scope checker remains unchanged from the pre-A-00
+  baseline. C-01A must update that narrow gate before adding approved Auth contracts;
+  its legacy Auth wording is not product authority.
 
-Live Binance/CoinDesk credentials, PostgreSQL/Docker, real providers, migrations,
-and application runtime behavior are later task concerns and were not required
-for C-01.
+Enterprise identity features remain deferred: RBAC, organizations/teams, tenant or
+workspace hierarchy, OAuth/SSO, 2FA, external identity providers, email
+verification, password reset, and enterprise IAM.
 
-## READY/BLOCKED recomputation
+## Current dependency order
 
-Newly READY after C-01:
+The immediate critical sequence is:
 
-1. D-01 — Minimal MVP Persistence Foundation.
-2. S-01 — Strategy Registry, Definitions and Composite Core.
-3. E-01 — Independent Evaluation.
-4. F-01 — Frontend Chart and Client Foundation.
+```text
+A-00 (DONE) -> C-01A (READY)
+                  +-> D-01 + S-01 -> B-02 / Q-01 ownership work
+                  +-> AU-01 fake-repository work --(D-01 DB gate)--+
+                                                                  +-> AU-02
+F-01 READY -------------------------------> F-AUTH -> F-02 -------+-> I-01 -> I-02
+```
 
-All remaining tasks stay BLOCKED exactly as recorded in `TASKS.md`. In
-particular, do not start B-01 until S-01 is DONE, and do not start persistence-
-dependent capability packets until D-01 is DONE.
+E-01 and F-01 are independently READY because their approved pure/foundation work
+does not require the new owner-bearing contracts. Do not broaden either packet:
+F-01 may build only the chart/client foundation, while Auth UI remains F-AUTH.
+
+## A-00 validation evidence
+
+- Only governance Markdown/OpenSpec artifacts changed, including OpenSpec authority
+  context; no executable source, contract, migration, dependency, generated artifact,
+  or executable scope/build tooling changed.
+- Documentation links and authority/requirement traceability: PASS.
+- Architecture, artifact, deferred-scope, and whitespace checks: PASS.
+- Strict OpenSpec validation for `mvp-implementation`: PASS.
+- Runtime tests were not required for this documentation-only checkpoint; the
+  prior C-01 checkpoint's build, typecheck, lint, 49 tests, and reviews remain
+  historical evidence rather than newly rerun A-00 claims.
 
 ## Fresh-agent restart procedure
 
-1. Confirm `MVP_IMPLEMENTATION`, resolve the checkpoint HEAD, and verify a clean
+1. Confirm branch `MVP_IMPLEMENTATION`, resolve the A-00 HEAD, and verify a clean
    worktree.
-2. Follow the full authority reading order and inspect the contract-freeze commit.
-3. Confirm `TASKS.md` shows exactly D-01, S-01, E-01, and F-01 READY.
-4. Select and claim only an approved READY packet; record owner, branch, and
-   starting commit before editing.
-5. Treat the C-01 public contracts and V1 profiles as frozen inputs. Any proposed
-   change requires Manager review and an approved change in scope.
-6. Preserve disjoint write scopes and do not exceed useful concurrency.
+2. Read the full authority chain. Treat the later instructor change and reviewed
+   `docs/requirements.md` baseline as governing the post-C-01 program.
+3. Confirm TASKS shows only C-01A, E-01, and F-01 READY; D-01/S-01 must be BLOCKED.
+4. For ownership-sensitive progress, claim C-01A first and follow only its packet.
+   It may change canonical executable contracts/tests but may not implement Auth,
+   persistence, or capability runtime behavior.
+5. Preserve C-01's completed status and frozen pre-change behavior decisions.
+   Record post-change additions as C-01A work instead of retroactively editing C-01.
+6. Record owner, starting commit, changed paths, validation evidence, and checkpoint
+   before changing task state. Report unavailable evidence honestly.

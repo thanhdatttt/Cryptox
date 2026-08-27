@@ -24,6 +24,14 @@ News MUST invoke Sentiment for an eligible newly stored item only through a neut
 
 Traceability: `CSL-R-SN-01`, `CSL-R-OB-01`; ADR-004 as amended by ADR-007.
 
+### Requirement: Real News final delivery
+
+Fixtures MAY validate normalization, deduplication, provider failure, and frontend
+decoupling. The delivered runtime and instructor demo MUST use a real configured
+News provider/API/feed and MUST NOT silently substitute fixture News.
+
+Traceability: `CSL-R-RD-01`, `CSL-R-NW-01`, `CSL-R-DM-01`.
+
 ## Approved behavior and invariants
 
 - Provider-specific fields MUST remain inside provider adapters.
@@ -68,3 +76,9 @@ The current executable public surface is [`modules/news/api/index.ts`](../../../
 - **Given** a second conforming provider adapter
 - **When** it is configured
 - **Then** normalized collection and reads work without changing Sentiment or frontend business logic
+
+#### Scenario: Final mode uses a real News source
+
+- **Given** final/demo configuration
+- **When** News collection runs
+- **Then** normalized items originate from the configured real provider and fixture-only configuration cannot satisfy final acceptance

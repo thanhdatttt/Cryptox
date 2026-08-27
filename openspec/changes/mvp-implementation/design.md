@@ -7,10 +7,21 @@ modules collaborate synchronously through public APIs; REST serves commands and
 queries; WebSocket remains restricted to normalized realtime Market Data; Search
 and manual callers use the mechanism-neutral Backtest Execution Port.
 
+The later instructor change adds an Auth module for email/password and
+PostgreSQL-backed opaque sessions. Backend request context resolves trusted
+authenticated identity separately from DTOs. StrategyDefinition,
+CompositeDefinition, SearchRun, Candidate, and LeaderboardScope are direct
+user-owned roots; their approved children inherit ownership. Public-source Market
+Data/datasets, News/Sentiment, ranking configurations, and plugin descriptors remain
+shared. Pure Strategy execution, simulation, Evaluation, and ranking calculations
+remain independent of Auth infrastructure.
+
 ## Delivery model
 
-1. Freeze shared contracts and approved behavior profiles.
-2. Establish the minimal physical persistence model.
+1. Preserve the completed C-01 contract freeze, reconcile the later requirement,
+   and complete the additive C-01A Authentication/ownership contract extension.
+2. Establish the minimal physical persistence model, including Users, AuthSessions,
+   and direct owner-root references.
 3. Implement pure/module capabilities in parallel with disjoint write scopes.
 4. Integrate Candidate execution, Search, transports, frontend, and providers.
 5. Prove every REQUIRED ID through automated acceptance evidence and the demo.
@@ -19,6 +30,14 @@ Pure computation is deliberately independent of live adapters: the simulator use
 deterministic candle fixtures and fake strategies; core Candidate/Experiment
 orchestration uses controlled definitions and fakes before live integration; Random
 Search begins against fake execution and ranking ports.
+
+Fixtures/fakes remain approved for development, deterministic tests, resilience,
+and frontend/backend decoupling. Final/demo acceptance separately proves real
+Binance historical/realtime adapters, a real configured News source, PostgreSQL
+application/Auth state, and real generated Backtest/Leaderboard data. Final/demo
+configuration must not silently select mock providers. `lightweight-charts` 4.2.3
+or the current compatible locked version remains the frontend candlestick renderer;
+it owns no business logic.
 
 ## Approved behavior decisions
 
@@ -30,6 +49,12 @@ The versioned decisions are defined in `docs/implementation/MVP_PLAN.md`:
 - CoinDesk Data API as the primary live News adapter;
 - deterministic local `LEXICON_V1` Sentiment;
 - configurable demo defaults.
+- `AUTH_SESSION_V1`: Argon2id credentials plus a PostgreSQL-backed opaque session,
+  fixed 24-hour expiry, HttpOnly `SameSite=Lax` cookie, no JWT/refresh token;
+- `PER_USER_OWNERSHIP_V1`: direct and inherited ownership defined by ADR-008;
+- `REAL_DATA_DELIVERY_V1`: fixtures allowed in tests/dev, real integrations and
+  persisted application/Auth state required for final/demo evidence;
+- `lightweight-charts` 4.2.3/current compatible lock for candlestick rendering.
 
 These decisions are frozen for MVP V1 and are not to be re-opened by workers.
 
@@ -40,5 +65,6 @@ integration, validation, and checkpoint commits. `HANDOFF.md` is replaced after
 each wave and contains only the latest resumable checkpoint.
 
 OpenSpec CLI validation was unavailable at P-00. C-01 restored access through the
-project's approved `npx` invocation and strict validation now passes; future
-checkpoints must report the actual CLI result rather than the historical limitation.
+project's approved cached runner and strict validation passed. Each checkpoint must
+report its actual validation result; unavailable execution is UNVERIFIED, never an
+inherited PASS.

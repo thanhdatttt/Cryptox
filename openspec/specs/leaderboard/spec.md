@@ -24,6 +24,14 @@ Consumers MUST be able to read the current ranking state and relate each entry t
 
 Traceability: `CSL-R-OB-01`, `CSL-R-DM-01`.
 
+### Requirement: User-specific ranking scopes
+
+LeaderboardScope MUST be a direct user-owned root. A scope MUST admit and rank only
+Experiments whose Candidate has the same owner. LeaderboardEntry inherits ownership
+from its scope; RankingConfiguration remains shared system data.
+
+Traceability: `CSL-R-LB-01`, `CSL-R-OW-01`; ADR-008.
+
 ## Approved behavior and invariants
 
 - `K` MUST be a positive configured value; omitted configuration uses `10`.
@@ -31,10 +39,11 @@ Traceability: `CSL-R-OB-01`, `CSL-R-DM-01`.
 - Admission MUST retain no more than `K` entries in a scope and MUST apply a stable tie-break.
 - Re-submitting the same completed Experiment MUST not create duplicate entries.
 - Ranking configuration changes MUST be identifiable and MUST not rewrite historical provenance.
+- Scope/entry collections MUST filter by owner before pagination/counting, and client identity fields MUST NOT authorize access.
 
 ## Executable public API and status
 
-The current executable public surface is [`modules/leaderboard/api/index.ts`](../../../modules/leaderboard/api/index.ts). It exposes `score`, `topK`, `rankSearchRun`, and `submit`, and re-exports ranking projections. These functions currently throw `NOT_IMPLEMENTED`. Current transaction-shaped parameters are implementation evidence, not a requirement for any particular transport or distributed protocol.
+The current executable public surface is [`modules/leaderboard/api/index.ts`](../../../modules/leaderboard/api/index.ts). It exposes scope/configuration operations, `score`, `topK`, `rankSearchRun`, and `submit`, and re-exports ranking projections. These functions currently throw `NOT_IMPLEMENTED` and do not yet represent user ownership. C-01A must extend scope/application/repository contracts before L-01; the scoring formula and tie order remain frozen.
 
 ## Failure expectations
 
@@ -68,3 +77,9 @@ The current executable public surface is [`modules/leaderboard/api/index.ts`](..
 - **Given** an admitted leaderboard entry
 - **When** its details are requested
 - **Then** its Experiment, strategy version, metrics, and score-configuration reference can be inspected
+
+#### Scenario: Scope rejects another user's Experiment
+
+- **Given** a User A LeaderboardScope and a completed User B Experiment
+- **When** admission is attempted
+- **Then** no entry is created and User B data is absent from User A's ranking

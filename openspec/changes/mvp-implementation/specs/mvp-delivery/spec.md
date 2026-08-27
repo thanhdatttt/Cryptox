@@ -38,3 +38,46 @@ for a fresh Manager to determine the next safe work without hidden context.
 - **When** a new Manager reads the canonical sources and implementation artifacts
 - **Then** it can identify READY work, dependencies, write boundaries, validation,
   critical path, blockers, and the current checkpoint
+
+### Requirement: Later instructor change is explicit
+
+The program MUST preserve P-00 and C-01 as completed history and MUST represent the
+later Authentication, per-user ownership, and real-data requirements through an
+explicit reconciliation task and additive contract gate.
+
+Traceability: `CSL-R-AU-01`, `CSL-R-OW-01`, `CSL-R-RD-01`.
+
+#### Scenario: C-01 history is not rewritten
+
+- **Given** C-01 completed against the earlier approved baseline
+- **When** the later instructor requirement is incorporated
+- **Then** C-01 remains DONE and C-01A becomes the next ownership-sensitive contract gate
+
+### Requirement: Private resources are user-scoped
+
+Implementation MUST derive authenticated identity from trusted server request
+context and isolate the approved Strategy, Search, Backtesting, and Leaderboard
+roots without adding owner identity to every child entity.
+
+Traceability: `CSL-R-AU-01`, `CSL-R-OW-01`.
+
+#### Scenario: Parallel capability work preserves ownership boundaries
+
+- **Given** the C-01A contract checkpoint and approved ownership model
+- **When** capability workers implement private resources
+- **Then** repository access is owner-scoped, child ownership follows its approved parent, and pure calculations remain independent of Auth infrastructure
+
+### Requirement: Final evidence uses real data paths
+
+Deterministic fixtures MAY support development and automated tests, but final/demo
+acceptance MUST prove real configured providers, persisted application/Auth state,
+and application-generated Backtest/Leaderboard results without silently selecting
+mock data sources.
+
+Traceability: `CSL-R-RD-01`.
+
+#### Scenario: Final configuration is not mock-backed
+
+- **Given** the final/demo runtime profile
+- **When** readiness and acceptance evidence are collected
+- **Then** real Binance history/realtime, real News, PostgreSQL state, Auth, Backtest, and Leaderboard paths are demonstrated or reported BLOCKED/UNVERIFIED

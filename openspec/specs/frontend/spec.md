@@ -24,6 +24,25 @@ The frontend MUST present required evaluation metrics, configurable Top-K result
 
 Traceability: `CSL-R-EV-01`, `CSL-R-LB-01`, `CSL-R-VIS-01`, `CSL-R-NW-01`, `CSL-R-SN-01`, `CSL-R-DM-01`.
 
+### Requirement: Authenticated private workflows
+
+The frontend MUST support registration, login, current-session restoration, logout,
+and protected private-resource navigation. It MUST NOT send or store an arbitrary
+owner identity as authorization evidence, and MUST clear private cached data when
+the authenticated user changes or logs out.
+
+Traceability: `CSL-R-AU-01`, `CSL-R-OW-01`, `CSL-R-DM-01`; ADR-008.
+
+### Requirement: Approved chart renderer and real final data path
+
+Candlesticks MUST be rendered through the installed `lightweight-charts` 4.2.3 or
+current compatible locked version from normalized REST/WebSocket state. Typed fake
+clients MAY support development/tests, but final/demo mode MUST use real configured
+providers and MUST NOT silently select fake Market Data, News, Auth, Backtest, or
+Leaderboard responses.
+
+Traceability: `CSL-R-RD-01`, `CSL-R-FE-01`, `CSL-R-DM-01`.
+
 ## Approved behavior and invariants
 
 - REST handles commands and non-market queries; WebSocket carries only normalized realtime market messages.
@@ -31,6 +50,7 @@ Traceability: `CSL-R-EV-01`, `CSL-R-LB-01`, `CSL-R-VIS-01`, `CSL-R-NW-01`, `CSL-
 - Strategy, evaluation, and ranking logic MUST NOT be duplicated in the client.
 - Chart and trade rendering MUST use backend-owned normalized contracts and preserve timeframe identity.
 - Loading and resource limits MUST be explicit/configurable; the frontend MUST NOT assume a fixed historical page size.
+- The chart library MUST NOT own Market Data normalization, Strategy, Backtest, Evaluation, or ranking logic; a custom candlestick engine is not MVP work.
 
 ## Executable public API and status
 
@@ -74,3 +94,15 @@ There is no current frontend `api/index.ts` public barrel. The frontend's backen
 - **Given** News remains readable while Sentiment is unavailable
 - **When** the dashboard is viewed
 - **Then** News and core trading views remain usable and Sentiment is marked unavailable
+
+#### Scenario: Authenticated user changes
+
+- **Given** User A has viewed private resources and then logs out
+- **When** User B logs in
+- **Then** User A's cached Strategies, Backtests, and Leaderboard are not displayed to User B
+
+#### Scenario: Final chart uses real normalized data
+
+- **Given** final/demo configuration
+- **When** the market dashboard starts
+- **Then** `lightweight-charts` renders normalized real Binance history/realtime data and no mock provider is silently selected

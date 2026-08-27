@@ -24,6 +24,15 @@ A backtest MUST be able to identify its pair, timeframe, historical range, and d
 
 Traceability: `CSL-R-RP-01`; ADR-007.
 
+### Requirement: Real Binance final delivery
+
+Fixtures MAY validate normalization, gaps, reconnects, and deterministic consumers.
+The delivered runtime and instructor demo MUST use the real configured Binance
+historical REST and realtime WebSocket adapters and MUST NOT silently select a mock
+Market Data provider.
+
+Traceability: `CSL-R-RD-01`, `CSL-R-DM-01`.
+
 ## Approved behavior and invariants
 
 - Candle OHLC values MUST be finite, `high` MUST be at least `open`, `close`, and `low`, and `low` MUST be at most those values.
@@ -68,3 +77,9 @@ The current executable public surface is [`modules/market-data/api/index.ts`](..
 - **Given** a conforming provider adapter
 - **When** it replaces Binance for a configured market
 - **Then** consumers continue to use the same normalized API without provider-name branches
+
+#### Scenario: Final mode rejects mock-only Market Data
+
+- **Given** final/demo configuration with no real Binance adapter
+- **When** readiness or demo preflight runs
+- **Then** required real-data evidence is unavailable and the condition is not reported as PASS

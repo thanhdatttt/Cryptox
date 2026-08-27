@@ -30,6 +30,15 @@ Execution status MUST expose duration, progress sufficient for Search and manual
 
 Traceability: `CSL-R-OB-01`.
 
+### Requirement: User-owned Candidate and inherited Experiment data
+
+Candidate MUST be the direct user-owned Backtesting root. Manual ownership MUST
+come from authenticated request context and Search-generated ownership MUST come
+from the trusted SearchRun/user context. Experiment, Trade, and related Evaluation
+data MUST inherit ownership through Candidate/Experiment relationships.
+
+Traceability: `CSL-R-OW-01`, `CSL-R-RP-01`; ADR-008.
+
 ## Approved behavior and invariants
 
 - Strategy analysis MUST receive historical context without infrastructure access.
@@ -37,10 +46,11 @@ Traceability: `CSL-R-OB-01`.
 - Evaluation and Leaderboard remain separate capabilities invoked after a successful simulation.
 - Completed Experiment data and referenced definitions MUST not be overwritten by later runs or edits.
 - Execution bounds are configuration, not fixed architectural constants.
+- Private Candidate/Experiment/Trade reads and mutations MUST be owner-scoped; an authenticated cross-user ID is not found.
 
 ## Executable public API and status
 
-The current executable public surface is [`modules/backtesting/api/index.ts`](../../../modules/backtesting/api/index.ts). The approved relevant operations include `startManual`, `submitSearchCandidate`, `status`, candidate summaries/reads, attempt/trade reads, and Experiment reads. They currently throw `NOT_IMPLEMENTED`. Queue-era operations and types still exported by that barrel are source-reconciliation backlog and do not define active MVP behavior. ADR-006 also records that the approved execution port is not yet present in source.
+The current executable public surface is [`modules/backtesting/api/index.ts`](../../../modules/backtesting/api/index.ts). The approved relevant operations include `startManual`, `submitSearchCandidate`, `status`, candidate summaries/reads, trade reads, and Experiment reads. They currently throw `NOT_IMPLEMENTED`; the later ownership requirement is not yet represented. C-01A must extend the application/repository contracts before ownership-sensitive B-02 work. Simulator and execution-profile contracts remain unchanged.
 
 ## Failure expectations
 
@@ -74,3 +84,9 @@ The current executable public surface is [`modules/backtesting/api/index.ts`](..
 - **Given** a completed Experiment
 - **When** its detail is read
 - **Then** the strategy version, market range, available dataset/code provenance, Trades, metrics, and ranking configuration reference are inspectable
+
+#### Scenario: Candidate and Experiment access is isolated
+
+- **Given** completed Candidates/Experiments for two authenticated users
+- **When** either user lists or reads Backtesting resources
+- **Then** only same-owner resources are returned and guessed cross-user IDs are not found

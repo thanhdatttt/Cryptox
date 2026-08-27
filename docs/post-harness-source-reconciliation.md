@@ -2,19 +2,21 @@
 
 ## Status and boundary
 
-This is a later-stage implementation/tooling backlog discovered while refining
-documentation. None of these items is authorized for Stage 2. Each item requires a
-separately reviewed change before application source, executable contracts,
-migrations, infrastructure, generated artifacts, or toolchain configuration may be
-modified.
+This is a historical later-stage implementation/tooling backlog discovered while
+refining documentation. The post-C-01 instructor change recorded by A-00 supersedes
+the original Authentication/ownership removal direction below; the active
+`mvp-implementation` change and durable implementation plan now govern execution.
+Every source, executable-contract, migration, infrastructure, generated-artifact,
+or toolchain change still requires its approved packet and dependency gate.
 
 ## Approved-scope reconciliation
 
-- Remove Auth from active backend composition and tests; evaluate the unused
-  `modules/auth` scaffold and the `pgcrypto`-only migration without assuming either
-  can be deleted safely.
-- Remove user, owner, tenant, and authorization fields from executable contracts
-  where they leaked from the deferred multitenant change.
+- Reconcile the existing Auth scaffold and runtime composition against the approved
+  simple Auth V1 contracts through C-01A, D-01, and AU-01; do not infer behavior
+  from stale scaffolding or the `pgcrypto`-only migration.
+- Reconcile trusted identity and direct/inherited owner fields through C-01A and
+  the owning implementation packets. Keep enterprise tenancy/authorization fields
+  out of V1 unless they are necessary for the approved simple per-user boundary.
 - Remove deferred Long/Short, stop-loss, take-profit, trailing-stop, position-sizing,
   and risk-policy fields from active backtest/search/transport contracts.
 - Replace fixed Top-10 contract assumptions with configurable K. A default of 10 may
@@ -67,5 +69,5 @@ modified.
 
 ## Exit rule
 
-This backlog is informational during Stage 2. Stop after documentation refinement
-and wait for human approval before opening or implementing any item above.
+This backlog is informational. Follow the active change, `MVP_PLAN.md`, and
+`TASKS.md`; do not open or implement an item here outside an approved READY packet.

@@ -13,11 +13,18 @@ must be implemented through one traceable, dependency-aware program.
   approved synchronous modular-monolith boundaries.
 - Stabilize shared executable and transport contracts before capability fan-out.
 - Add only the approved MVP persistence entities from `docs/data-model.md`.
+- Add simple local email/password Authentication with PostgreSQL-backed opaque
+  sessions and enforce per-user ownership for private Strategy, Search,
+  Backtesting, and Leaderboard resources.
 - Implement pure strategies, deterministic simulation, independent Evaluation,
   configurable ranking, bounded Random Search, provider-neutral Market Data and
   News, isolated Sentiment, required frontend flows, and the minimum demo.
 - Maintain durable execution state in `docs/implementation/` so a fresh Manager can
   resume without conversation context.
+- Prove final/demo operation with real Binance historical/realtime data, a real
+  configured News source, real PostgreSQL application/Auth state, and
+  application-generated Backtest/Leaderboard results while retaining deterministic
+  fixtures for development and testing.
 
 ## Governance
 
@@ -33,7 +40,8 @@ task board.
 
 ## Non-goals
 
-No authentication, users, ownership, multi-tenancy, generalized risk, advanced or
-AI search, AI strategy authoring, mandatory LLM crawling, distributed execution,
+No RBAC, organization/team or tenant hierarchy, OAuth/SSO, 2FA, external identity
+provider, password-reset system, enterprise IAM, generalized risk, advanced or AI
+search, AI strategy authoring, mandatory LLM crawling, distributed execution,
 microservices, general Event Bus, CQRS, Event Sourcing, or production artifact
 repository is introduced.

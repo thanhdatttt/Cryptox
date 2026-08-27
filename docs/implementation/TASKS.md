@@ -13,20 +13,25 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 |---|---|---:|---|---|---|---|
 | P-00 | DONE | 0 | YES | Manager | `MVP_IMPLEMENTATION` / containing P-00 checkpoint commit | Repository/documentation checks PASS; OpenSpec CLI UNVERIFIED |
 | C-01 | DONE | 1 | YES | Manager | `MVP_IMPLEMENTATION` / `d7136318ecc5ca98670db4c260974a64d0fcbbfe` | Reviews and all C-01 gates PASS |
-| D-01 | READY | 2 | YES — B-02 gate | Unassigned persistence specialist | — | Ready after C-01 |
+| A-00 | DONE | A | YES | Manager | `MVP_IMPLEMENTATION` / containing A-00 checkpoint commit | Documentation, authority, scope, and strict OpenSpec checks PASS |
+| C-01A | READY | 1A | YES | Unassigned contract owner | — | Ready after A-00; no implementation started |
+| D-01 | BLOCKED | 2 | YES — B-02 gate | Unassigned persistence specialist | — | Blocked by C-01A |
 | M-01 | BLOCKED | 2 | Integration | Unassigned Market Data worker | — | Not started |
 | M-02 | BLOCKED | 3 | Integration | Unassigned Market Data worker | — | Not started |
-| S-01 | READY | 2 | YES | Unassigned Strategy core worker | — | Ready after C-01 |
+| S-01 | BLOCKED | 2 | YES | Unassigned Strategy core worker | — | Blocked by C-01A |
 | S-02 | BLOCKED | 3 | Integration | Unassigned Strategy worker A | — | Not started |
 | S-03 | BLOCKED | 3 | Integration | Unassigned Strategy worker B | — | Not started |
 | E-01 | READY | 2 | YES — B-02 gate | Unassigned Evaluation worker | — | Ready after C-01 |
 | L-01 | BLOCKED | 2 | YES — B-02 gate | Unassigned Leaderboard worker | — | Not started |
 | B-01 | BLOCKED | 3 | YES | Unassigned Backtesting domain worker | — | Not started |
 | B-02 | BLOCKED | 4 | YES | Unassigned Backtesting application worker | — | Not started |
+| AU-01 | BLOCKED | 2 | YES | Unassigned Auth worker | — | Blocked by C-01A; D-01 gates DB integration |
+| AU-02 | BLOCKED | 4 | YES | Manager / security integration worker | — | Blocked by private-resource implementations |
 | Q-01 | BLOCKED | 3–4 | Integration | Unassigned Search worker | — | Not started |
 | N-01 | BLOCKED | 2 | Integration | Unassigned News worker | — | Not started |
 | N-02 | BLOCKED | 2 | Integration | Unassigned Sentiment worker | — | Not started |
 | F-01 | READY | 2 | Integration | Unassigned Frontend worker | — | Ready after C-01 |
+| F-AUTH | BLOCKED | 3 | Integration | Unassigned Frontend worker | — | Blocked by C-01A, F-01, and AU-01 integration |
 | F-02 | BLOCKED | 3 | Integration | Unassigned Frontend worker | — | Not started |
 | I-01 | BLOCKED | 5 | YES | Manager / integration worker | — | Not started |
 | I-02 | BLOCKED | 6 | YES | Manager plus independent reviewers | — | Not started |
@@ -70,17 +75,51 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
   deferred-scope, and diff checks PASS. OpenSpec strict validation PASS.
 - **Full packet:** [`MVP_PLAN.md#c-01--executable-contract-and-behavior-freeze`](MVP_PLAN.md#c-01--executable-contract-and-behavior-freeze)
 
+### A-00 — Persist Instructor Auth / Ownership / Real-Data Requirement Change
+
+- **Requirement IDs:** `CSL-R-AU-01`, `CSL-R-OW-01`, `CSL-R-RD-01` and affected
+  capability IDs.
+- **State / owner / wave:** DONE / Manager / Governance wave A
+- **Critical / parallelism:** YES / NO
+- **Start dependencies:** C-01 checkpoint and the later instructor change
+- **Integration dependencies:** None; this task changes documentation and governance only.
+- **Objective:** Persist the new requirement authority, Auth V1/session choice,
+  ownership model, real-data policy, retained chart library, and revised execution order.
+- **Write scope:** Governance Markdown and OpenSpec artifacts only; no executable
+  contract, runtime source, migration, generated artifact, or dependency changes.
+- **Latest branch / commit:** `MVP_IMPLEMENTATION`; the commit containing this board
+  is the A-00 checkpoint (`git log -1 --oneline`).
+- **Validation:** Documentation/link/traceability, changed-path, architecture,
+  artifact, scope, whitespace, and strict OpenSpec checks PASS.
+- **Full packet:** [`MVP_PLAN.md#a-00--persist-instructor-auth--ownership--real-data-requirement-change`](MVP_PLAN.md#a-00--persist-instructor-auth--ownership--real-data-requirement-change)
+
+### C-01A — Authentication & Ownership Contract Extension
+
+- **Requirement IDs:** `CSL-R-AU-01`, `CSL-R-OW-01` and affected `CSL-R-ST-04`,
+  `CSL-R-SE-01`, `CSL-R-SE-02`, `CSL-R-BT-01`, `CSL-R-LB-01`, `CSL-R-OB-01`.
+- **State / owner / wave:** READY / Unassigned contract owner / Wave 1A
+- **Critical / parallelism:** YES / NO; one contract writer
+- **Start dependencies:** A-00
+- **Integration dependencies:** None
+- **Objective:** Reconcile canonical Auth, trusted-context, owner-bearing module,
+  and REST contracts before ownership-sensitive implementation begins.
+- **Write scope:** Only the canonical contract owners and contract tests named in
+  the full packet; no runtime implementation or migrations.
+- **Latest branch / commit:** —; record when work starts.
+- **Validation:** Not started.
+- **Full packet:** [`MVP_PLAN.md#c-01a--authentication--ownership-contract-extension`](MVP_PLAN.md#c-01a--authentication--ownership-contract-extension)
+
 ### D-01 — Minimal MVP Persistence Foundation
 
 - **Requirement IDs:** `CSL-R-MD-01`, `CSL-R-ST-04`, `CSL-R-SE-02`,
   `CSL-R-BT-01`, `CSL-R-EV-01`, `CSL-R-LB-01`, `CSL-R-NW-01`, `CSL-R-SN-01`,
-  `CSL-R-RP-01`, `CSL-R-OB-01`
-- **State / owner / wave:** READY / Unassigned persistence specialist / Wave 2
+  `CSL-R-RP-01`, `CSL-R-OB-01`, `CSL-R-AU-01`, `CSL-R-OW-01`, `CSL-R-RD-01`
+- **State / owner / wave:** BLOCKED / Unassigned persistence specialist / Wave 2
 - **Critical / parallelism:** YES, gates B-02 / YES, with one DB writer
-- **Start dependencies:** C-01
+- **Start dependencies:** C-01A
 - **Integration dependencies:** None
-- **Objective:** Add only approved physical entities, reversible migrations, and
-  repository conventions.
+- **Objective:** Add only approved physical entities, including User, AuthSession,
+  and direct ownership columns, with reversible migrations and repository conventions.
 - **Write scope:** `infra/db/**` and packet-assigned module PostgreSQL adapters/tests.
 - **Latest branch / commit:** —; record when work starts.
 - **Validation:** Not started; PostgreSQL/Docker availability may block DB evidence.
@@ -88,21 +127,37 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 
 ### M-01 — Binance Historical Market Data
 
-- **Requirement IDs:** `CSL-R-MD-01`, `CSL-R-RP-01`, `CSL-R-AR-02`
+- **Requirement IDs:** `CSL-R-MD-01`, `CSL-R-RP-01`, `CSL-R-AR-02`, `CSL-R-RD-01`
 - **State / owner / wave:** BLOCKED / Unassigned Market Data worker / Wave 2
 - **Critical / parallelism:** Integration / YES
 - **Start dependencies:** C-01, D-01
 - **Integration dependencies:** Live smoke before I-01
-- **Objective:** Validate, paginate, normalize, persist, and identify historical candles.
+- **Objective:** Validate, paginate, normalize, persist, and identify real Binance
+  historical candles while retaining deterministic fixtures for tests/development.
 - **Write scope:** `modules/market-data/**` except frozen contracts; its repository/tests.
 - **Latest branch / commit:** —; record when work starts.
 - **Validation:** Not started.
 - **Full packet:** [`MVP_PLAN.md#m-01--binance-historical-market-data`](MVP_PLAN.md#m-01--binance-historical-market-data)
 
+### AU-01 — Simple Authentication and Session Runtime
+
+- **Requirement IDs:** `CSL-R-AU-01`, `CSL-R-OW-01`, `CSL-R-OB-01`, `CSL-R-RD-01`
+- **State / owner / wave:** BLOCKED / Unassigned Auth worker / Wave 2
+- **Critical / parallelism:** YES / YES after D-01 with exclusive Auth scope
+- **Start dependencies:** C-01A
+- **Integration dependencies:** D-01, F-AUTH, and I-01
+- **Objective:** Implement email/password register, login, current-user, absolute
+  session expiry, and logout using Argon2id and opaque PostgreSQL-backed sessions.
+- **Write scope:** Auth module/runtime adapters, approved thin transport integration,
+  and Auth tests; migrations remain under D-01 ownership.
+- **Latest branch / commit:** —; record when work starts.
+- **Validation:** Not started.
+- **Full packet:** [`MVP_PLAN.md#au-01--simple-authentication-and-session-runtime`](MVP_PLAN.md#au-01--simple-authentication-and-session-runtime)
+
 ### M-02 — Realtime Market Delivery and Gap Recovery
 
 - **Requirement IDs:** `CSL-R-MD-02`, `CSL-R-FE-01`, `CSL-R-OB-01`,
-  `CSL-R-AR-02`, `CSL-R-DM-01`
+  `CSL-R-AR-02`, `CSL-R-DM-01`, `CSL-R-RD-01`
 - **State / owner / wave:** BLOCKED / Unassigned Market Data worker / Wave 3
 - **Critical / parallelism:** Integration / YES
 - **Start dependencies:** M-01
@@ -120,10 +175,10 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
   `CSL-R-AR-02`, `CSL-R-AR-03`, `CSL-R-RP-01`
 - **State / owner / wave:** READY / Unassigned Strategy core worker / Wave 2
 - **Critical / parallelism:** YES / YES after C-01
-- **Start dependencies:** C-01
+- **Start dependencies:** C-01A
 - **Integration dependencies:** D-01 for persistence completion
-- **Objective:** Implement registry, descriptors, immutable definitions, generic
-  analysis output, and `MAJORITY_VOTE_V1` with fake plugins.
+- **Objective:** Implement registry, descriptors, owner-scoped immutable definitions,
+  generic analysis output, and `MAJORITY_VOTE_V1` with fake plugins.
 - **Write scope:** Strategy core/application/infrastructure/tests excluding built-in directories.
 - **Latest branch / commit:** —; record when work starts.
 - **Validation:** Not started.
@@ -170,13 +225,13 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 
 ### L-01 — Configurable Reproducible Leaderboard
 
-- **Requirement IDs:** `CSL-R-LB-01`, `CSL-R-RP-01`, `CSL-R-OB-01`
+- **Requirement IDs:** `CSL-R-LB-01`, `CSL-R-RP-01`, `CSL-R-OB-01`, `CSL-R-OW-01`
 - **State / owner / wave:** BLOCKED / Unassigned Leaderboard worker / Wave 2
 - **Critical / parallelism:** YES, gates B-02 / YES
-- **Start dependencies:** C-01, D-01
+- **Start dependencies:** C-01A, D-01
 - **Integration dependencies:** E-01 and B-02
 - **Objective:** Implement versioned `LINEAR_REQUIRED_V1`, deterministic eligibility,
-  ties, scopes, and configurable Top-K.
+  ties, user-owned scopes, same-owner admission, and configurable Top-K.
 - **Write scope:** `modules/leaderboard/**` except frozen contracts and migrations.
 - **Latest branch / commit:** —; record when work starts.
 - **Validation:** Not started.
@@ -199,28 +254,44 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 ### B-02 — Candidate, Execution and Experiment Orchestration
 
 - **Requirement IDs:** `CSL-R-BT-01`, `CSL-R-ST-04`, `CSL-R-RP-01`,
-  `CSL-R-OB-01`, `CSL-R-AR-01`, `CSL-R-AR-02`
+  `CSL-R-OB-01`, `CSL-R-AR-01`, `CSL-R-AR-02`, `CSL-R-OW-01`
 - **State / owner / wave:** BLOCKED / Unassigned Backtesting application worker / Wave 4
 - **Critical / parallelism:** YES / Limited
 - **Start dependencies:** D-01, S-01, B-01, E-01, L-01
 - **Integration dependencies:** M-01, S-02, and S-03 before I-01/I-02
-- **Objective:** Connect Candidate persistence, bounded execution, simulation,
-  Evaluation, Experiment/Trades, and Leaderboard.
+- **Objective:** Connect owner-scoped Candidate persistence, bounded execution,
+  simulation, Evaluation, inherited Experiment/Trades, and same-owner Leaderboard.
 - **Write scope:** Backtesting application/infrastructure/API implementations/tests.
 - **Latest branch / commit:** —; record when work starts.
 - **Validation:** Not started.
 - **Full packet:** [`MVP_PLAN.md#b-02--candidate-execution-and-experiment-orchestration`](MVP_PLAN.md#b-02--candidate-execution-and-experiment-orchestration)
 
+### AU-02 — Per-User Ownership Security Integration
+
+- **Requirement IDs:** `CSL-R-OW-01`, `CSL-R-AU-01`, `CSL-R-ST-04`,
+  `CSL-R-SE-01`, `CSL-R-SE-02`, `CSL-R-BT-01`, `CSL-R-LB-01`, `CSL-R-OB-01`
+- **State / owner / wave:** BLOCKED / Manager or security integration worker / Wave 4
+- **Critical / parallelism:** YES / NO with active private-resource writers
+- **Start dependencies:** AU-01, D-01, S-01, L-01, B-02, Q-01 real integration
+- **Integration dependencies:** F-AUTH and I-01
+- **Objective:** Prove trusted owner propagation and two-user isolation across Auth,
+  Strategy, Search, Backtesting, and Leaderboard.
+- **Write scope:** Cross-module security/integration tests and narrowly approved
+  owner-scoped fixes; no unrelated capability implementation.
+- **Latest branch / commit:** —; record when work starts.
+- **Validation:** Not started.
+- **Full packet:** [`MVP_PLAN.md#au-02--per-user-ownership-security-integration`](MVP_PLAN.md#au-02--per-user-ownership-security-integration)
+
 ### Q-01 — Seeded Random Search and SearchRun Lifecycle
 
 - **Requirement IDs:** `CSL-R-SE-01`, `CSL-R-SE-02`, `CSL-R-LB-01`,
-  `CSL-R-OB-01`, `CSL-R-DM-01`, `CSL-R-AR-02`
+  `CSL-R-OB-01`, `CSL-R-DM-01`, `CSL-R-AR-02`, `CSL-R-OW-01`
 - **State / owner / wave:** BLOCKED / Unassigned Search worker / Waves 3–4
 - **Critical / parallelism:** Integration / YES for fake-port phase
-- **Start dependencies:** C-01, S-01
+- **Start dependencies:** C-01A, S-01
 - **Integration dependencies:** D-01, L-01, B-02
-- **Objective:** Implement seeded Random generation and a finite SearchRun lifecycle,
-  first against fakes and then against real approved ports.
+- **Objective:** Implement seeded Random generation, trusted owner propagation, and
+  an owner-scoped finite SearchRun lifecycle, first against fakes and then real ports.
 - **Write scope:** `modules/search/**` except frozen contracts and migrations.
 - **Latest branch / commit:** —; record when work starts.
 - **Validation:** Not started; cannot be DONE after fake-only validation.
@@ -228,12 +299,14 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 
 ### N-01 — News Collection, Deduplication and Query
 
-- **Requirement IDs:** `CSL-R-NW-01`, `CSL-R-SN-01`, `CSL-R-OB-01`, `CSL-R-DM-01`
+- **Requirement IDs:** `CSL-R-NW-01`, `CSL-R-SN-01`, `CSL-R-OB-01`, `CSL-R-DM-01`,
+  `CSL-R-RD-01`
 - **State / owner / wave:** BLOCKED / Unassigned News worker / Wave 2
 - **Critical / parallelism:** Integration / YES
 - **Start dependencies:** C-01, D-01
 - **Integration dependencies:** N-02 and I-01
-- **Objective:** Build fixture-first provider-neutral News with a CoinDesk live adapter.
+- **Objective:** Build fixture-first provider-neutral News with a real configured
+  final/demo source and explicit provider provenance.
 - **Write scope:** `modules/news/**` except frozen contracts and migrations.
 - **Latest branch / commit:** —; record when work starts.
 - **Validation:** Not started; API credentials affect live smoke only.
@@ -256,29 +329,44 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 
 ### F-01 — Frontend Chart and Client Foundation
 
-- **Requirement IDs:** `CSL-R-FE-01`, `CSL-R-MD-02`, `CSL-R-AR-03`
+- **Requirement IDs:** `CSL-R-FE-01`, `CSL-R-MD-02`, `CSL-R-AR-03`, `CSL-R-RD-01`
 - **State / owner / wave:** READY / Unassigned Frontend worker / Wave 2
 - **Critical / parallelism:** Integration / YES
 - **Start dependencies:** C-01
 - **Integration dependencies:** M-02 and I-01
-- **Objective:** Build the app shell, typed clients, independent chart states, and
-  fixture market source.
+- **Objective:** Build the app shell, typed clients, independent chart states, a
+  `lightweight-charts` adapter, and a fixture market source for tests/development.
 - **Write scope:** `apps/frontend/**`; frozen transport imports only.
 - **Latest branch / commit:** —; record when work starts.
 - **Validation:** Not started.
 - **Full packet:** [`MVP_PLAN.md#f-01--frontend-chart-and-client-foundation`](MVP_PLAN.md#f-01--frontend-chart-and-client-foundation)
 
+### F-AUTH — Frontend Authentication and Protected Navigation
+
+- **Requirement IDs:** `CSL-R-AU-01`, `CSL-R-OW-01`, `CSL-R-FE-01`, `CSL-R-DM-01`
+- **State / owner / wave:** BLOCKED / Unassigned Frontend worker / Wave 3
+- **Critical / parallelism:** Integration / Not with an active F-01 shell writer
+- **Start dependencies:** C-01A, F-01
+- **Integration dependencies:** AU-01
+- **Objective:** Add register/login/session restoration/logout, protected navigation,
+  401 recovery, and private-cache clearing using HttpOnly session cookies.
+- **Write scope:** Frontend Auth clients, screens, state, navigation guards, and tests.
+- **Latest branch / commit:** —; record when work starts.
+- **Validation:** Not started.
+- **Full packet:** [`MVP_PLAN.md#f-auth--frontend-authentication-and-protected-navigation`](MVP_PLAN.md#f-auth--frontend-authentication-and-protected-navigation)
+
 ### F-02 — Frontend Strategy, Search, Result and Auxiliary Views
 
 - **Requirement IDs:** `CSL-R-ST-01`, `CSL-R-ST-03`, `CSL-R-SE-01`,
   `CSL-R-SE-02`, `CSL-R-BT-01`, `CSL-R-EV-01`, `CSL-R-LB-01`,
-  `CSL-R-VIS-01`, `CSL-R-NW-01`, `CSL-R-SN-01`, `CSL-R-DM-01`
+  `CSL-R-VIS-01`, `CSL-R-NW-01`, `CSL-R-SN-01`, `CSL-R-DM-01`,
+  `CSL-R-AU-01`, `CSL-R-OW-01`
 - **State / owner / wave:** BLOCKED / Unassigned Frontend worker / Wave 3
 - **Critical / parallelism:** Integration / YES
-- **Start dependencies:** C-01, F-01
-- **Integration dependencies:** All real APIs at I-01
-- **Objective:** Build descriptor-driven Strategy/Search/Experiment/Leaderboard,
-  visualization, News, and Sentiment views against typed fakes.
+- **Start dependencies:** C-01A, F-01, F-AUTH
+- **Integration dependencies:** All real APIs and AU-02 at I-01
+- **Objective:** Build authenticated, owner-scoped Strategy/Search/Experiment/
+  Leaderboard, visualization, News, and Sentiment views against typed fakes.
 - **Write scope:** Frontend features and tests only.
 - **Latest branch / commit:** —; record when work starts.
 - **Validation:** Not started.
@@ -286,15 +374,15 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 
 ### I-01 — Runtime, Transports and Observability Integration
 
-- **Requirement IDs:** All capability integration IDs plus `CSL-R-OB-01` and
-  `CSL-R-AR-01`–`CSL-R-AR-03`
+- **Requirement IDs:** All capability integration IDs plus `CSL-R-AU-01`,
+  `CSL-R-OW-01`, `CSL-R-RD-01`, `CSL-R-OB-01`, and `CSL-R-AR-01`–`CSL-R-AR-03`
 - **State / owner / wave:** BLOCKED / Manager or integration worker / Wave 5
 - **Critical / parallelism:** YES / NO
-- **Start dependencies:** B-02; completed M-01/M-02, S-02/S-03 registration,
-  Q-01 integration, N-01/N-02, and F-01/F-02
+- **Start dependencies:** AU-01, AU-02, B-02; completed M-01/M-02, S-02/S-03
+  registration, Q-01 integration, N-01/N-02, and F-01/F-AUTH/F-02
 - **Integration dependencies:** Live Binance/CoinDesk availability for final smoke
-- **Objective:** Compose real modules, thin transports, configuration, readiness,
-  optional-provider degradation, and operational projections.
+- **Objective:** Compose Auth and real modules, trusted request identity, protected
+  transports, final/demo provider configuration, readiness, degradation, and projections.
 - **Write scope:** `apps/backend/**`, example configuration, thin transport mappers;
   module fixes only through owner review.
 - **Latest branch / commit:** —; record when work starts.
@@ -303,7 +391,8 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 
 ### I-02 — E2E Demo, Documentation and Final Verification
 
-- **Requirement IDs:** Every REQUIRED ID, especially `CSL-R-DL-01` and `CSL-R-DM-01`
+- **Requirement IDs:** Every REQUIRED ID, especially `CSL-R-AU-01`, `CSL-R-OW-01`,
+  `CSL-R-RD-01`, `CSL-R-DL-01`, and `CSL-R-DM-01`
 - **State / owner / wave:** BLOCKED / Manager plus independent reviewers / Wave 6
 - **Critical / parallelism:** YES / Reviewer and test work only
 - **Start dependencies:** I-01
@@ -318,7 +407,7 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 
 ## State derivation at this checkpoint
 
-P-00 and C-01 are DONE. Strict recomputation from start dependencies makes D-01,
-S-01, E-01, and F-01 READY. Every other unfinished task remains BLOCKED by at
-least one unfinished start dependency. No newly READY task was started at this
-checkpoint.
+P-00, C-01, and A-00 are DONE. Strict recomputation from start dependencies makes
+C-01A, E-01, and F-01 READY. D-01 and S-01 are now BLOCKED by C-01A; every other
+unfinished task remains BLOCKED by at least one unfinished start dependency. No
+newly READY implementation task was started at this checkpoint.

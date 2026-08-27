@@ -24,6 +24,15 @@ The capability MUST expose running/stopped state, stop reason, candidate count, 
 
 Traceability: `CSL-R-OB-01`, `CSL-R-LB-01`.
 
+### Requirement: User-owned Search Runs
+
+Each Search Run MUST be a direct user-owned root derived from trusted authenticated
+context. Its Strategy Definitions, LeaderboardScope, and Search-created Candidates
+MUST have the same owner. Search-created Candidate ownership MUST come from the
+trusted SearchRun/user context, never from generated or client identity fields.
+
+Traceability: `CSL-R-OW-01`; ADR-008.
+
 ## Approved behavior and invariants
 
 - A run MUST record its normalized search space, generator selection, stop conditions, and relevant ranking scope.
@@ -31,10 +40,11 @@ Traceability: `CSL-R-OB-01`, `CSL-R-LB-01`.
 - Candidate failure MUST be counted and observable without creating an uncontrolled replacement loop.
 - Search MUST call Backtesting and Leaderboard only through their public APIs.
 - Future generator kinds are an explicitly deferred extension seam; they are not MVP implementations.
+- Search Run collections and lifecycle commands MUST be owner-scoped before pagination/counting or state mutation.
 
 ## Executable public API and status
 
-The current executable public surface is [`modules/search/api/index.ts`](../../../modules/search/api/index.ts). It exposes `start`, `pause`, `resume`, `cancel`, `status`, and `leaderboard`, and re-exports the current generator/run projections. These functions currently throw `NOT_IMPLEMENTED`. Any current enum values beyond Random Search are source-reconciliation items, not active implementation requirements.
+The current executable public surface is [`modules/search/api/index.ts`](../../../modules/search/api/index.ts). It exposes `start`, `pause`, `resume`, `cancel`, `status`, and `leaderboard`, and re-exports the current generator/run projections. These functions currently throw `NOT_IMPLEMENTED` and do not yet carry trusted ownership. C-01A must extend ownership-sensitive contracts before Q-01 ownership work; pure Random generation remains unchanged.
 
 ## Failure expectations
 
@@ -68,3 +78,9 @@ The current executable public surface is [`modules/search/api/index.ts`](../../.
 - **Given** an active Search Run
 - **When** it is cancelled
 - **Then** no new candidates are submitted and status exposes the terminal state and accumulated counts
+
+#### Scenario: Search ownership propagates
+
+- **Given** an authenticated user starting a valid Search Run
+- **When** Search submits generated Candidates
+- **Then** the Run, definitions, Leaderboard scope, and Candidates resolve to that same trusted owner

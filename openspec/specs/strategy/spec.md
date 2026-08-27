@@ -30,6 +30,15 @@ Changing behavior-bearing parameters, components, weights, thresholds, combinati
 
 Traceability: `CSL-R-ST-04`, `CSL-R-RP-01`; ADR-007.
 
+### Requirement: User-owned definitions
+
+Strategy Definitions and Composite Definitions MUST be direct user-owned roots.
+Definition commands and repositories MUST use trusted authenticated identity;
+Composite components MUST reference same-owner Strategy Definitions. Pure Strategy
+analysis and plugin descriptors remain user-agnostic/shared.
+
+Traceability: `CSL-R-OW-01`; ADR-008.
+
 ## Approved behavior and invariants
 
 - Strategy analysis MUST be deterministic for the same definition and context.
@@ -38,6 +47,7 @@ Traceability: `CSL-R-ST-04`, `CSL-R-RP-01`; ADR-007.
 - A composite MUST contain at least one component and reference immutable definitions.
 - Weighted configurations MUST use finite values and a documented normalization/threshold policy.
 - Strategy runtime code MUST remain infrastructure-independent.
+- Client-supplied identity MUST NOT authorize definition access. Authenticated cross-user definition reads/mutations return the same not-found outcome as an absent definition.
 
 ## Built-in behavior approval rule
 
@@ -51,7 +61,7 @@ into normative product behavior.
 
 ## Executable public API and status
 
-The current executable public surface is [`modules/strategy/api/index.ts`](../../../modules/strategy/api/index.ts). It exposes `listStrategies`, `resolveStrategy`, and `combineSignals`, and re-exports current strategy types from the barrel. These operations currently throw `NOT_IMPLEMENTED`; their exact TypeScript definitions remain source-owned and are not copied here.
+The current executable public surface is [`modules/strategy/api/index.ts`](../../../modules/strategy/api/index.ts). It exposes `listStrategies`, definition operations, `resolveStrategy`, and `combineSignals`, and re-exports current strategy types from the barrel. These operations currently throw `NOT_IMPLEMENTED` and predate the later ownership requirement. C-01A must extend owned definition/application/repository contracts before S-01 begins; pure execution contracts remain frozen.
 
 ## Failure expectations
 
@@ -91,3 +101,9 @@ The current executable public surface is [`modules/strategy/api/index.ts`](../..
 - **Given** a definition referenced by a completed experiment
 - **When** a behavior-bearing parameter changes
 - **Then** a new version is created and the completed experiment still references the prior version
+
+#### Scenario: Definitions are isolated by owner
+
+- **Given** two authenticated users with separate Strategy Definitions
+- **When** either user lists or reads definitions
+- **Then** only that user's definitions are returned and a guessed cross-user ID is not found

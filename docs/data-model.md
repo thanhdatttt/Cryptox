@@ -5,54 +5,74 @@
 This document defines accepted business entities, ownership, relationships, and provenance for the MVP. It is intentionally conceptual: it is not SQL DDL and does not claim that the described persistence is implemented. Physical migrations are authoritative once an entity is implemented.
 
 The current repository contains contract and migration scaffolding. Earlier design
-schemas containing deferred queue, authentication, risk, and strict-replay concepts
-were consolidated during Stage 2 and remain recoverable from Git history; they are
-not the active MVP model.
+schemas containing broader tenant/identity, queue, risk, and strict-replay concepts
+were consolidated during Stage 2 and remain recoverable from Git history; they do
+not override the simple Authentication and per-user ownership model approved by the
+later instructor change on 2026-08-28.
 
 ## Ownership and relationships
 
 ```text
-StrategyDefinition ----< CompositeComponent >---- CompositeDefinition
-        |                                             |
-        +---------------- Candidate ------------------+
-                                 |
-                                 v
-                         Backtest execution
-                          |             |
-                          v             v
-                        Trade       failure outcome
-                          |
-                          v
-                       Experiment ----> LeaderboardEntry
-                          |
-                          +---- evaluation results
-                          +---- score/ranking configuration
-                          +---- market input provenance
+User
+  +----< AuthSession
+  +----< StrategyDefinition
+  +----< CompositeDefinition ----< CompositeComponent
+  +----< SearchRun
+  +----< Candidate ----0..1 Experiment ----< Trade
+  |                         +---- evaluation results
+  |                         +---- market input provenance
+  +----< LeaderboardScope ----< LeaderboardEntry
 
-SearchRun ----< Candidate
-
+CompositeComponent ----> StrategyDefinition
+Candidate ----> StrategyDefinition or CompositeDefinition
+SearchRun ----< Candidate (when Search-generated)
+LeaderboardEntry ----> Experiment
+LeaderboardEntry ----> shared RankingConfiguration
 NewsItem ----< SentimentResult
 ```
 
 | Entity | Owner | Purpose |
 |---|---|---|
+| User | Auth | Authenticated identity with normalized email and password hash. |
+| AuthSession | Auth; belongs to User | Opaque server-side session identity, secure token digest, fixed expiry, and optional revocation. |
 | Candle | Market Data | Normalized historical/closed OHLCV and forming realtime candle state. |
-| StrategyDefinition | Strategy | Immutable, versioned strategy type and normalized parameter configuration. |
-| CompositeDefinition and CompositeComponent | Strategy | Immutable, versioned combination of Strategy Definitions. |
-| SearchRun | Search | Generator/search-space choice, bounded stop condition, state, progress, and timing. |
-| Candidate | Backtesting | One manual or Search-generated proposal submitted for execution. |
+| StrategyDefinition | Strategy; direct User ownership | Immutable, versioned strategy type and normalized parameter configuration. |
+| CompositeDefinition and CompositeComponent | Strategy; CompositeDefinition is directly user-owned and components inherit | Immutable, versioned combination of same-owner Strategy Definitions. |
+| SearchRun | Search; direct User ownership | Generator/search-space choice, bounded stop condition, state, progress, and timing. |
+| Candidate | Backtesting; direct User ownership | One manual or Search-generated proposal submitted for execution. |
 | Backtest execution outcome | Backtesting | Observable success/failure, timing, and execution relationship for a Candidate. |
-| Trade | Backtesting | One simulated entry/exit/result belonging to the successful execution represented by an Experiment. |
-| Experiment | Backtesting | Canonical completed-result and provenance aggregate. |
-| Evaluation result | Evaluation | Metrics calculated independently from Strategy and Backtester implementation. |
-| Score/ranking configuration | Leaderboard | Versioned or stably identified policy used to compare Experiments. |
-| LeaderboardEntry | Leaderboard | Reference from a ranking scope/view to a completed, rank-eligible Experiment. |
+| Trade | Backtesting; inherits through Experiment | One simulated entry/exit/result belonging to the successful execution represented by an Experiment. |
+| Experiment | Backtesting; inherits from Candidate | Canonical completed-result and provenance aggregate. |
+| Evaluation result | Evaluation; inherits from Experiment | Metrics calculated independently from Strategy and Backtester implementation. |
+| Score/ranking configuration | Leaderboard; shared system data | Versioned or stably identified policy used to compare Experiments. |
+| LeaderboardScope and LeaderboardEntry | Leaderboard; scope is directly user-owned and entries inherit | User-specific ranking view whose entries reference same-owner completed Experiments. |
 | NewsItem | News | Normalized persisted provider item. |
 | SentimentResult | Sentiment | Optional model output linked to a News Item with model provenance. |
 
 Modules expose these concepts through their public APIs. One module must not read or write another module's persistence directly.
 
+Direct user-owned roots are StrategyDefinition, CompositeDefinition, SearchRun,
+Candidate, and LeaderboardScope. CompositeComponent, Experiment, Trade,
+EvaluationResult, and LeaderboardEntry inherit ownership through their required
+parent relationship and do not duplicate `owner_user_id`. Candle, Market Dataset
+and provenance, NewsItem, SentimentResult, RankingConfiguration, and Strategy
+plugin descriptors remain shared system data.
+
 ## Entity rules
+
+### User and AuthSession
+
+A User stores an application-generated ID, normalized email, Argon2id password
+hash, and created/updated timestamps. Normalized email is globally unique. V1 has
+no roles, organization/team membership, tenant hierarchy, OAuth/SSO identity,
+email-verification state, password-reset records, or billing data.
+
+An AuthSession stores an application-generated ID, User reference, digest of a
+cryptographically random opaque token, creation time, fixed expiration time, and
+an optional revocation time. Raw tokens are never persisted. Sessions have a
+24-hour absolute lifetime with no sliding renewal or refresh token. User/session
+persistence belongs to Auth; other modules receive only trusted authenticated
+identity from the server application boundary.
 
 ### Candle and market input
 
@@ -72,6 +92,9 @@ A StrategyDefinition contains:
 - normalized parameters; and
 - creation/provenance metadata useful to identify the definition.
 
+It also has one direct authenticated owner. Logical-family version allocation and
+uniqueness are scoped by that owner.
+
 Definitions are immutable. A behavior-bearing parameter or strategy version change creates a new definition/version rather than overwriting history. Application/code version or Git commit may be recorded where practical; exact executable hashes and indefinite artifact retention are not mandatory for the MVP.
 
 ### CompositeDefinition
@@ -79,6 +102,10 @@ Definitions are immutable. A behavior-bearing parameter or strategy version chan
 A CompositeDefinition contains a unique ID/version, combination method, and ordered component references. Each component references an exact StrategyDefinition version and records its weight when the selected method uses one. Method-specific thresholds or equivalent configuration are part of the immutable definition.
 
 Changing components, order when meaningful, weights, thresholds, method, or a referenced definition produces a new CompositeDefinition version.
+
+A CompositeDefinition is a direct user-owned root. Every referenced component
+StrategyDefinition must have the same owner. CompositeComponent inherits ownership
+from the CompositeDefinition.
 
 ### SearchRun
 
@@ -92,11 +119,19 @@ A SearchRun records:
 
 The MVP generator is Random. Other generator types are evolution seams, not claims of implemented behavior. SearchRun owns orchestration metadata only; Candidate and execution persistence belong to Backtesting.
 
+SearchRun is a direct user-owned root. Its definitions, LeaderboardScope, and
+Search-created Candidates must resolve to the same authenticated owner.
+
 ### Candidate and execution outcome
 
 A Candidate identifies whether it was submitted manually or by a SearchRun and references the selected immutable Strategy/Composite Definition plus its market-input selection. A Search Candidate also records its SearchRun and iteration/generation context.
 
 The bounded local executor produces one observable terminal success or failure for each accepted execution. The MVP model may retain simple execution timing and failure information but does not require queue job IDs, delivery attempts, leases, fencing generations, watchdog state, or distributed retry bookkeeping.
+
+Candidate is the direct Backtesting ownership root for both manual and
+Search-generated submissions. Manual ownership comes from authenticated request
+context; Search-generated ownership comes from the trusted SearchRun/user context,
+never from a client identity field.
 
 ### Trade and evaluation result
 
@@ -121,6 +156,9 @@ Experiment is the canonical successful backtest record. It links or embeds enoug
 
 This is practical provenance under [ADR-007](./adr/ADR_007_practical_reproducibility.md). A record can be traceable without being byte-for-byte replayable. Missing historical artifacts must not be hidden by substituting current code or data.
 
+Experiment inherits ownership from its required Candidate relationship. Trades and
+Evaluation results inherit through Experiment.
+
 ### Score, ranking, and LeaderboardEntry
 
 A score/ranking configuration has a stable identity or version and records the formula/configuration needed to explain a ranking. An Experiment stores or references the configuration used for its score.
@@ -128,6 +166,10 @@ A score/ranking configuration has a stable identity or version and records the f
 A LeaderboardEntry references an Experiment rather than duplicating its Strategy, Trades, or metrics. Rankings compare only Experiments that satisfy the same declared comparison scope. Top-K is configurable; `K = 10` may be a product default but is not a data invariant.
 
 SearchRun ranking and a cross-run Leaderboard may be separate read views over Experiments. Their precise lifetime/admission behavior belongs in an approved capability specification, not in physical table assumptions here.
+
+LeaderboardScope is a direct user-owned root. A LeaderboardEntry inherits from its
+scope and may reference only an Experiment whose Candidate has the same owner.
+Owner filtering occurs before pagination/counting.
 
 ### NewsItem and SentimentResult
 
@@ -141,6 +183,7 @@ Mandatory sealed sentiment datasets, content hashes, and exact time-series repla
 
 - Definition history is append-only through new IDs/versions; do not mutate a completed Experiment's referenced definition.
 - One business owner validates and persists each entity; cross-module consumers use public APIs.
+- Private repository reads and mutations scope by authenticated owner. Missing authentication is a transport/application 401; an authenticated cross-user private-resource lookup is indistinguishable from absence and returns 404.
 - Experiment, Trade, metric, and score relationships must remain internally consistent and queryable.
 - Numeric metrics and scores must be finite or use an explicitly modeled unavailable state.
 - Store only provenance that is meaningful and available. Do not imply stronger replay guarantees than the retained data supports.
@@ -150,7 +193,7 @@ Mandatory sealed sentiment datasets, content hashes, and exact time-series repla
 
 The active MVP model excludes:
 
-- users, credentials, ownership columns, tenant keys, and authorization records;
+- roles/RBAC, organization/team membership, tenant/workspace hierarchies, external identity-provider records, OAuth/SSO, 2FA, email-verification, password-reset, and enterprise-IAM data;
 - queue jobs, queue terminal messages, distributed attempts, leases, fencing tokens, watchdog state, and reconciliation ledgers;
 - Redis keys or cache persistence;
 - stop-loss/take-profit and generalized portfolio/risk entities;

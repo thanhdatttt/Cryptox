@@ -6,8 +6,8 @@ context: |
   strategies with supporting news and sentiment capabilities.
 
   Read authority-bearing sources in this order:
-  1. docs/assignment/Crypto Strategy Lab – Đồ án cuối kỳ.pdf
-  2. docs/requirements.md
+  1. the instructor assignment and any later instructor requirement changes
+  2. docs/requirements.md, which records the reviewed traceable baseline and changes
   3. accepted ADRs, including explicit supersession relationships
   4. docs/architecture.md and docs/data-model.md
   5. active capability specifications under openspec/specs/
