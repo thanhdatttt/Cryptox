@@ -1,4 +1,4 @@
-import type { BacktestingModulePublicApi } from "@cryptox/backtesting";
+import type { BacktestExecutionPort } from "@cryptox/backtesting";
 import type { LeaderboardModulePublicApi } from "@cryptox/leaderboard";
 
 export interface SearchRunRepository<TSearchRun> {
@@ -13,9 +13,6 @@ export interface StrategyGeneratorPort<TSearchSpace, TCandidate> {
 export interface SearchApplicationDependencies<TSearchRun, TSearchSpace, TCandidate> {
   searchRunRepository: SearchRunRepository<TSearchRun>;
   generators: { readonly RANDOM: StrategyGeneratorPort<TSearchSpace, TCandidate> };
-  backtesting: Pick<
-    BacktestingModulePublicApi,
-    "submitSearchCandidate" | "summarizeSearchCandidates" | "cancelSearchCandidates"
-  >;
+  backtestExecution: BacktestExecutionPort;
   leaderboard: Pick<LeaderboardModulePublicApi, "rankSearchRun">;
 }

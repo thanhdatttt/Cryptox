@@ -12,6 +12,16 @@ import type {
 } from "./contracts";
 
 export * from "./contracts";
+export type {
+  BacktestExecutionCapacity,
+  BacktestExecutionPort,
+  BacktestExecutionRequest,
+  BacktestExecutionState,
+  BacktestExecutionStatus,
+  BacktestRunner,
+  BacktestSubmission,
+  BacktestTerminalOutcome,
+} from "../application/ports";
 
 const notImplemented = (): never => {
   throw new Error("NOT_IMPLEMENTED");

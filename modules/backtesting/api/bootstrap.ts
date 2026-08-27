@@ -1,4 +1,14 @@
-export type { BacktestingModuleDependencies } from "../application/ports";
+export type {
+  BacktestExecutionCapacity,
+  BacktestExecutionPort,
+  BacktestExecutionRequest,
+  BacktestExecutionState,
+  BacktestExecutionStatus,
+  BacktestRunner,
+  BacktestSubmission,
+  BacktestTerminalOutcome,
+  BacktestingModuleDependencies,
+} from "../application/ports";
 import type { BacktestingModuleDependencies } from "../application/ports";
 import type { BacktestingModulePublicApi } from "./contracts";
 import {

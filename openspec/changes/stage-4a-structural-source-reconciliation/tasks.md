@@ -28,9 +28,9 @@
 
 ## Wave 3 — execution boundary
 
-- [ ] Add mechanism-neutral `BacktestExecutionPort` and bounded local executor
+- [x] Add mechanism-neutral `BacktestExecutionPort` and bounded local executor
   using an injected runner, with focused state/capacity/failure tests.
-- [ ] Validate and commit Wave 3.
+- [x] Validate and commit Wave 3.
 
 ## Wave 4 — runtime topology and truth
 
