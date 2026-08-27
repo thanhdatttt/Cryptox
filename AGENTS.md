@@ -29,7 +29,7 @@ When sources conflict, follow the higher authority and record the lower-level in
 - MVP backtesting targets `Search -> BacktestExecutionPort -> Bounded Local Executor -> Backtester -> Evaluator -> Leaderboard`. Callers must not depend on local versus future distributed execution.
 - Approved MVP requirements are in `docs/requirements.md`. Authentication, users/ownership, multi-tenancy, AI/LLM authoring, optional trading/risk features, mandatory Redis/BullMQ, distributed protocols, microservices, Kafka, CQRS, and Event Sourcing are deferred there and must not become active requirements without approval.
 
-Stage 2 is documentation-only. Do not modify application/runtime source, public TypeScript contracts, migrations, infrastructure, package/toolchain/CI configuration, or generated agent/tool harnesses. Record source inconsistencies for the Post-Harness Source Reconciliation Backlog.
+Stage 2 documentation refinement is complete. Application/runtime source, executable contracts, migrations, infrastructure, generated artifacts, and tooling may be modified only through a separately approved change with explicit scope, governing requirements, acceptance criteria, and validation. Do not infer implementation scope from historical scaffolding, archived OpenSpec changes, or stale source assumptions. Repository inconsistencies discovered outside the current approved change must be reported rather than silently repaired.
 
 ## Contract authority
 
@@ -39,7 +39,7 @@ Markdown explains behavior and links to contracts; it must not copy complete Typ
 - Replaceable ports: `modules/{backtesting,market-data,news,sentiment}/application/ports.ts`.
 - REST DTOs: `packages/contracts/rest/**`; market WebSocket DTOs: `packages/contracts/websocket/**`.
 
-Where the current tree differs from these target owners, treat it as an unverified reconciliation item; do not repair it during Stage 2.
+Where the current tree differs from these target owners, treat it as an unverified reconciliation item and resolve it only through an explicitly approved source-reconciliation or implementation change, never as an implicit repair within an unrelated task.
 
 ## OpenSpec role
 
