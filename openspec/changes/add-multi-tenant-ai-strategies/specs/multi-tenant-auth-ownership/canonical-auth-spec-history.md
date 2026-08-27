@@ -1,3 +1,10 @@
+# Historical canonical Auth spec - deferred
+
+> **Status (2026-08-27): DEFERRED / NON-AUTHORITATIVE.** This is the exact Auth
+> specification removed from the active capability set during Stage 2 and retained
+> with the unapproved multitenant/AI change for historical review. It was not applied
+> to the approved MVP and must not be synchronized into active capability specs.
+
 # Spec: Auth Module (`modules/auth`)
 
 ## 1. Overview
