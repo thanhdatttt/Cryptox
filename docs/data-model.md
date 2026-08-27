@@ -4,7 +4,10 @@
 
 This document defines accepted business entities, ownership, relationships, and provenance for the MVP. It is intentionally conceptual: it is not SQL DDL and does not claim that the described persistence is implemented. Physical migrations are authoritative once an entity is implemented.
 
-The current repository contains contract and migration scaffolding. Historical schemas under `docs/design/` include deferred queue, authentication, risk, and strict-replay concepts and are not the active MVP model.
+The current repository contains contract and migration scaffolding. Earlier design
+schemas containing deferred queue, authentication, risk, and strict-replay concepts
+were consolidated during Stage 2 and remain recoverable from Git history; they are
+not the active MVP model.
 
 ## Ownership and relationships
 

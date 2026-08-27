@@ -31,6 +31,7 @@ Traceability: `CSL-S-02`.
 - Maximum Drawdown is the largest peak-to-trough decline on the supplied equity sequence and uses one documented finite sign/magnitude convention.
 - Number of Trades is the count of completed Trades according to the Backtesting result contract.
 - Evaluation MUST NOT mutate the supplied result or calculate a leaderboard score.
+- Backtesting invokes Evaluation after a successful simulation; REST adapters, frontend code, Search, and strategies MUST NOT bypass that orchestration boundary to calculate or persist metrics.
 
 ## Executable public API and status
 

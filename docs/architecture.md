@@ -14,7 +14,9 @@ When sources disagree, use this order:
 6. repository guidance and generated harnesses; and
 7. historical design notes.
 
-Historical material under `docs/design/` is useful context but is not allowed to override this document or a later accepted ADR.
+Earlier design material was consolidated during Stage 2 and remains recoverable
+from Git history. It cannot override this document or a later accepted ADR; the
+content-coverage record is in [consolidation-record.md](./consolidation-record.md).
 
 ## Current implementation status
 

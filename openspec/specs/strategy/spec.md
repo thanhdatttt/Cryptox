@@ -33,10 +33,40 @@ Traceability: `CSL-R-ST-04`, `CSL-R-RP-01`; ADR-007.
 ## Approved behavior and invariants
 
 - Strategy analysis MUST be deterministic for the same definition and context.
+- If fewer than a built-in's required candles are supplied, analysis MUST return `HOLD` without padding, throwing, or using future data.
 - Parameter validation MUST occur before a strategy is resolved or executed.
 - A composite MUST contain at least one component and reference immutable definitions.
 - Weighted configurations MUST use finite values and a documented normalization/threshold policy.
 - Strategy runtime code MUST remain infrastructure-independent.
+
+## MVP built-in behavior
+
+The four required built-ins use the following deterministic profiles. Parameter
+ranges are validation limits, not search-space requirements.
+
+| Built-in | Parameters (default; allowed range) | Signal and minimum history |
+|---|---|---|
+| Moving Average (`MA`) | `fastPeriod` (20; 2–200), `slowPeriod` (50; 3–400), `maType` (`SMA`; `SMA` or `EMA`); require `fastPeriod < slowPeriod` | `BUY` when fast crosses above slow, `SELL` when it crosses below, otherwise `HOLD`; minimum `slowPeriod + 1` candles. |
+| RSI | `period` (14; 2–100), `buyThreshold` (30; 0–100), `sellThreshold` (70; 0–100); require buy threshold below sell threshold | Wilder-smoothed RSI below buy threshold is `BUY`, above sell threshold is `SELL`, otherwise `HOLD`; minimum `period + 1` candles. |
+| Bollinger Bands (`BOLLINGER`) | `period` (20; 2–200), `stdDevMultiplier` (2; 0.1–5) | Close below the lower population-standard-deviation band is `BUY`, above the upper band is `SELL`, otherwise `HOLD`; minimum `period` candles. |
+| Support/Resistance (`SR`) | `lookbackPeriod` (50; 10–500), `swingWindow` (2; 1–10), `minTouches` (2; 1–10), `proximityPercent` (0.5; 0.01–5) | A confirmed reaction upward near qualified support is `BUY`; a confirmed reaction downward near qualified resistance is `SELL`; otherwise `HOLD`; minimum `lookbackPeriod + 1` candles. |
+
+Moving-average crossover compares the final two valid points: cross-up means the
+fast series was at or below the slow series and is now above it; cross-down is the
+inverse. SMA is the period mean. EMA uses `2 / (period + 1)` and is seeded with the
+first valid SMA.
+
+RSI uses Wilder smoothing. If average loss is zero and gain is positive, RSI is
+`100`; if both are zero, RSI is `50`. Bollinger Bands use the period SMA plus or
+minus `stdDevMultiplier` times population standard deviation.
+
+Support/Resistance detects swing highs/lows inside the completed lookback window,
+requiring `swingWindow` neighbors on each side. Points are sorted by price then
+timestamp and clustered against a fixed first-point anchor within
+`proximityPercent`; a level is the cluster mean and requires `minTouches`. The
+nearest level on the correct side of current close qualifies only within the same
+proximity. A `BUY` additionally requires current close above prior close; `SELL`
+requires it below. No qualified level yields `HOLD`.
 
 ## Executable public API and status
 
@@ -56,6 +86,12 @@ The current executable public surface is [`modules/strategy/api/index.ts`](../..
 - **Given** a valid immutable built-in Strategy Definition and the same analysis context
 - **When** the strategy is evaluated twice
 - **Then** it returns the same signal and performs no infrastructure I/O
+
+#### Scenario: Built-in formula fixtures are reproducible
+
+- **Given** hand-calculated candle fixtures for MA, RSI, Bollinger, and Support/Resistance
+- **When** each valid built-in definition analyzes its fixture
+- **Then** its signal matches the documented formula, and insufficient history returns `HOLD`
 
 #### Scenario: MACD is added locally
 
