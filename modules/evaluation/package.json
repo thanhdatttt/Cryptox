@@ -4,8 +4,8 @@
   "main": "./dist/modules/evaluation/api/index.js",
   "types": "./api/index.ts",
   "exports": {
-    ".": { "types": "./api/index.ts", "require": "./dist/modules/evaluation/api/index.js" },
-    "./bootstrap": { "types": "./api/bootstrap.ts", "require": "./dist/modules/evaluation/api/bootstrap.js" }
+    ".": { "types": "./api/index.ts", "import": "./api/index.ts", "require": "./dist/modules/evaluation/api/index.js" },
+    "./bootstrap": { "types": "./api/bootstrap.ts", "import": "./api/bootstrap.ts", "require": "./dist/modules/evaluation/api/bootstrap.js" }
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",

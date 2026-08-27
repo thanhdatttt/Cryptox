@@ -2,9 +2,8 @@
   "name": "@cryptox/contracts",
   "private": true,
   "exports": {
-    "./rest": { "types": "./rest/index.ts", "require": "./dist/packages/contracts/rest/index.js" },
-    "./websocket": { "types": "./websocket/index.ts", "require": "./dist/packages/contracts/websocket/index.js" },
-    "./queue": { "types": "./queue/index.ts", "require": "./dist/packages/contracts/queue/index.js" }
+    "./rest": { "types": "./rest/index.ts", "import": "./rest/index.ts", "require": "./dist/packages/contracts/rest/index.js" },
+    "./websocket": { "types": "./websocket/index.ts", "import": "./websocket/index.ts", "require": "./dist/packages/contracts/websocket/index.js" }
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",

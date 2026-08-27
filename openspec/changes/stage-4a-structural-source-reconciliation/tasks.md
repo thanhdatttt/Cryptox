@@ -16,15 +16,15 @@
 
 ## Wave 2 — ownership and boundaries
 
-- [ ] Remove cross-module domain imports, reverse application/API dependency, and
+- [x] Remove cross-module domain imports, reverse application/API dependency, and
   critical type cycles with canonical owners.
-- [ ] Remove Auth and deferred product/distributed/strict-replay leakage while
+- [x] Remove Auth and deferred product/distributed/strict-replay leakage while
   preserving the pgcrypto migration unchanged.
-- [ ] Establish typed Market Data, News, and Sentiment provider ports without real
+- [x] Establish typed Market Data, News, and Sentiment provider ports without real
   adapters.
-- [ ] Reconcile Candidate/SearchRun/Evaluation/Leaderboard ownership.
-- [ ] Make market WebSocket transport self-contained and retire queue transport.
-- [ ] Validate and commit coherent Wave 2 sub-waves.
+- [x] Reconcile Candidate/SearchRun/Evaluation/Leaderboard ownership.
+- [x] Make market WebSocket transport self-contained and retire queue transport.
+- [x] Validate and commit coherent Wave 2 sub-waves.
 
 ## Wave 3 — execution boundary
 

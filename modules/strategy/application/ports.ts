@@ -1,7 +1,6 @@
-import type { CompositeStrategyDefinition, StrategyDefinition } from "../domain/contracts";
-export interface StrategyDefinitionRepository {
-  insert(definition: StrategyDefinition): Promise<StrategyDefinition>;
+export interface StrategyDefinitionRepository<TDefinition> {
+  insert(definition: TDefinition): Promise<TDefinition>;
 }
-export interface CompositeDefinitionRepository {
-  insert(definition: CompositeStrategyDefinition): Promise<CompositeStrategyDefinition>;
+export interface CompositeDefinitionRepository<TDefinition> {
+  insert(definition: TDefinition): Promise<TDefinition>;
 }

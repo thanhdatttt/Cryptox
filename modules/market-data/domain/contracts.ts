@@ -25,10 +25,11 @@ export interface MarketDataConnectionStatus {
 }
 export interface DatasetSnapshotRef {
   id: string;
+  provider: ProviderId;
   pair: Pair;
   timeframe: Timeframe;
   range: { from: string; to: string };
   candleCount: number;
-  sha256: string;
+  version?: string;
   createdAt: string;
 }

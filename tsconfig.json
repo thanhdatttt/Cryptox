@@ -9,7 +9,6 @@
     { "path": "./modules/leaderboard/tsconfig.json" },
     { "path": "./modules/news/tsconfig.json" },
     { "path": "./modules/sentiment/tsconfig.json" },
-    { "path": "./modules/auth/tsconfig.json" },
     { "path": "./apps/backend/tsconfig.json" },
     { "path": "./apps/backtest-worker/tsconfig.json" },
     { "path": "./apps/frontend/tsconfig.json" },

@@ -6,7 +6,6 @@ describe("worker composition", () => {
       "backtesting",
       "strategy",
       "marketDataSnapshotReader",
-      "sentimentRead",
     ]);
   });
 });

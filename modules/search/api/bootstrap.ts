@@ -1,11 +1,17 @@
-export type { SearchModuleDependencies } from "../application/ports";
-import type { SearchModuleDependencies } from "../application/ports";
-import type { SearchModulePublicApi } from "./index";
+import type { SearchApplicationDependencies } from "../application/ports";
+import type {
+  GeneratedCandidate,
+  SearchModulePublicApi,
+  SearchRunStatus,
+  SearchSpaceConfig,
+} from "./contracts";
 import { cancel, leaderboard, pause, resume, start, status } from "./index";
-export function createSearchModule(_deps: SearchModuleDependencies): SearchModulePublicApi & {
-  onCandidateFinished(searchRunId: string): Promise<void>;
-  fillAvailableSlots(searchRunId: string): Promise<void>;
-} {
+export type SearchModuleDependencies = SearchApplicationDependencies<
+  SearchRunStatus,
+  SearchSpaceConfig,
+  GeneratedCandidate
+>;
+export function createSearchModule(_deps: SearchModuleDependencies): SearchModulePublicApi {
   return {
     start,
     pause,
@@ -13,11 +19,5 @@ export function createSearchModule(_deps: SearchModuleDependencies): SearchModul
     cancel,
     status,
     leaderboard,
-    onCandidateFinished: async () => {
-      throw new Error("NOT_IMPLEMENTED");
-    },
-    fillAvailableSlots: async () => {
-      throw new Error("NOT_IMPLEMENTED");
-    },
   };
 }

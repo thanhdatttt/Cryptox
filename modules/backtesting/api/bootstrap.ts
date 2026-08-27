@@ -1,37 +1,31 @@
 export type { BacktestingModuleDependencies } from "../application/ports";
 import type { BacktestingModuleDependencies } from "../application/ports";
-import type { BacktestLogApi } from "./index";
+import type { BacktestingModulePublicApi } from "./contracts";
 import {
-  cancelManualCandidate,
+  cancelCandidate,
   cancelSearchCandidates,
-  createBenchmarkScope,
-  listAttemptTrades,
-  listExperimentTrades,
   listSearchCandidates,
-  readAttempt,
-  readExperimentSummary,
-  removePendingJobs,
+  listExperimentTrades,
+  listSearchExperiments,
+  readExperiment,
   startManual,
   status,
   submitSearchCandidate,
   summarizeSearchCandidates,
-  verifyReplay,
 } from "./index";
-export function createBacktestingModule(_deps: BacktestingModuleDependencies): BacktestLogApi {
+export function createBacktestingModule(
+  _deps: BacktestingModuleDependencies,
+): BacktestingModulePublicApi {
   return {
-    createBenchmarkScope,
     startManual,
     submitSearchCandidate,
     status,
     summarizeSearchCandidates,
     listSearchCandidates,
     cancelSearchCandidates,
-    cancelManualCandidate,
-    removePendingJobs,
-    readAttempt,
-    listAttemptTrades,
-    readExperimentSummary,
+    cancelCandidate,
+    readExperiment,
+    listSearchExperiments,
     listExperimentTrades,
-    verifyReplay,
   };
 }

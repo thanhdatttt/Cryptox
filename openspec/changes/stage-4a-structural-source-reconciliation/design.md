@@ -16,6 +16,27 @@
 - Redis, workers, queue transport, distributed recovery, Auth, optional trading
   risk, and strict replay are not active MVP runtime concepts.
 
+## Wave 2 ownership decisions
+
+- Strategy owns reusable strategy/composite definitions. Other module domains
+  retain only their own identifiers and value snapshots; cross-module composition
+  belongs at application or API boundaries.
+- Search owns `SearchRun`, its bounded stop condition, Random generator identity,
+  search-space choice, and orchestration counters. It does not redeclare Candidate
+  execution state or ranking entries.
+- Backtesting owns Candidate identity and mechanism-neutral execution state,
+  long-only Buy/Sell Trade records, simulation configuration, and Experiment
+  results. It does not own generator taxonomy, ranking scope, Evaluation metrics,
+  queue delivery state, or distributed recovery metadata.
+- Evaluation owns a neutral completed-result input and finite metric output.
+  Leaderboard owns ranking configuration, configurable `K`, comparison scope, and
+  ranked Experiment references. Neither domain imports Backtesting.
+- Market Data, News, and Sentiment own normalized provider-neutral domain values;
+  replaceable provider/model contracts are application ports. News-to-Sentiment
+  collaboration is an application dependency on Sentiment's public API.
+- Market WebSocket DTOs duplicate only the minimal self-contained wire values that
+  transport owns. Queue DTOs have no active MVP owner and are retired.
+
 ## Build and resolution
 
 Workspace packages expose explicit public and bootstrap entrypoints. Production

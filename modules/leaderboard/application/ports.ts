@@ -1,42 +1,34 @@
-import type {
-  CreateLeaderboardScopeCommand,
-  LeaderboardEntry,
-  LeaderboardScope,
-  ScoreFormula,
-} from "../domain/contracts";
-export interface LeaderboardScopeRepository {
-  insert(scope: LeaderboardScope): Promise<LeaderboardScope>;
-  getById(id: string): Promise<LeaderboardScope | undefined>;
+import type { BacktestingModulePublicApi } from "@cryptox/backtesting";
+
+export interface LeaderboardScopeRepository<TScope, TCreateCommand> {
+  insert(command: TCreateCommand): Promise<TScope>;
+  getById(id: string): Promise<TScope | undefined>;
 }
-export interface ScoreFormulaRepository {
-  getById(id: string): Promise<ScoreFormula | undefined>;
-  listAll(): Promise<ScoreFormula[]>;
+
+export interface RankingConfigurationRepository<TConfiguration> {
+  getById(id: string): Promise<TConfiguration | undefined>;
+  listAll(): Promise<readonly TConfiguration[]>;
 }
-export interface LeaderboardEntryRepository {
-  getActiveTopK(scopeId: string, k: number): Promise<LeaderboardEntry[]>;
-  insert(entry: Omit<LeaderboardEntry, "id" | "rank">): Promise<LeaderboardEntry>;
+
+export interface LeaderboardEntryRepository<TEntry extends object> {
+  getActiveTopK(scopeId: string, k: number): Promise<readonly TEntry[]>;
+  insert(entry: Omit<TEntry, "id" | "rank">): Promise<TEntry>;
   deactivate(entryId: string): Promise<void>;
 }
-export interface ExperimentResultReader {
-  getBySearchRunId(searchRunId: string): Promise<
-    Array<{
-      id: string;
-      candidateId: string;
-      searchRunId: string;
-      leaderboardScopeId: string;
-      scoreFormulaId: string;
-      overallScore: number;
-      rankEligible: boolean;
-    }>
-  >;
-}
+
 export interface Clock {
   now(): string;
 }
-export interface LeaderboardModuleDependencies {
-  scopeRepository: LeaderboardScopeRepository;
-  entryRepository: LeaderboardEntryRepository;
-  formulaRepository: ScoreFormulaRepository;
-  experimentReader: ExperimentResultReader;
+
+export interface LeaderboardApplicationDependencies<
+  TScope,
+  TCreateCommand,
+  TEntry extends object,
+  TConfiguration,
+> {
+  scopeRepository: LeaderboardScopeRepository<TScope, TCreateCommand>;
+  entryRepository: LeaderboardEntryRepository<TEntry>;
+  configurationRepository: RankingConfigurationRepository<TConfiguration>;
+  experiments: Pick<BacktestingModulePublicApi, "listSearchExperiments">;
   clock: Clock;
 }

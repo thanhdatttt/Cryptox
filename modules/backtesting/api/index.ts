@@ -1,114 +1,46 @@
 import type {
-  BacktestAttemptAudit,
-  BacktestSubmissionAccepted,
-  BenchmarkScopeSummary,
+  BacktestingModulePublicApi,
+  CandidatePage,
+  CandidatePageRequest,
   CandidateProgress,
-  CancellationUnitOfWork,
-  CreateLeaderboardScopeCommand,
-  ExperimentResultSummary,
-  ReplayVerificationResult,
+  Experiment,
+  SearchCandidateSummary,
   StartManualBacktestCommand,
   SubmitSearchCandidateCommand,
-  Trade,
-} from "../domain/contracts";
-export type {
-  CandidateStatus,
-  BacktestSubmissionAccepted,
-  CancellationUnitOfWork,
-  CompletionUnitOfWork,
-  Trade,
-  CompletedBacktestResult,
-  GeneratorType,
-  CreateLeaderboardScopeCommand,
-  StartManualBacktestCommand,
-  SubmitSearchCandidateCommand,
-  BenchmarkScopeSummary,
-  ReplayVerificationResult,
-  CandidateProgress,
-  BacktestAttemptProgress,
-  BacktestAttemptAudit,
-  ExperimentResult,
-  ExperimentResultSummary,
-} from "../domain/contracts";
-export interface SearchCandidateSummary {
-  searchRunId: string;
-  active: CandidateProgress[];
-  queuedCount: number;
-  runningCount: number;
-  candidatesTested: number;
-  failedCandidateCount: number;
-  retryExhaustedCandidateCount: number;
-  infrastructureFailureCandidateCount: number;
-  completionProcessingFailureCandidateCount: number;
-  failedAttemptCount: number;
-  averageBacktestDurationMs: number | null;
-}
-export interface SearchCandidatePageRequest {
-  limit: number;
-  cursor?: string;
-}
-export interface SearchCandidatePage {
-  items: CandidateProgress[];
-  nextCursor?: string;
-}
-export interface TradePageRequest {
-  limit: number;
-  cursor?: string;
-}
-export interface TradePage {
-  items: Trade[];
-  nextCursor?: string;
-}
-export interface BacktestLogApi {
-  createBenchmarkScope(
-    command: CreateLeaderboardScopeCommand,
-    options: { scopeIdempotencyKey: string },
-  ): Promise<BenchmarkScopeSummary>;
-  startManual(
-    command: StartManualBacktestCommand,
-    options?: { submissionIdempotencyKey?: string },
-  ): Promise<BacktestSubmissionAccepted>;
-  submitSearchCandidate(command: SubmitSearchCandidateCommand): Promise<BacktestSubmissionAccepted>;
-  status(candidateId: string): Promise<CandidateProgress>;
-  summarizeSearchCandidates(searchRunId: string): Promise<SearchCandidateSummary>;
-  listSearchCandidates(
-    searchRunId: string,
-    page: SearchCandidatePageRequest,
-  ): Promise<SearchCandidatePage>;
-  cancelSearchCandidates(
-    searchRunId: string,
-    unitOfWork: CancellationUnitOfWork,
-  ): Promise<{ candidateIds: string[] }>;
-  cancelManualCandidate(candidateId: string, unitOfWork: CancellationUnitOfWork): Promise<void>;
-  removePendingJobs(candidateIds: string[]): Promise<void>;
-  readAttempt(attemptId: string): Promise<BacktestAttemptAudit>;
-  listAttemptTrades(attemptId: string, page: TradePageRequest): Promise<TradePage>;
-  readExperimentSummary(experimentId: string): Promise<ExperimentResultSummary>;
-  listExperimentTrades(experimentId: string, page: TradePageRequest): Promise<TradePage>;
-  verifyReplay(experimentId: string): Promise<ReplayVerificationResult>;
-}
+  TradePage,
+  TradePageRequest,
+} from "./contracts";
+
+export * from "./contracts";
+
 const notImplemented = (): never => {
   throw new Error("NOT_IMPLEMENTED");
 };
-export const createBenchmarkScope: BacktestLogApi["createBenchmarkScope"] = async () =>
+
+export const startManual: BacktestingModulePublicApi["startManual"] = async (
+  _command: StartManualBacktestCommand,
+) => notImplemented();
+export const submitSearchCandidate: BacktestingModulePublicApi["submitSearchCandidate"] = async (
+  _command: SubmitSearchCandidateCommand,
+) => notImplemented();
+export const status = async (_candidateId: string): Promise<CandidateProgress> => notImplemented();
+export const summarizeSearchCandidates = async (
+  _searchRunId: string,
+): Promise<SearchCandidateSummary> => notImplemented();
+export const listSearchCandidates = async (
+  _searchRunId: string,
+  _page: CandidatePageRequest,
+): Promise<CandidatePage> => notImplemented();
+export const cancelSearchCandidates: BacktestingModulePublicApi["cancelSearchCandidates"] = async () =>
   notImplemented();
-export const startManual: BacktestLogApi["startManual"] = async () => notImplemented();
-export const submitSearchCandidate: BacktestLogApi["submitSearchCandidate"] = async () =>
+export const cancelCandidate: BacktestingModulePublicApi["cancelCandidate"] = async () =>
   notImplemented();
-export const status: BacktestLogApi["status"] = async () => notImplemented();
-export const summarizeSearchCandidates: BacktestLogApi["summarizeSearchCandidates"] = async () =>
+export const readExperiment = async (_experimentId: string): Promise<Experiment> =>
   notImplemented();
-export const listSearchCandidates: BacktestLogApi["listSearchCandidates"] = async () =>
-  notImplemented();
-export const cancelSearchCandidates: BacktestLogApi["cancelSearchCandidates"] = async () =>
-  notImplemented();
-export const cancelManualCandidate: BacktestLogApi["cancelManualCandidate"] = async () =>
-  notImplemented();
-export const removePendingJobs: BacktestLogApi["removePendingJobs"] = async () => notImplemented();
-export const readAttempt: BacktestLogApi["readAttempt"] = async () => notImplemented();
-export const listAttemptTrades: BacktestLogApi["listAttemptTrades"] = async () => notImplemented();
-export const readExperimentSummary: BacktestLogApi["readExperimentSummary"] = async () =>
-  notImplemented();
-export const listExperimentTrades: BacktestLogApi["listExperimentTrades"] = async () =>
-  notImplemented();
-export const verifyReplay: BacktestLogApi["verifyReplay"] = async () => notImplemented();
+export const listSearchExperiments = async (
+  _searchRunId: string,
+): Promise<readonly Experiment[]> => notImplemented();
+export const listExperimentTrades = async (
+  _experimentId: string,
+  _page: TradePageRequest,
+): Promise<TradePage> => notImplemented();
