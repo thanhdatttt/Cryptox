@@ -10,7 +10,7 @@ Leaderboard owns score/ranking configuration, deterministic scoring, Top-K admis
 
 The capability MUST maintain Top-K rankings with positive configurable `K`. The default MAY be `10`, but `10` is not an architectural invariant. Any overall score MUST use an identified configuration and be explainable and reproducible from stored metrics.
 
-Traceability: `CSL-R-LB-01`, `CSL-R-RP-01`.
+Traceability: `CSL-R-LB-01`, `CSL-R-RP-01`, `CSL-R-AR-02`, `CSL-R-AR-03`.
 
 ### Requirement: Deterministic admission and reads
 

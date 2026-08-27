@@ -10,7 +10,7 @@ Search owns Search Runs, search-space validation, strategy candidate generation,
 
 The capability MUST expose a stable `StrategyGenerator` abstraction and MUST provide Random Search for the MVP. Generated candidates MUST use the same downstream form regardless of generator implementation and MUST satisfy the configured search space before submission.
 
-Traceability: `CSL-R-SE-01`, `CSL-R-ST-03`, `CSL-R-AR-01`.
+Traceability: `CSL-R-SE-01`, `CSL-R-ST-03`, `CSL-R-AR-01`, `CSL-R-AR-02`, `CSL-R-AR-03`, `CSL-R-DM-01`.
 
 ### Requirement: Finite bounded execution
 

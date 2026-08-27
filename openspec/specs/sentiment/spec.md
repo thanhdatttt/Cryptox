@@ -10,7 +10,7 @@ Sentiment analyzes neutral text inputs and stores provider-neutral Sentiment Res
 
 The capability MUST expose a replaceable analysis boundary that returns `POSITIVE`, `NEUTRAL`, or `NEGATIVE` with a finite normalized score. A successful result MUST identify its input and record model name/version provenance.
 
-Traceability: `CSL-R-SN-01`, `CSL-R-AR-01`; ADR-004 and ADR-007.
+Traceability: `CSL-R-SN-01`, `CSL-R-AR-01`, `CSL-R-AR-02`, `CSL-R-AR-03`; ADR-004 and ADR-007.
 
 ### Requirement: Separate persistence and reads
 

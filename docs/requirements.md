@@ -37,9 +37,11 @@ Acceptance categories: **UNIT** domain behavior; **CONTRACT** public/adapter com
 | CSL-R-NW-01 | Collect, normalize, store, and query news through replaceable provider adapters. The normalized record covers identity, title/content, source, publication/crawl times, related coins, and URL. | §§27–28, pp. 27–29; MVP §37, p. 41 | `news` (`openspec/specs/news/spec.md`) | CONTRACT, INTEGRATION | SCAFFOLDED; collection/storage not implemented |
 | CSL-R-SN-01 | Analyze and store POSITIVE/NEUTRAL/NEGATIVE sentiment with a score behind a replaceable Sentiment boundary, separate from News collection. A sentiment failure must not stop charts or core strategy/backtest flows. | §§29–30, pp. 29–31; §40.5–40.6, p. 44; MVP §37, p. 41 | `sentiment` (`openspec/specs/sentiment/spec.md`), `news` | UNIT, CONTRACT, INTEGRATION, RESILIENCE | SCAFFOLDED; inference/storage not implemented |
 | CSL-R-RP-01 | Preserve practical experiment provenance: strategy definition/type/version/normalized parameters, pair, timeframe, historical range, dataset identity/version where practical, code version/commit where practical, results, trades, and ranking configuration when relevant. | §§35–36, pp. 38–40; §40.8, p. 45 | `backtesting`, `strategy`, `market-data`, `evaluation`, `leaderboard` | REPRO, INTEGRATION | SCAFFOLDED; end-to-end traceability unverified |
-| CSL-R-AR-01 | Satisfy the explicit architectural drivers: modifiability, scalability, realtime latency, reliability, performance, maintainability, and observability. | §32, pp. 32–35 | All active capabilities; `docs/architecture.md` | ARCH, RESILIENCE, OBS | Architecture documented inconsistently; implementation unverified |
+| CSL-R-AR-01 | Satisfy the explicit architectural drivers: modifiability, scalability, realtime latency, reliability, performance, maintainability, and observability. | §32, pp. 32–35 | All active capabilities; `docs/architecture.md` | ARCH, RESILIENCE, OBS | DOCUMENTATION ALIGNED; implementation unverified |
+| CSL-R-AR-02 | Defend the architecture against all eight assignment change scenarios: localized MACD addition, replaceable search, replaceable exchange, scale evolution, News-failure containment, sentiment-model independence, WebSocket recovery, and exact strategy-version traceability. | §40, pp. 43–45 | All active capabilities; `docs/architecture.md` | ARCH, CONTRACT, RESILIENCE | DOCUMENTATION ALIGNED; implementation unverified |
+| CSL-R-AR-03 | Prohibit the assignment anti-patterns: a God Service, hard-coded strategy branching, frontend business logic, direct strategy database access, and direct crawler-to-model coupling. | §44, pp. 47–48 | All active capabilities; `docs/architecture.md` | ARCH | DOCUMENTATION ALIGNED; implementation unverified |
 | CSL-R-OB-01 | Expose at least search running/stopped state, candidate count, failures, processing timing, current leaderboard state, and major provider failures. | §32.7, pp. 34–35 | `search`, `backtesting`, `leaderboard`, `market-data`, `news`, `sentiment` | OBS, INTEGRATION | NOT IMPLEMENTED |
-| CSL-R-DL-01 | Deliver a complete repository; README with Install/Run/Architecture/Demo; architecture document with context, decomposition, responsibilities and key flows; architectural decisions; and the minimum demo. | §45, pp. 49–50 | Repository documentation and all active capabilities | ARCH, E2E | IN PROGRESS; repository is currently scaffolding |
+| CSL-R-DL-01 | Deliver a complete repository; README with Install/Run/Architecture/Demo; architecture document with context, decomposition, responsibilities and key flows; architectural decisions; and the minimum demo. | §45, pp. 49–50 | Repository documentation, `frontend`, and all active capabilities | ARCH, E2E | DOCUMENTATION REFINED; source implementation and demo incomplete |
 | CSL-R-DM-01 | Minimum demo covers realtime chart, multi-timeframe behavior, strategy add/select, combination generation, backtest, leaderboard, trade visualization, news, and sentiment. | §45, p. 50 | `frontend` plus all active capabilities | E2E | NOT IMPLEMENTED |
 
 ## Suggested behavior and design guidance
@@ -67,7 +69,7 @@ Acceptance categories: **UNIT** domain behavior; **CONTRACT** public/adapter com
 
 ## Required architecture defenses and change acceptance
 
-The architecture report/demo must answer the eight questions in §40 (pp. 43–45): localized MACD addition; replacement of Random with Genetic Search without Backtester redesign; addition of OKX without frontend change; evolution from 100 to 100,000 backtests; chart survival during News failure; Strategy independence from sentiment-model replacement; Binance WebSocket recovery; and exact strategy-version traceability for leaderboard results.
+Requirement `CSL-R-AR-02` requires the architecture report/demo to answer the eight questions in §40 (pp. 43–45): localized MACD addition; replacement of Random with Genetic Search without Backtester redesign; addition of OKX without frontend change; evolution from 100 to 100,000 backtests; chart survival during News failure; Strategy independence from sentiment-model replacement; Binance WebSocket recovery; and exact strategy-version traceability for leaderboard results.
 
 The concrete assessment scenarios in §§41–43 (pp. 45–47) are acceptance drivers:
 
@@ -77,7 +79,7 @@ The concrete assessment scenarios in §§41–43 (pp. 45–47) are acceptance dr
 
 ## Explicit prohibitions
 
-Per §44 (pp. 47–48), prohibit a God Service, hard-coded strategy identity/combination branches, frontend trading/backtest/ranking logic, direct database access from strategies, and direct coupling between a news crawler and a concrete sentiment model. Also prohibit direct frontend dependence on Binance (§4, p. 6), an uncontrolled infinite search loop (§23, pp. 24–25), and overwriting versioned historical strategy results (§36, pp. 39–40).
+Requirement `CSL-R-AR-03`, from §44 (pp. 47–48), prohibits a God Service, hard-coded strategy identity/combination branches, frontend trading/backtest/ranking logic, direct database access from strategies, and direct coupling between a news crawler and a concrete sentiment model. Also prohibited are direct frontend dependence on Binance (§4, p. 6), an uncontrolled infinite search loop (§23, pp. 24–25), and overwriting versioned historical strategy results (§36, pp. 39–40).
 
 ## Traceability maintenance
 

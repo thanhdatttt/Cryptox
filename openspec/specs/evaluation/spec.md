@@ -10,7 +10,7 @@ Evaluation owns pure calculation and edge-case policy for backtest metrics. It c
 
 Evaluation MUST calculate Return, Win Rate, Maximum Drawdown, and Number of Trades for every valid completed backtest. Metric definitions and zero-denominator behavior MUST be documented and deterministic.
 
-Traceability: `CSL-R-EV-01`, `CSL-R-RP-01`.
+Traceability: `CSL-R-EV-01`, `CSL-R-RP-01`, `CSL-R-AR-02`, `CSL-R-AR-03`, `CSL-R-DM-01`.
 
 ### Requirement: Independent deterministic evaluator
 

@@ -10,9 +10,10 @@ When sources disagree, use this order:
 2. reviewed project requirements in [requirements.md](./requirements.md);
 3. accepted ADRs, including explicit amendment or supersession;
 4. this architecture document;
-5. capability specifications and approved active changes;
-6. repository guidance and generated harnesses; and
-7. historical design notes.
+5. approved capability specifications;
+6. an approved active change, when one exists;
+7. repository guidance and generated harnesses; and
+8. historical design notes.
 
 Earlier design material was consolidated during Stage 2 and remains recoverable
 from Git history. It cannot override this document or a later accepted ADR; the

@@ -10,7 +10,7 @@ The frontend presents market charts, descriptor-driven strategy selection/config
 
 The frontend MUST display candlestick charts for up to four independently configurable timeframes. It MUST load historical data before applying normalized realtime market updates, display connection state, and recover after reconnect without cross-changing another chart.
 
-Traceability: `CSL-R-FE-01`, `CSL-R-MD-02`; ADR-001.
+Traceability: `CSL-R-FE-01`, `CSL-R-MD-02`, `CSL-R-AR-02`, `CSL-R-AR-03`, `CSL-R-DL-01`; ADR-001.
 
 ### Requirement: Descriptor-driven strategy and search workflows
 

@@ -10,7 +10,7 @@ Backtesting owns manual and Search candidate submission, the Backtest Execution 
 
 The capability MUST simulate a versioned strategy over identified historical candles and produce ordered auditable Trades and one terminal success or failure outcome. The same valid definition, data, and configuration MUST produce the same result.
 
-Traceability: `CSL-R-BT-01`, `CSL-R-ST-04`, `CSL-R-VIS-01`.
+Traceability: `CSL-R-BT-01`, `CSL-R-ST-04`, `CSL-R-VIS-01`, `CSL-R-AR-02`, `CSL-R-AR-03`, `CSL-R-DM-01`.
 
 ### Requirement: Bounded replaceable execution
 

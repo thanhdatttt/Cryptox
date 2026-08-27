@@ -10,7 +10,7 @@ News collects, normalizes, stores, deduplicates, and queries market news through
 
 The capability MUST collect through provider adapters and normalize identity, title/content, source, publication time, crawl time, related coins, and URL before persistence. Adding a provider MUST NOT require changes to Sentiment or frontend business behavior.
 
-Traceability: `CSL-R-NW-01`, `CSL-R-AR-01`; ADR-004 and ADR-005.
+Traceability: `CSL-R-NW-01`, `CSL-R-AR-01`, `CSL-R-AR-02`, `CSL-R-AR-03`; ADR-004 and ADR-005.
 
 ### Requirement: Durable deduplication and query
 

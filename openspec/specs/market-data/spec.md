@@ -10,7 +10,7 @@ Market Data acquires Binance historical candlesticks and realtime updates, norma
 
 The capability MUST validate pair and timeframe inputs and normalize Binance historical and realtime data into canonical candles, ticks, and connection status. Adding another exchange MUST be an adapter change that does not require frontend or strategy branching.
 
-Traceability: `CSL-R-MD-01`, `CSL-R-MD-02`, `CSL-R-AR-01`; ADR-001 and ADR-005.
+Traceability: `CSL-R-MD-01`, `CSL-R-MD-02`, `CSL-R-AR-01`, `CSL-R-AR-02`, `CSL-R-AR-03`, `CSL-R-DM-01`; ADR-001 and ADR-005.
 
 ### Requirement: Historical and realtime continuity
 
@@ -34,7 +34,7 @@ Traceability: `CSL-R-RP-01`; ADR-007.
 
 ## Executable public API and status
 
-The current executable public surface is [`modules/market-data/api/index.ts`](../../../modules/market-data/api/index.ts). It exposes `readCandles`, dataset provenance read/create operations, `subscribeMarketData`, and `shutdown`, and re-exports normalized market types. The functions currently throw `NOT_IMPLEMENTED`; this spec defines target behavior, not implementation status. REST and market WebSocket DTOs remain under `packages/contracts`.
+The current executable public surface is [`modules/market-data/api/index.ts`](../../../modules/market-data/api/index.ts). It exposes `readCandles`, dataset provenance read/create operations, `subscribeMarketData`, and `shutdown`, and re-exports normalized market types. The functions currently throw `NOT_IMPLEMENTED`; this spec defines target behavior, not implementation status. A market WebSocket contract exists under `packages/contracts`; the intended REST contract barrel is currently empty and remains a post-harness reconciliation item.
 
 ## Failure expectations
 

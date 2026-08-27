@@ -23,7 +23,7 @@ Stage 2 wave commits. Removal from the active tree does not erase Git history.
 | `docs/design/data-flow.md` | Core flows in `docs/architecture.md` and owning capability specs | Lease/fencing/watchdog/reconciliation sequences |
 | `docs/design/data-model.md` | `docs/data-model.md` and ADR-007 | Competing DDL, user/tenant model, queue internals, strict artifact replay |
 | `docs/design/tech-stack.md` | Truthful current status/setup in `README.md`; architectural choices in `docs/architecture.md` and ADRs | Obsolete `services/*`, unapproved Auth/OpenAI choices, mandatory Redis/BullMQ |
-| `docs/design/strategy-plugins-catalog.md` | Determinism, insufficient-data policy, parameters, formulas, validation, and fixture expectations in `openspec/specs/strategy/spec.md` | MACD as an implemented built-in and deferred INFORMATION-strategy material |
+| `docs/design/strategy-plugins-catalog.md` | The required built-in families, determinism, validation, and the requirement for a separately reviewed versioned behavior profile in `openspec/specs/strategy/spec.md` | Exact formulas, parameter defaults/ranges, thresholds, signals, and warm-up rules were instructor examples rather than approved requirements; they remain recoverable in Git history, along with MACD-as-built-in and deferred INFORMATION-strategy material |
 | `docs/design/architecture-conventions.md` | Module/call direction in `docs/architecture.md`; evaluator boundary in Evaluation spec; strategy purity in Strategy spec | Completion-processor and sentiment-strategy assumptions outside MVP |
 
 ## Review result
