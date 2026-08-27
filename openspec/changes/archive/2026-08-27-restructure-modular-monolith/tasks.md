@@ -1,5 +1,12 @@
 # Tasks: Module-First Layered Structure
 
+> **Closure reconciliation — 2026-08-27:** This checklist records historical
+> work, including scaffolding completed later outside the original docs-only
+> change. Stage 2 superseded the worker/queue topology with ADR-006 and replaced
+> the referenced design corpus with canonical requirements, architecture, data
+> model, ADRs, and capability specs. A checked scaffolding task is not evidence
+> that product behavior is implemented.
+
 ## Planning and documentation
 
 > This apply is intentionally documentation-only. The implementation migration tasks below remain pending until a later approved change.
@@ -34,10 +41,10 @@
 
 ## Implementation migration preparation
 
-- [ ] Create module skeletons with only required layers; do not add empty layer directories for symmetry.
-- [ ] Create `apps/backend` and `apps/backtest-worker` composition roots without moving business logic into them.
-- [ ] Add TypeScript path aliases/workspace references for module public APIs.
-- [ ] Add architecture tests for forbidden imports and allowed module dependency direction.
-- [ ] Add contract tests for Backend/Worker queue payload compatibility.
-- [ ] Migrate modules in dependency order while preserving current transport, persistence, retry, fencing, and reconciliation behavior.
-- [x] Run documentation/path/reference checks; code-level import verification remains pending until implementation exists.
+- [x] Create module skeletons with only required layers; do not add empty layer directories for symmetry. Completed later as scaffolding in commit `69ac08b`; business behavior remains largely `NOT_IMPLEMENTED`.
+- [x] Create `apps/backend` and `apps/backtest-worker` composition roots without moving business logic into them. Completed later as composition scaffolding in commit `69ac08b`; ADR-006 now makes the separate worker deferred for MVP.
+- [x] Add TypeScript path aliases/workspace references for module public APIs. Present in the current workspace configuration; not modified or revalidated during Stage 2.
+- [ ] Add architecture tests for forbidden imports and allowed module dependency direction. **PARTIAL/UNVERIFIED:** dependency-cruiser configuration exists but does not cover every documented boundary and CI is absent.
+- [ ] Add contract tests for Backend/Worker queue payload compatibility. **SUPERSEDED FOR MVP:** queue compatibility is deferred with the distributed adapter under ADR-006.
+- [ ] Migrate modules in dependency order while preserving current transport, persistence, retry, fencing, and reconciliation behavior. **SUPERSEDED:** no mature implementation was migrated, and the distributed semantics are no longer active MVP requirements.
+- [x] Run documentation/path/reference checks. Re-run during Stage 2 against the consolidated active documentation; OpenSpec CLI validation remains UNVERIFIED because the CLI is unavailable.

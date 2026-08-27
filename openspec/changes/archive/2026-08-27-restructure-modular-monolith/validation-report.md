@@ -3,7 +3,19 @@
 - **Change:** `restructure-modular-monolith`
 - **Review date:** 2026-08-14
 - **Review mode:** Read-only; no code, runtime, migration, build, or schema changes
-- **Status:** Final documentation gate PASS; implementation validation remains pending
+- **Original status (2026-08-14):** Final documentation gate PASS; implementation validation remains pending
+- **Closure status (2026-08-27):** CLOSED AND ARCHIVED AS HISTORICAL; see `closure.md`
+
+## 2026-08-27 closure update
+
+This report is preserved as evidence of the earlier design review, not as a claim
+about the current repository. TypeScript module/app scaffolding was later added,
+while most product behavior remains unimplemented. Stage 2 established the
+instructor assignment and reviewed requirements as higher authority, consolidated
+the active design/specification corpus, superseded the mandatory distributed
+Backtest topology through ADR-006, and replaced strict artifact replay through
+ADR-007. Queue compatibility and runtime migration items remain incomplete or
+superseded; the original PASS applies only to the historical docs-only gate.
 
 Sections 3–7 preserve the pre-refinement audit baseline so the reasoning and evidence trail remain reviewable. They are not a statement that the current design still contains every listed issue. The current state is recorded in sections 8–10.
 
