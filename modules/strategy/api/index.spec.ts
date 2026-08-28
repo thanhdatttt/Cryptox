@@ -24,6 +24,6 @@ describe("strategy public entrypoint", () => {
         "resolveStrategy",
       ].sort(),
     );
-    expect(() => strategyApi.listStrategies()).toThrow("NOT_IMPLEMENTED");
+    expect(strategyApi.listStrategies()).toEqual([]);
   });
 });

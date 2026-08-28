@@ -4,9 +4,12 @@ import type {
   AuthUser,
   AuthenticatedRequestContext,
   AuthenticatedSessionIdentity,
+  AuthenticatedUserId,
   LoginCommand,
   RegisterCommand,
 } from "./contracts";
+import { createAuthApplication } from "../application/service";
+import { createInMemoryAuthDependencies } from "../application/memory";
 
 export * from "./contracts";
 export type {
@@ -20,18 +23,20 @@ export type {
   PasswordHashPort,
 } from "../application/ports";
 
-const notImplemented = (): never => {
-  throw new Error("NOT_IMPLEMENTED");
-};
+const defaultAuthApplication = createAuthApplication(
+  createInMemoryAuthDependencies<AuthenticatedUserId>(),
+);
 
-export const register = async (_command: RegisterCommand): Promise<AuthSessionGrant> =>
-  notImplemented();
-export const login = async (_command: LoginCommand): Promise<AuthSessionGrant> => notImplemented();
-export const resolveSession = async (
-  _opaqueToken: string,
-): Promise<AuthenticatedSessionIdentity | undefined> => notImplemented();
-export const currentUser = async (_context: AuthenticatedRequestContext): Promise<AuthUser> =>
-  notImplemented();
-export const logout = async (_opaqueToken: string): Promise<void> => notImplemented();
+export const register = (command: RegisterCommand): Promise<AuthSessionGrant> =>
+  defaultAuthApplication.register(command);
+export const login = (command: LoginCommand): Promise<AuthSessionGrant> =>
+  defaultAuthApplication.login(command);
+export const resolveSession = (
+  opaqueToken: string,
+): Promise<AuthenticatedSessionIdentity | undefined> =>
+  defaultAuthApplication.resolveSession(opaqueToken);
+export const currentUser = (context: AuthenticatedRequestContext): Promise<AuthUser> =>
+  defaultAuthApplication.currentUser(context);
+export const logout = (opaqueToken: string): Promise<void> => defaultAuthApplication.logout(opaqueToken);
 
 export type _AuthApiShape = AuthModulePublicApi;

@@ -15,8 +15,14 @@ describe("Auth public entrypoint", () => {
         "resolveSession",
       ].sort(),
     );
-    await expect(authApi.login({ email: "user@example.test", password: "secret" })).rejects.toThrow(
-      "NOT_IMPLEMENTED",
-    );
+    const registered = await authApi.register({
+      email: " User@Example.Test ",
+      password: "secret-password",
+    });
+    expect(registered.user.email).toBe("user@example.test");
+    expect(await authApi.resolveSession(registered.opaqueToken)).toMatchObject({
+      authenticatedUserId: registered.user.id,
+      expiresAt: registered.expiresAt,
+    });
   });
 });

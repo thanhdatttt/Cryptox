@@ -8,33 +8,13 @@ import type {
   CompositeDefinitionRepository,
   StrategyDefinitionRepository,
 } from "../application/ports";
+import { createStrategyApplication } from "../application/service";
 export interface StrategyModuleDependencies {
   factories: readonly StrategyFactory[];
   definitionRepository: StrategyDefinitionRepository<StrategyDefinition>;
   compositeRepository: CompositeDefinitionRepository<CompositeStrategyDefinition>;
 }
-import {
-  combineSignals,
-  defineComposite,
-  defineStrategy,
-  listCompositeDefinitions,
-  listStrategyDefinitions,
-  listStrategies,
-  readCompositeDefinition,
-  readStrategyDefinition,
-  resolveStrategy,
-} from "./index";
-export function createStrategyModule(_deps: StrategyModuleDependencies): StrategyModulePublicApi {
-  return {
-    listStrategies,
-    defineStrategy,
-    listStrategyDefinitions,
-    listCompositeDefinitions,
-    defineComposite,
-    readStrategyDefinition,
-    readCompositeDefinition,
-    resolveStrategy,
-    combineSignals,
-  };
+export function createStrategyModule(deps: StrategyModuleDependencies): StrategyModulePublicApi {
+  return createStrategyApplication(deps) as unknown as StrategyModulePublicApi;
 }
 export type { StrategyDefinition, CompositeStrategyDefinition };

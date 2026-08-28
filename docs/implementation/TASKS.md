@@ -15,23 +15,23 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 | C-01 | DONE | 1 | YES | Manager | `MVP_IMPLEMENTATION` / `d7136318ecc5ca98670db4c260974a64d0fcbbfe` | Reviews and all C-01 gates PASS |
 | A-00 | DONE | A | YES | Manager | `MVP_IMPLEMENTATION` / containing A-00 checkpoint commit | Documentation, authority, scope, and strict OpenSpec checks PASS |
 | C-01A | DONE | 1A | YES | Manager / contract worker | `MVP_IMPLEMENTATION` / `9ca2d7c` | Independent review and all contract/global gates PASS |
-| D-01 | READY | 2 | YES — B-02 gate | Unassigned persistence specialist | — | Ready after C-01A; INS-004 authorizes governance reconciliation only; feature execution is not authorized |
+| D-01 | REVIEW | 2 | YES — B-02 gate | Manager / D-01 persistence | `MVP_IMPLEMENTATION` / containing INS-005 checkpoint commit | Migration source/static checks PASS; live PostgreSQL migrate/rollback/remigrate BLOCKED/UNVERIFIED |
 | M-01 | BLOCKED | 2 | Integration | Unassigned Market Data worker | — | Not started |
 | M-02 | BLOCKED | 3 | Integration | Unassigned Market Data worker | — | Not started |
-| S-01 | READY | 2 | YES | Unassigned Strategy core worker | — | Ready after C-01A; INS-004 authorizes governance reconciliation only; feature execution is not authorized |
-| S-02 | BLOCKED | 3 | Integration | Unassigned Strategy worker A | — | Not started |
-| S-03 | BLOCKED | 3 | Integration | Unassigned Strategy worker B | — | Not started |
+| S-01 | DONE | 2 | YES | Manager / S-01 strategy | `MVP_IMPLEMENTATION` / containing INS-005 checkpoint commit | Strategy tests/workspace gates PASS; persistence and built-in plugin scopes untouched |
+| S-02 | READY | 3 | Integration | Unassigned Strategy worker A | — | Unlocked by S-01; not authorized by exhausted INS-005 |
+| S-03 | READY | 3 | Integration | Unassigned Strategy worker B | — | Unlocked by S-01; not authorized by exhausted INS-005 |
 | E-01 | DONE | 2 | YES — B-02 gate | Manager / Evaluation worker | `MVP_IMPLEMENTATION` / `a20a7c5` | Independent review and Evaluation/global gates PASS |
 | L-01 | BLOCKED | 2 | YES — B-02 gate | Unassigned Leaderboard worker | — | Not started |
-| B-01 | BLOCKED | 3 | YES | Unassigned Backtesting domain worker | — | Not started |
+| B-01 | READY | 3 | YES | Unassigned Backtesting domain worker | — | Unlocked by S-01; not authorized by exhausted INS-005 |
 | B-02 | BLOCKED | 4 | YES | Unassigned Backtesting application worker | — | Not started |
-| AU-01 | READY | 2 | YES | Unassigned Auth worker | — | Ready for fake-repository phase; D-01 gates DB integration; INS-004 authorizes governance reconciliation only; feature execution is not authorized |
+| AU-01 | REVIEW | 2 | YES | Manager / AU-01 Auth | `MVP_IMPLEMENTATION` / containing INS-005 checkpoint commit | Fake-repository phase PASS; PostgreSQL adapter/integration remains gated by D-01 and not authorized |
 | AU-02 | BLOCKED | 4 | YES | Manager / security integration worker | — | Blocked by private-resource implementations |
-| Q-01 | BLOCKED | 3–4 | Integration | Unassigned Search worker | — | Not started |
+| Q-01 | READY | 3–4 | Integration | Unassigned Search worker | — | Unlocked by S-01; not authorized by exhausted INS-005 |
 | N-01 | BLOCKED | 2 | Integration | Unassigned News worker | — | Not started |
 | N-02 | BLOCKED | 2 | Integration | Unassigned Sentiment worker | — | Not started |
 | F-01 | DONE | 2 | Integration | Manager / Frontend worker | `MVP_IMPLEMENTATION` / `901065a` | Independent review, frontend/global gates, and browser interaction PASS |
-| F-AUTH | READY | 3 | Integration | Unassigned Frontend worker | — | Ready after C-01A/F-01; AU-01 gates integration; INS-004 authorizes governance reconciliation only; feature execution is not authorized |
+| F-AUTH | READY | 3 | Integration | Unassigned Frontend worker | — | Ready after C-01A/F-01; AU-01 gates integration; INS-005 scope exhausted, feature execution is not authorized |
 | F-02 | BLOCKED | 3 | Integration | Unassigned Frontend worker | — | Not started |
 | I-01 | BLOCKED | 5 | YES | Manager / integration worker | — | Not started |
 | I-02 | BLOCKED | 6 | YES | Manager plus independent reviewers | — | Not started |
@@ -117,17 +117,18 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 - **Requirement IDs:** `CSL-R-MD-01`, `CSL-R-ST-04`, `CSL-R-SE-02`,
   `CSL-R-BT-01`, `CSL-R-EV-01`, `CSL-R-LB-01`, `CSL-R-NW-01`, `CSL-R-SN-01`,
   `CSL-R-RP-01`, `CSL-R-OB-01`, `CSL-R-AU-01`, `CSL-R-OW-01`, `CSL-R-RD-01`
-- **State / owner / wave:** READY / Unassigned persistence specialist / Wave 2
+- **State / owner / wave:** REVIEW / Manager / D-01 persistence / Wave 2
 - **Critical / parallelism:** YES, gates B-02 / YES, with one DB writer
 - **Start dependencies:** C-01A
 - **Integration dependencies:** None
 - **Objective:** Add only approved physical entities, including User, AuthSession,
   and direct ownership columns, with reversible migrations and repository conventions.
 - **Write scope:** `infra/db/**` and packet-assigned module PostgreSQL adapters/tests.
-- **Latest branch / commit:** —; record when work starts.
-- **Validation:** Ready after C-01A; not started. `INS-004` authorizes governance
-  reconciliation only; feature execution is not authorized.
-  PostgreSQL/Docker availability may block DB evidence.
+- **Latest branch / commit:** `MVP_IMPLEMENTATION`; containing INS-005 checkpoint
+  commit.
+- **Validation:** REVIEW under `INS-005`; migration invocation/static checks PASS.
+  Live PostgreSQL migrate/rollback/remigrate evidence is BLOCKED/UNVERIFIED
+  because no valid local credentials or running Docker daemon are available.
 - **Full packet:** [`MVP_PLAN.md#d-01--minimal-mvp-persistence-foundation`](MVP_PLAN.md#d-01--minimal-mvp-persistence-foundation)
 
 ### M-01 — Binance Historical Market Data
@@ -147,7 +148,7 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 ### AU-01 — Simple Authentication and Session Runtime
 
 - **Requirement IDs:** `CSL-R-AU-01`, `CSL-R-OW-01`, `CSL-R-OB-01`, `CSL-R-RD-01`
-- **State / owner / wave:** READY / Unassigned Auth worker / Wave 2
+- **State / owner / wave:** REVIEW / Manager / AU-01 Auth / Wave 2
 - **Critical / parallelism:** YES / YES after D-01 with exclusive Auth scope
 - **Start dependencies:** C-01A
 - **Integration dependencies:** D-01, F-AUTH, and I-01
@@ -155,10 +156,11 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
   session expiry, and logout using Argon2id and opaque PostgreSQL-backed sessions.
 - **Write scope:** Auth module/runtime adapters, approved thin transport integration,
   and Auth tests; migrations remain under D-01 ownership.
-- **Latest branch / commit:** —; record when work starts.
-- **Validation:** Ready for the fake-repository phase after C-01A; D-01 still gates
-  PostgreSQL integration. Not started. `INS-004` authorizes governance
-  reconciliation only; feature execution is not authorized.
+- **Latest branch / commit:** `MVP_IMPLEMENTATION`; containing INS-005 checkpoint
+  commit.
+- **Validation:** REVIEW under `INS-005`; Auth focused suite 8/8 and workspace
+  gates PASS. D-01 still gates PostgreSQL integration; migration and PostgreSQL
+  repository adapter paths remained excluded from this phase.
 - **Full packet:** [`MVP_PLAN.md#au-01--simple-authentication-and-session-runtime`](MVP_PLAN.md#au-01--simple-authentication-and-session-runtime)
 
 ### M-02 — Realtime Market Delivery and Gap Recovery
@@ -180,42 +182,43 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 
 - **Requirement IDs:** `CSL-R-ST-01`, `CSL-R-ST-03`, `CSL-R-ST-04`,
   `CSL-R-AR-02`, `CSL-R-AR-03`, `CSL-R-RP-01`
-- **State / owner / wave:** READY / Unassigned Strategy core worker / Wave 2
+- **State / owner / wave:** DONE / Manager / S-01 strategy / Wave 2
 - **Critical / parallelism:** YES / YES after C-01
 - **Start dependencies:** C-01A
 - **Integration dependencies:** D-01 for persistence completion
 - **Objective:** Implement registry, descriptors, owner-scoped immutable definitions,
   generic analysis output, and `MAJORITY_VOTE_V1` with fake plugins.
 - **Write scope:** Strategy core/application/infrastructure/tests excluding built-in directories.
-- **Latest branch / commit:** —; record when work starts.
-- **Validation:** Ready after C-01A; not started. `INS-004` authorizes governance
-  reconciliation only; feature execution is not authorized.
+- **Latest branch / commit:** `MVP_IMPLEMENTATION`; containing INS-005 checkpoint
+  commit.
+- **Validation:** DONE under `INS-005`; Strategy tests and workspace gates PASS.
+  Persistence paths and built-in strategy directories were not changed.
 - **Full packet:** [`MVP_PLAN.md#s-01--strategy-registry-definitions-and-composite-core`](MVP_PLAN.md#s-01--strategy-registry-definitions-and-composite-core)
 
 ### S-02 — Moving Average and RSI
 
 - **Requirement IDs:** `CSL-R-ST-01`, `CSL-R-ST-02`, `CSL-R-VIS-01`, `CSL-R-DM-01`
-- **State / owner / wave:** BLOCKED / Unassigned Strategy worker A / Wave 3
+- **State / owner / wave:** READY / Unassigned Strategy worker A / Wave 3
 - **Critical / parallelism:** Integration / YES with S-03 and B-01
 - **Start dependencies:** S-01
 - **Integration dependencies:** B-02 and I-01
 - **Objective:** Implement the approved MA and RSI `TECHNICAL_PROFILES_V1` behavior.
 - **Write scope:** Dedicated MA/RSI plugin directories and tests.
 - **Latest branch / commit:** —; record when work starts.
-- **Validation:** Not started.
+- **Validation:** READY after S-01; not authorized by exhausted INS-005.
 - **Full packet:** [`MVP_PLAN.md#s-02--moving-average-and-rsi`](MVP_PLAN.md#s-02--moving-average-and-rsi)
 
 ### S-03 — Bollinger Bands and Support/Resistance
 
 - **Requirement IDs:** `CSL-R-ST-01`, `CSL-R-ST-02`, `CSL-R-VIS-01`, `CSL-R-DM-01`
-- **State / owner / wave:** BLOCKED / Unassigned Strategy worker B / Wave 3
+- **State / owner / wave:** READY / Unassigned Strategy worker B / Wave 3
 - **Critical / parallelism:** Integration / YES with S-02 and B-01
 - **Start dependencies:** S-01
 - **Integration dependencies:** B-02 and I-01
 - **Objective:** Implement the approved Bollinger and rolling Support/Resistance profiles.
 - **Write scope:** Dedicated Bollinger/Support-Resistance plugin directories and tests.
 - **Latest branch / commit:** —; record when work starts.
-- **Validation:** Not started.
+- **Validation:** READY after S-01; not authorized by exhausted INS-005.
 - **Full packet:** [`MVP_PLAN.md#s-03--bollinger-bands-and-supportresistance`](MVP_PLAN.md#s-03--bollinger-bands-and-supportresistance)
 
 ### E-01 — Independent Evaluation
@@ -250,7 +253,7 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 ### B-01 — Deterministic Historical Simulator
 
 - **Requirement IDs:** `CSL-R-BT-01`, `CSL-R-VIS-01`, `CSL-R-RP-01`, `CSL-R-AR-03`
-- **State / owner / wave:** BLOCKED / Unassigned Backtesting domain worker / Wave 3
+- **State / owner / wave:** READY / Unassigned Backtesting domain worker / Wave 3
 - **Critical / parallelism:** YES / YES
 - **Start dependencies:** C-01, S-01 only
 - **Integration dependencies:** M-01, S-02, and S-03 before I-01/I-02
@@ -258,7 +261,7 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
   using candle fixtures and fake strategies.
 - **Write scope:** Backtesting simulator/domain runner/tests, excluding orchestration/executor.
 - **Latest branch / commit:** —; record when work starts.
-- **Validation:** Not started.
+- **Validation:** READY after S-01; not authorized by exhausted INS-005.
 - **Full packet:** [`MVP_PLAN.md#b-01--deterministic-historical-simulator`](MVP_PLAN.md#b-01--deterministic-historical-simulator)
 
 ### B-02 — Candidate, Execution and Experiment Orchestration
@@ -296,7 +299,7 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 
 - **Requirement IDs:** `CSL-R-SE-01`, `CSL-R-SE-02`, `CSL-R-LB-01`,
   `CSL-R-OB-01`, `CSL-R-DM-01`, `CSL-R-AR-02`, `CSL-R-OW-01`
-- **State / owner / wave:** BLOCKED / Unassigned Search worker / Waves 3–4
+- **State / owner / wave:** READY / Unassigned Search worker / Waves 3–4
 - **Critical / parallelism:** Integration / YES for fake-port phase
 - **Start dependencies:** C-01A, S-01
 - **Integration dependencies:** D-01, L-01, B-02
@@ -304,7 +307,8 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
   an owner-scoped finite SearchRun lifecycle, first against fakes and then real ports.
 - **Write scope:** `modules/search/**` except frozen contracts and migrations.
 - **Latest branch / commit:** —; record when work starts.
-- **Validation:** Not started; cannot be DONE after fake-only validation.
+- **Validation:** READY after S-01; not authorized by exhausted INS-005. Cannot be
+  DONE after fake-only validation.
 - **Full packet:** [`MVP_PLAN.md#q-01--seeded-random-search-and-searchrun-lifecycle`](MVP_PLAN.md#q-01--seeded-random-search-and-searchrun-lifecycle)
 
 ### N-01 — News Collection, Deduplication and Query
@@ -365,8 +369,8 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 - **Write scope:** Frontend Auth clients, screens, state, navigation guards, and tests.
 - **Latest branch / commit:** —; record when work starts.
 - **Validation:** Ready after C-01A and F-01; AU-01 remains an integration
-  dependency. Not started. `INS-004` authorizes governance reconciliation only;
-  feature execution is not authorized.
+  dependency. Not started. `INS-005` is exhausted and did not authorize this
+  task.
 - **Full packet:** [`MVP_PLAN.md#f-auth--frontend-authentication-and-protected-navigation`](MVP_PLAN.md#f-auth--frontend-authentication-and-protected-navigation)
 
 ### F-02 — Frontend Strategy, Search, Result and Auxiliary Views
@@ -421,8 +425,10 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 
 ## State derivation at this checkpoint
 
-P-00, C-01, A-00, C-01A, E-01, and F-01 are DONE. Strict recomputation from the
-recorded start dependencies makes D-01, S-01, AU-01, and F-AUTH READY. All other
-unfinished tasks remain BLOCKED by at least one recorded unfinished start
-dependency. `INS-004` authorizes governance reconciliation only; no READY feature
-task was started at this checkpoint.
+P-00, C-01, A-00, C-01A, E-01, F-01, and S-01 are DONE. D-01 and AU-01 are in
+REVIEW under `INS-005`; D-01 has blocked live-DB evidence and AU-01 is complete
+only for its authorized fake-repository phase. Strict recomputation from the
+recorded start dependencies leaves S-02, S-03, B-01, Q-01, and F-AUTH READY;
+none was started because `INS-005` does not authorize newly unlocked work. All
+other unfinished tasks remain BLOCKED by at least one recorded unfinished start
+dependency.

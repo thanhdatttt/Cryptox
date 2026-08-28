@@ -11,43 +11,54 @@ import type {
   StrategyDefinitionPageRequest,
 } from "./contracts";
 import type { AuthenticatedRequestContext } from "modules/auth/api";
+import { createStrategyApplication } from "../application/service";
+import { createInMemoryStrategyDependencies } from "../application/memory";
 
 export * from "./contracts";
 
-const notImplemented = (): never => {
-  throw new Error("NOT_IMPLEMENTED");
-};
+const defaultStrategyApplication = createStrategyApplication(createInMemoryStrategyDependencies());
 
-export const listStrategies = (): readonly StrategyPluginDescriptor[] => notImplemented();
-export const defineStrategy = async (
-  _context: AuthenticatedRequestContext,
-  _command: DefineStrategyCommand,
-): Promise<StrategyDefinition> => notImplemented();
-export const defineComposite = async (
-  _context: AuthenticatedRequestContext,
-  _command: DefineCompositeCommand,
-): Promise<CompositeStrategyDefinition> => notImplemented();
-export const readStrategyDefinition = async (
-  _context: AuthenticatedRequestContext,
-  _id: string,
-): Promise<StrategyDefinition> => notImplemented();
-export const readCompositeDefinition = async (
-  _context: AuthenticatedRequestContext,
-  _id: string,
-): Promise<CompositeStrategyDefinition> => notImplemented();
-export const listStrategyDefinitions = async (
-  _context: AuthenticatedRequestContext,
-  _page: StrategyDefinitionPageRequest,
-): Promise<StrategyDefinitionPage<StrategyDefinition>> => notImplemented();
-export const listCompositeDefinitions = async (
-  _context: AuthenticatedRequestContext,
-  _page: StrategyDefinitionPageRequest,
-): Promise<StrategyDefinitionPage<CompositeStrategyDefinition>> => notImplemented();
-export const resolveStrategy = async (_definition: StrategyDefinition): Promise<Strategy> =>
-  notImplemented();
+export const listStrategies = (): readonly StrategyPluginDescriptor[] =>
+  defaultStrategyApplication.listStrategies() as readonly StrategyPluginDescriptor[];
+export const defineStrategy = (
+  context: AuthenticatedRequestContext,
+  command: DefineStrategyCommand,
+): Promise<StrategyDefinition> =>
+  defaultStrategyApplication.defineStrategy(context, command) as Promise<StrategyDefinition>;
+export const defineComposite = (
+  context: AuthenticatedRequestContext,
+  command: DefineCompositeCommand,
+): Promise<CompositeStrategyDefinition> =>
+  defaultStrategyApplication.defineComposite(context, command) as Promise<CompositeStrategyDefinition>;
+export const readStrategyDefinition = (
+  context: AuthenticatedRequestContext,
+  id: string,
+): Promise<StrategyDefinition> =>
+  defaultStrategyApplication.readStrategyDefinition(context, id) as Promise<StrategyDefinition>;
+export const readCompositeDefinition = (
+  context: AuthenticatedRequestContext,
+  id: string,
+): Promise<CompositeStrategyDefinition> =>
+  defaultStrategyApplication.readCompositeDefinition(context, id) as Promise<CompositeStrategyDefinition>;
+export const listStrategyDefinitions = (
+  context: AuthenticatedRequestContext,
+  page: StrategyDefinitionPageRequest,
+): Promise<StrategyDefinitionPage<StrategyDefinition>> =>
+  defaultStrategyApplication.listStrategyDefinitions(context, page) as Promise<
+    StrategyDefinitionPage<StrategyDefinition>
+  >;
+export const listCompositeDefinitions = (
+  context: AuthenticatedRequestContext,
+  page: StrategyDefinitionPageRequest,
+): Promise<StrategyDefinitionPage<CompositeStrategyDefinition>> =>
+  defaultStrategyApplication.listCompositeDefinitions(context, page) as Promise<
+    StrategyDefinitionPage<CompositeStrategyDefinition>
+  >;
+export const resolveStrategy = (definition: StrategyDefinition): Promise<Strategy> =>
+  defaultStrategyApplication.resolveStrategy(definition) as Promise<Strategy>;
 export const combineSignals = (
-  _definition: CompositeStrategyDefinition,
-  _signals: ReadonlyArray<{ strategyDefinitionId: string; signal: Signal }>,
-): Signal => notImplemented();
+  definition: CompositeStrategyDefinition,
+  signals: ReadonlyArray<{ strategyDefinitionId: string; signal: Signal }>,
+): Signal => defaultStrategyApplication.combineSignals(definition, signals);
 
 export type _StrategyApiShape = StrategyModulePublicApi;
