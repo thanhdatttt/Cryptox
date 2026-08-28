@@ -5,48 +5,42 @@
 - **Level 2 control plane:** Active. Read `AGENTS.md`, current
   [`INSTRUCTOR.md`](../control/INSTRUCTOR.md), [`DECISIONS.md`](../control/DECISIONS.md),
   [`TASKS.md`](TASKS.md), and this checkpoint before acting.
-- **Current instruction:** `INS-006` / `APPROVED_FOR_EXECUTION`, authorizing only
-  `S-02`, `S-03`, and `B-01`. The authorization is exhausted after this review and
-  integration checkpoint; no newly unlocked task or out-of-scope repair may start
-  without a later Instructor review and Instruction ID.
-- **INS-006 applicability:** PASS for source/business/task premises. Reviewed
-  HEAD is `6da688452c18a3d8d914325ff57e8fe3f7c5b1d3`; the pre-assignment HEAD was
-  `a7d41ee346deb0d7e0a223c26c767edb3c768d95`, with only governance changes
-  (`AGENTS.md`, `INSTRUCTOR.md`, and `ORCHESTRATOR_START.md`) between the reviewed
-  source state and assignment. The Manager assignment checkpoint was `e314aee`.
-- **Authorized state transitions:** `S-02`, `S-03`, and `B-01` each transitioned
-  `READY -> IN_PROGRESS -> REVIEW`, with one delegated worker per packet. Their
-  write scopes remained disjoint: MA/RSI plugins, Bollinger/Support-Resistance
-  plugins, and the Backtesting simulator/domain paths.
-- **Worker and independent review result:** S-02 was implemented by the delegated
-  Strategy worker A and independently reviewed by Hooke after two remediation
-  rounds: PASS, focused 15/15. S-03 was implemented by Strategy worker B and
-  independently reviewed by Arendt after remediation: PASS, focused 25/25. B-01
-  was implemented by the delegated Backtesting domain worker and independently
-  reviewed by Boole after remediation: PASS, focused 9/9 and Backtesting 18/18.
-  Workers did not edit control-plane files.
-- **Integration checkpoint:** Manager integrated the reviewed ten-file source
-  scope in `8a8d5f8` (`feat: implement INS-006 strategy plugins and simulator`).
-  No shared registration/bootstrap, contracts, other modules/plugins, or generated
-  artifacts were changed; B-01's simulator/domain is self-contained from external
-  module and API imports.
-- **Validation:** Focused authorized suites are 49/49 PASS. Build, typecheck,
-  lint, architecture, artifact, deferred-scope, runtime smoke, and whitespace
-  checks PASS. Root `verify:stage4a` remains FAIL at 50/51 because the existing
-  S-01 `modules/strategy/application/service.spec.ts` test has a nondeterministic
-  UUID-order expectation failure (reproduced 3 failures / 2 passes); it is outside
-  this authorization and was not repaired. Formal OpenSpec CLI validation is
-  `UNVERIFIED` because the CLI is unavailable. Live PostgreSQL evidence is not
-  applicable to this pure frontier; earlier D-01/AU-01 live evidence remains
-  BLOCKED/UNVERIFIED.
-- **Current task state:** S-02, S-03, and B-01 are `REVIEW`, not `DONE`, because
-  the applicable root workspace gate is not green/reproducible. D-01 and AU-01
-  remain `REVIEW`; Q-01 and F-AUTH remain `READY` but unauthorized; all other
-  unfinished tasks remain `BLOCKED`. No newly unlocked work was started.
-- **Next action:** Stop at this safe checkpoint. The S-01 UUID-order baseline
-  failure requires a separately authorized reconciliation; a fresh Instructor
-  review and new Instruction ID are required before any further implementation or
-  state transition.
+- **Current instruction:** `INS-007` / `APPROVED_FOR_EXECUTION`, authorizing only
+  the S-01 deterministic ordering test reconciliation and closure validation for
+  the already-REVIEW `S-02`, `S-03`, and `B-01` packets. No new feature frontier,
+  task assignment, or out-of-scope repair was authorized.
+- **INS-007 applicability:** PASS. Reviewed HEAD is
+  `a52d928093e5107ddab43017fcdea1584b03e5ef`; immediately before reconciliation
+  the working tree was clean at `8ebf56937d1ef8cc3b6a715a5d1311f3b11015a0`, whose
+  only delta from the reviewed checkpoint was the Instructor signal in
+  `INSTRUCTOR.md`. No source, business-state, task-DAG, or scope premise changed.
+- **Authorized state transitions:** S-01's test reconciliation was applied as the
+  Manager's explicitly permitted small review fix. After validation, `S-02`,
+  `S-03`, and `B-01` each transitioned `REVIEW -> DONE`; no other task changed.
+- **Reconciliation and review result:** Only
+  `modules/strategy/application/service.spec.ts` changed. Both collection and
+  composite expectations now assert the repository's deterministic ordering by
+  `(createdAt, id)` and `strategyDefinitionId`; Strategy production code and all
+  previously reviewed feature files remain unchanged. The focused S-01 test passed
+  10/10 repeated runs.
+- **Prior worker and independent review evidence retained:** S-02 focused 15/15
+  and Hooke PASS; S-03 focused 25/25 and Arendt PASS; B-01 focused 9/9,
+  Backtesting 18/18, and Boole PASS. Their integrated source remains in
+  `8a8d5f8`.
+- **Validation:** `verify:stage4a` PASS and reproducible: all workspace tests
+  passed, including Strategy 51/51 and Backtesting 18/18. Build, typecheck, lint,
+  architecture (42 modules / 88 dependencies; 9 expected fixture findings),
+  artifact, deferred-scope, runtime smoke, and whitespace checks PASS. Formal
+  OpenSpec CLI validation remains `UNVERIFIED` because the CLI is unavailable.
+  Live PostgreSQL evidence remains BLOCKED/UNVERIFIED for D-01/AU-01 and was not
+  applicable to this test-only reconciliation.
+- **Current task state:** S-02, S-03, and B-01 are `DONE`; D-01 and AU-01 remain
+  `REVIEW`; Q-01 and F-AUTH remain `READY` but unauthorized; all other unfinished
+  tasks remain `BLOCKED`. No newly READY task was started.
+- **Final checkpoint:** Source reconciliation commit `afbd88c`; this HANDOFF/TASKS
+  update is the Manager control checkpoint commit. Authorization is exhausted. A
+  new Instructor review and Instruction ID are required before any further
+  implementation or task-state transition.
 - **Historical implementation checkpoint:** `INS-002` /
   `APPROVED_FOR_EXECUTION`, starting at branch `MVP_IMPLEMENTATION`, HEAD
   `29544eac0e91e0c566ea75b830aa2ceea4069fdd`, clean working tree.
