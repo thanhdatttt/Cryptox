@@ -15,17 +15,17 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 | C-01 | DONE | 1 | YES | Manager | `MVP_IMPLEMENTATION` / `d7136318ecc5ca98670db4c260974a64d0fcbbfe` | Reviews and all C-01 gates PASS |
 | A-00 | DONE | A | YES | Manager | `MVP_IMPLEMENTATION` / containing A-00 checkpoint commit | Documentation, authority, scope, and strict OpenSpec checks PASS |
 | C-01A | DONE | 1A | YES | Manager / contract worker | `MVP_IMPLEMENTATION` / `9ca2d7c` | Independent review and all contract/global gates PASS |
-| D-01 | REVIEW | 2 | YES — B-02 gate | Orchestrator / Dewey + independent DB reviewer | `MVP_IMPLEMENTATION` / `3521477` + worker checkpoint | Migration down/up and schema introspection PASS; constraint probes and invocation review pending |
-| M-01 | BLOCKED | 2 | Integration | Unassigned Market Data worker | — | Not started |
+| D-01 | DONE | 2 | YES — B-02 gate | Orchestrator / Dewey + independent DB reviewer | `MVP_IMPLEMENTATION` / `f5c5562` | Live down/up/remigrate, schema/constraint/ownership/deferred-scope probes, global gates PASS; config defect fixed |
+| M-01 | READY | 2 | Integration | Unassigned Market Data worker | — | Newly READY after D-01; not authorized by INS-010 |
 | M-02 | BLOCKED | 3 | Integration | Unassigned Market Data worker | — | Not started |
 | S-01 | DONE | 2 | YES | Manager / S-01 strategy | `MVP_IMPLEMENTATION` / containing INS-005 checkpoint commit | Strategy tests/workspace gates PASS; persistence and built-in plugin scopes untouched |
 | S-02 | DONE | 3 | Integration | Manager / reviewed Strategy worker A | `MVP_IMPLEMENTATION` / `afbd88c` | Focused 15/15, independent review, and reproducible root workspace gate PASS |
 | S-03 | DONE | 3 | Integration | Manager / reviewed Strategy worker B | `MVP_IMPLEMENTATION` / `afbd88c` | Focused 25/25, independent review, and reproducible root workspace gate PASS |
 | E-01 | DONE | 2 | YES — B-02 gate | Manager / Evaluation worker | `MVP_IMPLEMENTATION` / `a20a7c5` | Independent review and Evaluation/global gates PASS |
-| L-01 | BLOCKED | 2 | YES — B-02 gate | Unassigned Leaderboard worker | — | Not started |
+| L-01 | READY | 2 | YES — B-02 gate | Unassigned Leaderboard worker | — | Newly READY after D-01; not authorized by INS-010 |
 | B-01 | DONE | 3 | YES | Manager / reviewed Backtesting domain worker | `MVP_IMPLEMENTATION` / `afbd88c` | Focused 9/9, Backtesting 18/18, independent review, and reproducible root workspace gate PASS |
 | B-02 | BLOCKED | 4 | YES | Unassigned Backtesting application worker | — | Not started |
-| AU-01 | REVIEW | 2 | YES | Manager / AU-01 Auth | `MVP_IMPLEMENTATION` / containing INS-005 checkpoint commit | Fake-repository phase PASS; PostgreSQL adapter/integration remains gated by D-01 and not authorized |
+| AU-01 | READY | 2 | YES | Orchestrator / AU-01 Auth worker | `MVP_IMPLEMENTATION` / `f5c5562` D-01 closure checkpoint | INS-010 authorized after D-01 DONE; F-AUTH fake/fixture boundary confirmed; real PostgreSQL integration pending |
 | AU-02 | BLOCKED | 4 | YES | Manager / security integration worker | — | Blocked by private-resource implementations |
 | Q-01 | REVIEW | 3–4 | Integration | Herschel (Q-01 worker; INS-008) | `MVP_IMPLEMENTATION` / `d226a4a` | Pure/fake-port phase reviewed PASS; real-port integration and DONE remain unauthorized |
 | N-01 | BLOCKED | 2 | Integration | Unassigned News worker | — | Not started |
@@ -117,25 +117,26 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 - **Requirement IDs:** `CSL-R-MD-01`, `CSL-R-ST-04`, `CSL-R-SE-02`,
   `CSL-R-BT-01`, `CSL-R-EV-01`, `CSL-R-LB-01`, `CSL-R-NW-01`, `CSL-R-SN-01`,
   `CSL-R-RP-01`, `CSL-R-OB-01`, `CSL-R-AU-01`, `CSL-R-OW-01`, `CSL-R-RD-01`
-- **State / owner / wave:** REVIEW / Orchestrator, Dewey, and independent DB reviewer / Wave 2
+- **State / owner / wave:** DONE / Orchestrator, Dewey, and independent DB reviewer / Wave 2
 - **Critical / parallelism:** YES, gates B-02 / YES, with one DB writer
 - **Start dependencies:** C-01A
 - **Integration dependencies:** None
 - **Objective:** Add only approved physical entities, including User, AuthSession,
   and direct ownership columns, with reversible migrations and repository conventions.
 - **Write scope:** `infra/db/**` and packet-assigned module PostgreSQL adapters/tests.
-- **Latest branch / commit:** `MVP_IMPLEMENTATION` / `3521477` control checkpoint;
-  Dewey completed a no-file-change validation checkpoint.
-- **Validation:** INS-010 authorizes the live PostgreSQL migration/review phase.
-  Dedicated PostgreSQL 16.10 is reachable. Migration down/up and schema
-  introspection PASS; behavioral constraint probes, final cycle evidence, and
-  migration invocation/config review remain pending.
+- **Latest branch / commit:** `MVP_IMPLEMENTATION` / `f5c5562` source integration
+  checkpoint; Dewey's config fix was independently reviewed and integrated.
+- **Validation:** DONE under INS-010. Dedicated PostgreSQL 16.10 `down 2 -> up`
+  through the corrected config PASS; final state has 18 MVP tables, both
+  migration records, `pgcrypto`, five direct owner roots/FKs/indexes, no
+  inherited/shared owner columns, and no deferred columns. Transactional
+  constraint/idempotency probes PASS (13/13). `verify:stage4a` PASS.
 - **Full packet:** [`MVP_PLAN.md#d-01--minimal-mvp-persistence-foundation`](MVP_PLAN.md#d-01--minimal-mvp-persistence-foundation)
 
 ### M-01 — Binance Historical Market Data
 
 - **Requirement IDs:** `CSL-R-MD-01`, `CSL-R-RP-01`, `CSL-R-AR-02`, `CSL-R-RD-01`
-- **State / owner / wave:** BLOCKED / Unassigned Market Data worker / Wave 2
+- **State / owner / wave:** READY / Unassigned Market Data worker / Wave 2
 - **Critical / parallelism:** Integration / YES
 - **Start dependencies:** C-01, D-01
 - **Integration dependencies:** Live smoke before I-01
@@ -143,13 +144,13 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
   historical candles while retaining deterministic fixtures for tests/development.
 - **Write scope:** `modules/market-data/**` except frozen contracts; its repository/tests.
 - **Latest branch / commit:** —; record when work starts.
-- **Validation:** Not started.
+- **Validation:** Newly READY after D-01; not authorized by INS-010 and not started.
 - **Full packet:** [`MVP_PLAN.md#m-01--binance-historical-market-data`](MVP_PLAN.md#m-01--binance-historical-market-data)
 
 ### AU-01 — Simple Authentication and Session Runtime
 
 - **Requirement IDs:** `CSL-R-AU-01`, `CSL-R-OW-01`, `CSL-R-OB-01`, `CSL-R-RD-01`
-- **State / owner / wave:** REVIEW / Manager / AU-01 Auth / Wave 2
+- **State / owner / wave:** READY / Orchestrator / AU-01 Auth / Wave 2
 - **Critical / parallelism:** YES / YES after D-01 with exclusive Auth scope
 - **Start dependencies:** C-01A
 - **Integration dependencies:** D-01, F-AUTH, and I-01
@@ -157,11 +158,11 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
   session expiry, and logout using Argon2id and opaque PostgreSQL-backed sessions.
 - **Write scope:** Auth module/runtime adapters, approved thin transport integration,
   and Auth tests; migrations remain under D-01 ownership.
-- **Latest branch / commit:** `MVP_IMPLEMENTATION`; containing INS-005 checkpoint
-  commit.
-- **Validation:** REVIEW under `INS-005`; Auth focused suite 8/8 and workspace
-  gates PASS. D-01 still gates PostgreSQL integration; migration and PostgreSQL
-  repository adapter paths remained excluded from this phase.
+- **Latest branch / commit:** `MVP_IMPLEMENTATION` / `f5c5562` D-01 closure
+  checkpoint; worker assignment pending.
+- **Validation:** Fake-repository phase and Auth focused suite 8/8 remain PASS.
+  INS-010 authorizes the real PostgreSQL-backed integration now that D-01 is DONE;
+  repository adapter, transport, and integration evidence are pending.
 - **Full packet:** [`MVP_PLAN.md#au-01--simple-authentication-and-session-runtime`](MVP_PLAN.md#au-01--simple-authentication-and-session-runtime)
 
 ### M-02 — Realtime Market Delivery and Gap Recovery
@@ -240,7 +241,7 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 ### L-01 — Configurable Reproducible Leaderboard
 
 - **Requirement IDs:** `CSL-R-LB-01`, `CSL-R-RP-01`, `CSL-R-OB-01`, `CSL-R-OW-01`
-- **State / owner / wave:** BLOCKED / Unassigned Leaderboard worker / Wave 2
+- **State / owner / wave:** READY / Unassigned Leaderboard worker / Wave 2
 - **Critical / parallelism:** YES, gates B-02 / YES
 - **Start dependencies:** C-01A, D-01
 - **Integration dependencies:** E-01 and B-02
@@ -248,7 +249,7 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
   ties, user-owned scopes, same-owner admission, and configurable Top-K.
 - **Write scope:** `modules/leaderboard/**` except frozen contracts and migrations.
 - **Latest branch / commit:** —; record when work starts.
-- **Validation:** Not started.
+- **Validation:** Newly READY after D-01; not authorized by INS-010 and not started.
 - **Full packet:** [`MVP_PLAN.md#l-01--configurable-reproducible-leaderboard`](MVP_PLAN.md#l-01--configurable-reproducible-leaderboard)
 
 ### B-01 — Deterministic Historical Simulator

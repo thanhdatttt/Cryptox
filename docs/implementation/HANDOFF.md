@@ -17,8 +17,8 @@
   16.10 cluster at `postgres://cryptox@localhost:55432/cryptox` is reachable.
 - **Pre-execution reconciliation:** D-01 is reconciled from the prior partial
   `REVIEW` phase to `READY` for the authorized live migration/review packet.
-  AU-01 remains `REVIEW` and gated; it may be reconciled to `READY` only after
-  D-01 is independently reviewed and closed.
+  AU-01 remained `REVIEW` and gated until D-01 was independently reviewed and
+  closed.
 - **Delegation and state transitions:** Q-01 was assigned to Herschel and F-AUTH
   to Archimedes in disjoint scopes. Both followed `READY -> IN_PROGRESS -> REVIEW`.
   The bounded implementation work was delegated; the Manager performed review,
@@ -42,25 +42,30 @@
   findings within their assigned scopes. The Manager re-reviewed the final diff,
   confirmed no unauthorized paths changed, and reran the affected suites and
   repository gates.
+- **D-01 closure:** Dewey fixed only `infra/db/migrate.config.js` after the
+  independent review found ignored flat config keys and an unsafe port-5432
+  fallback. Manager review and integration commit `f5c5562` passed. The corrected
+  config was exercised against `localhost:55432` with `down 2 -> up` exit 0/0;
+  final inspection found 18 MVP tables, both migration records, `pgcrypto`, the
+  five direct owner roots/FKs/indexes, no inherited/shared owner columns, and no
+  deferred columns. Transactional uniqueness/FK/idempotency probes passed 13/13.
+- **AU-01 gate:** D-01 is closed and AU-01 is reconciled to `READY`. F-AUTH's
+  fake/fixture boundary remains reviewed PASS; the authorized AU-01 worker may
+  now implement only real PostgreSQL-backed Auth/session integration in its
+  disjoint Auth/backend transport scope.
 - **Validation inherited from INS-008:** Search and frontend fake/fixture
   focused suites, build/typecheck/lint, `verify:stage4a`, architecture,
   artifact, deferred-scope, backend smoke, root lint, and whitespace checks PASS.
   The formal OpenSpec CLI was unavailable and remains `UNVERIFIED`. INS-010
-  live PostgreSQL evidence is pending worker execution/review; the Instructor
-  recorded prior dedicated-cluster migrate/rollback/remigrate evidence as PASS.
-- **Current task state:** D-01 is `READY` for INS-010; AU-01 is `REVIEW` and
-  gated on D-01; Q-01 and F-AUTH remain `REVIEW`; all other unfinished tasks
-  remain `BLOCKED`. No unauthorized task has been started.
-- **Pre-execution checkpoint:** `274218d` on `MVP_IMPLEMENTATION`; this control
-  checkpoint records the D-01 assignment and `IN_PROGRESS` transition.
-- **Active delegation:** D-01 was assigned to worker Dewey in the disjoint
-  `infra/db/**` and packet-assigned PostgreSQL adapter/test scope and is now in
-  `REVIEW`. The Manager is reviewing evidence and integration only; AU-01
-  remains unassigned and gated.
-- **D-01 review transition:** Dewey completed without file changes and returned
-  migration down/up plus schema-introspection evidence. D-01 is now `REVIEW`;
-  an independent reviewer must complete constraint probes and verify the
-  migration invocation/config finding before the Manager can close it.
+  live PostgreSQL evidence was completed under INS-010; the formal OpenSpec CLI
+  remains `UNVERIFIED` because it is unavailable. The Instructor's prior
+  dedicated-cluster evidence was independently reconciled.
+- **Current task state:** D-01 is `DONE` for INS-010; AU-01 is `READY` and
+  authorized to start; M-01 and L-01 are newly `READY` from DAG recomputation but
+  are explicitly unauthorized and not started; Q-01 and F-AUTH remain `REVIEW`;
+  all other unfinished tasks remain `BLOCKED`.
+- **D-01 closure checkpoint:** `f5c5562` on `MVP_IMPLEMENTATION`; this control
+  reconciliation is pending the Manager's checkpoint commit.
 - **Historical implementation checkpoint:** `INS-002` /
   `APPROVED_FOR_EXECUTION`, starting at branch `MVP_IMPLEMENTATION`, HEAD
   `29544eac0e91e0c566ea75b830aa2ceea4069fdd`, clean working tree.
