@@ -75,7 +75,9 @@ describe("Strategy application", () => {
   it("filters reads and collections before pagination, including composite ownership", async () => {
     const { application, contextA, contextB, first, second, other } = await makeApp();
     expect(await application.listStrategyDefinitions(contextA, { limit: 10 })).toMatchObject({
-      items: [first, second],
+      items: [first, second].sort(
+        (left, right) => left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id),
+      ),
     });
     await expect(application.readStrategyDefinition(contextB, first.id)).rejects.toMatchObject({ code: "NOT_FOUND" });
     const composite = await application.defineComposite(contextA, {
@@ -86,7 +88,7 @@ describe("Strategy application", () => {
     expect(composite.components).toEqual([
       { strategyDefinitionId: first.id, strategyDefinitionVersion: first.version },
       { strategyDefinitionId: second.id, strategyDefinitionVersion: second.version },
-    ]);
+    ].sort((left, right) => left.strategyDefinitionId.localeCompare(right.strategyDefinitionId)));
     await expect(application.defineComposite(contextA, {
       logicalFamilyKey: "bad",
       combinationProfileId: "MAJORITY_VOTE_V1",
