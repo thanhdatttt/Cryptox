@@ -2,7 +2,7 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-007`
+Instruction ID: `INS-008`
 
 Status: `APPROVED_FOR_EXECUTION`
 
@@ -11,82 +11,96 @@ Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 ## Reviewed repository checkpoint
 
 - Branch: `MVP_IMPLEMENTATION`
-- Reviewed repository HEAD: `a52d928093e5107ddab43017fcdea1584b03e5ef`
+- Reviewed repository HEAD: `bbdf5b6de3283c0e8400a17f27eea3eec1c49247`
 - Working tree at review: clean. The branch is
   `MVP_IMPLEMENTATION`, ahead of `origin/MVP_IMPLEMENTATION` only by the
-  current Instructor/Orchestrator checkpoint commits.
-- `INS-006` was executed and exhausted at this checkpoint. Its three authorized
-  packets were delegated, independently reviewed, and integrated in `8a8d5f8`.
-- Current task derivation: P-00, C-01, A-00, C-01A, E-01, F-01, and S-01 are
-  DONE; D-01 and AU-01 are REVIEW; S-02, S-03, and B-01 are REVIEW pending a
-  green reproducible root gate; Q-01 and F-AUTH are READY but unauthorized; all
-  other unfinished tasks remain BLOCKED by recorded start dependencies.
-- The authorized focused suites pass: S-02 15/15, S-03 25/25, B-01 9/9,
-  Backtesting 18/18, and the integrated authorized total is 49/49. Build,
-  typecheck, lint, architecture, artifact, deferred-scope, runtime smoke, and
-  whitespace checks pass.
-- Root `verify:stage4a` is not reproducible: the existing S-01
-  `modules/strategy/application/service.spec.ts` test intermittently fails
-  because it expects creation order while the repository returns deterministic
-  `createdAt`/UUID order. This was reproduced in the current review (4 passes,
-  1 failure) and is outside the INS-006 feature packets. Formal OpenSpec CLI
-  validation remains `UNVERIFIED` because the CLI is unavailable. Live
-  PostgreSQL evidence remains BLOCKED/UNVERIFIED for the earlier D-01/AU-01
-  checkpoint.
+  current local checkpoint commits.
+- `INS-007` was executed and exhausted at this checkpoint. Its test-only
+  reconciliation changed only `modules/strategy/application/service.spec.ts`,
+  and the Manager closed `S-02`, `S-03`, and `B-01` after validation.
+- Current task derivation: P-00, C-01, A-00, C-01A, E-01, F-01, S-01, S-02,
+  S-03, and B-01 are DONE; D-01 and AU-01 are REVIEW; Q-01 and F-AUTH are
+  READY; all other unfinished tasks remain BLOCKED by recorded start
+  dependencies.
+- Current review reproduced `npm run verify:stage4a`: PASS. Strategy is 51/51,
+  Backtesting is 18/18, and build, typecheck, lint, architecture, artifact,
+  deferred-scope, runtime smoke, and whitespace checks pass.
+- Formal OpenSpec CLI validation remains `UNVERIFIED` because the CLI is
+  unavailable. Live PostgreSQL migrate/rollback/remigrate evidence remains
+  BLOCKED/UNVERIFIED for D-01/AU-01; this does not block the authorized fake/
+  fixture phases below.
 
 This instruction is valid only after the Orchestrator verifies immediately
-before the reconciliation that the reviewed HEAD and task/business premises
-remain unchanged, the working tree is clean, and the change is limited to the
-single authorized test reconciliation plus revalidation. Any material source,
-business-state, requirement, task-DAG, task-state, write-scope, or authority
-change makes this instruction stale and requires a fresh Instructor review.
+before assignment that the reviewed HEAD and task/business premises remain
+unchanged, the working tree is clean, both packets are still `READY`, and their
+write scopes are disjoint. Any material source, business-state, requirement,
+task-DAG, task-state, write-scope, or authority change makes this instruction
+stale and requires a fresh Instructor review.
 
 ## Execution authorization
 
-Approved reconciliation frontier, and no more:
+Approved execution frontier, and no more:
 
-1. Fix the nondeterministic baseline assertion in
-   `modules/strategy/application/service.spec.ts` so it asserts the approved
-   deterministic repository ordering rather than random UUID creation order.
-2. Re-run the S-01 test repeatedly and re-run the complete applicable root
-   validation. If the root gate is green and reproducible, the Manager may
-   close the existing `REVIEW` states for `S-02`, `S-03`, and `B-01` only after
-   confirming their already-recorded focused and independent-review evidence.
+1. `Q-01` — Seeded Random Search and SearchRun Lifecycle, limited initially to
+   its pure/fake-port phase.
+2. `F-AUTH` — Frontend Authentication and Protected Navigation, limited initially
+   to its fake/fixture client and UI phase.
 
-This is a test-only reconciliation and checkpoint-closure authorization, not a
-new feature frontier. It does not authorize any new capability implementation.
+The Orchestrator may assign these two packets in parallel, with one delegated
+worker per packet, after verifying READY state, satisfied start dependencies,
+disjoint write scopes, and the maximum useful concurrency. `Q-01` owns only
+`modules/search/**` excluding frozen contracts and migrations. `F-AUTH` owns
+only frontend Auth clients, screens, state, navigation, and tests. Neither may
+perform real PostgreSQL/Auth integration in this frontier.
+
+Neither packet may be marked `DONE` from fake/fixture evidence alone. A later
+Instructor authorization is required for real-port integration and for any
+newly unlocked task.
 
 Authorization ends after review and integration of this frontier. A new Instructor
 review and Instruction ID are required for the next frontier.
 
 ## Packet constraints
 
-### S-01 baseline test reconciliation
+### Q-01 — Seeded Random Search and SearchRun Lifecycle
 
-- The only permitted source edit is the assertion in
-  `modules/strategy/application/service.spec.ts` that incorrectly assumes
-  random UUID creation order.
-- Preserve the existing S-01 application behavior and deterministic ordering
-  implementation. Do not change production Strategy code, contracts, registry,
-  persistence, or any feature packet.
-- The Manager may apply this exceptionally small review fix directly under the
-  repository's Manager-side review-fix allowance; no feature worker may broaden
-  the scope.
-- Revalidation must demonstrate the focused test is stable across repeated runs,
-  the root workspace gate is green/reproducible, and the previously reviewed
-  S-02/S-03/B-01 evidence remains valid.
+- Implement the approved seeded Random generator and finite, owner-aware
+  SearchRun lifecycle against fake execution/ranking/persistence ports only.
+- Cover seed determinism, valid unique candidates, finite stop conditions,
+  positive in-flight bounds, capacity, cancellation, failure counts, terminal
+  guards, and trusted owner propagation.
+- Write only `modules/search/**` except frozen contracts and migrations. Do not
+  implement simulation, Candidate persistence, scoring, B-02 integration, or
+  real database adapters.
+- Keep the Search generator seam and public Backtesting/Leaderboard boundaries
+  unchanged. Record the partial phase as `REVIEW` or `IN_PROGRESS`; fake-only
+  evidence cannot close Q-01.
+
+### F-AUTH — Frontend Authentication and Protected Navigation
+
+- Implement the Auth client/UI flow against typed fake/fixture clients first:
+  registration, login, current-session restoration, logout, protected
+  navigation, 401 recovery, and private-cache clearing.
+- Write only frontend Auth clients, screens, state, navigation guards, and tests.
+  Do not edit backend/modules, contracts, migrations, or business calculations.
+- Never store session tokens in local/session storage or trust client-selected
+  user identity. Preserve the approved HttpOnly-cookie boundary for real
+  integration.
+- Record the fake/fixture phase as `REVIEW` or `IN_PROGRESS`; real AU-01
+  integration and completion require a later authorization.
 
 ## Explicitly not authorized
 
-- All feature implementation, including `S-02`, `S-03`, `B-01`, `Q-01`, and
-  `F-AUTH`; only the single test reconciliation and revalidation are allowed.
+- `S-02`, `S-03`, `B-01`, or any other feature implementation outside `Q-01` and
+  `F-AUTH` as bounded above.
 - `D-01`/`AU-01` PostgreSQL integration or completion, and every blocked task
   (`M-01`, `M-02`, `L-01`, `N-01`, `N-02`, `B-02`, `AU-02`, `F-02`, `I-01`,
   `I-02`).
-- No new task assignment, dependency/DAG change, packet-scope change, contract
-  reopening, or implementation outside the single test file. The Manager may
-  transition only the already-REVIEW `S-02`, `S-03`, and `B-01` packets to `DONE`
-  after the required green/reproducible validation.
+- Real-port integration, cross-module security integration, shared contract or
+  migration changes, new task assignment, dependency/DAG changes, or any scope
+  expansion. The Manager may only transition Q-01/F-AUTH to `REVIEW` or
+  `IN_PROGRESS` for the bounded phase; closure requires later evidence and
+  authorization.
 - Any deferred scope, including enterprise identity, tenancy, queues/distributed
   execution, generalized risk, AI/LLM authoring or crawling, strict replay, CQRS,
   Event Sourcing, or a general event bus.
@@ -96,12 +110,11 @@ review and Instruction ID are required for the next frontier.
 - The Orchestrator alone assigns owners, changes `TASKS.md` state, reviews and
   integrates worker output, records validation, and replaces `HANDOFF.md`.
 - Every bounded implementation packet must be delegated to a worker/subagent;
-  the Orchestrator must not implement feature packets directly. This explicitly
-  bounded review fix is the repository-permitted exceptional small review fix.
-  Workers do not
-  edit `INSTRUCTOR.md`, `DECISIONS.md`, `TASKS.md`, or `HANDOFF.md`.
-- Before acting, prove the current instruction is not stale, confirm a clean
-  working tree, and verify the edit is limited to the named test assertion.
+  the Orchestrator must not implement `Q-01` or `F-AUTH` directly. Workers do
+  not edit `INSTRUCTOR.md`, `DECISIONS.md`, `TASKS.md`, or `HANDOFF.md`.
+- Before assignment, prove the current instruction is not stale, confirm a
+  clean working tree, verify READY/dependencies, and prove disjoint write
+  scopes. The fake/fixture limits in this instruction remain binding.
 - Each packet must satisfy its focused acceptance tests plus applicable build,
   typecheck, workspace tests, architecture, artifact, deferred-scope, database,
   and diff checks. Unavailable evidence is `BLOCKED` or `UNVERIFIED`, never PASS.
