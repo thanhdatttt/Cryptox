@@ -51,7 +51,8 @@
   deferred columns. Transactional uniqueness/FK/idempotency probes passed 13/13.
 - **AU-01 gate:** D-01 is closed and AU-01 was reconciled to `READY`. F-AUTH's
   fake/fixture boundary remains reviewed PASS; AU-01 is now `IN_PROGRESS` with
-  one authorized worker in the disjoint Auth/backend transport scope.
+  one authorized worker in the disjoint Auth/backend transport scope. The first
+  worker (Godel) was interrupted before edits; a replacement worker is required.
 - **Validation inherited from INS-008:** Search and frontend fake/fixture
   focused suites, build/typecheck/lint, `verify:stage4a`, architecture,
   artifact, deferred-scope, backend smoke, root lint, and whitespace checks PASS.
@@ -65,6 +66,9 @@
   all other unfinished tasks remain `BLOCKED`.
 - **D-01 closure checkpoint:** `f5c5562` on `MVP_IMPLEMENTATION`; AU-01
   assignment is recorded in the next control checkpoint.
+- **AU-01 interruption checkpoint:** `eb23d7b` on `MVP_IMPLEMENTATION`; Godel
+  changed no files and produced no implementation evidence. AU-01 remains
+  `IN_PROGRESS` pending replacement worker output.
 - **Historical implementation checkpoint:** `INS-002` /
   `APPROVED_FOR_EXECUTION`, starting at branch `MVP_IMPLEMENTATION`, HEAD
   `29544eac0e91e0c566ea75b830aa2ceea4069fdd`, clean working tree.
