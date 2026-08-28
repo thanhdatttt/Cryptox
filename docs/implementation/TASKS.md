@@ -25,7 +25,7 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 | L-01 | READY | 2 | YES — B-02 gate | Unassigned Leaderboard worker | — | Newly READY after D-01; not authorized by INS-010 |
 | B-01 | DONE | 3 | YES | Manager / reviewed Backtesting domain worker | `MVP_IMPLEMENTATION` / `afbd88c` | Focused 9/9, Backtesting 18/18, independent review, and reproducible root workspace gate PASS |
 | B-02 | BLOCKED | 4 | YES | Unassigned Backtesting application worker | — | Not started |
-| AU-01 | REVIEW | 2 | YES | Orchestrator / Kepler + independent Auth reviewer | `MVP_IMPLEMENTATION` / `0be1ca5` + worker checkpoint | PostgreSQL Auth 10/10, backend 9/9, global gates PASS; independent review pending |
+| AU-01 | DONE | 2 | YES | Orchestrator / Kepler / Banach + independent Auth reviewer | `MVP_IMPLEMENTATION` / `a9b026b` | PostgreSQL Auth 11/11 and backend 9/9 PASS on dedicated PostgreSQL 16.10; independent review PASS; full `verify:stage4a` PASS; OpenSpec CLI UNVERIFIED |
 | AU-02 | BLOCKED | 4 | YES | Manager / security integration worker | — | Blocked by private-resource implementations |
 | Q-01 | REVIEW | 3–4 | Integration | Herschel (Q-01 worker; INS-008) | `MVP_IMPLEMENTATION` / `d226a4a` | Pure/fake-port phase reviewed PASS; real-port integration and DONE remain unauthorized |
 | N-01 | BLOCKED | 2 | Integration | Unassigned News worker | — | Not started |
@@ -434,9 +434,7 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 
 ## State derivation at this checkpoint
 
-P-00, C-01, A-00, C-01A, E-01, F-01, and S-01 are DONE. D-01 and AU-01 remain in
-REVIEW under their prior authorization; D-01 has blocked live-DB evidence and
-AU-01 is complete only for its authorized fake-repository phase. Q-01 and F-AUTH
+P-00, C-01, A-00, C-01A, E-01, F-01, S-01, D-01, and AU-01 are DONE. Q-01 and F-AUTH
 are in REVIEW under `INS-008` for their bounded fake/fixture phases; their real
 integration and DONE transitions remain gated. All other unfinished tasks remain
 BLOCKED by at least one recorded unfinished start dependency. No newly unlocked

@@ -5,11 +5,14 @@
 - **Level 2 control plane:** Active. Read `AGENTS.md`, current
   [`INSTRUCTOR.md`](../control/INSTRUCTOR.md), [`DECISIONS.md`](../control/DECISIONS.md),
   [`TASKS.md`](TASKS.md), and this checkpoint before acting.
-- **Current instruction:** `INS-010` / `APPROVED_FOR_EXECUTION`, authorizing only
-  the D-01 live PostgreSQL migration/review phase followed by real PostgreSQL-
-  backed AU-01 Auth/session integration. D-01 must be reviewed and closed before
-  AU-01 starts. M-01, Q-01 real-port integration, F-AUTH real integration, and
-  all other unfinished packets remain unauthorized.
+- **Current instruction:** `INS-011` / `HOLD`, authorizing only the AU-01
+  TASKS/HANDOFF governance reconciliation. No feature execution is authorized;
+  D-01 and AU-01 must not be reassigned, and M-01/L-01 must not start.
+- **INS-011 reconciliation checkpoint:** Instructor-reviewed HEAD was `8f04e56`.
+  Current HEAD before this governance update is `c149350`, whose only change is
+  the `INS-011` signal in `docs/control/INSTRUCTOR.md`; source, business state,
+  task dependencies, and AU-01 implementation evidence are unchanged. The
+  working tree was clean before this update.
 - **INS-010 applicability:** PASS at execution start. Instructor reviewed HEAD
   was `bc88f36`; the then-current `7cab605` commit changed only
   `docs/control/INSTRUCTOR.md`, which was the authorized instruction signal.
