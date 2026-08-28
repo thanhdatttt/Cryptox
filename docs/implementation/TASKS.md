@@ -25,7 +25,7 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 | L-01 | READY | 2 | YES — B-02 gate | Unassigned Leaderboard worker | — | Newly READY after D-01; not authorized by INS-010 |
 | B-01 | DONE | 3 | YES | Manager / reviewed Backtesting domain worker | `MVP_IMPLEMENTATION` / `afbd88c` | Focused 9/9, Backtesting 18/18, independent review, and reproducible root workspace gate PASS |
 | B-02 | BLOCKED | 4 | YES | Unassigned Backtesting application worker | — | Not started |
-| AU-01 | IN_PROGRESS | 2 | YES | Orchestrator / replacement AU-01 Auth worker | `MVP_IMPLEMENTATION` / `eb23d7b` + prior worker interrupted | INS-010 authorized after D-01 DONE; replacement implementation worker pending |
+| AU-01 | IN_PROGRESS | 2 | YES | Orchestrator / Kepler (AU-01 Auth worker) | `MVP_IMPLEMENTATION` / `8e8fc61` + worker in progress | INS-010 authorized after D-01 DONE; real PostgreSQL Auth/session integration in progress |
 | AU-02 | BLOCKED | 4 | YES | Manager / security integration worker | — | Blocked by private-resource implementations |
 | Q-01 | REVIEW | 3–4 | Integration | Herschel (Q-01 worker; INS-008) | `MVP_IMPLEMENTATION` / `d226a4a` | Pure/fake-port phase reviewed PASS; real-port integration and DONE remain unauthorized |
 | N-01 | BLOCKED | 2 | Integration | Unassigned News worker | — | Not started |
@@ -158,8 +158,9 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
   session expiry, and logout using Argon2id and opaque PostgreSQL-backed sessions.
 - **Write scope:** Auth module/runtime adapters, approved thin transport integration,
   and Auth tests; migrations remain under D-01 ownership.
-- **Latest branch / commit:** `MVP_IMPLEMENTATION` / `eb23d7b` AU-01
-  assignment checkpoint; prior worker Godel was interrupted before edits.
+- **Latest branch / commit:** `MVP_IMPLEMENTATION` / `8e8fc61` AU-01
+  replacement checkpoint; prior workers Godel and Cicero were interrupted before
+  edits, and Kepler is now executing the bounded packet.
 - **Validation:** Fake-repository phase and Auth focused suite 8/8 remain PASS.
   INS-010 authorizes the real PostgreSQL-backed integration now that D-01 is DONE;
   repository adapter, transport, and integration evidence are pending.
