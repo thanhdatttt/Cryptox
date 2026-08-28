@@ -2,7 +2,7 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-005`
+Instruction ID: `INS-006`
 
 Status: `APPROVED_FOR_EXECUTION`
 
@@ -11,85 +11,113 @@ Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 ## Reviewed repository checkpoint
 
 - Branch: `MVP_IMPLEMENTATION`
-- Reviewed repository HEAD: `753a1ec3fc932fa73bc1ec5961473ed01b04cf78`
-- Working tree at review: clean.
-- `INS-004` / GOV-R1 was completed in the reviewed HEAD. Its authorization was
-  governance-only and expired after that reconciliation checkpoint.
-- Preserved completed implementation: `9ca2d7c` (C-01A), `a20a7c5` (E-01), and
-  `901065a` (F-01), with the validated evidence preserved in `HANDOFF.md`.
-- Current task derivation: P-00, C-01, A-00, C-01A, E-01, and F-01 are DONE;
-  D-01, S-01, AU-01, and F-AUTH are READY; all other unfinished tasks remain
-  BLOCKED by recorded start dependencies.
-- Current repository validation was reproduced: `npm run verify:stage4a` PASS,
-  including 84 workspace tests, build/typecheck, architecture, source-artifact,
-  deferred-scope, and backend smoke checks. `git diff --check` PASS.
+- Reviewed repository HEAD: `6da688452c18a3d8d914325ff57e8fe3f7c5b1d3`
+- Working tree at review: dirty only in `AGENTS.md` and
+  `docs/control/prompts/ORCHESTRATOR_START.md`. These are pre-existing
+  governance-only changes adding the mandatory worker-delegation policy; they do
+  not change source, business state, task DAG, packet write scopes, or approved
+  capability behavior. The Orchestrator must reconcile and commit or otherwise
+  resolve these changes before assignment and must not execute with unresolved
+  material working-tree changes.
+- `INS-005` was executed and exhausted at this checkpoint. Its integrated
+  implementation result is preserved in `6da6884`.
+- Current task derivation: P-00, C-01, A-00, C-01A, E-01, F-01, and S-01 are
+  DONE; D-01 and AU-01 are REVIEW; S-02, S-03, B-01, Q-01, and F-AUTH are
+  READY; all other unfinished tasks remain BLOCKED by recorded start
+  dependencies.
+- Current review reproduced `npm run verify:stage4a`: PASS. This includes
+  build, typecheck, all workspace tests, architecture, source-artifact,
+  deferred-scope, and backend smoke checks. `git diff --check`: PASS.
+- Focused checkpoint evidence remains PASS for Auth 8/8 and Strategy 11/11.
+  Migration JavaScript/static invocation checks PASS. Live PostgreSQL
+  migrate/rollback/remigrate evidence remains BLOCKED/UNVERIFIED because no
+  valid local credentials or running Docker daemon are available. Formal
+  OpenSpec CLI validation remains UNVERIFIED because the CLI is unavailable.
 
-This instruction is valid only when the Orchestrator verifies immediately before
-assignment that the branch is still at this reviewed checkpoint or that every
-intervening change is limited to this Instructor control update. Any material
-source, business-state, requirement, task-DAG, task-state, write-scope, or
-authority change makes this instruction stale and requires a fresh Instructor
-review before assignment or execution.
+This instruction is valid only after the Orchestrator verifies immediately
+before assignment that the reviewed HEAD and task/business premises remain
+unchanged, that the two pre-existing governance diffs are non-material to the
+authorized source state and have been reconciled, and that the three packets'
+start dependencies and write scopes remain safe. Any material source, business-
+state, requirement, task-DAG, task-state, write-scope, or authority change makes
+this instruction stale and requires a fresh Instructor review.
 
 ## Execution authorization
 
 Approved execution frontier, and no more:
 
-1. `D-01` — Minimal MVP Persistence Foundation.
-2. `S-01` — Strategy Registry, Definitions and Composite Core.
-3. `AU-01` — Simple Authentication and Session Runtime, limited initially to its
-   approved fake-repository phase.
+1. `S-02` — Moving Average and RSI.
+2. `S-03` — Bollinger Bands and Support/Resistance.
+3. `B-01` — Deterministic Historical Simulator.
 
-The Orchestrator may assign these three packets in parallel only after rechecking
-READY state, satisfied start dependencies, disjoint write scopes, and the maximum
-useful concurrency of one Manager plus three workers. Completion of one packet,
-or a newly unlocked task, does not expand this authorization.
+The Orchestrator may assign these three packets in parallel, with one delegated
+worker per packet, only after verifying that each is still `READY`, its start
+dependencies are satisfied, and the maximum useful concurrency is one Manager
+plus three workers. `S-02` and `S-03` have separate dedicated Strategy plugin
+directories; `B-01` owns only the Backtesting simulator/domain/test paths. No
+packet may edit another packet's paths.
+
+Completion of one packet, a review result, or a newly unlocked task does not
+expand this authorization.
 
 Authorization ends after review and integration of this frontier. A new Instructor
 review and Instruction ID are required for the next frontier.
 
 ## Packet constraints
 
-### D-01 — Minimal MVP Persistence Foundation
+### S-02 — Moving Average and RSI
 
-- Owns the approved physical persistence entities, User/AuthSession schema,
-  direct owner-root references, reversible migrations, and assigned PostgreSQL
-  adapter/test paths.
-- Is the sole migration/DB writer. No queue/distributed, risk, strict-replay,
-  LLM, or unrelated schema scope is authorized.
-- Any PostgreSQL adapter/test paths assigned to D-01 are exclusive to D-01 while
-  this frontier is active.
+- Implement only the approved `TECHNICAL_PROFILES_V1` Moving Average and RSI
+  behavior, descriptors/factories, deterministic overlays, and focused tests.
+- Preserve the frozen Strategy contracts and S-01 registry/application seams.
+- Write only the dedicated MA/RSI plugin directories and their tests. Do not
+  edit shared registration/bootstrap, contracts, migrations, apps, or other
+  plugins; the Manager handles later registration/integration.
+- Keep execution pure and infrastructure-independent: no database, exchange,
+  network, Auth, frontend business logic, or persistence.
+- Cover cross/equality/warm-up, Wilder thresholds, flat/no-gain/no-loss,
+  invalid-parameter, purity, and descriptor behavior required by the packet.
 
-### S-01 — Strategy Registry, Definitions and Composite Core
+### S-03 — Bollinger Bands and Support/Resistance
 
-- Implements only the Strategy registry, descriptors, immutable owner-scoped
-  definitions/composites, generic analysis/overlay output, and
-  `MAJORITY_VOTE_V1` using fake plugins.
-- Must remain pure and infrastructure-independent at execution time: no exchange
-  or database I/O, no identity branching, and no edits to D-01 persistence paths
-  or built-in strategy directories.
-- Persistence-backed integration waits for the D-01 checkpoint.
+- Implement only the approved `TECHNICAL_PROFILES_V1` Bollinger Bands and
+  rolling Support/Resistance behavior, descriptors/factories, deterministic
+  overlays, and focused tests.
+- Write only the dedicated Bollinger/Support-Resistance plugin directories and
+  their tests. Do not edit shared registration/bootstrap, contracts, migrations,
+  apps, MA/RSI plugins, or persistence paths; the Manager handles later
+  registration/integration.
+- Keep execution pure and infrastructure-independent.
+- Cover population deviation, zero variance, equality, rolling extrema/current
+  exclusion, proximity, overlap/tie/breakout HOLD, warm-up, invalid parameters,
+  and purity behavior required by the packet.
 
-### AU-01 — Simple Authentication and Session Runtime
+### B-01 — Deterministic Historical Simulator
 
-- May implement the Auth runtime, tests, and approved thin Auth transport against
-  fake repositories before D-01 completes.
-- Migration edits and Auth repository adapter work are forbidden until the D-01
-  checkpoint; those paths remain under D-01's DB ownership until then.
-- Only approved email/password Auth V1 is in scope: Argon2id, opaque PostgreSQL
-  sessions, fixed 24-hour expiry, HttpOnly cookie handling, trusted identity, and
-  sanitized observability. No JWT/refresh tokens, RBAC, tenancy, OAuth/SSO, 2FA,
-  password reset, or enterprise IAM.
+- Implement only the pure deterministic long-only simulator/domain runner and
+  visualization traces over candle fixtures and fake strategies.
+- Preserve the Backtest Execution Port boundary; do not implement Candidate,
+  executor orchestration, Evaluation, Leaderboard, Search, providers, or apps.
+- Write only the assigned Backtesting simulator/domain/test paths. No database,
+  migration, Auth, strategy plugin, frontend, or shared transport changes.
+- Enforce the approved bounded simulation behavior: one full-capital long
+  position, signal at `t` executes at `t+1` open, configurable capital/fee/zero
+  slippage defaults, and range-end close without lookahead.
+- Cover repeated signals, fees/slippage, no trades, range-end exit,
+  deterministic rerun, and contained fake-Strategy failure.
 
 ## Explicitly not authorized
 
-- `F-AUTH`, although currently READY; it remains scheduled for Wave 4 after the
-  Wave 2 frontier and is not part of `INS-005`.
-- `M-01`, `M-02`, `S-02`, `S-03`, `E-01`, `L-01`, `B-01`, `B-02`, `AU-02`,
-  `Q-01`, `N-01`, `N-02`, `F-01`, `F-02`, `I-01`, `I-02`, or any other task not
-  listed above.
+- `D-01` and `AU-01` integration/repository completion while they remain in
+  `REVIEW`; live PostgreSQL evidence remains a checkpoint blocker and is not
+  silently promoted to PASS.
+- `Q-01` and `F-AUTH`, although READY; they are deferred from this three-worker
+  frontier and require a later or renewed authorization.
+- `M-01`, `M-02`, `L-01`, `N-01`, `N-02`, `B-02`, `AU-02`, `F-02`, `I-01`,
+  `I-02`, or any other task not listed above.
 - Any task state transition, assignment, dependency/DAG change, packet-scope
-  change, contract reopening, or implementation outside the three packets.
+  change, contract reopening, shared Strategy registration outside the packet,
+  or implementation outside the three packets.
 - Any deferred scope, including enterprise identity, tenancy, queues/distributed
   execution, generalized risk, AI/LLM authoring or crawling, strict replay, CQRS,
   Event Sourcing, or a general event bus.
@@ -98,9 +126,12 @@ review and Instruction ID are required for the next frontier.
 
 - The Orchestrator alone assigns owners, changes `TASKS.md` state, reviews and
   integrates worker output, records validation, and replaces `HANDOFF.md`.
-- Before assignment, prove the current instruction is not stale and that the
-  three packet write scopes do not overlap. Stop on uncommitted material changes,
-  overlapping writes, changed premises, or authority drift.
+- Every bounded implementation packet must be delegated to a worker/subagent;
+  the Orchestrator must not implement these packets directly. Workers do not
+  edit `INSTRUCTOR.md`, `DECISIONS.md`, `TASKS.md`, or `HANDOFF.md`.
+- Before assignment, prove the current instruction is not stale, reconcile the
+  pre-existing governance diffs, verify READY/dependencies, and prove disjoint
+  write scopes.
 - Each packet must satisfy its focused acceptance tests plus applicable build,
   typecheck, workspace tests, architecture, artifact, deferred-scope, database,
   and diff checks. Unavailable evidence is `BLOCKED` or `UNVERIFIED`, never PASS.
