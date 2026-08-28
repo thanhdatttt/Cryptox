@@ -2,89 +2,107 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-002`
+Instruction ID: `INS-003`
 
-Status: `APPROVED_FOR_EXECUTION`
+Status: `HOLD`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
 ## Reviewed repository checkpoint
 
 - Branch: `MVP_IMPLEMENTATION`
-- Reviewed repository HEAD: `e9ab1b3bc832f91c975d39a8d4324d455ee5a91e`
-- Reviewed source/business baseline: `791a50031955a39756d41884bd1876d5840aab5e`
+- Reviewed repository HEAD: `2858388759b38218d8a89513ecbcc654c3c56d16`
 - Working tree at review: clean.
-- Intervening commits `c4825a5b041b7e5a417baf1e106e532b45b66f15` and
-  `e9ab1b3bc832f91c975d39a8d4324d455ee5a91e` were proven governance-only: they
-  added the Level 2 control plane and bootstrap prompts and did not change runtime
-  source, executable contracts, requirements, the task DAG, or task state.
-- Recovered checkpoint: P-00, C-01, and A-00 are DONE; no implementation task has
-  started; C-01A, E-01, and F-01 are the only READY tasks.
+- Prior instruction: `INS-002` / `APPROVED_FOR_EXECUTION`; its authorized frontier
+  is exhausted.
+- Completed source commits: `9ca2d7c` (C-01A), `a20a7c5` (E-01), and `901065a`
+  (F-01).
+- Execution checkpoint commit: `2858388`, limited to the Manager-owned
+  `docs/implementation/HANDOFF.md` and `docs/implementation/TASKS.md` update.
 
-The governance-only commit that persists this instruction may follow the reviewed
-HEAD only when its complete intervening diff is limited to this Instructor control
-update. Any other material source, business-state, requirement, task-DAG, task-state,
-or write-scope change makes this instruction stale and requires
-`NEEDS_INSTRUCTOR_REVIEW` before assignment or execution.
+The completed frontier remained within `INS-002` scope. C-01A added only the
+approved Auth/ownership contracts and narrow architecture/scope gates; E-01 added
+the four required Evaluation metrics without scoring or persistence; F-01 added
+the frontend market-chart foundation without Auth UI or backend/provider
+implementation. Canonical requirements, accepted ADRs, architecture, data model,
+capability specifications, and the active change design/specification were not
+materially changed.
+
+## Consistency result
+
+Execution authorization is on HOLD because the repository control plane is not
+internally consistent:
+
+1. `docs/implementation/TASKS.md` records C-01A, E-01, and F-01 as DONE and D-01,
+   S-01, AU-01, and F-AUTH as READY in its current-frontier table and task records,
+   but its final `State derivation at this checkpoint` still says C-01A, E-01, and
+   F-01 are READY and D-01/S-01 are BLOCKED. Because TASKS is the sole operational
+   state authority, no agent may select the convenient portion of this conflict.
+2. `AGENTS.md` still says the deferred-scope checker has its pre-A-00 Auth
+   prohibition and that C-01A must update it. C-01A is now DONE and commit
+   `9ca2d7c` already replaced that prohibition with the approved enterprise-Auth
+   guard. The repository startup rules therefore describe obsolete gate state.
+3. The durable packets in `docs/implementation/MVP_PLAN.md` retain pre-execution
+   state labels for C-01A and newly unlocked tasks. The plan states that TASKS owns
+   mutable state, but these unlabeled historical state fields now conflict with the
+   current board and must be clarified or reconciled so a fresh agent cannot mistake
+   them for operational state.
+4. `HANDOFF.md` reports 79 workspace tests, while a clean reproduction at the
+   reviewed HEAD executes 84 passing workspace tests. The checkpoint must correct
+   the count or document the exact narrower selection it intended to report.
+
+These are governance/control inconsistencies, not a feature-code failure and not a
+new requirement ambiguity.
 
 ## Execution authorization
 
-Approved execution frontier, and no more:
-
-1. `C-01A` — Authentication & Ownership Contract Extension.
-2. `E-01` — Independent Evaluation.
-3. `F-01` — Frontend Chart and Client Foundation.
-
-The Orchestrator may assign these packets in parallel only while preserving their
-disjoint write scopes and the repository concurrency limit. One contract writer
-alone owns C-01A. READY state, dependency satisfaction, and this instruction must
-all still be verified immediately before assignment.
-
-Authorization ends after review and integration of this frontier. Completion of
-C-01A or another packet does not authorize any newly READY downstream task; a new
-Instructor review and Instruction ID are required.
+Approved execution frontier: none.
 
 Explicitly not authorized:
 
-- `D-01`, `S-01`, `AU-01`, `L-01`, `Q-01`, `B-02`, `F-AUTH`, or any other task,
-  including work that becomes READY after C-01A or F-01.
-- Runtime Auth implementation, repositories/providers, migrations, controllers,
-  ownership-sensitive feature implementation, frontend Auth/protected navigation,
-  or any deferred capability.
-- Any expansion of E-01 into scoring, optional metrics, or persistence, or of F-01
-  into backend/module work, business calculations, Auth UI, or real-provider
-  integration.
+- D-01, S-01, AU-01, F-AUTH, or any other implementation task.
+- Any newly unlocked downstream task or continuation based only on a READY row.
+- Feature source, executable contract, migration, runtime, frontend feature, or
+  dependency changes under this instruction.
 
-## Constraints and checkpoint requirements
+Required reconciliation before the next Instructor review:
 
-- C-01A is additive contract work only. Preserve unrelated C-01 contracts, pure
-  Strategy/simulator/Evaluation/ranking contracts, and market WebSocket payloads.
-  It may update the executable deferred-scope gate only as narrowly required to
-  admit the now-approved Auth contracts before adding those contracts.
-- E-01 is limited to `modules/evaluation/**` excluding frozen contracts and must
-  implement only the four required deterministic finite metrics and edge cases in
-  its approved packet.
-- F-01 is limited to `apps/frontend/**` and frozen transport imports. It may use a
-  fixture market source for tests/development; real Market Data integration remains
-  M-02/I-01 and Auth UI remains F-AUTH.
-- The Orchestrator alone updates `docs/implementation/TASKS.md` and
-  `docs/implementation/HANDOFF.md`, assigns owners, reviews diffs, integrates work,
-  and records validation evidence.
-- Before assignment, compare current Git with the reviewed checkpoint and prove
-  that any intervening Instructor commit is governance-only. Stop on overlapping
-  writes, uncommitted material changes, changed task premises, or authority drift.
-- Each packet must satisfy its focused acceptance tests plus applicable build,
-  typecheck, test, architecture, artifact, scope, OpenSpec, and diff checks.
-  Unavailable evidence is `BLOCKED` or `UNVERIFIED`, never `PASS`.
+- The Orchestrator/Manager must correct the stale final state derivation in
+  `TASKS.md` so it agrees with the current-frontier table, task records, HANDOFF,
+  and strict dependency recomputation.
+- Reconcile the obsolete post-C-01A deferred-scope-checker statement in `AGENTS.md`.
+- Clarify or reconcile non-operational state labels in `MVP_PLAN.md` without moving
+  operational state out of TASKS or changing the approved task DAG/packets.
+- Keep this reconciliation governance-only, update HANDOFF if needed for a clean
+  restart, correct the workspace-test evidence count, validate
+  links/diffs/whitespace and control-plane consistency, and commit one coherent
+  checkpoint.
+- Return for a new Instructor review and Instruction ID. Do not start work as part
+  of the reconciliation.
 
-Review evidence at `e9ab1b3`: root Stage 4A verification passed (build, typecheck,
-49 tests, architecture, source-artifact, deferred-scope, and backend smoke gates).
-The frontend test runner correctly reported no tests at the current skeleton; F-01
-must add the packet-required frontend evidence. The current deferred-scope checker
-still contains its documented pre-A-00 Auth prohibition; C-01A owns only the narrow
-reconciliation needed for approved Auth contracts.
+Candidate frontier for that later review, not authorization: Wave 2 D-01, S-01,
+and the fake-repository phase of AU-01. Before approval, the Orchestrator must
+provide explicit disjoint path assignments: D-01 owns migrations and assigned
+PostgreSQL adapters/tests; S-01 excludes those PostgreSQL paths; AU-01 excludes
+migrations and PostgreSQL adapter work until the D-01 checkpoint. F-AUTH remains a
+separately READY candidate but is not part of this proposed three-worker Wave 2
+frontier.
 
-Pending human decisions: none.
+## Review evidence
+
+- Reproduced `npm run verify:stage4a`: PASS — build, typecheck, 84 workspace tests,
+  architecture (42 modules / 88 dependencies and 9 rule fixtures), source-artifact,
+  deferred-scope, and backend smoke gates passed.
+- Reproduced root lint: PASS.
+- Reproduced the three Auth API contract files: 4/4 tests PASS. The checkpoint's
+  broader explicit C-01A suite records 14 files / 35 tests PASS with independent
+  re-review PASS.
+- The checkpoint records Evaluation 15/15, frontend 12/12 plus browser interaction,
+  strict OpenSpec validation, frozen-contract audit, and independent re-reviews as
+  PASS.
+- `git diff --check` and the reviewed working tree are clean.
+
+Pending human decisions: none. Repository governance reconciliation is required.
 
 ## Canonical references
 
@@ -96,7 +114,6 @@ Pending human decisions: none.
 - [Requirements](../requirements.md)
 - [Architecture](../architecture.md)
 - [Data model](../data-model.md)
-- [ADR-001](../adr/ADR_001_websocket.md)
 - [ADR-005](../adr/ADR_005_module_first_structure.md)
 - [ADR-006](../adr/ADR_006_local_backtest_execution.md)
 - [ADR-007](../adr/ADR_007_practical_reproducibility.md)
@@ -104,5 +121,5 @@ Pending human decisions: none.
 - [Active capability specifications](../../openspec/specs/)
 - [Active MVP change](../../openspec/changes/mvp-implementation/)
 
-Notes: this is the current execution signal, not a task board or implementation
-handoff. No feature implementation is performed by this Instructor update.
+Notes: this HOLD is the current execution signal. It authorizes no implementation
+and does not alter the completed-task evidence in the latest HANDOFF.
