@@ -6,9 +6,11 @@ import {
   STRATEGY_SIGNALS,
   TECHNICAL_PROFILES_V1,
   type StrategyDefinition,
+  type CompositeStrategyDefinition,
   type StrategyFactory,
   type StrategyPluginDescriptor,
 } from "./contracts";
+import type { AuthenticatedUserId } from "modules/auth/api";
 
 describe("strategy public contracts", () => {
   it("freezes the four approved technical profiles and global execution rules", () => {
@@ -138,6 +140,7 @@ describe("strategy public contracts", () => {
   it("keeps immutable definition provenance practical and normalized", () => {
     const definition: StrategyDefinition = {
       id: "strategy-1",
+      ownerUserId: "user-1" as AuthenticatedUserId,
       logicalFamilyKey: "ma",
       strategyName: "MA",
       implementationVersion: "1",
@@ -154,6 +157,39 @@ describe("strategy public contracts", () => {
       parameterKeyOrder: "ECMASCRIPT_STRING_ASCENDING",
       duplicateCompositeComponents: "REJECT",
     });
+  });
+
+  it("models direct definition ownership without adding identity to client commands", () => {
+    const definition = {
+      id: "strategy-1",
+      ownerUserId: "user-1" as AuthenticatedUserId,
+      logicalFamilyKey: "ma",
+      strategyName: "MA",
+      implementationVersion: "1",
+      behaviorProfileId: "TECHNICAL_PROFILES_V1",
+      version: 1,
+      parameters: { fastPeriod: 20, slowPeriod: 50 },
+      createdAt: "2026-08-28T00:00:00.000Z",
+    } satisfies StrategyDefinition;
+
+    expect(definition.ownerUserId).toBe("user-1");
+    expect({ logicalFamilyKey: "ma", strategyName: "MA", parameters: {} }).not.toHaveProperty(
+      "ownerUserId",
+    );
+    const composite = {
+      id: "composite-1",
+      ownerUserId: "user-1" as AuthenticatedUserId,
+      logicalFamilyKey: "composite",
+      version: 1,
+      method: "MAJORITY_VOTE" as const,
+      combinationProfileId: "MAJORITY_VOTE_V1" as const,
+      components: [
+        { strategyDefinitionId: definition.id, strategyDefinitionVersion: definition.version },
+      ],
+      createdAt: "2026-08-28T00:00:00.000Z",
+    } satisfies CompositeStrategyDefinition;
+    expect(composite.ownerUserId).toBe(definition.ownerUserId);
+    expect(composite.components[0]).not.toHaveProperty("ownerUserId");
   });
 
   it("accepts a new MACD descriptor and generic visualization without core branching", () => {

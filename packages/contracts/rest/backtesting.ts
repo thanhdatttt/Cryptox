@@ -16,6 +16,7 @@ import type {
 import {
   finiteNumber,
   recordValue,
+  rejectClientIdentityFields,
   stringValue,
   timeframeValue,
   timeRangeValue,
@@ -68,6 +69,7 @@ export interface CandidateFailureDto {
 
 export interface CandidateProgressDto {
   candidateId: string;
+  ownerUserId: string;
   origin:
     | { kind: "MANUAL"; leaderboardScopeId: string }
     | {
@@ -197,6 +199,7 @@ function parseStrategySelection(value: unknown): StrategySelectionDto {
 
 export function parseStartManualBacktestRequest(value: unknown): StartManualBacktestRequestDto {
   const input = recordValue(value, "manual backtest request");
+  rejectClientIdentityFields(input, "manual backtest request");
   if (input.schemaVersion !== REST_SCHEMA_VERSION) {
     throw new RestContractValidationError("Unsupported REST schema version");
   }

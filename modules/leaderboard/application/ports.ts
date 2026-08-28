@@ -1,6 +1,11 @@
+import type { AuthenticatedUserId } from "modules/auth/api";
+
 export interface LeaderboardScopeRepository<TScope, TCreateCommand> {
-  insert(command: TCreateCommand): Promise<TScope>;
-  getById(id: string): Promise<TScope | undefined>;
+  insert(ownerUserId: AuthenticatedUserId, command: TCreateCommand): Promise<TScope>;
+  getByOwnerAndId(
+    ownerUserId: AuthenticatedUserId,
+    id: string,
+  ): Promise<TScope | undefined>;
 }
 
 export interface RankingConfigurationRepository<TConfiguration> {
@@ -9,10 +14,20 @@ export interface RankingConfigurationRepository<TConfiguration> {
 }
 
 export interface LeaderboardEntryRepository<TEntry extends object> {
-  getActiveTopK(scopeId: string, k: number): Promise<readonly TEntry[]>;
-  listBySearchRun(searchRunId: string): Promise<readonly TEntry[]>;
-  insert(entry: Omit<TEntry, "id" | "rank">): Promise<TEntry>;
-  deactivate(entryId: string): Promise<void>;
+  getActiveTopK(
+    ownerUserId: AuthenticatedUserId,
+    scopeId: string,
+    k: number,
+  ): Promise<readonly TEntry[]>;
+  listByOwnerAndSearchRun(
+    ownerUserId: AuthenticatedUserId,
+    searchRunId: string,
+  ): Promise<readonly TEntry[]>;
+  insertForScopeOwner(
+    ownerUserId: AuthenticatedUserId,
+    entry: Omit<TEntry, "id" | "rank">,
+  ): Promise<TEntry>;
+  deactivateForScopeOwner(ownerUserId: AuthenticatedUserId, entryId: string): Promise<void>;
 }
 
 export interface Clock {

@@ -1,4 +1,8 @@
 import type { EvaluationMetrics } from "@cryptox/evaluation";
+import type {
+  AuthenticatedRequestContext,
+  AuthenticatedUserId,
+} from "modules/auth/api";
 
 export const LINEAR_REQUIRED_V1_ID = "LINEAR_REQUIRED_V1" as const;
 
@@ -48,6 +52,7 @@ export const LEADERBOARD_COMPARISON_IDENTITY_V1 = {
 
 export interface LeaderboardScope {
   id: string;
+  ownerUserId: AuthenticatedUserId;
   name: string;
   k: number;
   rankingConfigurationId: string;
@@ -124,12 +129,27 @@ export interface LeaderboardSubmission {
 }
 
 export interface LeaderboardModulePublicApi {
-  createLeaderboardScope(command: CreateLeaderboardScopeCommand): Promise<LeaderboardScope>;
-  getLeaderboardScope(id: string): Promise<LeaderboardScope>;
+  createLeaderboardScope(
+    context: AuthenticatedRequestContext,
+    command: CreateLeaderboardScopeCommand,
+  ): Promise<LeaderboardScope>;
+  getLeaderboardScope(
+    context: AuthenticatedRequestContext,
+    id: string,
+  ): Promise<LeaderboardScope>;
   getRankingConfiguration(id: string): Promise<RankingConfiguration>;
   listRankingConfigurations(): Promise<readonly RankingConfiguration[]>;
   score(leaderboardScopeId: string, metrics: EvaluationMetrics): ScoredEvaluation;
-  topK(leaderboardScopeId: string): Promise<readonly LeaderboardEntry[]>;
-  rankSearchRun(searchRunId: string): Promise<readonly SearchRunRankingEntry[]>;
-  submit(submission: LeaderboardSubmission): Promise<LeaderboardSubmissionResult>;
+  topK(
+    context: AuthenticatedRequestContext,
+    leaderboardScopeId: string,
+  ): Promise<readonly LeaderboardEntry[]>;
+  rankSearchRun(
+    context: AuthenticatedRequestContext,
+    searchRunId: string,
+  ): Promise<readonly SearchRunRankingEntry[]>;
+  submit(
+    context: AuthenticatedRequestContext,
+    submission: LeaderboardSubmission,
+  ): Promise<LeaderboardSubmissionResult>;
 }

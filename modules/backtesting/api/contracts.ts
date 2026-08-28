@@ -11,6 +11,10 @@ import type {
   StrategySelectionProvenance,
   StrategyVisualizationPoint,
 } from "@cryptox/strategy";
+import type {
+  AuthenticatedRequestContext,
+  AuthenticatedUserId,
+} from "modules/auth/api";
 
 export const BACKTEST_EXECUTION_V1_ID = "BACKTEST_EXECUTION_V1" as const;
 export const BACKTEST_EXECUTION_V1 = {
@@ -156,6 +160,7 @@ export interface CandidateFailure {
 
 export interface CandidateProgress {
   candidateId: string;
+  ownerUserId: AuthenticatedUserId;
   origin: CandidateOrigin;
   strategySelection: StrategySelection;
   marketInput: MarketInputSelection;
@@ -291,14 +296,40 @@ export interface TradePage {
 }
 
 export interface BacktestingModulePublicApi {
-  startManual(command: StartManualBacktestCommand): Promise<BacktestSubmissionAccepted>;
-  submitSearchCandidate(command: SubmitSearchCandidateCommand): Promise<BacktestSubmissionAccepted>;
-  status(candidateId: string): Promise<CandidateProgress>;
-  summarizeSearchCandidates(searchRunId: string): Promise<SearchCandidateSummary>;
-  listSearchCandidates(searchRunId: string, page: CandidatePageRequest): Promise<CandidatePage>;
-  cancelSearchCandidates(searchRunId: string): Promise<{ candidateIds: readonly string[] }>;
-  cancelCandidate(candidateId: string): Promise<void>;
-  readExperiment(experimentId: string): Promise<Experiment>;
-  listSearchExperiments(searchRunId: string): Promise<readonly Experiment[]>;
-  listExperimentTrades(experimentId: string, page: TradePageRequest): Promise<TradePage>;
+  startManual(
+    context: AuthenticatedRequestContext,
+    command: StartManualBacktestCommand,
+  ): Promise<BacktestSubmissionAccepted>;
+  submitSearchCandidate(
+    context: AuthenticatedRequestContext,
+    command: SubmitSearchCandidateCommand,
+  ): Promise<BacktestSubmissionAccepted>;
+  status(context: AuthenticatedRequestContext, candidateId: string): Promise<CandidateProgress>;
+  summarizeSearchCandidates(
+    context: AuthenticatedRequestContext,
+    searchRunId: string,
+  ): Promise<SearchCandidateSummary>;
+  listSearchCandidates(
+    context: AuthenticatedRequestContext,
+    searchRunId: string,
+    page: CandidatePageRequest,
+  ): Promise<CandidatePage>;
+  cancelSearchCandidates(
+    context: AuthenticatedRequestContext,
+    searchRunId: string,
+  ): Promise<{ candidateIds: readonly string[] }>;
+  cancelCandidate(context: AuthenticatedRequestContext, candidateId: string): Promise<void>;
+  readExperiment(
+    context: AuthenticatedRequestContext,
+    experimentId: string,
+  ): Promise<Experiment>;
+  listSearchExperiments(
+    context: AuthenticatedRequestContext,
+    searchRunId: string,
+  ): Promise<readonly Experiment[]>;
+  listExperimentTrades(
+    context: AuthenticatedRequestContext,
+    experimentId: string,
+    page: TradePageRequest,
+  ): Promise<TradePage>;
 }

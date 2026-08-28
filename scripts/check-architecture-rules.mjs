@@ -66,6 +66,11 @@ const forbiddenCases = [
     from: "modules/search/application/loop.ts",
     to: "modules/backtesting/infrastructure/local/executor.ts",
   },
+  {
+    rule: "pure-domain-does-not-depend-on-auth",
+    from: "modules/strategy/domain/strategy.ts",
+    to: "modules/auth/api/index.ts",
+  },
 ];
 
 for (const testCase of forbiddenCases) {
@@ -82,6 +87,9 @@ const allowedCases = [
     "modules/backtesting/application/ports.ts",
   ],
   ["apps/backend/src/compose.ts", "modules/backtesting/api/bootstrap.ts"],
+  ["apps/backend/src/compose.ts", "modules/auth/api/bootstrap.ts"],
+  ["modules/strategy/api/contracts.ts", "modules/auth/api/index.ts"],
+  ["modules/search/application/service.ts", "modules/auth/api/index.ts"],
   ["packages/contracts/websocket/index.ts", "packages/contracts/websocket/market-data.ts"],
 ];
 

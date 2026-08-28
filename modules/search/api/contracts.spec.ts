@@ -5,6 +5,7 @@ import {
   type GeneratedCandidate,
   type SearchRunStatus,
 } from "./contracts";
+import type { AuthenticatedUserId } from "modules/auth/api";
 
 describe("search public contracts", () => {
   it("freezes seeded RANDOM-only generation over distinct majority components", () => {
@@ -29,6 +30,7 @@ describe("search public contracts", () => {
   it("owns bounded observable SearchRun state including space exhaustion", () => {
     const status: SearchRunStatus = {
       searchRunId: "run-1",
+      ownerUserId: "user-1" as AuthenticatedUserId,
       generatorType: "RANDOM",
       randomSeed: "seed-1",
       searchSpace: {
@@ -64,5 +66,36 @@ describe("search public contracts", () => {
       stopReason: "SEARCH_SPACE_EXHAUSTED",
     };
     expect(status.stopReason).toBe("SEARCH_SPACE_EXHAUSTED");
+    expect(status.ownerUserId).toBe("user-1");
+  });
+
+  it("keeps client commands free of owner identity", () => {
+    const command = {
+      searchSpace: {
+        availableStrategyDefinitionIds: ["strategy-1", "strategy-2"],
+        componentCount: { minimum: 2, maximum: 2 },
+        requireDistinctComponents: true as const,
+      },
+      stopCondition: { maxCandidates: 1 },
+      generatorType: "RANDOM" as const,
+      randomSeed: "seed",
+      leaderboardScopeId: "scope-1",
+      candidateTemplate: {
+        marketInput: {
+          pair: "BTCUSDT",
+          timeframe: "1h",
+          range: { from: "2026-01-01T00:00:00Z", to: "2026-02-01T00:00:00Z" },
+        },
+        configuration: {
+          executionProfileId: "BACKTEST_EXECUTION_V1" as const,
+          initialCapital: 10_000,
+          feeRatePercent: 0.1,
+          slippageBps: 0,
+        },
+      },
+      maxInFlight: 1,
+    };
+    expect(command).not.toHaveProperty("userId");
+    expect(command).not.toHaveProperty("ownerUserId");
   });
 });

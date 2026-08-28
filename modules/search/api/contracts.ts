@@ -1,6 +1,10 @@
 import type { SearchRunRankingEntry } from "@cryptox/leaderboard";
 import type { BacktestConfiguration, MarketInputSelection } from "@cryptox/backtesting";
 import type { MajorityVoteProfileId } from "@cryptox/strategy";
+import type {
+  AuthenticatedRequestContext,
+  AuthenticatedUserId,
+} from "modules/auth/api";
 
 export const SEARCH_GENERATOR_TYPES = ["RANDOM"] as const;
 export type GeneratorType = (typeof SEARCH_GENERATOR_TYPES)[number];
@@ -74,6 +78,7 @@ export type SearchRunStopReason =
 
 export interface SearchRunStatus {
   searchRunId: string;
+  ownerUserId: AuthenticatedUserId;
   generatorType: GeneratorType;
   randomSeed: string;
   searchSpace: SearchSpaceConfig;
@@ -106,11 +111,28 @@ export interface StartSearchCommand {
   maxInFlight: number;
 }
 
+export interface SearchRunPageRequest {
+  limit: number;
+  cursor?: string;
+}
+
+export interface SearchRunPage {
+  items: readonly SearchRunStatus[];
+  nextCursor?: string;
+}
+
 export interface SearchModulePublicApi {
-  start(command: StartSearchCommand): Promise<{ searchRunId: string }>;
-  pause(searchRunId: string): Promise<void>;
-  resume(searchRunId: string): Promise<void>;
-  cancel(searchRunId: string): Promise<void>;
-  status(searchRunId: string): Promise<SearchRunStatus>;
-  leaderboard(searchRunId: string): Promise<readonly SearchRunRankingEntry[]>;
+  start(
+    context: AuthenticatedRequestContext,
+    command: StartSearchCommand,
+  ): Promise<{ searchRunId: string }>;
+  pause(context: AuthenticatedRequestContext, searchRunId: string): Promise<void>;
+  resume(context: AuthenticatedRequestContext, searchRunId: string): Promise<void>;
+  cancel(context: AuthenticatedRequestContext, searchRunId: string): Promise<void>;
+  status(context: AuthenticatedRequestContext, searchRunId: string): Promise<SearchRunStatus>;
+  list(context: AuthenticatedRequestContext, page: SearchRunPageRequest): Promise<SearchRunPage>;
+  leaderboard(
+    context: AuthenticatedRequestContext,
+    searchRunId: string,
+  ): Promise<readonly SearchRunRankingEntry[]>;
 }

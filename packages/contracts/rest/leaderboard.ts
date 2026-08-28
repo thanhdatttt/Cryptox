@@ -1,4 +1,10 @@
-import { REST_SCHEMA_VERSION } from "./common";
+import { REST_SCHEMA_VERSION, RestContractValidationError } from "./common";
+import {
+  positiveInteger,
+  recordValue,
+  rejectClientIdentityFields,
+  stringValue,
+} from "./internal-validation";
 
 export interface RankingConfigurationDto {
   id: string;
@@ -24,11 +30,25 @@ export interface RankingConfigurationDto {
 
 export interface LeaderboardScopeDto {
   id: string;
+  ownerUserId: string;
   name: string;
   k: number;
   rankingConfigurationId: string;
   comparisonKey: string;
   createdAt: string;
+}
+
+export interface CreateLeaderboardScopeRequestDto {
+  schemaVersion: typeof REST_SCHEMA_VERSION;
+  name: string;
+  k?: number;
+  rankingConfigurationId: string;
+  comparisonKey: string;
+}
+
+export interface CreateLeaderboardScopeResponseDto {
+  schemaVersion: typeof REST_SCHEMA_VERSION;
+  scope: LeaderboardScopeDto;
 }
 
 export interface LeaderboardEntryDto {
@@ -58,4 +78,24 @@ export interface LeaderboardTopKResponseDto {
   scope: LeaderboardScopeDto;
   rankingConfiguration: RankingConfigurationDto;
   entries: readonly LeaderboardEntryDto[];
+}
+
+export function parseCreateLeaderboardScopeRequest(
+  value: unknown,
+): CreateLeaderboardScopeRequestDto {
+  const input = recordValue(value, "create leaderboard scope request");
+  rejectClientIdentityFields(input, "create leaderboard scope request");
+  if (input.schemaVersion !== REST_SCHEMA_VERSION) {
+    throw new RestContractValidationError("Unsupported REST schema version");
+  }
+  return {
+    schemaVersion: REST_SCHEMA_VERSION,
+    name: stringValue(input.name, "name"),
+    ...(input.k === undefined ? {} : { k: positiveInteger(input.k, "k") }),
+    rankingConfigurationId: stringValue(
+      input.rankingConfigurationId,
+      "rankingConfigurationId",
+    ),
+    comparisonKey: stringValue(input.comparisonKey, "comparisonKey"),
+  };
 }

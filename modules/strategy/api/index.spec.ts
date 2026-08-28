@@ -17,6 +17,8 @@ describe("strategy public entrypoint", () => {
         "defineComposite",
         "defineStrategy",
         "listStrategies",
+        "listCompositeDefinitions",
+        "listStrategyDefinitions",
         "readCompositeDefinition",
         "readStrategyDefinition",
         "resolveStrategy",

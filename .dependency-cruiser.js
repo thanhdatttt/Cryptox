@@ -70,6 +70,14 @@ module.exports = {
       from: { path: "^modules/search/" },
       to: { path: "^modules/backtesting/infrastructure/" },
     },
+    {
+      name: "pure-domain-does-not-depend-on-auth",
+      severity: "error",
+      from: {
+        path: "^modules/(strategy|search|backtesting|evaluation|leaderboard|market-data|news|sentiment)/domain/",
+      },
+      to: { path: "^modules/auth/" },
+    },
   ],
   options: {
     doNotFollow: { path: "node_modules/(?!@cryptox(?:/|$))" },

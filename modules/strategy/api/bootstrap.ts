@@ -17,6 +17,8 @@ import {
   combineSignals,
   defineComposite,
   defineStrategy,
+  listCompositeDefinitions,
+  listStrategyDefinitions,
   listStrategies,
   readCompositeDefinition,
   readStrategyDefinition,
@@ -26,6 +28,8 @@ export function createStrategyModule(_deps: StrategyModuleDependencies): Strateg
   return {
     listStrategies,
     defineStrategy,
+    listStrategyDefinitions,
+    listCompositeDefinitions,
     defineComposite,
     readStrategyDefinition,
     readCompositeDefinition,

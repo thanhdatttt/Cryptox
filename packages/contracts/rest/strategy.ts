@@ -1,5 +1,10 @@
 import { REST_SCHEMA_VERSION, RestContractValidationError } from "./common";
-import { finiteNumber, recordValue, stringValue } from "./internal-validation";
+import {
+  finiteNumber,
+  recordValue,
+  rejectClientIdentityFields,
+  stringValue,
+} from "./internal-validation";
 
 export type StrategySignalDto = "BUY" | "SELL" | "HOLD";
 export type StrategyParameterValueDto = number | string;
@@ -48,6 +53,7 @@ export interface StrategyPluginDescriptorDto {
 
 export interface StrategyDefinitionDto {
   id: string;
+  ownerUserId: string;
   logicalFamilyKey: string;
   strategyName: string;
   implementationVersion: string;
@@ -64,6 +70,7 @@ export interface CompositeComponentDefinitionDto {
 
 export interface CompositeStrategyDefinitionDto {
   id: string;
+  ownerUserId: string;
   logicalFamilyKey: string;
   version: number;
   method: "MAJORITY_VOTE";
@@ -115,6 +122,7 @@ export interface DefineCompositeResponseDto {
 
 export function parseDefineStrategyRequest(value: unknown): DefineStrategyRequestDto {
   const input = recordValue(value, "define strategy request");
+  rejectClientIdentityFields(input, "define strategy request");
   if (input.schemaVersion !== REST_SCHEMA_VERSION) {
     throw new RestContractValidationError("Unsupported REST schema version");
   }
@@ -138,6 +146,7 @@ export function parseDefineStrategyRequest(value: unknown): DefineStrategyReques
 
 export function parseDefineCompositeRequest(value: unknown): DefineCompositeRequestDto {
   const input = recordValue(value, "define composite request");
+  rejectClientIdentityFields(input, "define composite request");
   if (
     input.schemaVersion !== REST_SCHEMA_VERSION ||
     input.combinationProfileId !== "MAJORITY_VOTE_V1"

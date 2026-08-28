@@ -4,6 +4,7 @@ import {
   type CreateLeaderboardScopeCommand,
   type RankingConfiguration,
 } from "./contracts";
+import type { AuthenticatedUserId } from "modules/auth/api";
 
 describe("leaderboard public contracts", () => {
   it("freezes LINEAR_REQUIRED_V1 formula, eligibility, ties, and configurable K", () => {
@@ -51,5 +52,24 @@ describe("leaderboard public contracts", () => {
       createdAt: "2026-08-27T00:00:00.000Z",
     };
     expect(configuration.formula.totalReturnPercentWeight).toBe(0.5);
+  });
+
+  it("owns scopes directly while entries inherit scope ownership", () => {
+    const scope = {
+      id: "scope-1",
+      ownerUserId: "user-1" as AuthenticatedUserId,
+      name: "Private leaderboard",
+      k: 10,
+      rankingConfigurationId: "ranking-v1",
+      comparisonKey: "BTCUSDT:1h",
+      createdAt: "2026-08-28T00:00:00.000Z",
+    };
+    expect(scope.ownerUserId).toBe("user-1");
+    expect({ id: "entry-1", leaderboardScopeId: scope.id }).not.toHaveProperty("ownerUserId");
+    expect({
+      name: scope.name,
+      rankingConfigurationId: scope.rankingConfigurationId,
+      comparisonKey: scope.comparisonKey,
+    }).not.toHaveProperty("ownerUserId");
   });
 });

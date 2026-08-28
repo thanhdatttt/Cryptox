@@ -9,6 +9,7 @@ describe("search public entrypoint", () => {
         "SEARCH_GENERATOR_TYPES",
         "cancel",
         "leaderboard",
+        "list",
         "pause",
         "resume",
         "start",
@@ -16,7 +17,7 @@ describe("search public entrypoint", () => {
       ].sort(),
     );
     await expect(
-      searchApi.start({
+      searchApi.start({ authenticatedUserId: "user-1" as never }, {
         searchSpace: {
           availableStrategyDefinitionIds: ["one", "two"],
           componentCount: { minimum: 2, maximum: 2 },

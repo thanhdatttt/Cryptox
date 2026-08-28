@@ -5,7 +5,7 @@ import type {
   SearchRunStatus,
   SearchSpaceConfig,
 } from "./contracts";
-import { cancel, leaderboard, pause, resume, start, status } from "./index";
+import { cancel, leaderboard, list, pause, resume, start, status } from "./index";
 export type SearchModuleDependencies = SearchApplicationDependencies<
   SearchRunStatus,
   SearchSpaceConfig,
@@ -18,6 +18,7 @@ export function createSearchModule(_deps: SearchModuleDependencies): SearchModul
     resume,
     cancel,
     status,
+    list,
     leaderboard,
   };
 }

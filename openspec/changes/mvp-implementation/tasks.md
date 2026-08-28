@@ -8,7 +8,7 @@ here are approval-level milestones, not a second operational task board.
 - [x] Freeze executable and transport contracts (C-01).
 - [x] Persist the later instructor Authentication, ownership, and real-data change
   without modifying executable contracts or starting implementation (A-00).
-- [ ] Extend executable contracts for Authentication and per-user ownership (C-01A).
+- [x] Extend executable contracts for Authentication and per-user ownership (C-01A).
 - [ ] Establish minimal approved MVP persistence (D-01).
 - [ ] Implement module capabilities and pure computation according to the approved
   dependency graph.

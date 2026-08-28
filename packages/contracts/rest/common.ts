@@ -17,6 +17,23 @@ export interface RestError {
   };
 }
 
+export const REST_PRIVATE_RESOURCE_FAILURES = {
+  unauthenticated: { code: "UNAUTHENTICATED", httpStatus: 401 },
+  missingOrCrossUser: { code: "NOT_FOUND", httpStatus: 404 },
+} as const;
+
+export type RestPrivateResourceError =
+  | {
+      schemaVersion: typeof REST_SCHEMA_VERSION;
+      httpStatus: 401;
+      error: { code: "UNAUTHENTICATED"; message: string };
+    }
+  | {
+      schemaVersion: typeof REST_SCHEMA_VERSION;
+      httpStatus: 404;
+      error: { code: "NOT_FOUND"; message: string };
+    };
+
 export interface RestPageRequest {
   limit: number;
   cursor?: string;

@@ -9,6 +9,7 @@ import {
 import {
   positiveInteger,
   recordValue,
+  rejectClientIdentityFields,
   stringValue,
 } from "./internal-validation";
 
@@ -50,6 +51,7 @@ export interface StartSearchResponseDto {
 
 export interface SearchRunStatusDto {
   searchRunId: string;
+  ownerUserId: string;
   generatorType: "RANDOM";
   randomSeed: string;
   searchSpace: SearchSpaceConfigDto;
@@ -89,6 +91,7 @@ export interface SearchRunStatusResponseDto {
 
 export function parseStartSearchRequest(value: unknown): StartSearchRequestDto {
   const input = recordValue(value, "start search request");
+  rejectClientIdentityFields(input, "start search request");
   if (input.schemaVersion !== REST_SCHEMA_VERSION || input.generatorType !== "RANDOM") {
     throw new RestContractValidationError("Unsupported search schema or generator");
   }

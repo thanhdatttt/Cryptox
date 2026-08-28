@@ -5,6 +5,7 @@ import {
   type Experiment,
   type Trade,
 } from "./contracts";
+import type { AuthenticatedUserId } from "modules/auth/api";
 
 describe("backtesting public contracts", () => {
   it("freezes the approved configurable simulator profile and mechanism-neutral states", () => {
@@ -119,6 +120,7 @@ describe("backtesting public contracts", () => {
         kind: "STRATEGY",
         definition: {
           id: "strategy-1",
+          ownerUserId: "user-1" as AuthenticatedUserId,
           logicalFamilyKey: "ma",
           strategyName: "MA",
           implementationVersion: "1",
@@ -190,5 +192,28 @@ describe("backtesting public contracts", () => {
       "2026-07-01T00:05:00.000Z",
     );
     expect(experiment.visualization.overlays[0]?.strategyDefinitionId).toBe("strategy-1");
+    expect(experiment).not.toHaveProperty("ownerUserId");
+    expect(experiment.visualization.tradeMarkers).not.toHaveProperty("ownerUserId");
+  });
+
+  it("puts ownership only on the Candidate root and not inherited children", () => {
+    const candidate = {
+      candidateId: "candidate-1",
+      ownerUserId: "user-1" as AuthenticatedUserId,
+      origin: { kind: "MANUAL" as const, leaderboardScopeId: "scope-1" },
+      strategySelection: { kind: "STRATEGY" as const, strategyDefinitionId: "strategy-1" },
+      marketInput: {
+        pair: "BTCUSDT",
+        timeframe: "1h" as const,
+        range: { from: "2026-01-01T00:00:00Z", to: "2026-01-02T00:00:00Z" },
+      },
+      status: "ACCEPTED" as const,
+      createdAt: "2026-08-28T00:00:00.000Z",
+      updatedAt: "2026-08-28T00:00:00.000Z",
+    };
+    expect(candidate.ownerUserId).toBe("user-1");
+    expect({ id: "trade-1", experimentId: "experiment-1" }).not.toHaveProperty(
+      "ownerUserId",
+    );
   });
 });

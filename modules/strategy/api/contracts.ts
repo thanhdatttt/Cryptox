@@ -1,3 +1,8 @@
+import type {
+  AuthenticatedRequestContext,
+  AuthenticatedUserId,
+} from "modules/auth/api";
+
 export const STRATEGY_SIGNALS = ["BUY", "SELL", "HOLD"] as const;
 export type Signal = (typeof STRATEGY_SIGNALS)[number];
 
@@ -75,6 +80,7 @@ export interface Strategy {
 
 export interface StrategyDefinition {
   id: string;
+  ownerUserId: AuthenticatedUserId;
   logicalFamilyKey: string;
   strategyName: string;
   implementationVersion: string;
@@ -91,6 +97,7 @@ export interface CompositeComponentDefinition {
 
 export interface CompositeStrategyDefinition {
   id: string;
+  ownerUserId: AuthenticatedUserId;
   logicalFamilyKey: string;
   version: number;
   method: CombinationMethod;
@@ -149,6 +156,16 @@ export interface DefineCompositeCommand {
   logicalFamilyKey: string;
   combinationProfileId: typeof MAJORITY_VOTE_V1_ID;
   strategyDefinitionIds: readonly string[];
+}
+
+export interface StrategyDefinitionPageRequest {
+  limit: number;
+  cursor?: string;
+}
+
+export interface StrategyDefinitionPage<TDefinition> {
+  items: readonly TDefinition[];
+  nextCursor?: string;
 }
 
 export const MAJORITY_VOTE_V1 = {
@@ -323,10 +340,30 @@ export const TECHNICAL_PROFILES_V1 = {
 
 export interface StrategyModulePublicApi {
   listStrategies(): readonly StrategyPluginDescriptor[];
-  defineStrategy(command: DefineStrategyCommand): Promise<StrategyDefinition>;
-  defineComposite(command: DefineCompositeCommand): Promise<CompositeStrategyDefinition>;
-  readStrategyDefinition(id: string): Promise<StrategyDefinition>;
-  readCompositeDefinition(id: string): Promise<CompositeStrategyDefinition>;
+  defineStrategy(
+    context: AuthenticatedRequestContext,
+    command: DefineStrategyCommand,
+  ): Promise<StrategyDefinition>;
+  defineComposite(
+    context: AuthenticatedRequestContext,
+    command: DefineCompositeCommand,
+  ): Promise<CompositeStrategyDefinition>;
+  readStrategyDefinition(
+    context: AuthenticatedRequestContext,
+    id: string,
+  ): Promise<StrategyDefinition>;
+  readCompositeDefinition(
+    context: AuthenticatedRequestContext,
+    id: string,
+  ): Promise<CompositeStrategyDefinition>;
+  listStrategyDefinitions(
+    context: AuthenticatedRequestContext,
+    page: StrategyDefinitionPageRequest,
+  ): Promise<StrategyDefinitionPage<StrategyDefinition>>;
+  listCompositeDefinitions(
+    context: AuthenticatedRequestContext,
+    page: StrategyDefinitionPageRequest,
+  ): Promise<StrategyDefinitionPage<CompositeStrategyDefinition>>;
   resolveStrategy(definition: StrategyDefinition): Promise<Strategy>;
   combineSignals(
     definition: CompositeStrategyDefinition,

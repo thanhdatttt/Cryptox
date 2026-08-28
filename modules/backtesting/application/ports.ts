@@ -6,6 +6,7 @@ import type {
   LeaderboardSubmissionResult,
 } from "@cryptox/leaderboard";
 import type { StrategyModulePublicApi } from "@cryptox/strategy";
+import type { AuthenticatedUserId } from "modules/auth/api";
 
 export interface Clock {
   now(): string;
@@ -94,17 +95,34 @@ export interface BacktestRunner<
 }
 
 export interface CandidateRepository<TCandidate, TCreateCommand> {
-  insert(command: TCreateCommand): Promise<TCandidate>;
-  get(candidateId: string): Promise<TCandidate | undefined>;
-  save(candidate: TCandidate): Promise<TCandidate>;
-  listBySearchRun(searchRunId: string): Promise<readonly TCandidate[]>;
+  insert(ownerUserId: AuthenticatedUserId, command: TCreateCommand): Promise<TCandidate>;
+  getByOwnerAndId(
+    ownerUserId: AuthenticatedUserId,
+    candidateId: string,
+  ): Promise<TCandidate | undefined>;
+  save(ownerUserId: AuthenticatedUserId, candidate: TCandidate): Promise<TCandidate>;
+  listByOwnerAndSearchRun(
+    ownerUserId: AuthenticatedUserId,
+    searchRunId: string,
+  ): Promise<readonly TCandidate[]>;
 }
 
 export interface ExperimentRepository<TExperiment, TTrade> {
-  insert(experiment: TExperiment, trades: readonly TTrade[]): Promise<TExperiment>;
-  get(experimentId: string): Promise<TExperiment | undefined>;
-  listBySearchRun(searchRunId: string): Promise<readonly TExperiment[]>;
-  listTrades(
+  insertForCandidateOwner(
+    ownerUserId: AuthenticatedUserId,
+    experiment: TExperiment,
+    trades: readonly TTrade[],
+  ): Promise<TExperiment>;
+  getByCandidateOwnerAndId(
+    ownerUserId: AuthenticatedUserId,
+    experimentId: string,
+  ): Promise<TExperiment | undefined>;
+  listByCandidateOwnerAndSearchRun(
+    ownerUserId: AuthenticatedUserId,
+    searchRunId: string,
+  ): Promise<readonly TExperiment[]>;
+  listTradesByCandidateOwner(
+    ownerUserId: AuthenticatedUserId,
     experimentId: string,
     page: { limit: number; cursor?: string },
   ): Promise<{ items: readonly TTrade[]; nextCursor?: string }>;
@@ -117,13 +135,19 @@ export interface BacktestingUnitOfWork {
 export interface BacktestingCompletionUnitOfWork<TExperiment, TTrade> {
   commit(
     input: {
+      ownerUserId: AuthenticatedUserId;
       experiment: TExperiment;
       trades: readonly TTrade[];
       leaderboardSubmission: LeaderboardSubmission;
     },
     participants: {
-      insertExperiment(experiment: TExperiment, trades: readonly TTrade[]): Promise<TExperiment>;
+      insertExperiment(
+        ownerUserId: AuthenticatedUserId,
+        experiment: TExperiment,
+        trades: readonly TTrade[],
+      ): Promise<TExperiment>;
       submitLeaderboard(
+        ownerUserId: AuthenticatedUserId,
         submission: LeaderboardSubmission,
       ): Promise<LeaderboardSubmissionResult>;
     },

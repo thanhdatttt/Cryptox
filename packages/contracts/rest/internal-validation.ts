@@ -19,6 +19,17 @@ export function stringValue(value: unknown, label: string): string {
   return value;
 }
 
+export function rejectClientIdentityFields(
+  value: Record<string, unknown>,
+  label: string,
+): void {
+  if (value.userId !== undefined || value.ownerUserId !== undefined) {
+    throw new RestContractValidationError(
+      `${label} must not include userId or ownerUserId; identity comes from authenticated context`,
+    );
+  }
+}
+
 export function finiteNumber(value: unknown, label: string): number {
   if (typeof value !== "number" || !Number.isFinite(value)) {
     throw new RestContractValidationError(`${label} must be finite`);

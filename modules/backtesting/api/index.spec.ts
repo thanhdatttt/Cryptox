@@ -20,6 +20,8 @@ describe("backtesting public entrypoint", () => {
         "summarizeSearchCandidates",
       ].sort(),
     );
-    await expect(backtestingApi.status("candidate")).rejects.toThrow("NOT_IMPLEMENTED");
+    await expect(
+      backtestingApi.status({ authenticatedUserId: "user-1" as never }, "candidate"),
+    ).rejects.toThrow("NOT_IMPLEMENTED");
   });
 });

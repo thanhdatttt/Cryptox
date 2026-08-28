@@ -3,13 +3,12 @@ const path = require("node:path");
 
 const repositoryRoot = path.resolve(__dirname, "..");
 const forbiddenPaths = [
-  "modules/auth",
   "apps/backtest-worker",
   "packages/contracts/queue",
   "infra/docker/worker.Dockerfile",
 ];
 const forbiddenPatterns = [
-  /@cryptox\/auth|modules\/auth|createAuthModule/i,
+  /\b(?:RBAC|OAuth|SSO)\b|organizationId|tenantId|workspaceId|passwordReset|twoFactor/i,
   /\bBullMQ\b|\bRedis\b|backtest-worker/i,
   /queueJobId|completionClaimToken|fencingGeneration|TERMINAL_FAILURE_PENDING|RETRY_WAIT/i,
   /stopLoss|takeProfit|trailingStop|riskPolicy|["'](?:LONG|SHORT)["']/i,
@@ -65,5 +64,5 @@ if (findings.length > 0) {
   for (const finding of findings) console.error(`- ${finding}`);
   process.exitCode = 1;
 } else {
-  console.log("No forbidden Auth, queue/distributed, risk, or strict-replay leakage found.");
+  console.log("No deferred enterprise-Auth, queue/distributed, risk, or strict-replay leakage found.");
 }
