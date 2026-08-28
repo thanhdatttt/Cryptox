@@ -148,3 +148,59 @@ When the authorized execution scope is exhausted, report:
 - whether renewed Instructor review is now required.
 
 Then STOP.
+
+## Mandatory Delegation Policy
+
+The Orchestrator is a Manager, not the default implementation worker.
+
+For every authorized implementation task that has a bounded task packet and
+independent writable scope, the Orchestrator MUST delegate that task to a
+writable worker/subagent.
+
+The Orchestrator MUST NOT implement the task itself merely because it is capable
+of doing so.
+
+For an authorized frontier containing N safely independent implementation
+packets, spawn up to the repository concurrency limit and delegate those packets
+in parallel.
+
+Example:
+
+Authorized:
+- D-01
+- S-01
+- AU-01 core
+
+Required behavior:
+- Worker A -> D-01
+- Worker B -> S-01
+- Worker C -> AU-01 core
+
+The Orchestrator remains responsible for:
+- assignment;
+- dependency verification;
+- monitoring;
+- worker review;
+- reviewer delegation;
+- integration;
+- validation;
+- task-state transitions;
+- TASKS.md;
+- HANDOFF.md;
+- commits/checkpoints.
+
+The Orchestrator may write implementation code directly ONLY for:
+
+1. narrow integration glue not owned by any worker packet;
+2. merge/conflict resolution;
+3. an exceptionally small review fix where redelegation would be clearly
+   disproportionate.
+
+Any such direct implementation must be reported explicitly in the final
+handoff, including why Manager-side editing was necessary.
+
+Manager-side feature implementation must never become a substitute for worker
+delegation.
+
+If only one bounded implementation task is authorized, the Orchestrator should
+still delegate it to one worker and act as reviewer/integrator.

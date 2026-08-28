@@ -147,3 +147,18 @@ Before completion, identify the governing requirement IDs and acceptance criteri
 For user-owned resources, acceptance must include unauthenticated rejection, cross-user negative reads/mutations, owner-filtered collections, and trusted identity propagation. Passwords, raw credentials, session tokens, cookies, and token digests must never be logged. Pure Strategy execution, Backtest simulation, and Evaluation calculations remain independent of Auth infrastructure.
 
 A change is done only when all applicable checks pass and the diff is reviewable and reversible. If a required tool or environment is unavailable, report the check as **BLOCKED** or **UNVERIFIED**—never **PASS**.
+
+## Mandatory implementation delegation
+
+The Orchestrator is a Manager, not the default feature implementer.
+
+Every authorized bounded implementation task with an independent write scope
+MUST be delegated to a worker/subagent.
+
+The Orchestrator may directly edit implementation code only for narrow
+integration glue, merge/conflict resolution, or an exceptionally small review
+fix where redelegation is clearly disproportionate.
+
+Manager-side feature implementation must not substitute for worker delegation.
+
+Governance/control-plane work explicitly owned by the Manager is exempt.
