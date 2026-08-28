@@ -53,9 +53,14 @@
   remain `BLOCKED`. No unauthorized task has been started.
 - **Pre-execution checkpoint:** `274218d` on `MVP_IMPLEMENTATION`; this control
   checkpoint records the D-01 assignment and `IN_PROGRESS` transition.
-- **Active delegation:** D-01 is `IN_PROGRESS` with worker Dewey in the disjoint
-  `infra/db/**` and packet-assigned PostgreSQL adapter/test scope. The Manager is
-  reviewing evidence and integration only; AU-01 remains unassigned and gated.
+- **Active delegation:** D-01 was assigned to worker Dewey in the disjoint
+  `infra/db/**` and packet-assigned PostgreSQL adapter/test scope and is now in
+  `REVIEW`. The Manager is reviewing evidence and integration only; AU-01
+  remains unassigned and gated.
+- **D-01 review transition:** Dewey completed without file changes and returned
+  migration down/up plus schema-introspection evidence. D-01 is now `REVIEW`;
+  an independent reviewer must complete constraint probes and verify the
+  migration invocation/config finding before the Manager can close it.
 - **Historical implementation checkpoint:** `INS-002` /
   `APPROVED_FOR_EXECUTION`, starting at branch `MVP_IMPLEMENTATION`, HEAD
   `29544eac0e91e0c566ea75b830aa2ceea4069fdd`, clean working tree.
