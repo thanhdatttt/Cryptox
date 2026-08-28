@@ -15,7 +15,7 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 | C-01 | DONE | 1 | YES | Manager | `MVP_IMPLEMENTATION` / `d7136318ecc5ca98670db4c260974a64d0fcbbfe` | Reviews and all C-01 gates PASS |
 | A-00 | DONE | A | YES | Manager | `MVP_IMPLEMENTATION` / containing A-00 checkpoint commit | Documentation, authority, scope, and strict OpenSpec checks PASS |
 | C-01A | DONE | 1A | YES | Manager / contract worker | `MVP_IMPLEMENTATION` / `9ca2d7c` | Independent review and all contract/global gates PASS |
-| D-01 | REVIEW | 2 | YES — B-02 gate | Manager / D-01 persistence | `MVP_IMPLEMENTATION` / containing INS-005 checkpoint commit | Migration source/static checks PASS; live PostgreSQL migrate/rollback/remigrate BLOCKED/UNVERIFIED |
+| D-01 | READY | 2 | YES — B-02 gate | Orchestrator / D-01 DB worker | `MVP_IMPLEMENTATION` / `7cab605` pre-execution checkpoint | INS-010 authorized; PostgreSQL `localhost:55432` reachable; live migration review pending |
 | M-01 | BLOCKED | 2 | Integration | Unassigned Market Data worker | — | Not started |
 | M-02 | BLOCKED | 3 | Integration | Unassigned Market Data worker | — | Not started |
 | S-01 | DONE | 2 | YES | Manager / S-01 strategy | `MVP_IMPLEMENTATION` / containing INS-005 checkpoint commit | Strategy tests/workspace gates PASS; persistence and built-in plugin scopes untouched |
@@ -117,18 +117,19 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 - **Requirement IDs:** `CSL-R-MD-01`, `CSL-R-ST-04`, `CSL-R-SE-02`,
   `CSL-R-BT-01`, `CSL-R-EV-01`, `CSL-R-LB-01`, `CSL-R-NW-01`, `CSL-R-SN-01`,
   `CSL-R-RP-01`, `CSL-R-OB-01`, `CSL-R-AU-01`, `CSL-R-OW-01`, `CSL-R-RD-01`
-- **State / owner / wave:** REVIEW / Manager / D-01 persistence / Wave 2
+- **State / owner / wave:** READY / Orchestrator and D-01 DB worker / Wave 2
 - **Critical / parallelism:** YES, gates B-02 / YES, with one DB writer
 - **Start dependencies:** C-01A
 - **Integration dependencies:** None
 - **Objective:** Add only approved physical entities, including User, AuthSession,
   and direct ownership columns, with reversible migrations and repository conventions.
 - **Write scope:** `infra/db/**` and packet-assigned module PostgreSQL adapters/tests.
-- **Latest branch / commit:** `MVP_IMPLEMENTATION`; containing INS-005 checkpoint
-  commit.
-- **Validation:** REVIEW under `INS-005`; migration invocation/static checks PASS.
-  Live PostgreSQL migrate/rollback/remigrate evidence is BLOCKED/UNVERIFIED
-  because no valid local credentials or running Docker daemon are available.
+- **Latest branch / commit:** `MVP_IMPLEMENTATION` / `7cab605` pre-execution
+  checkpoint; worker commit and reviewed evidence pending.
+- **Validation:** INS-010 authorizes the live PostgreSQL migration/review phase.
+  The dedicated PostgreSQL 16.10 cluster at `localhost:55432` is reachable;
+  migration invocation/static checks PASS and live migrate/rollback/remigrate
+  review is pending.
 - **Full packet:** [`MVP_PLAN.md#d-01--minimal-mvp-persistence-foundation`](MVP_PLAN.md#d-01--minimal-mvp-persistence-foundation)
 
 ### M-01 — Binance Historical Market Data
