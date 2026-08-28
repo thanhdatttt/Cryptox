@@ -2,107 +2,126 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-003`
+Instruction ID: `INS-004`
 
-Status: `HOLD`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
 ## Reviewed repository checkpoint
 
 - Branch: `MVP_IMPLEMENTATION`
-- Reviewed repository HEAD: `2858388759b38218d8a89513ecbcc654c3c56d16`
+- Reviewed repository HEAD: `c98a102aa8bdd161f2ce9b885590fedf27658b8f`
 - Working tree at review: clean.
-- Prior instruction: `INS-002` / `APPROVED_FOR_EXECUTION`; its authorized frontier
-  is exhausted.
-- Completed source commits: `9ca2d7c` (C-01A), `a20a7c5` (E-01), and `901065a`
-  (F-01).
-- Execution checkpoint commit: `2858388`, limited to the Manager-owned
-  `docs/implementation/HANDOFF.md` and `docs/implementation/TASKS.md` update.
+- Human direction: the `INS-003` HOLD is accepted and governance-only
+  reconciliation of its four recorded inconsistencies is authorized.
+- Preserved completed implementation: `9ca2d7c` (C-01A), `a20a7c5` (E-01), and
+  `901065a` (F-01), checkpointed by `2858388`.
 
-The completed frontier remained within `INS-002` scope. C-01A added only the
-approved Auth/ownership contracts and narrow architecture/scope gates; E-01 added
-the four required Evaluation metrics without scoring or persistence; F-01 added
-the frontend market-chart foundation without Auth UI or backend/provider
-implementation. Canonical requirements, accepted ADRs, architecture, data model,
-capability specifications, and the active change design/specification were not
-materially changed.
-
-## Consistency result
-
-Execution authorization is on HOLD because the repository control plane is not
-internally consistent:
-
-1. `docs/implementation/TASKS.md` records C-01A, E-01, and F-01 as DONE and D-01,
-   S-01, AU-01, and F-AUTH as READY in its current-frontier table and task records,
-   but its final `State derivation at this checkpoint` still says C-01A, E-01, and
-   F-01 are READY and D-01/S-01 are BLOCKED. Because TASKS is the sole operational
-   state authority, no agent may select the convenient portion of this conflict.
-2. `AGENTS.md` still says the deferred-scope checker has its pre-A-00 Auth
-   prohibition and that C-01A must update it. C-01A is now DONE and commit
-   `9ca2d7c` already replaced that prohibition with the approved enterprise-Auth
-   guard. The repository startup rules therefore describe obsolete gate state.
-3. The durable packets in `docs/implementation/MVP_PLAN.md` retain pre-execution
-   state labels for C-01A and newly unlocked tasks. The plan states that TASKS owns
-   mutable state, but these unlabeled historical state fields now conflict with the
-   current board and must be clarified or reconciled so a fresh agent cannot mistake
-   them for operational state.
-4. `HANDOFF.md` reports 79 workspace tests, while a clean reproduction at the
-   reviewed HEAD executes 84 passing workspace tests. The checkpoint must correct
-   the count or document the exact narrower selection it intended to report.
-
-These are governance/control inconsistencies, not a feature-code failure and not a
-new requirement ambiguity.
+The governance-only commit that persists this instruction may follow the reviewed
+HEAD only when its complete diff is limited to `docs/control/INSTRUCTOR.md`. Any
+other intervening change makes this instruction stale and requires a new Instructor
+review before reconciliation begins.
 
 ## Execution authorization
 
-Approved execution frontier: none.
+Authorized packet: `GOV-R1` — INS-003 Control-Plane Reconciliation.
 
-Explicitly not authorized:
+This is a single governance-only Orchestrator/Manager packet. It is not a feature
+task, creates no new product scope, changes no task dependency, and authorizes no
+implementation worker.
 
-- D-01, S-01, AU-01, F-AUTH, or any other implementation task.
-- Any newly unlocked downstream task or continuation based only on a READY row.
-- Feature source, executable contract, migration, runtime, frontend feature, or
-  dependency changes under this instruction.
+Exact allowed files, and no others:
 
-Required reconciliation before the next Instructor review:
+1. `AGENTS.md`
+2. `docs/implementation/TASKS.md`
+3. `docs/implementation/MVP_PLAN.md`
+4. `docs/implementation/HANDOFF.md`
 
-- The Orchestrator/Manager must correct the stale final state derivation in
-  `TASKS.md` so it agrees with the current-frontier table, task records, HANDOFF,
-  and strict dependency recomputation.
-- Reconcile the obsolete post-C-01A deferred-scope-checker statement in `AGENTS.md`.
-- Clarify or reconcile non-operational state labels in `MVP_PLAN.md` without moving
-  operational state out of TASKS or changing the approved task DAG/packets.
-- Keep this reconciliation governance-only, update HANDOFF if needed for a clean
-  restart, correct the workspace-test evidence count, validate
-  links/diffs/whitespace and control-plane consistency, and commit one coherent
-  checkpoint.
-- Return for a new Instructor review and Instruction ID. Do not start work as part
-  of the reconciliation.
+## Exact reconciliation scope
 
-Candidate frontier for that later review, not authorization: Wave 2 D-01, S-01,
-and the fake-repository phase of AU-01. Before approval, the Orchestrator must
-provide explicit disjoint path assignments: D-01 owns migrations and assigned
-PostgreSQL adapters/tests; S-01 excludes those PostgreSQL paths; AU-01 excludes
-migrations and PostgreSQL adapter work until the D-01 checkpoint. F-AUTH remains a
-separately READY candidate but is not part of this proposed three-worker Wave 2
-frontier.
+### `AGENTS.md`
 
-## Review evidence
+- Replace only the obsolete paragraph claiming that the deferred-scope checker
+  still has the pre-A-00 Auth prohibition and that C-01A must update it.
+- State the verified current fact: C-01A is complete; the checker now permits the
+  approved simple Auth V1 contracts while continuing to reject deferred enterprise
+  identity, queue/distributed, risk, and strict-replay scope.
+- Do not change role ownership, authority order, architecture, requirements, or
+  validation policy.
 
-- Reproduced `npm run verify:stage4a`: PASS — build, typecheck, 84 workspace tests,
-  architecture (42 modules / 88 dependencies and 9 rule fixtures), source-artifact,
-  deferred-scope, and backend smoke gates passed.
-- Reproduced root lint: PASS.
-- Reproduced the three Auth API contract files: 4/4 tests PASS. The checkpoint's
-  broader explicit C-01A suite records 14 files / 35 tests PASS with independent
-  re-review PASS.
-- The checkpoint records Evaluation 15/15, frontend 12/12 plus browser interaction,
-  strict OpenSpec validation, frozen-contract audit, and independent re-reviews as
-  PASS.
-- `git diff --check` and the reviewed working tree are clean.
+### `docs/implementation/TASKS.md`
 
-Pending human decisions: none. Repository governance reconciliation is required.
+- Replace the stale final `State derivation at this checkpoint` with the strict
+  current derivation already supported by its table, task records, and HANDOFF:
+  P-00/C-01/A-00/C-01A/E-01/F-01 are DONE; D-01/S-01/AU-01/F-AUTH are READY; all
+  other unfinished tasks remain BLOCKED by recorded start dependencies.
+- Update only stale authorization annotations on those READY records so they say
+  that `INS-004` authorizes governance reconciliation only and does not authorize
+  feature execution.
+- Do not transition any task, assign an owner, change a dependency, alter a write
+  scope, or claim new task validation.
+
+### `docs/implementation/MVP_PLAN.md`
+
+- Clarify that packet state/owner values are approval-time planning metadata and
+  never operational state.
+- Mechanically rename every `Requirements/state/owner` packet label to an
+  unambiguous form such as `Requirements / baseline state / planned owner`, and
+  update the introductory explanation accordingly.
+- Preserve every recorded baseline value, task packet, dependency, wave, objective,
+  allowed/forbidden scope, acceptance criterion, and approved decision unchanged.
+  `TASKS.md` remains the sole current state/owner authority.
+
+### `docs/implementation/HANDOFF.md`
+
+- Preserve all validated INS-002 implementation results and source commit evidence.
+- Correct `79 workspace tests` to the reproduced `84 workspace tests`.
+- Record that `INS-004` executed governance reconciliation only, list the four
+  changed governance files, state that no task state or feature source changed, and
+  require renewed Instructor review before any READY feature task starts.
+- Keep C-01A/E-01/F-01 DONE and D-01/S-01/AU-01/F-AUTH READY but unauthorized for
+  feature execution.
+
+## Explicitly forbidden
+
+- D-01, S-01, AU-01, F-AUTH, or any other feature task.
+- Feature/runtime/frontend source, executable contracts, migrations, infrastructure,
+  dependencies, scripts, tests, OpenSpec artifacts, requirements, ADRs,
+  architecture, data model, or `docs/control/DECISIONS.md`.
+- Any task state transition, task assignment, dependency/DAG change, packet-scope
+  change, new durable decision, or reinterpretation of validated INS-002 evidence.
+- Starting workers or using this instruction to begin a newly READY task.
+
+## Required validation and checkpoint
+
+Before committing GOV-R1, the Orchestrator/Manager must prove:
+
+1. The diff from the post-INS-004 starting commit contains only the four allowed
+   files and only the bounded edits above.
+2. TASKS current-frontier rows, task records, final derivation, HANDOFF, and strict
+   start-dependency recomputation all agree exactly.
+3. No operational/current-state text still claims C-01A/E-01/F-01 are READY or
+   D-01/S-01 are blocked by C-01A; historical packet values may remain only under
+   the explicit baseline-state label. No text claims the checker retains the
+   pre-A-00 Auth prohibition or the latest checkpoint ran only 79 workspace tests.
+4. Every MVP_PLAN packet uses the clarified baseline-state/planned-owner label and
+   no packet value, dependency, wave, scope, or acceptance text changed.
+5. Documentation links resolve; `git diff --check` passes; strict OpenSpec
+   validation remains PASS; `npm run verify:stage4a` and root lint pass with 84
+   workspace tests; unavailable evidence is reported honestly.
+6. The reconciliation is one coherent local commit and the final working tree is
+   clean.
+
+The resulting HANDOFF must identify the INS-004 starting checkpoint, the
+reconciliation checkpoint as the commit containing that HANDOFF (resolved with
+`git rev-parse HEAD` after checkout), changed paths, validations, unchanged
+implementation commits, and the need for a new Instructor Instruction ID.
+Authorization expires immediately after the GOV-R1 checkpoint is committed.
+
+Approved feature frontier: none.
+
+Pending human decisions: none.
 
 ## Canonical references
 
@@ -114,12 +133,9 @@ Pending human decisions: none. Repository governance reconciliation is required.
 - [Requirements](../requirements.md)
 - [Architecture](../architecture.md)
 - [Data model](../data-model.md)
-- [ADR-005](../adr/ADR_005_module_first_structure.md)
-- [ADR-006](../adr/ADR_006_local_backtest_execution.md)
-- [ADR-007](../adr/ADR_007_practical_reproducibility.md)
 - [ADR-008](../adr/ADR_008_simple_auth_and_per_user_ownership.md)
 - [Active capability specifications](../../openspec/specs/)
 - [Active MVP change](../../openspec/changes/mvp-implementation/)
 
-Notes: this HOLD is the current execution signal. It authorizes no implementation
-and does not alter the completed-task evidence in the latest HANDOFF.
+Notes: `APPROVED_FOR_EXECUTION` applies only to GOV-R1 control-plane reconciliation.
+It is not feature execution authorization.
