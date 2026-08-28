@@ -120,10 +120,11 @@ When sources conflict, follow the higher authority and record the lower-level in
 
 Stage 2 documentation refinement is complete. Application/runtime source, executable contracts, migrations, infrastructure, generated artifacts, and tooling may be modified only through a separately approved change with explicit scope, governing requirements, acceptance criteria, and validation. Do not infer implementation scope from historical scaffolding, archived OpenSpec changes, or stale source assumptions. Repository inconsistencies discovered outside the current approved change must be reported rather than silently repaired.
 
-The executable deferred-scope checker still reflects the pre-A-00 Auth prohibition.
-A-00 does not modify that tool; C-01A owns the narrow gate update needed before it
-adds approved simple Auth contracts. Until then, do not mistake the checker's legacy
-wording for current product authority or use A-00 as permission to edit source.
+The executable deferred-scope checker reflects the current approved scope. C-01A is
+complete; the checker permits the approved simple Auth V1 contracts while continuing
+to reject deferred enterprise identity, queue/distributed, risk, and strict-replay
+scope. Do not mistake checker output for product authority or use this fact as
+permission to edit source outside an approved change.
 
 ## Contract authority
 

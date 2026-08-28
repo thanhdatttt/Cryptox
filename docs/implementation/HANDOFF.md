@@ -5,10 +5,16 @@
 - **Level 2 control plane:** Active. Read `AGENTS.md`, current
   [`INSTRUCTOR.md`](../control/INSTRUCTOR.md), [`DECISIONS.md`](../control/DECISIONS.md),
   [`TASKS.md`](TASKS.md), and this checkpoint before acting.
-- **Instruction executed:** `INS-002` / `APPROVED_FOR_EXECUTION`.
-- **Starting checkpoint:** branch `MVP_IMPLEMENTATION`, HEAD
+- **Current instruction:** `INS-004` / `APPROVED_FOR_EXECUTION`, limited to the
+  governance-only `GOV-R1` reconciliation. Authorization expires after the
+  reconciliation checkpoint; renewed Instructor review is required before any
+  READY feature task starts.
+- **INS-004 starting checkpoint:** branch `MVP_IMPLEMENTATION`, HEAD
+  `471a3899234022d273fed49a72541acc7f94f848`, clean working tree.
+- **Historical implementation checkpoint:** `INS-002` /
+  `APPROVED_FOR_EXECUTION`, starting at branch `MVP_IMPLEMENTATION`, HEAD
   `29544eac0e91e0c566ea75b830aa2ceea4069fdd`, clean working tree.
-- **Authorization applicability:** PASS. The sole commit after the Instructor's
+- **INS-002 authorization applicability:** PASS. The sole commit after the Instructor's
   reviewed HEAD `e9ab1b3bc832f91c975d39a8d4324d455ee5a91e` was `29544ea`, whose
   complete diff changed only `docs/control/INSTRUCTOR.md` as the instruction allowed.
 - **Completed frontier:** C-01A, E-01, and F-01 are DONE. Authorization is exhausted.
@@ -53,7 +59,7 @@ integration remains M-02/I-01; Auth UI remains F-AUTH.
 
 ## Manager validation
 
-- `npm run verify:stage4a`: PASS — root build, typecheck, 79 workspace tests,
+- `npm run verify:stage4a`: PASS — root build, typecheck, 84 workspace tests,
   architecture (42 modules / 88 dependencies and 9 rule fixtures), source-artifact,
   deferred-scope, and backend smoke gates all exited 0.
 - Root lint: PASS.
@@ -68,6 +74,25 @@ integration remains M-02/I-01; Auth UI remains F-AUTH.
 - Strict OpenSpec validation for `mvp-implementation`: PASS. Progress is 4/8
   approval milestones; the full module/frontend milestone remains incomplete.
 - Full diff/whitespace check and frozen market-WebSocket/Evaluation-contract audit: PASS.
+
+## INS-004 governance reconciliation
+
+- **Instruction executed:** `INS-004` / `APPROVED_FOR_EXECUTION` — `GOV-R1`
+  control-plane reconciliation only.
+- **Reconciliation checkpoint:** the single coherent GOV-R1 commit containing
+  this HANDOFF; resolve its commit with `git rev-parse HEAD` after checkout.
+- **Changed governance paths:** `AGENTS.md`, `docs/implementation/TASKS.md`,
+  `docs/implementation/MVP_PLAN.md`, and `docs/implementation/HANDOFF.md`.
+- **Scope result:** corrected the deferred-scope checker description, reconciled
+  current task derivation and authorization annotations, clarified baseline-state
+  packet metadata, and corrected the reproduced workspace-test count. No task
+  state, owner, dependency, write scope, feature source, or implementation result
+  changed.
+- **Unchanged implementation commits:** `9ca2d7c` (C-01A), `a20a7c5` (E-01),
+  and `901065a` (F-01), with the validated INS-002 evidence preserved above.
+- **Next authorization:** renewed Instructor review and a new Instruction ID are
+  required before any READY feature task starts. D-01, S-01, AU-01, and F-AUTH
+  remain READY but unauthorized for feature execution.
 
 The Vite CJS deprecation notice is informational. Real Binance/CoinDesk,
 PostgreSQL, ownership-security integration, and end-to-end demo evidence belong to

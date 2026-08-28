@@ -25,7 +25,7 @@ an additive C-01A gate rather than by reopening C-01.
 The new canonical requirement IDs are `CSL-R-AU-01` (simple Authentication),
 `CSL-R-OW-01` (per-user ownership), and `CSL-R-RD-01` (real-data delivery).
 Task packets use the repository's established shortened requirement notation in
-their `Requirements/state/owner` field; task names remain the heading identifiers.
+their `Requirements / baseline state / planned owner` field; task names remain the heading identifiers.
 
 ## Approved MVP V1 decisions
 
@@ -210,7 +210,7 @@ strict artifact repositories; unrelated cleanup.
 
 ### P-00 — Durable Program Bootstrap
 
-- **Requirements/state/owner:** CSL-R-DL-01, CSL-R-AR-01; DONE; Manager.
+- **Requirements / baseline state / planned owner:** CSL-R-DL-01, CSL-R-AR-01; DONE; Manager.
 - **Objective/rationale:** Persist approved decisions, execution packets, mutable
   board, checkpoint, and OpenSpec governance so no conversation context is needed.
 - **Start/integration dependencies:** Human Stage 5 review / none.
@@ -233,7 +233,7 @@ strict artifact repositories; unrelated cleanup.
 
 ### C-01 — Executable Contract and Behavior Freeze
 
-- **Requirements/state/owner:** MD-01/02, ST-01–04, SE-01/02, BT-01, EV-01,
+- **Requirements / baseline state / planned owner:** MD-01/02, ST-01–04, SE-01/02, BT-01, EV-01,
   LB-01, VIS-01, NW-01, SN-01, RP-01, OB-01; DONE; Manager.
 - **Objective/rationale:** Stabilize public module APIs, application ports, REST
   DTOs, overlay projections, metric/ranking configuration, and contract fixtures
@@ -260,7 +260,7 @@ strict artifact repositories; unrelated cleanup.
 
 ### A-00 — Persist Instructor Auth / Ownership / Real-Data Requirement Change
 
-- **Requirements/state/owner:** AU-01, OW-01, RD-01 and affected existing IDs; DONE;
+- **Requirements / baseline state / planned owner:** AU-01, OW-01, RD-01 and affected existing IDs; DONE;
   Manager.
 - **Objective:** Persist the approved later instructor delta in canonical
   requirements, ADR, architecture/data model, capability specs, active change, and
@@ -288,7 +288,7 @@ strict artifact repositories; unrelated cleanup.
 
 ### C-01A — Authentication & Ownership Contract Extension
 
-- **Requirements/state/owner:** AU-01, OW-01, ST-04, SE-01/02, BT-01, LB-01,
+- **Requirements / baseline state / planned owner:** AU-01, OW-01, ST-04, SE-01/02, BT-01, LB-01,
   RP-01, OB-01; READY; unassigned contract specialist/Manager.
 - **Objective:** Add only Auth, trusted identity, owner-root, owner-scoped
   repository/list, same-owner invariant, and 401/404 contracts required by the
@@ -318,7 +318,7 @@ strict artifact repositories; unrelated cleanup.
 
 ### D-01 — Minimal MVP Persistence Foundation
 
-- **Requirements/state/owner:** AU-01, OW-01, MD-01, ST-04, SE-02, BT-01, EV-01,
+- **Requirements / baseline state / planned owner:** AU-01, OW-01, MD-01, ST-04, SE-02, BT-01, EV-01,
   LB-01, NW-01, SN-01, RP-01, OB-01; BLOCKED; persistence specialist.
 - **Objective:** Add approved physical entities, Users/AuthSessions, direct
   owner-root references, and repository conventions without duplicating ownership
@@ -343,7 +343,7 @@ strict artifact repositories; unrelated cleanup.
 
 ### AU-01 — Simple Authentication and Session Runtime
 
-- **Requirements/state/owner:** AU-01, OW-01, RD-01, OB-01; BLOCKED; Auth worker.
+- **Requirements / baseline state / planned owner:** AU-01, OW-01, RD-01, OB-01; BLOCKED; Auth worker.
 - **Objective:** Implement Argon2id User credentials, opaque PostgreSQL sessions,
   register/login/current-user/logout, expiry/revocation, request identity, and
   sanitized observability.
@@ -368,7 +368,7 @@ strict artifact repositories; unrelated cleanup.
 
 ### M-01 — Binance Historical Market Data
 
-- **Requirements/state/owner:** MD-01, RD-01, RP-01, AR-02; BLOCKED; Market Data worker.
+- **Requirements / baseline state / planned owner:** MD-01, RD-01, RP-01, AR-02; BLOCKED; Market Data worker.
 - **Objective:** Validate, paginate, normalize, persist, and identify historical candles.
 - **Start/integration dependencies:** C-01, D-01 / live smoke before I-01.
 - **Unblocks:** M-02 and real-data integration.
@@ -388,7 +388,7 @@ strict artifact repositories; unrelated cleanup.
 
 ### M-02 — Realtime Market Delivery and Gap Recovery
 
-- **Requirements/state/owner:** MD-02, RD-01, FE-01, OB-01, AR-02, DM-01; BLOCKED; Market Data worker.
+- **Requirements / baseline state / planned owner:** MD-02, RD-01, FE-01, OB-01, AR-02, DM-01; BLOCKED; Market Data worker.
 - **Objective:** Normalized kline streaming, connection state, bounded reconnect,
   missing-candle reconciliation and deduplicated continuation.
 - **Start/integration dependencies:** M-01 / F-01 and I-01.
@@ -405,7 +405,7 @@ strict artifact repositories; unrelated cleanup.
 
 ### S-01 — Strategy Registry, Definitions and Composite Core
 
-- **Requirements/state/owner:** OW-01, ST-01, ST-03/04, AR-02/03, RP-01; BLOCKED; Strategy core worker.
+- **Requirements / baseline state / planned owner:** OW-01, ST-01, ST-03/04, AR-02/03, RP-01; BLOCKED; Strategy core worker.
 - **Objective:** Implement registry, descriptors, immutable definitions, generic
   analysis/overlay output and MAJORITY_VOTE_V1 using fake plugins.
 - **Start/integration dependencies:** C-01A / D-01 for persistence completion.
@@ -422,7 +422,7 @@ strict artifact repositories; unrelated cleanup.
 
 ### S-02 — Moving Average and RSI
 
-- **Requirements/state/owner:** ST-01/02, VIS-01, DM-01; BLOCKED; Strategy worker A.
+- **Requirements / baseline state / planned owner:** ST-01/02, VIS-01, DM-01; BLOCKED; Strategy worker A.
 - **Objective:** Implement MA/RSI TECHNICAL_PROFILES_V1 and deterministic overlays.
 - **Start/integration dependencies:** S-01 / B-02 and I-01.
 - **Unblocks:** Real built-in integration.
@@ -437,7 +437,7 @@ strict artifact repositories; unrelated cleanup.
 
 ### S-03 — Bollinger Bands and Support/Resistance
 
-- **Requirements/state/owner:** ST-01/02, VIS-01, DM-01; BLOCKED; Strategy worker B.
+- **Requirements / baseline state / planned owner:** ST-01/02, VIS-01, DM-01; BLOCKED; Strategy worker B.
 - **Objective:** Implement approved Bollinger and rolling Support/Resistance profiles.
 - **Start/integration dependencies:** S-01 / B-02 and I-01.
 - **Allowed:** Dedicated Bollinger/SR plugin directories and tests.
@@ -450,7 +450,7 @@ strict artifact repositories; unrelated cleanup.
 
 ### E-01 — Independent Evaluation
 
-- **Requirements/state/owner:** EV-01, RP-01, AR-02/03; READY; Evaluation worker.
+- **Requirements / baseline state / planned owner:** EV-01, RP-01, AR-02/03; READY; Evaluation worker.
 - **Objective:** Pure deterministic Return, Win Rate, drawdown magnitude and trade count.
 - **Start/integration dependencies:** C-01 / B-02. **Unblocks:** B-02/L-01 integration.
 - **Reading:** Assignment §§20–21, 37; ADR-006/007; Evaluation spec.
@@ -463,7 +463,7 @@ strict artifact repositories; unrelated cleanup.
 
 ### L-01 — Configurable Reproducible Leaderboard
 
-- **Requirements/state/owner:** OW-01, LB-01, RP-01, OB-01; BLOCKED; Leaderboard worker.
+- **Requirements / baseline state / planned owner:** OW-01, LB-01, RP-01, OB-01; BLOCKED; Leaderboard worker.
 - **Objective:** Implement LINEAR_REQUIRED_V1, versioned configuration, scopes,
   configurable Top-K, deterministic admission/ties and idempotent reads.
 - **Start/integration dependencies:** C-01A, D-01 / E-01 and B-02.
@@ -479,7 +479,7 @@ strict artifact repositories; unrelated cleanup.
 
 ### B-01 — Deterministic Historical Simulator
 
-- **Requirements/state/owner:** BT-01, VIS-01, RP-01, AR-03; BLOCKED; Backtesting domain worker.
+- **Requirements / baseline state / planned owner:** BT-01, VIS-01, RP-01, AR-03; BLOCKED; Backtesting domain worker.
 - **Objective:** Implement pure deterministic long-only simulation and visualization
   traces without providers, persistence, real built-ins, Evaluation, or Leaderboard.
 - **Start dependencies:** C-01 and S-01 only.
@@ -499,7 +499,7 @@ strict artifact repositories; unrelated cleanup.
 
 ### B-02 — Candidate, Execution and Experiment Orchestration
 
-- **Requirements/state/owner:** OW-01, BT-01, ST-04, RP-01, OB-01, AR-01/02; BLOCKED;
+- **Requirements / baseline state / planned owner:** OW-01, BT-01, ST-04, RP-01, OB-01, AR-01/02; BLOCKED;
   Backtesting application worker.
 - **Objective:** Connect owner-scoped Candidate persistence, bounded executor, B-01
   runner, Evaluation, inherited Experiment/Trades, and same-owner Leaderboard with
@@ -522,7 +522,7 @@ strict artifact repositories; unrelated cleanup.
 
 ### AU-02 — Per-User Ownership Security Integration
 
-- **Requirements/state/owner:** OW-01 plus ST-04, SE-01/02, BT-01, LB-01, RP-01,
+- **Requirements / baseline state / planned owner:** OW-01 plus ST-04, SE-01/02, BT-01, LB-01, RP-01,
   OB-01; BLOCKED; Manager/security integration worker.
 - **Objective:** Prove complete owner propagation and cross-user isolation across
   Auth, Strategy, Search, Backtesting, and Leaderboard without duplicating pure
@@ -548,7 +548,7 @@ strict artifact repositories; unrelated cleanup.
 
 ### Q-01 — Seeded Random Search and SearchRun Lifecycle
 
-- **Requirements/state/owner:** OW-01, SE-01/02, LB-01, OB-01, DM-01, AR-02; BLOCKED; Search worker.
+- **Requirements / baseline state / planned owner:** OW-01, SE-01/02, LB-01, OB-01, DM-01, AR-02; BLOCKED; Search worker.
 - **Objective:** Build deterministic Random generation and finite SearchRun lifecycle
   early against fake execution/ranking/persistence ports, then integrate later.
 - **Start dependencies:** C-01A and S-01.
@@ -568,7 +568,7 @@ strict artifact repositories; unrelated cleanup.
 
 ### N-01 — News Collection, Deduplication and Query
 
-- **Requirements/state/owner:** RD-01, NW-01, SN-01 isolation, OB-01, DM-01; BLOCKED; News worker.
+- **Requirements / baseline state / planned owner:** RD-01, NW-01, SN-01 isolation, OB-01, DM-01; BLOCKED; News worker.
 - **Objective:** Fixture-first provider-neutral News with CoinDesk live adapter.
 - **Start/integration dependencies:** C-01, D-01 / N-02 and I-01.
 - **Reading:** Assignment §§27–30, 32.4, 40.5; ADR-004/007; News spec.
@@ -583,7 +583,7 @@ strict artifact repositories; unrelated cleanup.
 
 ### N-02 — `LEXICON_V1` Sentiment
 
-- **Requirements/state/owner:** SN-01, OB-01, AR-02/03, DM-01; BLOCKED; Sentiment worker.
+- **Requirements / baseline state / planned owner:** SN-01, OB-01, AR-02/03, DM-01; BLOCKED; Sentiment worker.
 - **Objective:** Deterministic local lexicon/rule provider, normalized score,
   persistence, provenance, and isolated failure.
 - **Start/integration dependencies:** C-01, D-01 / N-01 and I-01.
@@ -601,7 +601,7 @@ strict artifact repositories; unrelated cleanup.
 
 ### F-01 — Frontend Chart and Client Foundation
 
-- **Requirements/state/owner:** FE-01, MD-02, RD-01, AR-03; READY; Frontend worker.
+- **Requirements / baseline state / planned owner:** FE-01, MD-02, RD-01, AR-03; READY; Frontend worker.
 - **Objective:** App shell, typed REST/market-WS clients, four independent chart
   states, `lightweight-charts` adapter, and fake market source for development.
 - **Start/integration dependencies:** C-01 / M-02 and I-01.
@@ -616,7 +616,7 @@ strict artifact repositories; unrelated cleanup.
 
 ### F-AUTH — Frontend Authentication and Protected Navigation
 
-- **Requirements/state/owner:** AU-01, OW-01, FE-01, DM-01; BLOCKED; Frontend worker.
+- **Requirements / baseline state / planned owner:** AU-01, OW-01, FE-01, DM-01; BLOCKED; Frontend worker.
 - **Objective:** Add register/login/current-session restoration/logout, protected
   private navigation, 401 recovery, and private cache clearing without client-owned
   identity or browser token storage.
@@ -639,7 +639,7 @@ strict artifact repositories; unrelated cleanup.
 
 ### F-02 — Frontend Strategy, Search, Result and Auxiliary Views
 
-- **Requirements/state/owner:** AU-01, OW-01, ST-01/03, SE-01/02, BT-01, EV-01,
+- **Requirements / baseline state / planned owner:** AU-01, OW-01, ST-01/03, SE-01/02, BT-01, EV-01,
   LB-01, VIS-01, NW-01, SN-01, DM-01; BLOCKED; Frontend worker.
 - **Objective:** Descriptor-driven controls, Search progress, Leaderboard, Experiment,
   trades/overlays, News and Sentiment panels against fake typed clients.
@@ -656,7 +656,7 @@ strict artifact repositories; unrelated cleanup.
 
 ### I-01 — Runtime, Transports and Observability Integration
 
-- **Requirements/state/owner:** AU-01, OW-01, RD-01, all capability integrations,
+- **Requirements / baseline state / planned owner:** AU-01, OW-01, RD-01, all capability integrations,
   OB-01, AR-01–03;
   BLOCKED; Manager/integration worker.
 - **Objective:** Compose Auth and real modules, trusted request identity, protected
@@ -680,7 +680,7 @@ strict artifact repositories; unrelated cleanup.
 
 ### I-02 — E2E Demo, Documentation and Final Verification
 
-- **Requirements/state/owner:** Every REQUIRED ID, especially AU-01, OW-01, RD-01,
+- **Requirements / baseline state / planned owner:** Every REQUIRED ID, especially AU-01, OW-01, RD-01,
   DL-01, and DM-01;
   BLOCKED; Manager plus independent reviewers.
 - **Objective:** Prove the complete MVP, architecture defense, clean setup, demo,

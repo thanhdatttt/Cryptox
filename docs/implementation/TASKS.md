@@ -15,23 +15,23 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 | C-01 | DONE | 1 | YES | Manager | `MVP_IMPLEMENTATION` / `d7136318ecc5ca98670db4c260974a64d0fcbbfe` | Reviews and all C-01 gates PASS |
 | A-00 | DONE | A | YES | Manager | `MVP_IMPLEMENTATION` / containing A-00 checkpoint commit | Documentation, authority, scope, and strict OpenSpec checks PASS |
 | C-01A | DONE | 1A | YES | Manager / contract worker | `MVP_IMPLEMENTATION` / `9ca2d7c` | Independent review and all contract/global gates PASS |
-| D-01 | READY | 2 | YES — B-02 gate | Unassigned persistence specialist | — | Ready after C-01A; not authorized by INS-002 |
+| D-01 | READY | 2 | YES — B-02 gate | Unassigned persistence specialist | — | Ready after C-01A; INS-004 authorizes governance reconciliation only; feature execution is not authorized |
 | M-01 | BLOCKED | 2 | Integration | Unassigned Market Data worker | — | Not started |
 | M-02 | BLOCKED | 3 | Integration | Unassigned Market Data worker | — | Not started |
-| S-01 | READY | 2 | YES | Unassigned Strategy core worker | — | Ready after C-01A; not authorized by INS-002 |
+| S-01 | READY | 2 | YES | Unassigned Strategy core worker | — | Ready after C-01A; INS-004 authorizes governance reconciliation only; feature execution is not authorized |
 | S-02 | BLOCKED | 3 | Integration | Unassigned Strategy worker A | — | Not started |
 | S-03 | BLOCKED | 3 | Integration | Unassigned Strategy worker B | — | Not started |
 | E-01 | DONE | 2 | YES — B-02 gate | Manager / Evaluation worker | `MVP_IMPLEMENTATION` / `a20a7c5` | Independent review and Evaluation/global gates PASS |
 | L-01 | BLOCKED | 2 | YES — B-02 gate | Unassigned Leaderboard worker | — | Not started |
 | B-01 | BLOCKED | 3 | YES | Unassigned Backtesting domain worker | — | Not started |
 | B-02 | BLOCKED | 4 | YES | Unassigned Backtesting application worker | — | Not started |
-| AU-01 | READY | 2 | YES | Unassigned Auth worker | — | Ready for fake-repository phase; D-01 gates DB integration; not authorized by INS-002 |
+| AU-01 | READY | 2 | YES | Unassigned Auth worker | — | Ready for fake-repository phase; D-01 gates DB integration; INS-004 authorizes governance reconciliation only; feature execution is not authorized |
 | AU-02 | BLOCKED | 4 | YES | Manager / security integration worker | — | Blocked by private-resource implementations |
 | Q-01 | BLOCKED | 3–4 | Integration | Unassigned Search worker | — | Not started |
 | N-01 | BLOCKED | 2 | Integration | Unassigned News worker | — | Not started |
 | N-02 | BLOCKED | 2 | Integration | Unassigned Sentiment worker | — | Not started |
 | F-01 | DONE | 2 | Integration | Manager / Frontend worker | `MVP_IMPLEMENTATION` / `901065a` | Independent review, frontend/global gates, and browser interaction PASS |
-| F-AUTH | READY | 3 | Integration | Unassigned Frontend worker | — | Ready after C-01A/F-01; AU-01 gates integration; not authorized by INS-002 |
+| F-AUTH | READY | 3 | Integration | Unassigned Frontend worker | — | Ready after C-01A/F-01; AU-01 gates integration; INS-004 authorizes governance reconciliation only; feature execution is not authorized |
 | F-02 | BLOCKED | 3 | Integration | Unassigned Frontend worker | — | Not started |
 | I-01 | BLOCKED | 5 | YES | Manager / integration worker | — | Not started |
 | I-02 | BLOCKED | 6 | YES | Manager plus independent reviewers | — | Not started |
@@ -125,7 +125,8 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
   and direct ownership columns, with reversible migrations and repository conventions.
 - **Write scope:** `infra/db/**` and packet-assigned module PostgreSQL adapters/tests.
 - **Latest branch / commit:** —; record when work starts.
-- **Validation:** Ready after C-01A; not started and not authorized by `INS-002`.
+- **Validation:** Ready after C-01A; not started. `INS-004` authorizes governance
+  reconciliation only; feature execution is not authorized.
   PostgreSQL/Docker availability may block DB evidence.
 - **Full packet:** [`MVP_PLAN.md#d-01--minimal-mvp-persistence-foundation`](MVP_PLAN.md#d-01--minimal-mvp-persistence-foundation)
 
@@ -156,7 +157,8 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
   and Auth tests; migrations remain under D-01 ownership.
 - **Latest branch / commit:** —; record when work starts.
 - **Validation:** Ready for the fake-repository phase after C-01A; D-01 still gates
-  PostgreSQL integration. Not started and not authorized by `INS-002`.
+  PostgreSQL integration. Not started. `INS-004` authorizes governance
+  reconciliation only; feature execution is not authorized.
 - **Full packet:** [`MVP_PLAN.md#au-01--simple-authentication-and-session-runtime`](MVP_PLAN.md#au-01--simple-authentication-and-session-runtime)
 
 ### M-02 — Realtime Market Delivery and Gap Recovery
@@ -186,7 +188,8 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
   generic analysis output, and `MAJORITY_VOTE_V1` with fake plugins.
 - **Write scope:** Strategy core/application/infrastructure/tests excluding built-in directories.
 - **Latest branch / commit:** —; record when work starts.
-- **Validation:** Ready after C-01A; not started and not authorized by `INS-002`.
+- **Validation:** Ready after C-01A; not started. `INS-004` authorizes governance
+  reconciliation only; feature execution is not authorized.
 - **Full packet:** [`MVP_PLAN.md#s-01--strategy-registry-definitions-and-composite-core`](MVP_PLAN.md#s-01--strategy-registry-definitions-and-composite-core)
 
 ### S-02 — Moving Average and RSI
@@ -362,7 +365,8 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 - **Write scope:** Frontend Auth clients, screens, state, navigation guards, and tests.
 - **Latest branch / commit:** —; record when work starts.
 - **Validation:** Ready after C-01A and F-01; AU-01 remains an integration
-  dependency. Not started and not authorized by `INS-002`.
+  dependency. Not started. `INS-004` authorizes governance reconciliation only;
+  feature execution is not authorized.
 - **Full packet:** [`MVP_PLAN.md#f-auth--frontend-authentication-and-protected-navigation`](MVP_PLAN.md#f-auth--frontend-authentication-and-protected-navigation)
 
 ### F-02 — Frontend Strategy, Search, Result and Auxiliary Views
@@ -417,7 +421,8 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 
 ## State derivation at this checkpoint
 
-P-00, C-01, and A-00 are DONE. Strict recomputation from start dependencies makes
-C-01A, E-01, and F-01 READY. D-01 and S-01 are now BLOCKED by C-01A; every other
-unfinished task remains BLOCKED by at least one unfinished start dependency. No
-newly READY implementation task was started at this checkpoint.
+P-00, C-01, A-00, C-01A, E-01, and F-01 are DONE. Strict recomputation from the
+recorded start dependencies makes D-01, S-01, AU-01, and F-AUTH READY. All other
+unfinished tasks remain BLOCKED by at least one recorded unfinished start
+dependency. `INS-004` authorizes governance reconciliation only; no READY feature
+task was started at this checkpoint.
