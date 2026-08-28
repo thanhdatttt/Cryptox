@@ -2,16 +2,16 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-009`
+Instruction ID: `INS-010`
 
-Status: `HOLD`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
 ## Reviewed repository checkpoint
 
 - Branch: `MVP_IMPLEMENTATION`
-- Reviewed repository HEAD: `9b9fb98b3f87eb1e6e445f1cb967ace665de6300`
+- Reviewed repository HEAD: `bc88f36` (`docs: hold after INS-008 checkpoint review`)
 - Working tree at review: clean. The branch is ahead of
   `origin/MVP_IMPLEMENTATION` by the local INS-008 feature and checkpoint
   commits.
@@ -28,40 +28,48 @@ Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
   Runtime smoke honestly reports `/live=200`, `/ready=503`, `/health=404`.
 - Formal OpenSpec CLI validation remains `UNVERIFIED` because the CLI is
   unavailable. Live PostgreSQL migrate/rollback/remigrate evidence remains
-  BLOCKED/UNVERIFIED because valid local credentials or a running Docker daemon
-  are unavailable.
+  PASS on a dedicated temporary PostgreSQL 16.10 cluster at
+  `postgres://cryptox@localhost:55432/cryptox`; the existing PostgreSQL service
+  on port 5432 was not modified. The evidence includes a full up/down/up cycle,
+  `pgcrypto`, 18 MVP tables, and both migration records.
 
 ## Execution authorization
 
-None. This is a HOLD signal; the Orchestrator must not assign or start any
-feature packet from this checkpoint.
+Approved execution frontier, and no more:
 
-The current safe frontier is blocked by the absence of a READY packet and by
-the missing live PostgreSQL evidence required to close the D-01/AU-01 review
-boundary. Q-01 and F-AUTH fake/fixture evidence is not sufficient to mark those
-packets DONE or to authorize their real-port integration.
+1. `D-01` — complete the live PostgreSQL migration/review phase against the
+   dedicated local cluster, including reconciliation of the already-passed
+   migrate/rollback/remigrate evidence.
+2. `AU-01` — implement and validate the real PostgreSQL-backed Auth/session
+   integration, only after the Orchestrator has reviewed and closed the D-01
+   dependency and confirmed F-AUTH's reviewed fake/fixture boundary.
 
-## Resume conditions
+The Orchestrator must first reconcile each specifically authorized phase to
+`READY` in `TASKS.md`, verify the current HEAD/business premises, and record the
+temporary database connection in `HANDOFF.md` without committing credentials.
+It must delegate D-01 and AU-01 to workers with disjoint write scopes. AU-01 may
+not start until D-01's required review is complete. The same local database may
+be used for both phases while it remains available.
 
-The Orchestrator may resume only after all of the following are true:
+This instruction authorizes only the two phases above. It does not authorize
+the newly unlocked M-01 or any automatic follow-on work.
 
-1. A valid local PostgreSQL environment is available and D-01/AU-01 review
-   evidence is reconciled in the execution checkpoint.
-2. `TASKS.md` and `HANDOFF.md` identify a concrete packet as READY with verified
-   dependencies and a safe disjoint write scope.
-3. A fresh Instructor review issues a new execution instruction and ID.
+Authorization ends after the Orchestrator reviews and integrates D-01 and
+AU-01, or when the database environment becomes unavailable. A new Instructor
+review and Instruction ID are required for the next frontier.
 
 ## Explicitly not authorized
 
-- Q-01 or F-AUTH real-port integration or completion.
-- D-01/AU-01 PostgreSQL integration or completion.
-- M-01, M-02, L-01, N-01, N-02, B-02, AU-02, F-02, I-01, I-02, or any other
-  unfinished packet.
-- New task assignment, dependency/DAG changes, contract or migration changes,
-  scope expansion, or deferred features.
+- M-01, M-02, L-01, N-01, N-02, B-02, Q-01 real-port integration, F-AUTH
+  real integration, AU-02, F-02, I-01, I-02, or any other unfinished packet
+  outside the two authorized phases.
+- Migration changes outside D-01 ownership, contract/DAG changes, scope
+  expansion, or deferred features.
 
 The Orchestrator remains responsible for TASKS/HANDOFF state and must not
-silently convert REVIEW or BLOCKED work into READY or DONE.
+silently convert unrelated REVIEW or BLOCKED work into READY or DONE. D-01 and
+AU-01 may be marked DONE only after their complete applicable acceptance and
+integration evidence is reviewed.
 
 ## Canonical references
 
