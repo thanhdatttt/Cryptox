@@ -1,7 +1,12 @@
+const databaseUrl = process.env.DATABASE_URL;
+
+if (!databaseUrl) {
+  throw new Error("DATABASE_URL is required; refusing an implicit migration database");
+}
+
+// node-pg-migrate 7.9.1 reads these direct config-file keys as CLI options.
 module.exports = {
-  databaseUrl: process.env.DATABASE_URL || "postgres://cryptox:cryptox@localhost:5432/cryptox",
-  dir: "infra/db/migrations",
-  direction: "up",
-  count: Infinity,
-  migrationsTable: "pgmigrations",
+  url: databaseUrl,
+  "migrations-dir": "infra/db/migrations",
+  "migrations-table": "pgmigrations",
 };
