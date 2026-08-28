@@ -59,10 +59,32 @@ describe("frontend backend transport", () => {
     expect(socket.disconnect).toHaveBeenCalledOnce();
   });
 
+  it("submits a saved single strategy without inventing a composite id", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(response({ candidateId: "candidate-1", status: "QUEUED" }, 202));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(api.backtest({ leaderboardScopeId: "scope-1", strategyDefinitionIds: ["definition-1"], maxAttempts: 1 })).resolves.toMatchObject({ candidateId: "candidate-1", status: "QUEUED" });
+    expect(JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string)).toEqual({ leaderboardScopeId: "scope-1", strategyDefinitionIds: ["definition-1"], maxAttempts: 1 });
+  });
   it("loads supported market pairs and timeframes from the backend contract", async () => {
     const fetchMock = vi.fn().mockResolvedValue(response({ provider: "BINANCE", pairs: ["BTCUSDT", "ETHUSDT"], timeframes: ["1m", "5m"] }));
     vi.stubGlobal("fetch", fetchMock);
     await expect(api.marketCapabilities()).resolves.toEqual({ provider: "BINANCE", pairs: ["BTCUSDT", "ETHUSDT"], timeframes: ["1m", "5m"] });
     expect(fetchMock).toHaveBeenCalledWith(expect.stringMatching(/\/market\/pairs$/), expect.objectContaining({ headers: expect.any(Headers) }));
   });
+  it("notifies subscribers when an invalid session is cleared", () => {
+    const listener = vi.fn();
+    const unsubscribe = session.subscribe(listener);
+    session.set("expired-token");
+    session.set(null);
+    unsubscribe();
+    expect(listener).toHaveBeenLastCalledWith(null);
+  });
+
+  it("requests a cursor for the next experiment trade page", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(response({ items: [], nextCursor: "cursor-next" }));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(api.experimentTrades("experiment-1", "cursor-2")).resolves.toEqual({ items: [], nextCursor: "cursor-next" });
+    expect(fetchMock.mock.calls[0][0]).toContain("/experiments/experiment-1/trades?limit=100&cursor=cursor-2");
+  });
+
 });

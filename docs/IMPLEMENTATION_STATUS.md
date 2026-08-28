@@ -113,6 +113,13 @@ Commits for the corrected frontend modules: `0c22960 feat(frontend): align live 
 - Final repository validation passed: `npm test` (67 tests), `npm run build`, `npm run lint`, `npm run arch:check` (763 modules / 1,050 dependencies, no violations), and `git diff --check`.
 - Docker validation passed with Docker Desktop 4.87.0 / Engine 29.7.2 / Compose v5.4.0; backend, worker, PostgreSQL, Redis, and frontend all reached healthy status.
 
+### Realtime chart-creation refinement (2026-08-25)
+
+- The Market layout contract is now version `2`. New users and invalid/stale saved layouts start with zero panels, `BTCUSDT` selected for the next chart, and realtime enabled. Valid layouts retain panel order/count, per-panel pair/timeframe, realtime setting, and selected pair across tab navigation and refresh through parent state plus validated localStorage; version `1` layouts intentionally fall back to the empty state.
+- The top pair selector is controlled by `/market/pairs` capabilities. Each supported timeframe button (`1m`, `5m`, `15m`, `1h`, `4h`, `1d`) creates a new independent panel using the selected pair; duplicate pair/timeframe panels are allowed until four panels exist. There is no Add chart or primary-panel action. At four panels the timeframe controls are disabled with an explicit maximum-limit message.
+- The Market route retains backend REST history, authenticated Socket.IO candles/ticks, per-panel selectors, honest connection/loading/error/empty states, genuine normalized Recent Ticks, the reference-aligned connection/ticks sidebar, and the destructive Remove chart control (disabled at one remaining panel). Candle update ordering remains backend-contract driven: same timestamps merge and closed candles cannot regress.
+- This refinement is frontend-only; no market database or provider behavior was changed. The legacy `features.tsx` Market export is not routed by `main.tsx`; the live route is `market.tsx` and remains the sole rendered Market implementation.
+
 ### Explicit remaining limitations and contract gaps
 
 - Deterministic local market data is available only through the explicit development-only `demo` Compose profile. Normal Compose startup uses `MARKET_DATA_PROVIDER=BINANCE`; the seed is not a startup dependency or frontend fallback.
@@ -246,7 +253,67 @@ The previous final-validation claim did not establish the assignment-required pr
 - Market WebSocket messages use the repository's versioned `@cryptox/contracts/websocket/market-data` shape on the `/market` namespace and `market` event. The gateway authenticates the bearer token during connection, forwards only normalized tick/candle/status updates, and sends correlated subscription acknowledgements/errors.
 - The repository’s OpenSpec apply skill was consulted, but the `openspec` CLI is not installed in this checkout. The durable plan/status documents remain the continuation record until that tooling is available.
 
+## Reference-guided frontend continuation (2026-08-25)
+
+The four newly supplied reference images were used as flexible visual guidance for Strategy, Backtest, Discovery, and News hierarchy, spacing, workflow labeling, and responsive card layout. Illustrative values, LLM extraction controls, and unavailable overlays were not copied into runtime state.
+
+- Protected content now waits for `GET /auth/me` during refresh. Invalid restored tokens are cleared and return to sign-in; no fake authenticated shell is rendered.
+- Settings now shows the verified user identity and live `GET /market/pairs` provider capabilities without hard-coded “backend connected” claims or secrets.
+- Backtest submission accepts either one persisted strategy definition or one persisted composite, retains worker lifecycle states, and continues to render backend-owned metrics/trades/replay/visualization.
+- Search and Leaderboard ranking rows now expose an Inspect action that loads the returned sealed experiment visualization and markers when an experiment identifier is available.
+- `docs/REQUIREMENTS_MAP.md` contains a follow-up checklist covering these acceptance points and final validation evidence.
+
+Validation evidence:
+
+- Focused frontend tests: 22 passed. Full `npm test`: 94 tests passed across workspaces, including 4 seed tests.
+- `npm run build`, `npm run lint`, `npm run arch:check`, and `git diff --check` passed. Architecture check: 781 modules / 1,088 dependencies, no violations.
+- `docker compose -f infra/docker-compose.yml up --build -d` passed. PostgreSQL, Redis, backend, worker, and frontend were healthy; published endpoints were `http://localhost:3000` and `http://localhost:5173`.
+- Fresh synthetic REST smoke passed: registration `201`, login, `/auth/me`, provider `BINANCE`, 7 pairs, 6 timeframes, and authenticated `/news` with 2 records.
+- Validation was performed at existing HEAD `b4912c4`; no new commit was created so the pre-existing staged Market/user changes remain untouched.
+- Browser-level E2E was attempted but not completed because the in-app browser runtime exited during initialization under the managed Windows ACL sandbox. No browser pass is claimed from this session.
+
 ## Unresolved decisions and blockers
 
 - The npm install emitted 10 audit findings (8 moderate, 2 high) and pending install-script notices; these do not block compilation/tests but remain operational limitations to review.
 - The local Codex runtime exposes Node but not `npm` on `PATH`; a system npm executable was located at `C:\Program Files\nodejs\npm.cmd` for validation. The repository commands themselves must remain normal `npm ...` commands for developers.
+
+## Frontend completion audit and Compose evidence (2026-08-26)
+
+The remaining non-Market frontend continuation was audited against the assignment, the public REST/WebSocket contracts, the frontend specification, and the current implementation. A contract gap found during that audit was corrected narrowly: `POST /backtests` now accepts one authenticated persisted strategy definition without requiring a separately persisted composite, while still requiring an explicit persisted composite for multi-definition submissions. The frontend now sends the optional composite ID, exposes manual cancellation, renders `QUEUED`, `BACKTESTING`, `RETRY_WAIT`, `PROCESSING_RESULT`, `COMPLETED`, `FAILED`, and `CANCELLED` outcomes, styles replay mismatches as errors, derives Search progress from the backend stop condition, shows the Generate → Backtest → Evaluate → Rank → Leaderboard pipeline, exposes News refresh, and displays weighted-composite totals before backend validation.
+
+Validation evidence:
+
+- Focused frontend validation: 23 tests passed; frontend production build passed.
+- Focused backend validation: 10 controller/composition tests passed; backend TypeScript build passed, including the single-strategy backtest route regression.
+- Full `npm test`: 96 tests passed (4 deterministic seed tests plus all workspace suites).
+- `npm run build`, `npm run lint`, `npm run arch:check`, and `git diff --check` passed. Architecture check: 781 modules / 1,088 dependencies with no violations.
+- Docker Desktop was started because its daemon was initially stopped. `docker compose -f infra/docker-compose.yml up --build -d` passed. PostgreSQL, Redis, backend, backtest-worker, and frontend were healthy; published endpoints were `http://localhost:3000` and `http://localhost:5173`.
+- Authenticated Compose REST flow passed with a fresh account: register/login/me; descriptor-driven MA definition `strategy-definition-17885a49-0999-4939-ba94-1adcdedae901`; weighted composite `composite-strategy-20233673-d9bf-4b2d-b4b4-806366c7dc61`; live Binance BTCUSDT `1m` history with 120 candles; scope `03d7465a-f268-4591-8049-f40c4cd038e9`; queued candidate `42488511-c3d3-4314-9200-8fac5cae1393` completed with one attempt; experiment `443970e4-8c38-4488-89d2-85db2354dd93` returned 2 trades, 120 visualization candles, 3 markers, and replay `MATCH`; Search run `f09ebb75-bde4-4ee5-bc7c-adcad86e6dec` completed with one candidate and one ranking; the scope leaderboard returned 2 entries; News returned 2 records with 2 persisted sentiment rows; `/auth/me` re-verification passed.
+- Browser-level E2E was attempted twice against `http://localhost:5173/` using the required in-app browser runtime. The runtime exited during initialization with the managed Windows ACL error `apply deny-read ACLs`, before a browser tab could be created. No browser UI pass is claimed; the Compose/API evidence above is the stronger available runtime evidence.
+
+External-provider limitations remain explicit: strategy Prompt/URL generation uses the backend's `LOCAL_DETERMINISTIC` adapter (`1.0.0`), validates URLs but does not fetch remote content or call an external LLM; News uses the configured local provider when no external provider is configured; Binance history/realtime remains provider/network dependent. No frontend fallback fabricates strategy, candle, backtest, ranking, or sentiment state.
+
+Commit evidence: current branch HEAD remains `b4912c4` (`feat(frontend): complete live realtime market integration`). No new commit was created in this continuation because the worktree already contained pre-existing staged and unstaged user changes; the continuation changes remain visible in the worktree and unrelated changes were preserved.
+
+## Follow-up UI audit (2026-08-26)
+
+- Added shared visible `:focus-visible` treatment for buttons, inputs, textareas, and selects, plus a responsive fallback for non-Market headings, toolbars, news, settings, search summaries, backtest fields, lifecycle rows, and pipeline steps at narrow widths.
+- Focused frontend validation after the UI audit: 23 tests passed and the frontend production build passed.
+- Browser verification was retried against the healthy Compose frontend; the managed browser runtime again exited before tab creation with `windows sandbox failed: helper_unknown_error: apply deny-read ACLs`. Browser-level E2E remains unverified and is not claimed.
+
+## Resumed frontend acceptance fixes (2026-08-26)
+
+- Fixed session-expiry propagation: a backend 401 clears the persisted token and the application shell returns to sign-in through a session subscription.
+- Experiment Detail now requests backend cursor pages with Previous/Next controls, preserves truthful loading/end-of-history states, and surfaces transient `TERMINAL_FAILURE_PENDING` as failure finalization in the manual backtest lifecycle.
+- Added accessible live regions for loading, backend errors, and lifecycle updates, plus visible focus states and narrow responsive fallbacks for non-Market screens.
+- Focused frontend validation after these fixes: 25 tests passed; the frontend production build passed.
+- Browser-level E2E remains unverified because the managed browser runtime exits before tab creation with `windows sandbox failed: helper_unknown_error: apply deny-read ACLs`; no visual-runtime pass is claimed.
+
+## Final validation rerun after resumed frontend fixes (2026-08-26)
+
+- Full `npm test`: 98 tests passed across all workspaces. `npm run build`, `npm run lint`, `npm run arch:check`, and `git diff --check` also passed; architecture remained 781 modules / 1,088 dependencies with no violations.
+- `docker compose -f infra/docker-compose.yml up --build -d` and `docker compose -f infra/docker-compose.yml config --quiet` passed. PostgreSQL, Redis, backend, backtest-worker, and frontend were healthy at `http://localhost:3000` and `http://localhost:5173`.
+- Fresh authenticated REST E2E against that rebuilt Compose stack passed: account `frontend-resumed-1787718719195@example.com`, user `aa5ddc47-d7be-4a85-bf3b-1aef8dc6a792`; four strategy descriptors; persisted MA/RSI definitions; weighted composite `composite-strategy-97887301-1843-42d7-9f16-d409f4d3c028`; `LOCAL_DETERMINISTIC` generation; 120 live Binance candles; input snapshot `05a0b0e7-6ddc-4947-b7b7-924c7709dc58`; scope `f8d21fb5-92bb-450f-9b1d-21f34ffde601`; `202 QUEUED` candidate `f5e28b33-8f91-450c-805c-23128faf1eea` completed; experiment `e83463c7-2ca0-401c-8155-3e1b6878dc03` returned 16 trades, 120 visualization candles, 31 backend markers, cursor page 2, and replay `MATCH`; the scope leaderboard returned 1 entry; Search run `b2d23cee-6bad-46f4-8b57-c2b9ed42ddfa` reached `COMPLETED` with 1 candidate and 1 ranking entry; News returned 2 records and both sentiment lookups were present; `/auth/me` re-verification passed.
+- The browser-level sequence remains unverified. The required in-app browser runtime was retried after the rebuild but exited before creating a tab with `windows sandbox failed: helper_unknown_error: apply deny-read ACLs`; no visual-runtime pass is claimed.
+- External limitations remain explicit: generation is the backend `LOCAL_DETERMINISTIC` adapter (no remote URL fetch or external LLM), News/Sentiment use the configured local provider/model when no external provider is configured, and live Binance history/realtime remain provider/network dependent. No frontend state is fabricated for these limitations.
+- Commit evidence is unchanged: current HEAD remains `b4912c4` (`feat(frontend): complete live realtime market integration`); no new commit was created so existing staged Market/user changes and unrelated worktree changes remain preserved.

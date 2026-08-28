@@ -16,7 +16,7 @@ const runtimeEnv = (import.meta as ImportMeta & { env?: { VITE_BACKEND_URL?: str
 const base = runtimeEnv?.VITE_BACKEND_URL?.replace(/\/$/, "") || "http://localhost:3000";
 const storage = typeof localStorage === "undefined" ? undefined : localStorage;
 let token = storage?.getItem("cryptox.token") ?? null;
-export const session = { get token() { return token; }, set(value: string | null) { token = value; value ? storage?.setItem("cryptox.token", value) : storage?.removeItem("cryptox.token"); } };
+type SessionListener = (value: string | null) => void; const sessionListeners = new Set<SessionListener>(); export const session = { get token() { return token; }, set(value: string | null) { token = value; value ? storage?.setItem("cryptox.token", value) : storage?.removeItem("cryptox.token"); sessionListeners.forEach((listener) => listener(value)); }, subscribe(listener: SessionListener) { sessionListeners.add(listener); return () => { sessionListeners.delete(listener); }; } };
 
 export class ApiError extends Error { constructor(public readonly status: number, message: string) { super(message); } }
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
@@ -49,7 +49,7 @@ export const api = {
   attemptTrades: (id: string) => request<{ items: any[]; nextCursor?: string }>(`/backtest-attempts/${id}/trades?limit=100`),
   cancel: (id: string) => request<void>(`/backtests/${id}/cancel`, { method: "POST" }),
   experiment: (id: string) => request<any>(`/experiments/${id}`),
-  experimentTrades: (id: string) => request<{ items: any[]; nextCursor?: string }>(`/experiments/${id}/trades?limit=100`),
+  experimentTrades: (id: string, cursor?: string) => request<{ items: any[]; nextCursor?: string }>(`/experiments/${id}/trades?limit=100${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`),
   visualization: (id: string, options: { highlightTradeId?: string } = {}) => request<any>(`/experiments/${id}/visualization?limit=1000${options.highlightTradeId ? `&highlightTradeId=${encodeURIComponent(options.highlightTradeId)}` : ""}`),
   replay: (id: string) => request<any>(`/experiments/${id}/replay`, { method: "POST" }),
   search: (body: unknown) => request<{ searchRunId: string }>("/search-runs", json(body)),

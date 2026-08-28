@@ -114,6 +114,23 @@ describe("backend composition", () => {
     await expect(new SearchController(modules).status(`Bearer ${token}`, searchStarted.searchRunId)).resolves.toMatchObject({ state: "RUNNING", candidatesTested: 1, queuedCount: 1 });
   });
 
+  it("accepts a single saved strategy without requiring a persisted composite", async () => {
+    const definition = { id: "definition-single", createdAt: "2025-01-01T00:00:00.000Z" };
+    let received: any;
+    const modules = {
+      auth: { verify: async () => ({ userId: "user-1" }) },
+      strategy: {
+        readDefinitions: async () => [definition],
+        readComposite: async () => { throw new Error("readComposite should not be called for a single strategy"); },
+      },
+      backtesting: {
+        startManual: async (command: any) => { received = command; return { candidateId: "candidate-1", jobId: "candidate-1", status: "QUEUED" }; },
+      },
+    } as unknown as BackendModules;
+
+    await expect(new BacktestController(modules).start("Bearer token", "submission-key", { leaderboardScopeId: "scope-1", strategyDefinitionIds: [definition.id], maxAttempts: 1 })).resolves.toMatchObject({ candidateId: "candidate-1", status: "QUEUED" });
+    expect(received.compositeDefinition).toMatchObject({ method: "WEIGHTED_SCORE", components: [{ strategyDefinitionId: definition.id, weight: 1 }] });
+  });
   it("maps authenticated bounded Search lifecycle and scoped Top-K routes to public facades", async () => {
     const calls: string[] = [];
     const modules = {

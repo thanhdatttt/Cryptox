@@ -343,12 +343,25 @@ export class BacktestController extends ProtectedController {
     @Body() body: { leaderboardScopeId?: unknown; strategyDefinitionIds?: unknown; compositeDefinitionId?: unknown; maxAttempts?: unknown },
   ) {
     const userId = await this.authenticate(authorization);
-    if (typeof body?.leaderboardScopeId !== "string" || !Array.isArray(body.strategyDefinitionIds) || body.strategyDefinitionIds.length === 0 || body.strategyDefinitionIds.some((id) => typeof id !== "string") || typeof body.compositeDefinitionId !== "string") throw new BadRequestException("leaderboardScopeId, strategyDefinitionIds, and compositeDefinitionId are required.");
+    if (typeof body?.leaderboardScopeId !== "string" || !Array.isArray(body.strategyDefinitionIds) || body.strategyDefinitionIds.length === 0 || body.strategyDefinitionIds.some((id) => typeof id !== "string")) throw new BadRequestException("leaderboardScopeId and strategyDefinitionIds are required.");
+    if (body.compositeDefinitionId !== undefined && typeof body.compositeDefinitionId !== "string") throw new BadRequestException("compositeDefinitionId must be a string when supplied.");
     const maxAttempts = body.maxAttempts === undefined ? 1 : typeof body.maxAttempts === "number" ? body.maxAttempts : undefined;
     if (!Number.isInteger(maxAttempts) || maxAttempts === undefined || maxAttempts < 1) throw new BadRequestException("maxAttempts must be a positive integer.");
     try {
       const strategyDefinitions = await this.modules.strategy.readDefinitions(userId, body.strategyDefinitionIds);
-      const compositeDefinition = await this.modules.strategy.readComposite(userId, body.compositeDefinitionId);
+      const compositeDefinition = typeof body.compositeDefinitionId === "string"
+        ? await this.modules.strategy.readComposite(userId, body.compositeDefinitionId)
+        : strategyDefinitions.length === 1
+          ? {
+            id: `single:${strategyDefinitions[0]!.id}`,
+            logicalFamilyKey: `composite:SINGLE:${strategyDefinitions[0]!.id}`,
+            version: 1,
+            method: "WEIGHTED_SCORE" as const,
+            components: [{ strategyDefinitionId: strategyDefinitions[0]!.id, weight: 1 }],
+            thresholds: { buy: 0.3, sell: -0.3 },
+            createdAt: strategyDefinitions[0]!.createdAt,
+          }
+          : (() => { throw new BadRequestException("compositeDefinitionId is required when multiple strategy definitions are supplied."); })();
       return await this.modules.backtesting.startManual({ leaderboardScopeId: body.leaderboardScopeId, strategyDefinitions, compositeDefinition, maxAttempts }, { ownerUserId: userId, submissionIdempotencyKey: idempotencyKey?.trim() || undefined });
     } catch (error) { return backtestHttpError(error); }
   }

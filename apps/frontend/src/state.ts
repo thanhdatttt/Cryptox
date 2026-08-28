@@ -17,12 +17,12 @@ export interface ChartPanelState {
 }
 
 export const MARKET_LAYOUT_STORAGE_KEY = "cryptox.market-layout";
-export const MARKET_LAYOUT_VERSION = 1;
+export const MARKET_LAYOUT_VERSION = 2;
 export interface MarketLayoutState {
   version: typeof MARKET_LAYOUT_VERSION;
   panels: ChartPanelState[];
   realtimeEnabled: boolean;
-  primaryPanelId: string;
+  selectedPair: string;
 }
 
 export interface StrategyParameterDescriptor {
@@ -43,7 +43,7 @@ export const initialChartPanels: ChartPanelState[] = [
   { id: "chart-4", pair: "BTCUSDT", timeframe: "1h" },
 ];
 
-export const defaultMarketLayout = (): MarketLayoutState => ({ version: MARKET_LAYOUT_VERSION, panels: initialChartPanels.map((panel) => ({ ...panel })), realtimeEnabled: true, primaryPanelId: initialChartPanels[0]!.id });
+export const defaultMarketLayout = (): MarketLayoutState => ({ version: MARKET_LAYOUT_VERSION, panels: [], realtimeEnabled: true, selectedPair: "BTCUSDT" });
 
 export interface MarketLayoutStorage { getItem(key: string): string | null; setItem(key: string, value: string): void; }
 
@@ -56,11 +56,11 @@ const validPanel = (value: unknown): value is ChartPanelState => Boolean(value) 
 export const validateMarketLayout = (value: unknown): MarketLayoutState | undefined => {
   if (!value || typeof value !== "object") return undefined;
   const candidate = value as Partial<MarketLayoutState>;
-  if (candidate.version !== MARKET_LAYOUT_VERSION || !Array.isArray(candidate.panels) || candidate.panels.length < 1 || candidate.panels.length > 4 || typeof candidate.realtimeEnabled !== "boolean" || typeof candidate.primaryPanelId !== "string") return undefined;
+  if (candidate.version !== MARKET_LAYOUT_VERSION || !Array.isArray(candidate.panels) || candidate.panels.length > 4 || typeof candidate.realtimeEnabled !== "boolean" || !validPair(candidate.selectedPair)) return undefined;
   if (!candidate.panels.every(validPanel)) return undefined;
   const ids = candidate.panels.map((panel) => panel.id);
-  if (new Set(ids).size !== ids.length || !ids.includes(candidate.primaryPanelId)) return undefined;
-  return { version: MARKET_LAYOUT_VERSION, panels: candidate.panels.map((panel) => ({ id: panel.id, pair: panel.pair, timeframe: panel.timeframe })), realtimeEnabled: candidate.realtimeEnabled, primaryPanelId: candidate.primaryPanelId };
+  if (new Set(ids).size !== ids.length) return undefined;
+  return { version: MARKET_LAYOUT_VERSION, panels: candidate.panels.map((panel) => ({ id: panel.id, pair: panel.pair, timeframe: panel.timeframe })), realtimeEnabled: candidate.realtimeEnabled, selectedPair: candidate.selectedPair };
 };
 
 export const readMarketLayout = (storage: MarketLayoutStorage | undefined = browserStorage()): MarketLayoutState => {
@@ -78,6 +78,11 @@ export const nextChartId = (panels: ChartPanelState[]): string => {
   let number = 1;
   while (used.has(`chart-${number}`)) number += 1;
   return `chart-${number}`;
+};
+
+export const addMarketPanel = (layout: MarketLayoutState, pair: string, timeframe: Timeframe): MarketLayoutState | undefined => {
+  if (layout.panels.length >= 4 || !validPair(pair) || !isTimeframe(timeframe)) return undefined;
+  return { ...layout, selectedPair: pair, panels: [...layout.panels, { id: nextChartId(layout.panels), pair, timeframe }] };
 };
 
 export const mergeCandle = <T extends UiCandle>(history: T[], incoming: T): T[] => {

@@ -23,3 +23,44 @@ The assignment PDF is the authority. The Markdown companion is used for searchab
 Important precedence note: `backtest.jpg` and the other images contain illustrative values and labels (for example, sample profits and dates). Tests must verify behavior and layout structure, not treat those sample numbers as live business constants.
 
 Important conflict resolution: the original map overstated PDF §§32-34 as requiring prompt/URL generation. Those sections are architectural drivers and an end-to-end flow, not an LLM/URL feature requirement. The `strategy.jpg` reference requires that authoring UI to be presented, while the implemented backend requirement is the reviewable, versioned Strategy Library that the PDF explicitly requires in §36.
+
+## Follow-up implementation checklist
+
+The live frontend integration is present on `implement`; the remaining acceptance work is limited to honest runtime state and cross-screen navigation:
+
+- [x] Authenticated shell waits for `/auth/me` before rendering protected content and returns to sign-in on an invalid restored token.
+- [x] Settings presents the authenticated account plus backend/provider capability state without hard-coded connection claims.
+- [x] Backtest accepts either one saved strategy definition or one saved composite, while preserving backend-owned metrics and lifecycle state.
+- [x] Search and Leaderboard rows expose an experiment Inspect action when the backend returns an experiment identifier.
+- [x] Final status records focused tests, build/lint/architecture checks, Docker Compose, and browser-flow evidence with explicit provider limitations.
+
+## 2026-08-26 contract and state audit
+
+- [x] Single persisted strategy backtest selection is accepted through the authenticated transport; multiple definitions still require a real persisted composite.
+- [x] Backtest manual lifecycle exposes backend states including retry/finalization/cancellation and keeps missing experiment/replay data honest.
+- [x] Replay `MATCH`/`MISMATCH` results, sealed visualization markers, paginated trade detail, and unavailable risk fields remain backend-owned.
+- [x] Search progress uses the returned stop condition and explains Generate → Backtest → Evaluate → Rank → Leaderboard without frontend ranking logic.
+- [x] News supports backend refresh/filtering and displays source, publication time, related assets, sentiment label/score, model provenance, and per-item missing sentiment.
+- [x] Full tests/build/lint/architecture checks and healthy Compose/API evidence are recorded in `docs/IMPLEMENTATION_STATUS.md`.
+- [ ] Browser-level UI E2E remains unverified because the managed in-app browser runtime exits during initialization with an ACL error; no visual-runtime pass is claimed.
+
+## 2026-08-26 UI usability audit
+
+- [x] Shared visible focus states cover interactive non-Market controls.
+- [x] Narrow-width responsive fallback prevents the non-Market layouts from retaining multi-column clipping-prone arrangements.
+- [ ] Browser-level UI E2E remains unverified because the managed browser runtime exits during initialization with an ACL error; no visual-runtime pass is claimed.
+
+## Resumed frontend acceptance fixes (2026-08-26)
+
+- [x] Expired authenticated sessions clear the shell state and return to sign-in when the backend returns 401.
+- [x] Experiment trade detail uses the backend cursor contract with Previous/Next controls and honest loading/end states.
+- [x] `TERMINAL_FAILURE_PENDING` is represented as failure finalization rather than an unlabelled lifecycle gap.
+- [x] Loading/error/live lifecycle regions, visible focus states, and narrow responsive fallbacks are implemented for the non-Market screens.
+- [ ] Browser-level UI E2E remains unverified because the managed browser runtime exits during initialization with an ACL error; no visual-runtime pass is claimed.
+
+## Final validation rerun (2026-08-26)
+
+- [x] Full `npm test` passed with 98 tests; build, lint, architecture, and diff checks passed.
+- [x] Rebuilt Docker Compose services reached healthy status, and the authenticated REST flow passed through strategy/composite authoring, snapshot/scope, worker-backed backtest, cursor-paged trades, replay/visualization, Search, Leaderboard, News/Sentiment, and session re-verification.
+- [x] Provider limitations remain explicit: deterministic local strategy generation and local News/Sentiment are surfaced as such; Binance data remains provider/network dependent.
+- [ ] Browser-level UI E2E remains unverified because the managed in-app browser runtime exits before tab creation with `windows sandbox failed: helper_unknown_error: apply deny-read ACLs`; no visual-runtime pass is claimed.
