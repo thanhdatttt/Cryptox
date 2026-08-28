@@ -49,10 +49,9 @@
   final inspection found 18 MVP tables, both migration records, `pgcrypto`, the
   five direct owner roots/FKs/indexes, no inherited/shared owner columns, and no
   deferred columns. Transactional uniqueness/FK/idempotency probes passed 13/13.
-- **AU-01 gate:** D-01 is closed and AU-01 is reconciled to `READY`. F-AUTH's
-  fake/fixture boundary remains reviewed PASS; the authorized AU-01 worker may
-  now implement only real PostgreSQL-backed Auth/session integration in its
-  disjoint Auth/backend transport scope.
+- **AU-01 gate:** D-01 is closed and AU-01 was reconciled to `READY`. F-AUTH's
+  fake/fixture boundary remains reviewed PASS; AU-01 is now `IN_PROGRESS` with
+  one authorized worker in the disjoint Auth/backend transport scope.
 - **Validation inherited from INS-008:** Search and frontend fake/fixture
   focused suites, build/typecheck/lint, `verify:stage4a`, architecture,
   artifact, deferred-scope, backend smoke, root lint, and whitespace checks PASS.
@@ -60,12 +59,12 @@
   live PostgreSQL evidence was completed under INS-010; the formal OpenSpec CLI
   remains `UNVERIFIED` because it is unavailable. The Instructor's prior
   dedicated-cluster evidence was independently reconciled.
-- **Current task state:** D-01 is `DONE` for INS-010; AU-01 is `READY` and
-  authorized to start; M-01 and L-01 are newly `READY` from DAG recomputation but
-  are explicitly unauthorized and not started; Q-01 and F-AUTH remain `REVIEW`;
+- **Current task state:** D-01 is `DONE` for INS-010; AU-01 is `IN_PROGRESS`
+  under its authorized worker; M-01 and L-01 are newly `READY` from DAG
+  recomputation but are explicitly unauthorized and not started; Q-01 and F-AUTH remain `REVIEW`;
   all other unfinished tasks remain `BLOCKED`.
-- **D-01 closure checkpoint:** `f5c5562` on `MVP_IMPLEMENTATION`; this control
-  reconciliation is pending the Manager's checkpoint commit.
+- **D-01 closure checkpoint:** `f5c5562` on `MVP_IMPLEMENTATION`; AU-01
+  assignment is recorded in the next control checkpoint.
 - **Historical implementation checkpoint:** `INS-002` /
   `APPROVED_FOR_EXECUTION`, starting at branch `MVP_IMPLEMENTATION`, HEAD
   `29544eac0e91e0c566ea75b830aa2ceea4069fdd`, clean working tree.

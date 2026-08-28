@@ -25,7 +25,7 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 | L-01 | READY | 2 | YES — B-02 gate | Unassigned Leaderboard worker | — | Newly READY after D-01; not authorized by INS-010 |
 | B-01 | DONE | 3 | YES | Manager / reviewed Backtesting domain worker | `MVP_IMPLEMENTATION` / `afbd88c` | Focused 9/9, Backtesting 18/18, independent review, and reproducible root workspace gate PASS |
 | B-02 | BLOCKED | 4 | YES | Unassigned Backtesting application worker | — | Not started |
-| AU-01 | READY | 2 | YES | Orchestrator / AU-01 Auth worker | `MVP_IMPLEMENTATION` / `f5c5562` D-01 closure checkpoint | INS-010 authorized after D-01 DONE; F-AUTH fake/fixture boundary confirmed; real PostgreSQL integration pending |
+| AU-01 | IN_PROGRESS | 2 | YES | Orchestrator / AU-01 Auth worker | `MVP_IMPLEMENTATION` / `1820bf3` + worker in progress | INS-010 authorized after D-01 DONE; real PostgreSQL Auth/session integration in progress |
 | AU-02 | BLOCKED | 4 | YES | Manager / security integration worker | — | Blocked by private-resource implementations |
 | Q-01 | REVIEW | 3–4 | Integration | Herschel (Q-01 worker; INS-008) | `MVP_IMPLEMENTATION` / `d226a4a` | Pure/fake-port phase reviewed PASS; real-port integration and DONE remain unauthorized |
 | N-01 | BLOCKED | 2 | Integration | Unassigned News worker | — | Not started |
@@ -150,7 +150,7 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 ### AU-01 — Simple Authentication and Session Runtime
 
 - **Requirement IDs:** `CSL-R-AU-01`, `CSL-R-OW-01`, `CSL-R-OB-01`, `CSL-R-RD-01`
-- **State / owner / wave:** READY / Orchestrator / AU-01 Auth / Wave 2
+- **State / owner / wave:** IN_PROGRESS / Orchestrator and AU-01 Auth worker / Wave 2
 - **Critical / parallelism:** YES / YES after D-01 with exclusive Auth scope
 - **Start dependencies:** C-01A
 - **Integration dependencies:** D-01, F-AUTH, and I-01
@@ -158,8 +158,8 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
   session expiry, and logout using Argon2id and opaque PostgreSQL-backed sessions.
 - **Write scope:** Auth module/runtime adapters, approved thin transport integration,
   and Auth tests; migrations remain under D-01 ownership.
-- **Latest branch / commit:** `MVP_IMPLEMENTATION` / `f5c5562` D-01 closure
-  checkpoint; worker assignment pending.
+- **Latest branch / commit:** `MVP_IMPLEMENTATION` / `1820bf3` D-01 closure
+  checkpoint; AU-01 worker execution in progress.
 - **Validation:** Fake-repository phase and Auth focused suite 8/8 remain PASS.
   INS-010 authorizes the real PostgreSQL-backed integration now that D-01 is DONE;
   repository adapter, transport, and integration evidence are pending.
