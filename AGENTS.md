@@ -40,6 +40,14 @@ task packets; `TASKS.md` is the sole operational task-state/dependency authority
 append-oriented approved decision ledger; and `INSTRUCTOR.md` is the small,
 replaceable current authorization. Do not duplicate those truths across files.
 
+### Level 2 bootstrap prompts
+
+Reusable fresh-conversation bootstrap templates are
+`docs/control/prompts/INSTRUCTOR_START.md` for the Instructor and
+`docs/control/prompts/ORCHESTRATOR_START.md` for the Orchestrator. They are templates
+only, not execution authority; current authority and execution state remain in the
+repository control-plane artifacts and Git.
+
 A fresh Instructor or Orchestrator starts without prior conversation context by:
 
 1. reading this file and inspecting Git branch, HEAD, status, and recent commits;
