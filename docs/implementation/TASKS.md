@@ -150,7 +150,7 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 ### AU-01 — Simple Authentication and Session Runtime
 
 - **Requirement IDs:** `CSL-R-AU-01`, `CSL-R-OW-01`, `CSL-R-OB-01`, `CSL-R-RD-01`
-- **State / owner / wave:** REVIEW / Orchestrator, Kepler, and independent Auth reviewer / Wave 2
+- **State / owner / wave:** DONE / Orchestrator, Kepler, Banach, and independent Auth reviewer / Wave 2
 - **Critical / parallelism:** YES / YES after D-01 with exclusive Auth scope
 - **Start dependencies:** C-01A
 - **Integration dependencies:** D-01, F-AUTH, and I-01
@@ -158,13 +158,19 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
   session expiry, and logout using Argon2id and opaque PostgreSQL-backed sessions.
 - **Write scope:** Auth module/runtime adapters, approved thin transport integration,
   and Auth tests; migrations remain under D-01 ownership.
-- **Latest branch / commit:** `MVP_IMPLEMENTATION` / `0be1ca5` assignment
-  checkpoint; Kepler completed the bounded implementation with uncommitted
-  Auth/backend changes for independent review.
-- **Validation:** Fake-repository phase PASS. Kepler reports PostgreSQL Auth
-  integration 10/10, backend controller/e2e 9/9, build/typecheck/lint,
-  architecture, artifact, deferred-scope, runtime smoke, and diff checks PASS;
-  independent review remains pending.
+- **Latest branch / commit:** `MVP_IMPLEMENTATION` / `a9b026b` source
+  integration commit; control checkpoints record the assignment, review, and
+  closure under INS-010.
+- **Validation:** PostgreSQL Auth integration 11/11 and backend controller/e2e
+  9/9 PASS on the dedicated PostgreSQL 16.10 cluster at `localhost:55432`,
+  including concurrent duplicate-email conflict, exact 24-hour expiry, opaque
+  digest-only sessions, generic invalid login, idempotent logout, trusted
+  identity propagation, and cookie policy. Independent review PASS after fixing
+  the typed bootstrap export, deployed-HTTPS `Secure` enforcement, concurrent
+  duplicate-registration evidence, and architecture resolution. Full
+  `verify:stage4a` PASS: build, workspace typecheck/lint/tests, architecture,
+  artifacts, deferred-scope, runtime smoke, and whitespace checks. Formal
+  OpenSpec CLI remains UNVERIFIED because it is unavailable.
 - **Full packet:** [`MVP_PLAN.md#au-01--simple-authentication-and-session-runtime`](MVP_PLAN.md#au-01--simple-authentication-and-session-runtime)
 
 ### M-02 — Realtime Market Delivery and Gap Recovery

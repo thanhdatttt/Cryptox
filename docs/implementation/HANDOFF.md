@@ -10,11 +10,13 @@
   backed AU-01 Auth/session integration. D-01 must be reviewed and closed before
   AU-01 starts. M-01, Q-01 real-port integration, F-AUTH real integration, and
   all other unfinished packets remain unauthorized.
-- **INS-010 applicability:** PASS. Instructor reviewed HEAD is `bc88f36`; the
-  current `7cab605` commit changes only `docs/control/INSTRUCTOR.md`, which is
-  the authorized instruction signal. The working tree is clean, the task DAG
-  and business/source premises are unchanged, and the dedicated PostgreSQL
-  16.10 cluster at `postgres://cryptox@localhost:55432/cryptox` is reachable.
+- **INS-010 applicability:** PASS at execution start. Instructor reviewed HEAD
+  was `bc88f36`; the then-current `7cab605` commit changed only
+  `docs/control/INSTRUCTOR.md`, which was the authorized instruction signal.
+  The dedicated PostgreSQL 16.10 cluster at
+  `postgres://cryptox@localhost:55432/cryptox` was reachable. The authorized
+  D-01 and AU-01 source/control checkpoints now advance HEAD; no further work
+  may be inferred from the original reviewed checkpoint.
 - **Pre-execution reconciliation:** D-01 is reconciled from the prior partial
   `REVIEW` phase to `READY` for the authorized live migration/review packet.
   AU-01 remained `REVIEW` and gated until D-01 was independently reviewed and
@@ -49,31 +51,35 @@
   final inspection found 18 MVP tables, both migration records, `pgcrypto`, the
   five direct owner roots/FKs/indexes, no inherited/shared owner columns, and no
   deferred columns. Transactional uniqueness/FK/idempotency probes passed 13/13.
-- **AU-01 gate:** D-01 is closed and AU-01 was reconciled to `READY`. F-AUTH's
-  fake/fixture boundary remains reviewed PASS; AU-01 is now `REVIEW` after Kepler
-  completed the authorized implementation in the disjoint Auth/backend transport
-  scope. Godel and Cicero were interrupted before edits.
+- **AU-01 gate:** D-01 was independently reviewed and closed before AU-01 was
+  reconciled to `READY`. F-AUTH's fake/fixture boundary remains reviewed PASS.
+  Kepler completed the authorized implementation in the disjoint Auth/backend
+  transport scope; Banach completed review-fix cleanup. Godel and Cicero were
+  interrupted before edits. Volta independently reviewed the final diff and
+  returned PASS.
 - **Validation inherited from INS-008:** Search and frontend fake/fixture
   focused suites, build/typecheck/lint, `verify:stage4a`, architecture,
   artifact, deferred-scope, backend smoke, root lint, and whitespace checks PASS.
   The formal OpenSpec CLI was unavailable and remains `UNVERIFIED`. INS-010
-  live PostgreSQL evidence was completed under INS-010; the formal OpenSpec CLI
-  remains `UNVERIFIED` because it is unavailable. The Instructor's prior
+  live PostgreSQL evidence was completed under INS-010; the Instructor's prior
   dedicated-cluster evidence was independently reconciled.
-- **Current task state:** D-01 is `DONE` for INS-010; AU-01 is `IN_PROGRESS`
-  under its authorized worker; M-01 and L-01 are newly `READY` from DAG
-  recomputation but are explicitly unauthorized and not started; Q-01 and F-AUTH remain `REVIEW`;
-  all other unfinished tasks remain `BLOCKED`.
-- **D-01 closure checkpoint:** `f5c5562` on `MVP_IMPLEMENTATION`; AU-01
-  assignment is recorded in the next control checkpoint.
+- **Current task state:** D-01 and AU-01 are `DONE` for INS-010. M-01 and L-01
+  are `READY` from DAG recomputation but are explicitly unauthorized and not
+  started; Q-01 and F-AUTH remain `REVIEW`; all other unfinished tasks remain
+  `BLOCKED`.
+- **D-01 closure checkpoint:** `f5c5562` on `MVP_IMPLEMENTATION`.
 - **AU-01 interruption checkpoint:** `eb23d7b`/`8e8fc61` on
   `MVP_IMPLEMENTATION`; Godel and Cicero changed no files and produced no
   implementation evidence. Kepler's implementation is recorded at the
-  `0be1ca5` assignment checkpoint and is pending independent review/integration.
-- **AU-01 review evidence:** Kepler reports PostgreSQL Auth integration 10/10,
-  backend controller/e2e 9/9, build/typecheck/lint, architecture, artifact,
-  deferred-scope, `/live`/`/ready` smoke, and diff checks PASS. The OpenSpec CLI
-  remains UNVERIFIED. No AU-01 changes have been committed yet.
+  `0be1ca5` assignment checkpoint; Banach completed the final review corrections.
+- **AU-01 integration checkpoint:** `a9b026b` on `MVP_IMPLEMENTATION`. Auth
+  PostgreSQL integration 11/11 and backend E2E 9/9 passed on the dedicated DB;
+  full `verify:stage4a` passed after resolving the public bootstrap architecture
+  seam. The independent Auth review returned PASS, and no credentials were
+  committed.
+- **INS-010 completion:** Both authorized phases were reviewed, integrated, and
+  closed. Authorization is exhausted; a new Instructor review and Instruction ID
+  are required before any READY task starts.
 - **Historical implementation checkpoint:** `INS-002` /
   `APPROVED_FOR_EXECUTION`, starting at branch `MVP_IMPLEMENTATION`, HEAD
   `29544eac0e91e0c566ea75b830aa2ceea4069fdd`, clean working tree.
