@@ -14,24 +14,24 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 | P-00 | DONE | 0 | YES | Manager | `MVP_IMPLEMENTATION` / containing P-00 checkpoint commit | Repository/documentation checks PASS; OpenSpec CLI UNVERIFIED |
 | C-01 | DONE | 1 | YES | Manager | `MVP_IMPLEMENTATION` / `d7136318ecc5ca98670db4c260974a64d0fcbbfe` | Reviews and all C-01 gates PASS |
 | A-00 | DONE | A | YES | Manager | `MVP_IMPLEMENTATION` / containing A-00 checkpoint commit | Documentation, authority, scope, and strict OpenSpec checks PASS |
-| C-01A | READY | 1A | YES | Unassigned contract owner | — | Ready after A-00; no implementation started |
-| D-01 | BLOCKED | 2 | YES — B-02 gate | Unassigned persistence specialist | — | Blocked by C-01A |
+| C-01A | DONE | 1A | YES | Manager / contract worker | `MVP_IMPLEMENTATION` / `9ca2d7c` | Independent review and all contract/global gates PASS |
+| D-01 | READY | 2 | YES — B-02 gate | Unassigned persistence specialist | — | Ready after C-01A; not authorized by INS-002 |
 | M-01 | BLOCKED | 2 | Integration | Unassigned Market Data worker | — | Not started |
 | M-02 | BLOCKED | 3 | Integration | Unassigned Market Data worker | — | Not started |
-| S-01 | BLOCKED | 2 | YES | Unassigned Strategy core worker | — | Blocked by C-01A |
+| S-01 | READY | 2 | YES | Unassigned Strategy core worker | — | Ready after C-01A; not authorized by INS-002 |
 | S-02 | BLOCKED | 3 | Integration | Unassigned Strategy worker A | — | Not started |
 | S-03 | BLOCKED | 3 | Integration | Unassigned Strategy worker B | — | Not started |
-| E-01 | READY | 2 | YES — B-02 gate | Unassigned Evaluation worker | — | Ready after C-01 |
+| E-01 | DONE | 2 | YES — B-02 gate | Manager / Evaluation worker | `MVP_IMPLEMENTATION` / `a20a7c5` | Independent review and Evaluation/global gates PASS |
 | L-01 | BLOCKED | 2 | YES — B-02 gate | Unassigned Leaderboard worker | — | Not started |
 | B-01 | BLOCKED | 3 | YES | Unassigned Backtesting domain worker | — | Not started |
 | B-02 | BLOCKED | 4 | YES | Unassigned Backtesting application worker | — | Not started |
-| AU-01 | BLOCKED | 2 | YES | Unassigned Auth worker | — | Blocked by C-01A; D-01 gates DB integration |
+| AU-01 | READY | 2 | YES | Unassigned Auth worker | — | Ready for fake-repository phase; D-01 gates DB integration; not authorized by INS-002 |
 | AU-02 | BLOCKED | 4 | YES | Manager / security integration worker | — | Blocked by private-resource implementations |
 | Q-01 | BLOCKED | 3–4 | Integration | Unassigned Search worker | — | Not started |
 | N-01 | BLOCKED | 2 | Integration | Unassigned News worker | — | Not started |
 | N-02 | BLOCKED | 2 | Integration | Unassigned Sentiment worker | — | Not started |
-| F-01 | READY | 2 | Integration | Unassigned Frontend worker | — | Ready after C-01 |
-| F-AUTH | BLOCKED | 3 | Integration | Unassigned Frontend worker | — | Blocked by C-01A, F-01, and AU-01 integration |
+| F-01 | DONE | 2 | Integration | Manager / Frontend worker | `MVP_IMPLEMENTATION` / `901065a` | Independent review, frontend/global gates, and browser interaction PASS |
+| F-AUTH | READY | 3 | Integration | Unassigned Frontend worker | — | Ready after C-01A/F-01; AU-01 gates integration; not authorized by INS-002 |
 | F-02 | BLOCKED | 3 | Integration | Unassigned Frontend worker | — | Not started |
 | I-01 | BLOCKED | 5 | YES | Manager / integration worker | — | Not started |
 | I-02 | BLOCKED | 6 | YES | Manager plus independent reviewers | — | Not started |
@@ -97,7 +97,7 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 
 - **Requirement IDs:** `CSL-R-AU-01`, `CSL-R-OW-01` and affected `CSL-R-ST-04`,
   `CSL-R-SE-01`, `CSL-R-SE-02`, `CSL-R-BT-01`, `CSL-R-LB-01`, `CSL-R-OB-01`.
-- **State / owner / wave:** READY / Unassigned contract owner / Wave 1A
+- **State / owner / wave:** DONE / Manager and contract worker / Wave 1A
 - **Critical / parallelism:** YES / NO; one contract writer
 - **Start dependencies:** A-00
 - **Integration dependencies:** None
@@ -105,8 +105,11 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
   and REST contracts before ownership-sensitive implementation begins.
 - **Write scope:** Only the canonical contract owners and contract tests named in
   the full packet; no runtime implementation or migrations.
-- **Latest branch / commit:** —; record when work starts.
-- **Validation:** Not started.
+- **Latest branch / commit:** `MVP_IMPLEMENTATION` / `9ca2d7c`.
+- **Validation:** Explicit C-01A suite 35/35, root build/typecheck/lint/tests,
+  architecture, artifact, deferred-scope, backend smoke, diff, and strict OpenSpec
+  checks PASS. Independent review P1 was fixed and re-review PASS. Auth tests remain
+  explicit rather than workspace-owned because Auth package metadata is outside C-01A scope.
 - **Full packet:** [`MVP_PLAN.md#c-01a--authentication--ownership-contract-extension`](MVP_PLAN.md#c-01a--authentication--ownership-contract-extension)
 
 ### D-01 — Minimal MVP Persistence Foundation
@@ -114,7 +117,7 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 - **Requirement IDs:** `CSL-R-MD-01`, `CSL-R-ST-04`, `CSL-R-SE-02`,
   `CSL-R-BT-01`, `CSL-R-EV-01`, `CSL-R-LB-01`, `CSL-R-NW-01`, `CSL-R-SN-01`,
   `CSL-R-RP-01`, `CSL-R-OB-01`, `CSL-R-AU-01`, `CSL-R-OW-01`, `CSL-R-RD-01`
-- **State / owner / wave:** BLOCKED / Unassigned persistence specialist / Wave 2
+- **State / owner / wave:** READY / Unassigned persistence specialist / Wave 2
 - **Critical / parallelism:** YES, gates B-02 / YES, with one DB writer
 - **Start dependencies:** C-01A
 - **Integration dependencies:** None
@@ -122,7 +125,8 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
   and direct ownership columns, with reversible migrations and repository conventions.
 - **Write scope:** `infra/db/**` and packet-assigned module PostgreSQL adapters/tests.
 - **Latest branch / commit:** —; record when work starts.
-- **Validation:** Not started; PostgreSQL/Docker availability may block DB evidence.
+- **Validation:** Ready after C-01A; not started and not authorized by `INS-002`.
+  PostgreSQL/Docker availability may block DB evidence.
 - **Full packet:** [`MVP_PLAN.md#d-01--minimal-mvp-persistence-foundation`](MVP_PLAN.md#d-01--minimal-mvp-persistence-foundation)
 
 ### M-01 — Binance Historical Market Data
@@ -142,7 +146,7 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 ### AU-01 — Simple Authentication and Session Runtime
 
 - **Requirement IDs:** `CSL-R-AU-01`, `CSL-R-OW-01`, `CSL-R-OB-01`, `CSL-R-RD-01`
-- **State / owner / wave:** BLOCKED / Unassigned Auth worker / Wave 2
+- **State / owner / wave:** READY / Unassigned Auth worker / Wave 2
 - **Critical / parallelism:** YES / YES after D-01 with exclusive Auth scope
 - **Start dependencies:** C-01A
 - **Integration dependencies:** D-01, F-AUTH, and I-01
@@ -151,7 +155,8 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 - **Write scope:** Auth module/runtime adapters, approved thin transport integration,
   and Auth tests; migrations remain under D-01 ownership.
 - **Latest branch / commit:** —; record when work starts.
-- **Validation:** Not started.
+- **Validation:** Ready for the fake-repository phase after C-01A; D-01 still gates
+  PostgreSQL integration. Not started and not authorized by `INS-002`.
 - **Full packet:** [`MVP_PLAN.md#au-01--simple-authentication-and-session-runtime`](MVP_PLAN.md#au-01--simple-authentication-and-session-runtime)
 
 ### M-02 — Realtime Market Delivery and Gap Recovery
@@ -173,7 +178,7 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 
 - **Requirement IDs:** `CSL-R-ST-01`, `CSL-R-ST-03`, `CSL-R-ST-04`,
   `CSL-R-AR-02`, `CSL-R-AR-03`, `CSL-R-RP-01`
-- **State / owner / wave:** BLOCKED / Unassigned Strategy core worker / Wave 2
+- **State / owner / wave:** READY / Unassigned Strategy core worker / Wave 2
 - **Critical / parallelism:** YES / YES after C-01
 - **Start dependencies:** C-01A
 - **Integration dependencies:** D-01 for persistence completion
@@ -181,7 +186,7 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
   generic analysis output, and `MAJORITY_VOTE_V1` with fake plugins.
 - **Write scope:** Strategy core/application/infrastructure/tests excluding built-in directories.
 - **Latest branch / commit:** —; record when work starts.
-- **Validation:** Not started.
+- **Validation:** Ready after C-01A; not started and not authorized by `INS-002`.
 - **Full packet:** [`MVP_PLAN.md#s-01--strategy-registry-definitions-and-composite-core`](MVP_PLAN.md#s-01--strategy-registry-definitions-and-composite-core)
 
 ### S-02 — Moving Average and RSI
@@ -213,14 +218,16 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 ### E-01 — Independent Evaluation
 
 - **Requirement IDs:** `CSL-R-EV-01`, `CSL-R-RP-01`, `CSL-R-AR-02`, `CSL-R-AR-03`
-- **State / owner / wave:** READY / Unassigned Evaluation worker / Wave 2
+- **State / owner / wave:** DONE / Manager and Evaluation worker / Wave 2
 - **Critical / parallelism:** YES, gates B-02 / YES
 - **Start dependencies:** C-01
 - **Integration dependencies:** B-02
 - **Objective:** Compute deterministic Return, Win Rate, drawdown magnitude, and trade count.
 - **Write scope:** `modules/evaluation/**` except frozen contracts.
-- **Latest branch / commit:** —; record when work starts.
-- **Validation:** Not started.
+- **Latest branch / commit:** `MVP_IMPLEMENTATION` / `a20a7c5`.
+- **Validation:** Evaluation build/typecheck/lint and 15/15 focused tests PASS;
+  root/global gates PASS. Independent review found sparse-array validation and test
+  typing issues; both were fixed and re-review PASS.
 - **Full packet:** [`MVP_PLAN.md#e-01--independent-evaluation`](MVP_PLAN.md#e-01--independent-evaluation)
 
 ### L-01 — Configurable Reproducible Leaderboard
@@ -330,21 +337,23 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 ### F-01 — Frontend Chart and Client Foundation
 
 - **Requirement IDs:** `CSL-R-FE-01`, `CSL-R-MD-02`, `CSL-R-AR-03`, `CSL-R-RD-01`
-- **State / owner / wave:** READY / Unassigned Frontend worker / Wave 2
+- **State / owner / wave:** DONE / Manager and Frontend worker / Wave 2
 - **Critical / parallelism:** Integration / YES
 - **Start dependencies:** C-01
 - **Integration dependencies:** M-02 and I-01
 - **Objective:** Build the app shell, typed clients, independent chart states, a
   `lightweight-charts` adapter, and a fixture market source for tests/development.
 - **Write scope:** `apps/frontend/**`; frozen transport imports only.
-- **Latest branch / commit:** —; record when work starts.
-- **Validation:** Not started.
+- **Latest branch / commit:** `MVP_IMPLEMENTATION` / `901065a`.
+- **Validation:** Frontend build/typecheck/lint and 12/12 tests PASS; root/global
+  gates PASS. Independent review findings were fixed and re-review PASS. Chrome
+  rendered four LIVE charts and preserved independent timeframes on interaction.
 - **Full packet:** [`MVP_PLAN.md#f-01--frontend-chart-and-client-foundation`](MVP_PLAN.md#f-01--frontend-chart-and-client-foundation)
 
 ### F-AUTH — Frontend Authentication and Protected Navigation
 
 - **Requirement IDs:** `CSL-R-AU-01`, `CSL-R-OW-01`, `CSL-R-FE-01`, `CSL-R-DM-01`
-- **State / owner / wave:** BLOCKED / Unassigned Frontend worker / Wave 3
+- **State / owner / wave:** READY / Unassigned Frontend worker / Wave 3
 - **Critical / parallelism:** Integration / Not with an active F-01 shell writer
 - **Start dependencies:** C-01A, F-01
 - **Integration dependencies:** AU-01
@@ -352,7 +361,8 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
   401 recovery, and private-cache clearing using HttpOnly session cookies.
 - **Write scope:** Frontend Auth clients, screens, state, navigation guards, and tests.
 - **Latest branch / commit:** —; record when work starts.
-- **Validation:** Not started.
+- **Validation:** Ready after C-01A and F-01; AU-01 remains an integration
+  dependency. Not started and not authorized by `INS-002`.
 - **Full packet:** [`MVP_PLAN.md#f-auth--frontend-authentication-and-protected-navigation`](MVP_PLAN.md#f-auth--frontend-authentication-and-protected-navigation)
 
 ### F-02 — Frontend Strategy, Search, Result and Auxiliary Views

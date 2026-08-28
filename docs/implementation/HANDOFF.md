@@ -2,134 +2,100 @@
 
 ## Resume here
 
-- **Level 2 control plane:** Active. Read the current
-  [`INSTRUCTOR.md`](../control/INSTRUCTOR.md) and durable
-  [`DECISIONS.md`](../control/DECISIONS.md) before using this execution checkpoint.
-- **Current Instructor signal:** `INS-001` / `HOLD`, reviewed against source/business
-  HEAD `791a50031955a39756d41884bd1876d5840aab5e`. No implementation task is
-  authorized by the Level 2 bootstrap.
-- **Current stage:** A-00 governance reconciliation is complete; no implementation
-  task was started.
-- **Branch:** `MVP_IMPLEMENTATION`
-- **Pre-change C-01 commit:** `d7136318ecc5ca98670db4c260974a64d0fcbbfe`
-- **A-00 checkpoint HEAD:** The commit containing this file; resolve it with
-  `git rev-parse HEAD` after checkout.
-- **DONE:** P-00, C-01, A-00.
-- **READY:** C-01A, E-01, F-01.
-- **BLOCKED by C-01A:** D-01 and S-01. All other unfinished work remains blocked
-  as recorded in [`TASKS.md`](TASKS.md).
+- **Level 2 control plane:** Active. Read `AGENTS.md`, current
+  [`INSTRUCTOR.md`](../control/INSTRUCTOR.md), [`DECISIONS.md`](../control/DECISIONS.md),
+  [`TASKS.md`](TASKS.md), and this checkpoint before acting.
+- **Instruction executed:** `INS-002` / `APPROVED_FOR_EXECUTION`.
+- **Starting checkpoint:** branch `MVP_IMPLEMENTATION`, HEAD
+  `29544eac0e91e0c566ea75b830aa2ceea4069fdd`, clean working tree.
+- **Authorization applicability:** PASS. The sole commit after the Instructor's
+  reviewed HEAD `e9ab1b3bc832f91c975d39a8d4324d455ee5a91e` was `29544ea`, whose
+  complete diff changed only `docs/control/INSTRUCTOR.md` as the instruction allowed.
+- **Completed frontier:** C-01A, E-01, and F-01 are DONE. Authorization is exhausted.
+- **Renewed Instructor review:** REQUIRED before any newly READY task starts.
 
-Read [`AGENTS.md`](../../AGENTS.md), the Level 2 control artifacts, the complete
-authority chain, accepted [`ADR-008`](../adr/ADR_008_simple_auth_and_per_user_ownership.md), the active
-[`mvp-implementation` change](../../openspec/changes/mvp-implementation/), the
-full [`MVP_PLAN.md`](MVP_PLAN.md), and the mutable [`TASKS.md`](TASKS.md) before
-considering any READY packet. READY is not execution authorization.
+## Executed task results
 
-## Historical checkpoint truth
+| Task | Worker scope | Result | Source commit |
+|---|---|---|---|
+| C-01A | Auth/ownership contracts, affected owner-aware APIs/ports, private REST DTOs/tests, narrow gates | DONE | `9ca2d7c` |
+| E-01 | `modules/evaluation/**` excluding frozen public contracts | DONE | `a20a7c5` |
+| F-01 | `apps/frontend/**` and read-only frozen transport imports | DONE | `901065a` |
 
-C-01 was correctly completed at `d7136318ecc5ca98670db4c260974a64d0fcbbfe`
-under the then-authoritative baseline, which deferred authentication and ownership.
-The instructor changed the assignment afterward. A-00 records that later change;
-it does not rewrite C-01 history or claim the new contracts are already executable.
+C-01A added trusted authenticated context separately from client DTOs; the five
+direct ownership roots; inherited/shared ownership constants; owner-first repository
+reads, lists, and mutations; Auth V1 session contracts; 401/404 semantics; and
+additive private REST projections. Runtime Auth, persistence, migrations, controllers,
+and frontend Auth remain unimplemented. The market WebSocket and frozen pure
+Strategy/simulator/Evaluation/ranking contracts were not changed.
 
-C-01 froze the original capability contracts, ports, REST/market-WebSocket DTOs,
-generic visualization traces, deterministic Search identity, bounded execution
-seams, replay provenance, and ranking configuration. A-00 changed documentation
-and governance only. C-01A is the single contract-reconciliation gate for Auth,
-trusted request identity, and ownership-sensitive contracts.
+E-01 implements only deterministic Return, Win Rate, maximum drawdown magnitude,
+and trade count under `REQUIRED_METRICS_V1`, including zero/flat/non-finite,
+overflow, sparse-input, determinism, and immutability cases. It adds no scoring,
+optional metrics, or persistence.
 
-## Approved post-C-01 decisions
+F-01 implements the app shell, typed market clients, one-to-four independent chart
+controllers, the retained `lightweight-charts` adapter, explicit stale/reconnect
+state, bounded reconnect, history-first delivery, unsubscribe cleanup, recovery
+gap replacement, and a development-only fixture source. Real provider/backend
+integration remains M-02/I-01; Auth UI remains F-AUTH.
 
-### Auth V1
+## Independent review
 
-- Real email/password registration, login, current-user lookup, absolute expiry,
-  and logout are REQUIRED by `CSL-R-AU-01`.
-- Passwords use Argon2id. Authentication uses cryptographically random opaque
-  sessions persisted server-side in PostgreSQL; only a token digest is stored.
-- Sessions have a fixed 24-hour absolute lifetime. V1 has no sliding renewal,
-  access/refresh-token pair, or JWT authorization model.
-- The cookie is HttpOnly, SameSite=Lax, Path=/, and has no Domain attribute.
-  Secure is required for HTTPS/deployed environments and may be disabled only for
-  explicit localhost HTTP development.
-- The server derives `AuthenticatedUserId` from the validated session. A client
-  `userId` is never authorization evidence. Unauthenticated private access is 401;
-  another user's private resource is exposed as 404.
+- C-01A initial review found owner-less direct-root mutation ports. The worker made
+  Strategy/Composite insert, SearchRun save, and Candidate save owner-first and
+  strengthened cross-owner fixtures. Re-review: PASS, no remaining findings.
+- E-01 initial review found sparse-array validation bypass and then a test-only
+  TypeScript cast error. Both were fixed. Re-review: PASS, no remaining findings.
+- F-01 initial review found late-subscription readiness, unbounded open/close retry,
+  obsolete recovery ownership, and rendered-evidence gaps. All were fixed with
+  regressions and browser evidence. Re-review: PASS, no remaining findings.
 
-### Ownership V1
+## Manager validation
 
-- Direct user-owned roots: StrategyDefinition, CompositeDefinition, SearchRun,
-  Candidate, and LeaderboardScope.
-- Inherited ownership: CompositeComponent through CompositeDefinition; Experiment
-  and Trade through Candidate/Experiment; EvaluationResult through Experiment;
-  LeaderboardEntry through LeaderboardScope.
-- Shared system data: Candle, Market Dataset/provenance, NewsItem,
-  SentimentResult, RankingConfiguration, and Strategy plugin descriptors.
-- Search-created Candidates inherit the trusted SearchRun owner. Leaderboard
-  scopes accept only same-owner Experiments. Owner filtering occurs before
-  pagination, ranking, or mutation.
-- Pure Strategy analysis, simulator, Evaluation, and scoring functions remain
-  identity-agnostic; ownership is enforced at authenticated application boundaries.
+- `npm run verify:stage4a`: PASS — root build, typecheck, 79 workspace tests,
+  architecture (42 modules / 88 dependencies and 9 rule fixtures), source-artifact,
+  deferred-scope, and backend smoke gates all exited 0.
+- Root lint: PASS.
+- Explicit C-01A contract suite: PASS, 14 files / 35 tests. This explicit evidence
+  is required because C-01A did not have authority to add Auth workspace package
+  metadata; Auth's own tests are not independently discovered by root workspace tests.
+- Evaluation focused suite: PASS, 15/15 tests.
+- Frontend focused suite: PASS, 12/12 tests; production build/typecheck/lint PASS.
+- Chrome interaction: PASS — four `lightweight-charts` instances mounted LIVE;
+  changing chart 1 from 5m to 1m preserved `[1m, 15m, 1h, 4h]` and produced no
+  browser warnings/errors.
+- Strict OpenSpec validation for `mvp-implementation`: PASS. Progress is 4/8
+  approval milestones; the full module/frontend milestone remains incomplete.
+- Full diff/whitespace check and frozen market-WebSocket/Evaluation-contract audit: PASS.
 
-### Real-data and chart policy
+The Vite CJS deprecation notice is informational. Real Binance/CoinDesk,
+PostgreSQL, ownership-security integration, and end-to-end demo evidence belong to
+later packets and were not claimed here.
 
-- Deterministic fakes and fixtures remain valid for unit, contract, development,
-  failure, and reproducibility tests.
-- Final/demo evidence must use real Binance history and realtime delivery, a real
-  configured News source, real PostgreSQL application/Auth state, and application-
-  generated Backtest/Leaderboard results. Mock-only final/demo configuration must
-  fail clearly; unavailable external evidence is BLOCKED or UNVERIFIED, never PASS.
-- The existing `lightweight-charts` 4.2.3 dependency is retained behind a frontend
-  adapter. Do not build a custom candlestick engine or move business logic into it.
-- The executable deferred-scope checker remains unchanged from the pre-A-00
-  baseline. C-01A must update that narrow gate before adding approved Auth contracts;
-  its legacy Auth wording is not product authority.
+## Task-state transitions and recomputed DAG
 
-Enterprise identity features remain deferred: RBAC, organizations/teams, tenant or
-workspace hierarchy, OAuth/SSO, 2FA, external identity providers, email
-verification, password reset, and enterprise IAM.
+- `C-01A`: READY -> IN_PROGRESS -> REVIEW -> DONE.
+- `E-01`: READY -> IN_PROGRESS -> REVIEW -> DONE.
+- `F-01`: READY -> IN_PROGRESS -> REVIEW -> DONE.
+- Newly READY after strict start-dependency recomputation: D-01, S-01, AU-01
+  (fake-repository phase; D-01 gates DB integration), and F-AUTH (AU-01 gates
+  integration). None is authorized by `INS-002`, so none was started.
+- All other unfinished tasks remain BLOCKED as recorded in `TASKS.md`.
 
-## Current dependency order
-
-The immediate critical sequence is:
+The revised critical join is:
 
 ```text
-A-00 (DONE) -> C-01A (READY)
-                  +-> D-01 + S-01 -> B-02 / Q-01 ownership work
-                  +-> AU-01 fake-repository work --(D-01 DB gate)--+
-                                                                  +-> AU-02
-F-01 READY -------------------------------> F-AUTH -> F-02 -------+-> I-01 -> I-02
+{ D-01 -> L-01 | S-01 -> B-01 | E-01 DONE } -> B-02 -> Q-01 integration
+{ AU-01 | Q-01 integration } -> AU-02
+{ AU-02 | F-01 DONE -> F-AUTH -> F-02 | real-provider lanes } -> I-01 -> I-02
 ```
 
-E-01 and F-01 are independently READY because their approved pure/foundation work
-does not require the new owner-bearing contracts. Do not broaden either packet:
-F-01 may build only the chart/client foundation, while Auth UI remains F-AUTH.
+## Git checkpoint and recovery
 
-## A-00 validation evidence
-
-- Only governance Markdown/OpenSpec artifacts changed, including OpenSpec authority
-  context; no executable source, contract, migration, dependency, generated artifact,
-  or executable scope/build tooling changed.
-- Documentation links and authority/requirement traceability: PASS.
-- Architecture, artifact, deferred-scope, and whitespace checks: PASS.
-- Strict OpenSpec validation for `mvp-implementation`: PASS.
-- Runtime tests were not required for this documentation-only checkpoint; the
-  prior C-01 checkpoint's build, typecheck, lint, 49 tests, and reviews remain
-  historical evidence rather than newly rerun A-00 claims.
-
-## Fresh-agent restart procedure
-
-1. Follow the fresh-role startup order in `AGENTS.md`; confirm branch, HEAD, status,
-   recent commits, and the complete intervening diff from the Instructor's reviewed
-   checkpoint.
-2. Read `INSTRUCTOR.md`, `DECISIONS.md`, this checkpoint, `TASKS.md`, the relevant
-   `MVP_PLAN.md` packets, and their governing authority.
-3. Confirm TASKS shows only C-01A, E-01, and F-01 READY; D-01/S-01 must be BLOCKED.
-4. The current `INS-001` status is HOLD. An Orchestrator must not claim, delegate,
-   implement, or advance any READY task until a fresh Instructor replaces it with
-   a current `APPROVED_FOR_EXECUTION` instruction.
-5. After approval, verify that every authorized task is still READY, dependencies
-   and write scopes are safe, and the instruction is not stale. Preserve C-01's
-   completed history and use C-01A only for the later contract additions.
-6. The Orchestrator records the Instruction ID, owner, starting commit, changed
-   paths, validation evidence, final task transitions, and latest checkpoint.
-   Report unavailable evidence honestly.
+- Source commits: `9ca2d7c` (C-01A), `a20a7c5` (E-01), `901065a` (F-01).
+- Final control-plane checkpoint: the commit containing this file and the matching
+  `TASKS.md` update; resolve with `git rev-parse HEAD` after checkout.
+- Expected final working tree: clean on `MVP_IMPLEMENTATION`.
+- Do not execute D-01, S-01, AU-01, F-AUTH, or any other task until a fresh current
+  Instructor instruction explicitly authorizes the next frontier.
