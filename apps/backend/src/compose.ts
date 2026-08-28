@@ -1,4 +1,5 @@
 export const ACTIVE_MVP_MODULES = [
+  "auth",
   "marketData",
   "strategy",
   "search",
@@ -46,7 +47,7 @@ export function composeRuntimeState(): RuntimeCompositionState {
       {
         name: "persistence-adapters",
         available: false,
-        detail: "MVP repositories and schema await approved capability implementation.",
+        detail: "Auth PostgreSQL is available only when configured; remaining MVP repositories are not implemented.",
       },
     ],
     optionalDependencies: [

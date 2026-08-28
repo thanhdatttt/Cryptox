@@ -5,6 +5,7 @@ import { composeRuntimeState, readinessOf } from "./compose";
 describe("backend runtime truth", () => {
   it("declares only active MVP modules without constructing fake facades", () => {
     expect(composeRuntimeState().activeModules).toEqual([
+      "auth",
       "marketData",
       "strategy",
       "search",

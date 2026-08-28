@@ -2,6 +2,7 @@ import type {
   AuthApplicationDependencies,
   AuthUserCredentialRecord,
 } from "./ports";
+import { AuthDuplicateEmailError } from "./ports";
 
 const SESSION_LIFETIME_MS = 24 * 60 * 60 * 1000;
 
@@ -112,12 +113,24 @@ export function createAuthApplication<TUserId extends string>(
       throw new AuthApplicationError("EMAIL_ALREADY_REGISTERED");
     }
     const createdAt = dependencies.clock.now();
-    const user = await dependencies.users.insert({
-      id: crypto.randomUUID() as TUserId,
-      normalizedEmail,
-      passwordHash: await dependencies.passwordHash.hash(command.password),
-      createdAt,
-    });
+    let user: AuthUserCredentialRecord<TUserId>;
+    try {
+      user = await dependencies.users.insert({
+        id: crypto.randomUUID() as TUserId,
+        normalizedEmail,
+        passwordHash: await dependencies.passwordHash.hash(command.password),
+        createdAt,
+      });
+    } catch (error) {
+      if (
+        error instanceof AuthDuplicateEmailError ||
+        (isPostgresUniqueViolation(error) &&
+          error.constraint === "users_normalized_email_unique")
+      ) {
+        throw new AuthApplicationError("EMAIL_ALREADY_REGISTERED");
+      }
+      throw error;
+    }
     return grantForUser(user);
   }
 
@@ -125,7 +138,16 @@ export function createAuthApplication<TUserId extends string>(
     const normalizedEmail = normalizeEmail(command.email);
     validatePassword(command.password);
     const user = await dependencies.users.getByNormalizedEmail(normalizedEmail);
-    if (!user || !(await dependencies.passwordHash.verify(user.passwordHash, command.password))) {
+    const passwordHash = user?.passwordHash ?? dependencies.passwordHash.dummyHash;
+    let passwordValid = false;
+    if (passwordHash) {
+      try {
+        passwordValid = await dependencies.passwordHash.verify(passwordHash, command.password);
+      } catch {
+        passwordValid = false;
+      }
+    }
+    if (!user || !passwordValid) {
       throw new AuthApplicationError("INVALID_CREDENTIALS");
     }
     return grantForUser(user);
@@ -170,4 +192,15 @@ export function createAuthApplication<TUserId extends string>(
   }
 
   return { register, login, resolveSession, currentUser, logout };
+}
+
+function isPostgresUniqueViolation(
+  error: unknown,
+): error is { code: "23505"; constraint?: string } {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: unknown }).code === "23505"
+  );
 }

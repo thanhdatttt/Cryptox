@@ -28,6 +28,20 @@ export interface AuthUserRepository<TUserId extends string = string> {
   getById(id: TUserId): Promise<AuthUserCredentialRecord<TUserId> | undefined>;
 }
 
+/**
+ * Raised by a repository when the normalized-email unique constraint wins a
+ * concurrent registration race. The application maps this to the same
+ * conflict as its preflight lookup.
+ */
+export class AuthDuplicateEmailError extends Error {
+  public readonly code = "EMAIL_ALREADY_REGISTERED" as const;
+
+  public constructor() {
+    super("normalized email is already registered");
+    this.name = "AuthDuplicateEmailError";
+  }
+}
+
 export interface AuthSessionRepository<TUserId extends string = string> {
   insert(session: AuthSessionRecord<TUserId>): Promise<AuthSessionRecord<TUserId>>;
   getActiveByTokenDigest(
@@ -40,6 +54,8 @@ export interface AuthSessionRepository<TUserId extends string = string> {
 export interface PasswordHashPort {
   hash(password: string): Promise<string>;
   verify(passwordHash: string, password: string): Promise<boolean>;
+  /** Optional valid hash used to keep missing-user login timing generic. */
+  readonly dummyHash?: string;
 }
 
 export interface OpaqueSessionTokenPort {

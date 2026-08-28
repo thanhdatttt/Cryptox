@@ -1,8 +1,9 @@
 import { createHash, randomBytes } from "node:crypto";
-import type {
-  AuthApplicationDependencies,
-  AuthSessionRecord,
-  AuthUserCredentialRecord,
+import {
+  AuthDuplicateEmailError,
+  type AuthApplicationDependencies,
+  type AuthSessionRecord,
+  type AuthUserCredentialRecord,
 } from "./ports";
 
 export class InMemoryAuthDependencies<TUserId extends string = string>
@@ -26,7 +27,7 @@ export class InMemoryAuthDependencies<TUserId extends string = string>
       createdAt: string;
     }) => {
       if (this.usersByEmail.has(input.normalizedEmail)) {
-        throw new Error("EMAIL_ALREADY_REGISTERED");
+        throw new AuthDuplicateEmailError();
       }
       const user = { ...input, updatedAt: input.createdAt };
       this.usersById.set(user.id, user);
