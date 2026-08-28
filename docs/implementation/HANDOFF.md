@@ -52,9 +52,9 @@
   started. Authorization is exhausted after this checkpoint; a new Instructor
   review and Instruction ID are required before further implementation or task
   state transitions.
-- **Final checkpoint:** The commit containing this current source/TASKS/HANDOFF
-  checkpoint is the authoritative Git recovery point; resolve its hash with
-  `git rev-parse HEAD` after checkout.
+- **Final checkpoint:** Source, task-state, and validation checkpoint commit is
+  `d226a4a` on `MVP_IMPLEMENTATION`; the subsequent control-only commit records
+  this exact handoff. Authorization is exhausted.
 - **Historical implementation checkpoint:** `INS-002` /
   `APPROVED_FOR_EXECUTION`, starting at branch `MVP_IMPLEMENTATION`, HEAD
   `29544eac0e91e0c566ea75b830aa2ceea4069fdd`, clean working tree.
