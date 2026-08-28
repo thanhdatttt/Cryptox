@@ -19,11 +19,11 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 | M-01 | BLOCKED | 2 | Integration | Unassigned Market Data worker | — | Not started |
 | M-02 | BLOCKED | 3 | Integration | Unassigned Market Data worker | — | Not started |
 | S-01 | DONE | 2 | YES | Manager / S-01 strategy | `MVP_IMPLEMENTATION` / containing INS-005 checkpoint commit | Strategy tests/workspace gates PASS; persistence and built-in plugin scopes untouched |
-| S-02 | IN_PROGRESS | 3 | Integration | Delegated Strategy worker A | `MVP_IMPLEMENTATION` / assignment checkpoint under `INS-006` | Assigned under `INS-006`; focused implementation/review pending |
-| S-03 | IN_PROGRESS | 3 | Integration | Delegated Strategy worker B | `MVP_IMPLEMENTATION` / assignment checkpoint under `INS-006` | Assigned under `INS-006`; focused implementation/review pending |
+| S-02 | REVIEW | 3 | Integration | Manager / reviewed Strategy worker A | `MVP_IMPLEMENTATION` / `8a8d5f8` | Focused 15/15 and independent review PASS; root workspace gate remains REVIEW/BLOCKED on pre-existing S-01 UUID-order flake |
+| S-03 | REVIEW | 3 | Integration | Manager / reviewed Strategy worker B | `MVP_IMPLEMENTATION` / `8a8d5f8` | Focused 25/25 and independent review PASS; root workspace gate remains REVIEW/BLOCKED on pre-existing S-01 UUID-order flake |
 | E-01 | DONE | 2 | YES — B-02 gate | Manager / Evaluation worker | `MVP_IMPLEMENTATION` / `a20a7c5` | Independent review and Evaluation/global gates PASS |
 | L-01 | BLOCKED | 2 | YES — B-02 gate | Unassigned Leaderboard worker | — | Not started |
-| B-01 | IN_PROGRESS | 3 | YES | Delegated Backtesting domain worker | `MVP_IMPLEMENTATION` / assignment checkpoint under `INS-006` | Assigned under `INS-006`; focused implementation/review pending |
+| B-01 | REVIEW | 3 | YES | Manager / reviewed Backtesting domain worker | `MVP_IMPLEMENTATION` / `8a8d5f8` | Focused 9/9, Backtesting 18/18, and independent review PASS; root workspace gate remains REVIEW/BLOCKED on pre-existing S-01 UUID-order flake |
 | B-02 | BLOCKED | 4 | YES | Unassigned Backtesting application worker | — | Not started |
 | AU-01 | REVIEW | 2 | YES | Manager / AU-01 Auth | `MVP_IMPLEMENTATION` / containing INS-005 checkpoint commit | Fake-repository phase PASS; PostgreSQL adapter/integration remains gated by D-01 and not authorized |
 | AU-02 | BLOCKED | 4 | YES | Manager / security integration worker | — | Blocked by private-resource implementations |
@@ -198,27 +198,27 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 ### S-02 — Moving Average and RSI
 
 - **Requirement IDs:** `CSL-R-ST-01`, `CSL-R-ST-02`, `CSL-R-VIS-01`, `CSL-R-DM-01`
-- **State / owner / wave:** IN_PROGRESS / Delegated Strategy worker A / Wave 3
+- **State / owner / wave:** REVIEW / Manager / reviewed Strategy worker A / Wave 3
 - **Critical / parallelism:** Integration / YES with S-03 and B-01
 - **Start dependencies:** S-01
 - **Integration dependencies:** B-02 and I-01
 - **Objective:** Implement the approved MA and RSI `TECHNICAL_PROFILES_V1` behavior.
 - **Write scope:** Dedicated MA/RSI plugin directories and tests.
-- **Latest branch / commit:** —; record when work starts.
-- **Validation:** Assigned under `INS-006`; focused implementation and independent review pending.
+- **Latest branch / commit:** `MVP_IMPLEMENTATION` / `8a8d5f8`.
+- **Validation:** Focused suite 15/15, Strategy typecheck/build/lint, targeted architecture, scope, artifact, and independent review PASS. Root workspace gate remains REVIEW/BLOCKED because the pre-existing S-01 application test has a nondeterministic UUID-order expectation failure; this is outside S-02 scope.
 - **Full packet:** [`MVP_PLAN.md#s-02--moving-average-and-rsi`](MVP_PLAN.md#s-02--moving-average-and-rsi)
 
 ### S-03 — Bollinger Bands and Support/Resistance
 
 - **Requirement IDs:** `CSL-R-ST-01`, `CSL-R-ST-02`, `CSL-R-VIS-01`, `CSL-R-DM-01`
-- **State / owner / wave:** IN_PROGRESS / Delegated Strategy worker B / Wave 3
+- **State / owner / wave:** REVIEW / Manager / reviewed Strategy worker B / Wave 3
 - **Critical / parallelism:** Integration / YES with S-02 and B-01
 - **Start dependencies:** S-01
 - **Integration dependencies:** B-02 and I-01
 - **Objective:** Implement the approved Bollinger and rolling Support/Resistance profiles.
 - **Write scope:** Dedicated Bollinger/Support-Resistance plugin directories and tests.
-- **Latest branch / commit:** —; record when work starts.
-- **Validation:** Assigned under `INS-006`; focused implementation and independent review pending.
+- **Latest branch / commit:** `MVP_IMPLEMENTATION` / `8a8d5f8`.
+- **Validation:** Focused suite 25/25, Strategy typecheck/build/lint, targeted architecture, scope, artifact, and independent review PASS. Root workspace gate remains REVIEW/BLOCKED because the pre-existing S-01 application test has a nondeterministic UUID-order expectation failure; this is outside S-03 scope.
 - **Full packet:** [`MVP_PLAN.md#s-03--bollinger-bands-and-supportresistance`](MVP_PLAN.md#s-03--bollinger-bands-and-supportresistance)
 
 ### E-01 — Independent Evaluation
@@ -253,15 +253,15 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 ### B-01 — Deterministic Historical Simulator
 
 - **Requirement IDs:** `CSL-R-BT-01`, `CSL-R-VIS-01`, `CSL-R-RP-01`, `CSL-R-AR-03`
-- **State / owner / wave:** IN_PROGRESS / Delegated Backtesting domain worker / Wave 3
+- **State / owner / wave:** REVIEW / Manager / reviewed Backtesting domain worker / Wave 3
 - **Critical / parallelism:** YES / YES
 - **Start dependencies:** C-01, S-01 only
 - **Integration dependencies:** M-01, S-02, and S-03 before I-01/I-02
 - **Objective:** Implement the pure deterministic long-only simulator and traces
   using candle fixtures and fake strategies.
 - **Write scope:** Backtesting simulator/domain runner/tests, excluding orchestration/executor.
-- **Latest branch / commit:** —; record when work starts.
-- **Validation:** Assigned under `INS-006`; simulator-focused implementation and independent review pending.
+- **Latest branch / commit:** `MVP_IMPLEMENTATION` / `8a8d5f8`.
+- **Validation:** Focused suite 9/9, Backtesting suite 18/18, Backtesting typecheck, lint, targeted architecture, scope, artifact, and independent review PASS. Root workspace gate remains REVIEW/BLOCKED because the pre-existing S-01 application test has a nondeterministic UUID-order expectation failure; this is outside B-01 scope.
 - **Full packet:** [`MVP_PLAN.md#b-01--deterministic-historical-simulator`](MVP_PLAN.md#b-01--deterministic-historical-simulator)
 
 ### B-02 — Candidate, Execution and Experiment Orchestration

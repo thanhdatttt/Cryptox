@@ -6,32 +6,47 @@
   [`INSTRUCTOR.md`](../control/INSTRUCTOR.md), [`DECISIONS.md`](../control/DECISIONS.md),
   [`TASKS.md`](TASKS.md), and this checkpoint before acting.
 - **Current instruction:** `INS-006` / `APPROVED_FOR_EXECUTION`, authorizing only
-  `S-02`, `S-03`, and `B-01`. Authorization ends after review and integration of
-  this three-packet frontier; no newly unlocked task may start without a later
-  Instructor review and Instruction ID.
+  `S-02`, `S-03`, and `B-01`. The authorization is exhausted after this review and
+  integration checkpoint; no newly unlocked task or out-of-scope repair may start
+  without a later Instructor review and Instruction ID.
 - **INS-006 applicability:** PASS for source/business/task premises. Reviewed
-  HEAD is `6da688452c18a3d8d914325ff57e8fe3f7c5b1d3`; current HEAD before this
-  assignment checkpoint is `a7d41ee346deb0d7e0a223c26c767edb3c768d95`, and the
-  intervening commits change only governance (`AGENTS.md`, `INSTRUCTOR.md`, and
-  `ORCHESTRATOR_START.md`). Working tree was clean before this Manager-owned
-  assignment update.
-- **Assignment checkpoint:** `S-02`, `S-03`, and `B-01` transitioned
-  `READY -> IN_PROGRESS` under `INS-006`, with one delegated worker per packet.
-  The three write scopes are disjoint: dedicated MA/RSI plugins, dedicated
-  Bollinger/Support-Resistance plugins, and Backtesting simulator/domain paths.
-- **Pre-assignment validation:** Build and typecheck passed. The root
-  `verify:stage4a` run is not a PASS because the existing S-01 application test
-  has a nondeterministic UUID-sort expectation failure; this is outside the
-  authorized packet scopes and remains a baseline blocker for later global
-  validation. Formal OpenSpec CLI validation is `UNVERIFIED` because the CLI is
-  unavailable. No PostgreSQL live evidence was attempted for this pure frontier.
-- **Current worker owners:** Delegated Strategy worker A -> S-02; Delegated
-  Strategy worker B -> S-03; Delegated Backtesting domain worker -> B-01. Workers
-  must not edit `INSTRUCTOR.md`, `DECISIONS.md`, `TASKS.md`, or `HANDOFF.md`.
-- **Current state transitions:** S-02 `READY -> IN_PROGRESS`; S-03
-  `READY -> IN_PROGRESS`; B-01 `READY -> IN_PROGRESS`. D-01 and AU-01 remain
-  `REVIEW`; Q-01 and F-AUTH remain `READY` but are not authorized. All other
-  unfinished tasks remain BLOCKED by recorded dependencies.
+  HEAD is `6da688452c18a3d8d914325ff57e8fe3f7c5b1d3`; the pre-assignment HEAD was
+  `a7d41ee346deb0d7e0a223c26c767edb3c768d95`, with only governance changes
+  (`AGENTS.md`, `INSTRUCTOR.md`, and `ORCHESTRATOR_START.md`) between the reviewed
+  source state and assignment. The Manager assignment checkpoint was `e314aee`.
+- **Authorized state transitions:** `S-02`, `S-03`, and `B-01` each transitioned
+  `READY -> IN_PROGRESS -> REVIEW`, with one delegated worker per packet. Their
+  write scopes remained disjoint: MA/RSI plugins, Bollinger/Support-Resistance
+  plugins, and the Backtesting simulator/domain paths.
+- **Worker and independent review result:** S-02 was implemented by the delegated
+  Strategy worker A and independently reviewed by Hooke after two remediation
+  rounds: PASS, focused 15/15. S-03 was implemented by Strategy worker B and
+  independently reviewed by Arendt after remediation: PASS, focused 25/25. B-01
+  was implemented by the delegated Backtesting domain worker and independently
+  reviewed by Boole after remediation: PASS, focused 9/9 and Backtesting 18/18.
+  Workers did not edit control-plane files.
+- **Integration checkpoint:** Manager integrated the reviewed ten-file source
+  scope in `8a8d5f8` (`feat: implement INS-006 strategy plugins and simulator`).
+  No shared registration/bootstrap, contracts, other modules/plugins, or generated
+  artifacts were changed; B-01's simulator/domain is self-contained from external
+  module and API imports.
+- **Validation:** Focused authorized suites are 49/49 PASS. Build, typecheck,
+  lint, architecture, artifact, deferred-scope, runtime smoke, and whitespace
+  checks PASS. Root `verify:stage4a` remains FAIL at 50/51 because the existing
+  S-01 `modules/strategy/application/service.spec.ts` test has a nondeterministic
+  UUID-order expectation failure (reproduced 3 failures / 2 passes); it is outside
+  this authorization and was not repaired. Formal OpenSpec CLI validation is
+  `UNVERIFIED` because the CLI is unavailable. Live PostgreSQL evidence is not
+  applicable to this pure frontier; earlier D-01/AU-01 live evidence remains
+  BLOCKED/UNVERIFIED.
+- **Current task state:** S-02, S-03, and B-01 are `REVIEW`, not `DONE`, because
+  the applicable root workspace gate is not green/reproducible. D-01 and AU-01
+  remain `REVIEW`; Q-01 and F-AUTH remain `READY` but unauthorized; all other
+  unfinished tasks remain `BLOCKED`. No newly unlocked work was started.
+- **Next action:** Stop at this safe checkpoint. The S-01 UUID-order baseline
+  failure requires a separately authorized reconciliation; a fresh Instructor
+  review and new Instruction ID are required before any further implementation or
+  state transition.
 - **Historical implementation checkpoint:** `INS-002` /
   `APPROVED_FOR_EXECUTION`, starting at branch `MVP_IMPLEMENTATION`, HEAD
   `29544eac0e91e0c566ea75b830aa2ceea4069fdd`, clean working tree.
