@@ -50,10 +50,9 @@
   five direct owner roots/FKs/indexes, no inherited/shared owner columns, and no
   deferred columns. Transactional uniqueness/FK/idempotency probes passed 13/13.
 - **AU-01 gate:** D-01 is closed and AU-01 was reconciled to `READY`. F-AUTH's
-  fake/fixture boundary remains reviewed PASS; AU-01 is now `IN_PROGRESS` with
-  one authorized worker in the disjoint Auth/backend transport scope. Godel and
-  Cicero were interrupted before edits; Kepler is the current worker and is
-  expected to continue through implementation and evidence.
+  fake/fixture boundary remains reviewed PASS; AU-01 is now `REVIEW` after Kepler
+  completed the authorized implementation in the disjoint Auth/backend transport
+  scope. Godel and Cicero were interrupted before edits.
 - **Validation inherited from INS-008:** Search and frontend fake/fixture
   focused suites, build/typecheck/lint, `verify:stage4a`, architecture,
   artifact, deferred-scope, backend smoke, root lint, and whitespace checks PASS.
@@ -69,7 +68,12 @@
   assignment is recorded in the next control checkpoint.
 - **AU-01 interruption checkpoint:** `eb23d7b`/`8e8fc61` on
   `MVP_IMPLEMENTATION`; Godel and Cicero changed no files and produced no
-  implementation evidence. AU-01 remains `IN_PROGRESS` under Kepler.
+  implementation evidence. Kepler's implementation is recorded at the
+  `0be1ca5` assignment checkpoint and is pending independent review/integration.
+- **AU-01 review evidence:** Kepler reports PostgreSQL Auth integration 10/10,
+  backend controller/e2e 9/9, build/typecheck/lint, architecture, artifact,
+  deferred-scope, `/live`/`/ready` smoke, and diff checks PASS. The OpenSpec CLI
+  remains UNVERIFIED. No AU-01 changes have been committed yet.
 - **Historical implementation checkpoint:** `INS-002` /
   `APPROVED_FOR_EXECUTION`, starting at branch `MVP_IMPLEMENTATION`, HEAD
   `29544eac0e91e0c566ea75b830aa2ceea4069fdd`, clean working tree.
