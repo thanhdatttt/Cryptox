@@ -51,8 +51,8 @@
 - **Current task state:** D-01 is `READY` for INS-010; AU-01 is `REVIEW` and
   gated on D-01; Q-01 and F-AUTH remain `REVIEW`; all other unfinished tasks
   remain `BLOCKED`. No unauthorized task has been started.
-- **Pre-execution checkpoint:** `7cab605` on `MVP_IMPLEMENTATION`; the control
-  reconciliation in this file is pending the Manager's checkpoint commit.
+- **Pre-execution checkpoint:** `274218d` on `MVP_IMPLEMENTATION`; this control
+  checkpoint records the D-01 assignment and `IN_PROGRESS` transition.
 - **Active delegation:** D-01 is `IN_PROGRESS` with worker Dewey in the disjoint
   `infra/db/**` and packet-assigned PostgreSQL adapter/test scope. The Manager is
   reviewing evidence and integration only; AU-01 remains unassigned and gated.
