@@ -2,6 +2,12 @@
 
 ## Resume here
 
+- **Level 2 control plane:** Active. Read the current
+  [`INSTRUCTOR.md`](../control/INSTRUCTOR.md) and durable
+  [`DECISIONS.md`](../control/DECISIONS.md) before using this execution checkpoint.
+- **Current Instructor signal:** `INS-001` / `HOLD`, reviewed against source/business
+  HEAD `791a50031955a39756d41884bd1876d5840aab5e`. No implementation task is
+  authorized by the Level 2 bootstrap.
 - **Current stage:** A-00 governance reconciliation is complete; no implementation
   task was started.
 - **Branch:** `MVP_IMPLEMENTATION`
@@ -13,11 +19,11 @@
 - **BLOCKED by C-01A:** D-01 and S-01. All other unfinished work remains blocked
   as recorded in [`TASKS.md`](TASKS.md).
 
-Read [`AGENTS.md`](../../AGENTS.md), its complete authority chain, accepted
-[`ADR-008`](../adr/ADR_008_simple_auth_and_per_user_ownership.md), the active
+Read [`AGENTS.md`](../../AGENTS.md), the Level 2 control artifacts, the complete
+authority chain, accepted [`ADR-008`](../adr/ADR_008_simple_auth_and_per_user_ownership.md), the active
 [`mvp-implementation` change](../../openspec/changes/mvp-implementation/), the
 full [`MVP_PLAN.md`](MVP_PLAN.md), and the mutable [`TASKS.md`](TASKS.md) before
-claiming one READY packet.
+considering any READY packet. READY is not execution authorization.
 
 ## Historical checkpoint truth
 
@@ -112,15 +118,18 @@ F-01 may build only the chart/client foundation, while Auth UI remains F-AUTH.
 
 ## Fresh-agent restart procedure
 
-1. Confirm branch `MVP_IMPLEMENTATION`, resolve the A-00 HEAD, and verify a clean
-   worktree.
-2. Read the full authority chain. Treat the later instructor change and reviewed
-   `docs/requirements.md` baseline as governing the post-C-01 program.
+1. Follow the fresh-role startup order in `AGENTS.md`; confirm branch, HEAD, status,
+   recent commits, and the complete intervening diff from the Instructor's reviewed
+   checkpoint.
+2. Read `INSTRUCTOR.md`, `DECISIONS.md`, this checkpoint, `TASKS.md`, the relevant
+   `MVP_PLAN.md` packets, and their governing authority.
 3. Confirm TASKS shows only C-01A, E-01, and F-01 READY; D-01/S-01 must be BLOCKED.
-4. For ownership-sensitive progress, claim C-01A first and follow only its packet.
-   It may change canonical executable contracts/tests but may not implement Auth,
-   persistence, or capability runtime behavior.
-5. Preserve C-01's completed status and frozen pre-change behavior decisions.
-   Record post-change additions as C-01A work instead of retroactively editing C-01.
-6. Record owner, starting commit, changed paths, validation evidence, and checkpoint
-   before changing task state. Report unavailable evidence honestly.
+4. The current `INS-001` status is HOLD. An Orchestrator must not claim, delegate,
+   implement, or advance any READY task until a fresh Instructor replaces it with
+   a current `APPROVED_FOR_EXECUTION` instruction.
+5. After approval, verify that every authorized task is still READY, dependencies
+   and write scopes are safe, and the instruction is not stale. Preserve C-01's
+   completed history and use C-01A only for the later contract additions.
+6. The Orchestrator records the Instruction ID, owner, starting commit, changed
+   paths, validation evidence, final task transitions, and latest checkpoint.
+   Report unavailable evidence honestly.
