@@ -173,7 +173,7 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 
 - **Requirement IDs:** `CSL-R-ST-01`, `CSL-R-ST-03`, `CSL-R-ST-04`,
   `CSL-R-AR-02`, `CSL-R-AR-03`, `CSL-R-RP-01`
-- **State / owner / wave:** READY / Unassigned Strategy core worker / Wave 2
+- **State / owner / wave:** BLOCKED / Unassigned Strategy core worker / Wave 2
 - **Critical / parallelism:** YES / YES after C-01
 - **Start dependencies:** C-01A
 - **Integration dependencies:** D-01 for persistence completion
