@@ -53,6 +53,9 @@
   remain `BLOCKED`. No unauthorized task has been started.
 - **Pre-execution checkpoint:** `7cab605` on `MVP_IMPLEMENTATION`; the control
   reconciliation in this file is pending the Manager's checkpoint commit.
+- **Active delegation:** D-01 is `IN_PROGRESS` with worker Dewey in the disjoint
+  `infra/db/**` and packet-assigned PostgreSQL adapter/test scope. The Manager is
+  reviewing evidence and integration only; AU-01 remains unassigned and gated.
 - **Historical implementation checkpoint:** `INS-002` /
   `APPROVED_FOR_EXECUTION`, starting at branch `MVP_IMPLEMENTATION`, HEAD
   `29544eac0e91e0c566ea75b830aa2ceea4069fdd`, clean working tree.
