@@ -2,83 +2,97 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-011`
+Instruction ID: `INS-012`
 
-Status: `HOLD`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
 ## Reviewed repository checkpoint
 
 - Branch: `MVP_IMPLEMENTATION`
-- Reviewed repository HEAD: `8f04e56` (`chore(control): close AU-01 under INS-010`)
+- Reviewed repository HEAD: `1f56c36` (`chore(control): reconcile AU-01 completion state`)
 - Working tree at review: clean. The branch is ahead of
-  `origin/MVP_IMPLEMENTATION` by 16 local commits.
-- The prior `INS-010` authorization has been consumed by another Orchestrator.
-  D-01 and AU-01 are not part of this review's execution frontier and must not
-  be assigned again.
-- Reproduced `npm run verify:stage4a`: PASS. Build, typecheck, workspace tests,
-  architecture, artifact, deferred-scope, and runtime-smoke gates pass. Runtime
-  smoke honestly reports `/live=200`, `/ready=503`, `/health=404`.
-- Direct PostgreSQL reachability on the dedicated local validation cluster was
-  confirmed: PostgreSQL 16.10, database `cryptox`, and two migration records.
+  `origin/MVP_IMPLEMENTATION` by 18 local commits.
+- The prior `INS-011` HOLD was resolved by the Orchestrator's governance-only
+  reconciliation. `TASKS.md` now agrees with `HANDOFF.md` and the Git evidence:
+  D-01 and AU-01 are `DONE`. Neither task is part of this authorization and
+  neither may be reassigned or reworked.
+- Current repository gates remain PASS from the reviewed checkpoint: build,
+  typecheck, workspace tests, architecture, artifact, deferred-scope, runtime
+  smoke, and whitespace checks. Runtime smoke honestly reports `/live=200`,
+  `/ready=503`, `/health=404`. Formal OpenSpec CLI validation remains
+  `UNVERIFIED` because the CLI is unavailable.
 
-## Review result
+## Approved execution frontier
 
-The control plane is internally inconsistent and cannot safely authorize a new
-feature frontier yet:
+The Orchestrator is authorized to execute exactly these two independent packets
+in parallel:
 
-- `docs/implementation/HANDOFF.md` and the current closure commit `8f04e56`
-  report AU-01 as `DONE` with independent Auth review passed.
-- The current operational authority, `docs/implementation/TASKS.md`, still
-  reports AU-01 as `REVIEW` with independent review pending.
+1. `M-01` — Binance Historical Market Data.
+2. `L-01` — Configurable Reproducible Leaderboard.
 
-Level 2 requires reconciliation rather than selecting the more convenient
-artifact. Until the Orchestrator reconciles TASKS with HANDOFF and the Git
-evidence, no feature worker may be assigned.
+### M-01 boundary
 
-## Candidate frontier after reconciliation
+- Governing requirements: `MD-01`, `RD-01`, `RP-01`, `AR-02`.
+- Start dependencies: `C-01` and `D-01`, both `DONE`.
+- Allowed write scope: `modules/market-data/**` except frozen contracts, plus
+  its repository/provider tests as required by the packet.
+- Objective: validate, paginate, normalize, persist, and identify historical
+  candles with bounded reads, explicit half-open ranges, completeness checks,
+  provenance, and provider substitution.
+- Required evidence: focused module/contract/DB tests and truthful live Binance
+  historical smoke evidence. If live Binance access is unavailable, report it
+  as `BLOCKED` or `UNVERIFIED`, never `PASS`.
+- Forbidden: frontend/apps, migrations, unrelated modules, and raw Binance
+  shapes outside the adapter boundary.
 
-The next candidate frontier is, and only is:
+### L-01 boundary
 
-1. `M-01` — Binance historical market data.
-2. `L-01` — configurable reproducible leaderboard.
+- Governing requirements: `OW-01`, `LB-01`, `RP-01`, `OB-01`.
+- Start dependencies: `C-01A` and `D-01`, both `DONE`. `E-01` and `B-02` are
+  downstream integration dependencies/gates, not permission to start this
+  bounded leaderboard packet; `E-01` is already `DONE` and `B-02` remains
+  `BLOCKED`.
+- Allowed write scope: `modules/leaderboard/**` except frozen contracts and
+  migrations, plus packet-scoped tests.
+- Objective: implement `LINEAR_REQUIRED_V1`, versioned configuration and
+  scopes, configurable Top-K, deterministic admission/ties, eligibility,
+  ownership enforcement, and idempotent reads.
+- Required evidence: owner-filtered collections, unauthenticated rejection,
+  same-owner admission, cross-user rejection/not-found, alternate K, exact
+  score/tie ordering, duplicate handling, configuration versioning, and stable
+  deterministic order.
+- Forbidden: metric calculation, Experiment mutation, fixed-K assumptions,
+  migrations, and unrelated module/app changes.
 
-Both are marked `READY` in TASKS, their dependencies are satisfied after D-01,
-and their implementation write scopes are disjoint (`modules/market-data/**`
-and `modules/leaderboard/**`). They may be authorized in parallel only after a
-fresh Instructor review confirms that the AU-01 reconciliation is complete.
+## Orchestrator operating rules
 
-`M-02` remains dependent on M-01. Q-01/F-AUTH real-port integration and all
-other unfinished packets remain outside this candidate frontier.
+Before assigning work, compare this reviewed checkpoint with current Git and
+verify the current Instructor signal, task readiness, dependencies, and disjoint
+write scopes. Delegate each bounded implementation packet to its own worker. The
+two workers may run in parallel because their scopes are disjoint. The
+Orchestrator alone manages `TASKS.md`/`HANDOFF.md`, reviews and integrates worker
+output, runs the applicable gates, and stops when this authorization is
+exhausted.
 
-## Execution authorization
-
-No feature execution is authorized under `INS-011`.
-
-The Orchestrator may perform only the governance reconciliation required to
-resolve the AU-01 TASKS/HANDOFF discrepancy. It must not reassign D-01 or
-AU-01, edit feature source, or start M-01/L-01 while this instruction is
-`HOLD`.
-
-After reconciliation, a new Instructor Instruction ID is required before
-M-01/L-01 can be delegated.
-
-## Required reconciliation
-
-The Orchestrator must verify the AU-01 implementation and independent-review
-evidence against Git, then update only its owned control artifacts so that
-`TASKS.md` accurately reflects the justified AU-01 state and `HANDOFF.md`
-contains the latest checkpoint, commit, and validation evidence. If the evidence
-does not justify `DONE`, it must preserve the safe state and report the gap.
+This instruction does not authorize automatic follow-on work when M-01 or L-01
+unlocks another task. A new Instructor review is required before M-02, B-02,
+Q-01 real-port integration, F-AUTH real integration, or any other unfinished
+packet starts.
 
 ## Explicitly not authorized
 
 - Reassignment or rework of D-01 or AU-01.
-- M-01, L-01, M-02, N-01, N-02, B-02, Q-01 real-port integration, F-AUTH
-  real integration, AU-02, F-02, I-01, I-02, or any other unfinished packet.
-- Migration changes, contract/DAG changes, scope expansion, or deferred
-  features.
+- M-02, B-02, N-01, N-02, Q-01 real-port integration, F-AUTH real integration,
+  AU-02, F-02, I-01, I-02, or any other unfinished packet outside M-01/L-01.
+- Frontend/app changes, migrations, contract/DAG changes, scope expansion,
+  deferred enterprise identity, queues/distributed execution, risk features,
+  AI/LLM authoring, or any other deferred feature.
+
+Authorization ends after the Orchestrator reviews and integrates M-01 and L-01,
+or when a required environment/evidence gate is blocked. A fresh Instructor
+review and new Instruction ID are required for the next frontier.
 
 ## Canonical references
 
@@ -90,6 +104,7 @@ does not justify `DONE`, it must preserve the safe state and report the gap.
 - [Requirements](../requirements.md)
 - [Architecture](../architecture.md)
 - [Data model](../data-model.md)
+- [ADR-001](../adr/ADR_001_websocket.md)
 - [ADR-005](../adr/ADR_005_module_first_structure.md)
 - [ADR-006](../adr/ADR_006_local_backtest_execution.md)
 - [ADR-007](../adr/ADR_007_practical_reproducibility.md)
