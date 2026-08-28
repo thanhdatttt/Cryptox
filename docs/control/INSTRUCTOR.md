@@ -2,127 +2,66 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-008`
+Instruction ID: `INS-009`
 
-Status: `APPROVED_FOR_EXECUTION`
+Status: `HOLD`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
 ## Reviewed repository checkpoint
 
 - Branch: `MVP_IMPLEMENTATION`
-- Reviewed repository HEAD: `bbdf5b6de3283c0e8400a17f27eea3eec1c49247`
-- Working tree at review: clean. The branch is
-  `MVP_IMPLEMENTATION`, ahead of `origin/MVP_IMPLEMENTATION` only by the
-  current local checkpoint commits.
-- `INS-007` was executed and exhausted at this checkpoint. Its test-only
-  reconciliation changed only `modules/strategy/application/service.spec.ts`,
-  and the Manager closed `S-02`, `S-03`, and `B-01` after validation.
+- Reviewed repository HEAD: `9b9fb98b3f87eb1e6e445f1cb967ace665de6300`
+- Working tree at review: clean. The branch is ahead of
+  `origin/MVP_IMPLEMENTATION` by the local INS-008 feature and checkpoint
+  commits.
+- `INS-008` was executed and exhausted. The Manager delegated and integrated
+  the bounded Q-01 and F-AUTH fake/fixture phases, then recorded the checkpoint
+  in `docs/implementation/HANDOFF.md`.
 - Current task derivation: P-00, C-01, A-00, C-01A, E-01, F-01, S-01, S-02,
   S-03, and B-01 are DONE; D-01 and AU-01 are REVIEW; Q-01 and F-AUTH are
-  READY; all other unfinished tasks remain BLOCKED by recorded start
-  dependencies.
-- Current review reproduced `npm run verify:stage4a`: PASS. Strategy is 51/51,
-  Backtesting is 18/18, and build, typecheck, lint, architecture, artifact,
-  deferred-scope, runtime smoke, and whitespace checks pass.
+  REVIEW after their authorized fake/fixture phases; all other unfinished tasks
+  remain BLOCKED. No unfinished task is currently a safe READY frontier for a
+  new authorization.
+- Reproduced `npm run verify:stage4a`: PASS. Build, typecheck, workspace tests,
+  architecture, artifact, deferred-scope, runtime smoke, and diff checks pass.
+  Runtime smoke honestly reports `/live=200`, `/ready=503`, `/health=404`.
 - Formal OpenSpec CLI validation remains `UNVERIFIED` because the CLI is
   unavailable. Live PostgreSQL migrate/rollback/remigrate evidence remains
-  BLOCKED/UNVERIFIED for D-01/AU-01; this does not block the authorized fake/
-  fixture phases below.
-
-This instruction is valid only after the Orchestrator verifies immediately
-before assignment that the reviewed HEAD and task/business premises remain
-unchanged, the working tree is clean, both packets are still `READY`, and their
-write scopes are disjoint. Any material source, business-state, requirement,
-task-DAG, task-state, write-scope, or authority change makes this instruction
-stale and requires a fresh Instructor review.
+  BLOCKED/UNVERIFIED because valid local credentials or a running Docker daemon
+  are unavailable.
 
 ## Execution authorization
 
-Approved execution frontier, and no more:
+None. This is a HOLD signal; the Orchestrator must not assign or start any
+feature packet from this checkpoint.
 
-1. `Q-01` — Seeded Random Search and SearchRun Lifecycle, limited initially to
-   its pure/fake-port phase.
-2. `F-AUTH` — Frontend Authentication and Protected Navigation, limited initially
-   to its fake/fixture client and UI phase.
+The current safe frontier is blocked by the absence of a READY packet and by
+the missing live PostgreSQL evidence required to close the D-01/AU-01 review
+boundary. Q-01 and F-AUTH fake/fixture evidence is not sufficient to mark those
+packets DONE or to authorize their real-port integration.
 
-The Orchestrator may assign these two packets in parallel, with one delegated
-worker per packet, after verifying READY state, satisfied start dependencies,
-disjoint write scopes, and the maximum useful concurrency. `Q-01` owns only
-`modules/search/**` excluding frozen contracts and migrations. `F-AUTH` owns
-only frontend Auth clients, screens, state, navigation, and tests. Neither may
-perform real PostgreSQL/Auth integration in this frontier.
+## Resume conditions
 
-Neither packet may be marked `DONE` from fake/fixture evidence alone. A later
-Instructor authorization is required for real-port integration and for any
-newly unlocked task.
+The Orchestrator may resume only after all of the following are true:
 
-Authorization ends after review and integration of this frontier. A new Instructor
-review and Instruction ID are required for the next frontier.
-
-## Packet constraints
-
-### Q-01 — Seeded Random Search and SearchRun Lifecycle
-
-- Implement the approved seeded Random generator and finite, owner-aware
-  SearchRun lifecycle against fake execution/ranking/persistence ports only.
-- Cover seed determinism, valid unique candidates, finite stop conditions,
-  positive in-flight bounds, capacity, cancellation, failure counts, terminal
-  guards, and trusted owner propagation.
-- Write only `modules/search/**` except frozen contracts and migrations. Do not
-  implement simulation, Candidate persistence, scoring, B-02 integration, or
-  real database adapters.
-- Keep the Search generator seam and public Backtesting/Leaderboard boundaries
-  unchanged. Record the partial phase as `REVIEW` or `IN_PROGRESS`; fake-only
-  evidence cannot close Q-01.
-
-### F-AUTH — Frontend Authentication and Protected Navigation
-
-- Implement the Auth client/UI flow against typed fake/fixture clients first:
-  registration, login, current-session restoration, logout, protected
-  navigation, 401 recovery, and private-cache clearing.
-- Write only frontend Auth clients, screens, state, navigation guards, and tests.
-  Do not edit backend/modules, contracts, migrations, or business calculations.
-- Never store session tokens in local/session storage or trust client-selected
-  user identity. Preserve the approved HttpOnly-cookie boundary for real
-  integration.
-- Record the fake/fixture phase as `REVIEW` or `IN_PROGRESS`; real AU-01
-  integration and completion require a later authorization.
+1. A valid local PostgreSQL environment is available and D-01/AU-01 review
+   evidence is reconciled in the execution checkpoint.
+2. `TASKS.md` and `HANDOFF.md` identify a concrete packet as READY with verified
+   dependencies and a safe disjoint write scope.
+3. A fresh Instructor review issues a new execution instruction and ID.
 
 ## Explicitly not authorized
 
-- `S-02`, `S-03`, `B-01`, or any other feature implementation outside `Q-01` and
-  `F-AUTH` as bounded above.
-- `D-01`/`AU-01` PostgreSQL integration or completion, and every blocked task
-  (`M-01`, `M-02`, `L-01`, `N-01`, `N-02`, `B-02`, `AU-02`, `F-02`, `I-01`,
-  `I-02`).
-- Real-port integration, cross-module security integration, shared contract or
-  migration changes, new task assignment, dependency/DAG changes, or any scope
-  expansion. The Manager may only transition Q-01/F-AUTH to `REVIEW` or
-  `IN_PROGRESS` for the bounded phase; closure requires later evidence and
-  authorization.
-- Any deferred scope, including enterprise identity, tenancy, queues/distributed
-  execution, generalized risk, AI/LLM authoring or crawling, strict replay, CQRS,
-  Event Sourcing, or a general event bus.
+- Q-01 or F-AUTH real-port integration or completion.
+- D-01/AU-01 PostgreSQL integration or completion.
+- M-01, M-02, L-01, N-01, N-02, B-02, AU-02, F-02, I-01, I-02, or any other
+  unfinished packet.
+- New task assignment, dependency/DAG changes, contract or migration changes,
+  scope expansion, or deferred features.
 
-## Required execution and checkpoint rules
-
-- The Orchestrator alone assigns owners, changes `TASKS.md` state, reviews and
-  integrates worker output, records validation, and replaces `HANDOFF.md`.
-- Every bounded implementation packet must be delegated to a worker/subagent;
-  the Orchestrator must not implement `Q-01` or `F-AUTH` directly. Workers do
-  not edit `INSTRUCTOR.md`, `DECISIONS.md`, `TASKS.md`, or `HANDOFF.md`.
-- Before assignment, prove the current instruction is not stale, confirm a
-  clean working tree, verify READY/dependencies, and prove disjoint write
-  scopes. The fake/fixture limits in this instruction remain binding.
-- Each packet must satisfy its focused acceptance tests plus applicable build,
-  typecheck, workspace tests, architecture, artifact, deferred-scope, database,
-  and diff checks. Unavailable evidence is `BLOCKED` or `UNVERIFIED`, never PASS.
-- The next checkpoint must record packet owners, state transitions, commits,
-  validation evidence, failures/blockers, exact remaining frontier, and that no
-  newly READY task was started without a later Instructor authorization.
-
-Pending human decisions: none.
+The Orchestrator remains responsible for TASKS/HANDOFF state and must not
+silently convert REVIEW or BLOCKED work into READY or DONE.
 
 ## Canonical references
 
