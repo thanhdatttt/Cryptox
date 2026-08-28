@@ -5,36 +5,33 @@
 - **Level 2 control plane:** Active. Read `AGENTS.md`, current
   [`INSTRUCTOR.md`](../control/INSTRUCTOR.md), [`DECISIONS.md`](../control/DECISIONS.md),
   [`TASKS.md`](TASKS.md), and this checkpoint before acting.
-- **Current instruction:** `INS-005` / `APPROVED_FOR_EXECUTION`, authorizing only
-  D-01, S-01, and AU-01, with AU-01 initially limited to its fake-repository
-  phase. The authorization is exhausted after this review/integration
-  checkpoint; a new Instructor review and Instruction ID are required before any
-  newly READY task starts.
-- **INS-005 applicability:** PASS. The Instructor reviewed HEAD
-  `753a1ec3fc932fa73bc1ec5961473ed01b04cf78`; the only intervening commit before
-  execution was the permitted `INS-005` governance update (`c637591`).
-- **INS-005 starting checkpoint:** branch `MVP_IMPLEMENTATION`, HEAD `c637591`,
-  clean working tree before packet assignment.
-- **Current packet owners:** Manager / D-01 persistence owns `infra/db/**` and
-  the migration/DB scope exclusively; Manager / S-01 strategy owns Strategy
-  application/core and tests, excluding built-in plugin directories and
-  persistence; Manager / AU-01 Auth owns Auth application/API/tests, excluding
-  migrations and PostgreSQL repository adapters during the authorized fake phase.
-- **Current state transitions:** D-01 `IN_PROGRESS -> REVIEW`; S-01
-  `IN_PROGRESS -> DONE`; AU-01 `IN_PROGRESS -> REVIEW`. S-02, S-03, B-01, Q-01,
-  and F-AUTH become READY by strict dependency recomputation, but none was
-  started because INS-005 does not expand to newly unlocked work.
-- **INS-005 source result:** The integrated checkpoint contains the D-01
-  migration, Auth V1 runtime and fake-repository tests, Strategy registry/
-  definition/composite core and tests, and the required Argon2id infrastructure
-  adapter/dependency.
-- **INS-005 validation:** Auth focused suite 8/8 and Strategy focused suite 11/11
-  PASS; root build, typecheck, all workspace tests, architecture, artifacts,
-  deferred-scope, backend smoke, and diff checks PASS. Migration JavaScript syntax
-  and migration invocation/static batch checks PASS. Live PostgreSQL
-  migrate/rollback/remigrate evidence is BLOCKED/UNVERIFIED because no valid
-  local PostgreSQL credentials or running Docker daemon are available. Formal
-  OpenSpec CLI validation remains UNVERIFIED because the CLI is unavailable.
+- **Current instruction:** `INS-006` / `APPROVED_FOR_EXECUTION`, authorizing only
+  `S-02`, `S-03`, and `B-01`. Authorization ends after review and integration of
+  this three-packet frontier; no newly unlocked task may start without a later
+  Instructor review and Instruction ID.
+- **INS-006 applicability:** PASS for source/business/task premises. Reviewed
+  HEAD is `6da688452c18a3d8d914325ff57e8fe3f7c5b1d3`; current HEAD before this
+  assignment checkpoint is `a7d41ee346deb0d7e0a223c26c767edb3c768d95`, and the
+  intervening commits change only governance (`AGENTS.md`, `INSTRUCTOR.md`, and
+  `ORCHESTRATOR_START.md`). Working tree was clean before this Manager-owned
+  assignment update.
+- **Assignment checkpoint:** `S-02`, `S-03`, and `B-01` transitioned
+  `READY -> IN_PROGRESS` under `INS-006`, with one delegated worker per packet.
+  The three write scopes are disjoint: dedicated MA/RSI plugins, dedicated
+  Bollinger/Support-Resistance plugins, and Backtesting simulator/domain paths.
+- **Pre-assignment validation:** Build and typecheck passed. The root
+  `verify:stage4a` run is not a PASS because the existing S-01 application test
+  has a nondeterministic UUID-sort expectation failure; this is outside the
+  authorized packet scopes and remains a baseline blocker for later global
+  validation. Formal OpenSpec CLI validation is `UNVERIFIED` because the CLI is
+  unavailable. No PostgreSQL live evidence was attempted for this pure frontier.
+- **Current worker owners:** Delegated Strategy worker A -> S-02; Delegated
+  Strategy worker B -> S-03; Delegated Backtesting domain worker -> B-01. Workers
+  must not edit `INSTRUCTOR.md`, `DECISIONS.md`, `TASKS.md`, or `HANDOFF.md`.
+- **Current state transitions:** S-02 `READY -> IN_PROGRESS`; S-03
+  `READY -> IN_PROGRESS`; B-01 `READY -> IN_PROGRESS`. D-01 and AU-01 remain
+  `REVIEW`; Q-01 and F-AUTH remain `READY` but are not authorized. All other
+  unfinished tasks remain BLOCKED by recorded dependencies.
 - **Historical implementation checkpoint:** `INS-002` /
   `APPROVED_FOR_EXECUTION`, starting at branch `MVP_IMPLEMENTATION`, HEAD
   `29544eac0e91e0c566ea75b830aa2ceea4069fdd`, clean working tree.
