@@ -5,42 +5,56 @@
 - **Level 2 control plane:** Active. Read `AGENTS.md`, current
   [`INSTRUCTOR.md`](../control/INSTRUCTOR.md), [`DECISIONS.md`](../control/DECISIONS.md),
   [`TASKS.md`](TASKS.md), and this checkpoint before acting.
-- **Current instruction:** `INS-007` / `APPROVED_FOR_EXECUTION`, authorizing only
-  the S-01 deterministic ordering test reconciliation and closure validation for
-  the already-REVIEW `S-02`, `S-03`, and `B-01` packets. No new feature frontier,
-  task assignment, or out-of-scope repair was authorized.
-- **INS-007 applicability:** PASS. Reviewed HEAD is
-  `a52d928093e5107ddab43017fcdea1584b03e5ef`; immediately before reconciliation
-  the working tree was clean at `8ebf56937d1ef8cc3b6a715a5d1311f3b11015a0`, whose
-  only delta from the reviewed checkpoint was the Instructor signal in
-  `INSTRUCTOR.md`. No source, business-state, task-DAG, or scope premise changed.
-- **Authorized state transitions:** S-01's test reconciliation was applied as the
-  Manager's explicitly permitted small review fix. After validation, `S-02`,
-  `S-03`, and `B-01` each transitioned `REVIEW -> DONE`; no other task changed.
-- **Reconciliation and review result:** Only
-  `modules/strategy/application/service.spec.ts` changed. Both collection and
-  composite expectations now assert the repository's deterministic ordering by
-  `(createdAt, id)` and `strategyDefinitionId`; Strategy production code and all
-  previously reviewed feature files remain unchanged. The focused S-01 test passed
-  10/10 repeated runs.
-- **Prior worker and independent review evidence retained:** S-02 focused 15/15
-  and Hooke PASS; S-03 focused 25/25 and Arendt PASS; B-01 focused 9/9,
-  Backtesting 18/18, and Boole PASS. Their integrated source remains in
-  `8a8d5f8`.
-- **Validation:** `verify:stage4a` PASS and reproducible: all workspace tests
-  passed, including Strategy 51/51 and Backtesting 18/18. Build, typecheck, lint,
-  architecture (42 modules / 88 dependencies; 9 expected fixture findings),
-  artifact, deferred-scope, runtime smoke, and whitespace checks PASS. Formal
-  OpenSpec CLI validation remains `UNVERIFIED` because the CLI is unavailable.
-  Live PostgreSQL evidence remains BLOCKED/UNVERIFIED for D-01/AU-01 and was not
-  applicable to this test-only reconciliation.
-- **Current task state:** S-02, S-03, and B-01 are `DONE`; D-01 and AU-01 remain
-  `REVIEW`; Q-01 and F-AUTH remain `READY` but unauthorized; all other unfinished
-  tasks remain `BLOCKED`. No newly READY task was started.
-- **Final checkpoint:** Source reconciliation commit `afbd88c`; this HANDOFF/TASKS
-  update is the Manager control checkpoint commit. Authorization is exhausted. A
-  new Instructor review and Instruction ID are required before any further
-  implementation or task-state transition.
+- **Current instruction:** `INS-008` / `APPROVED_FOR_EXECUTION`, authorizing only
+  the bounded fake/fixture phases of Q-01 and F-AUTH. Q-01 is limited to
+  `modules/search/**` (excluding frozen contracts and migrations); F-AUTH is
+  limited to frontend Auth clients, screens, state, navigation, and tests. Real
+  ports, PostgreSQL/Auth integration, backend changes, and unrelated tasks are
+  not authorized.
+- **INS-008 applicability:** PASS. Instructor reviewed HEAD is
+  `bbdf5b6de3283c0e8400a17f27eea3eec1c49247`; immediately before assignment the
+  working tree was clean at `601e7a5`, whose only delta from the reviewed
+  checkpoint was the current `INSTRUCTOR.md` signal. Source, business state,
+  task DAG, and write-scope premises were unchanged.
+- **Delegation and state transitions:** Q-01 was assigned to Herschel and F-AUTH
+  to Archimedes in disjoint scopes. Both followed `READY -> IN_PROGRESS -> REVIEW`.
+  The bounded implementation work was delegated; the Manager performed review,
+  integration, and validation only. Neither task is `DONE` because fake-only work
+  does not satisfy the later real-port/integration gates.
+- **Q-01 result:** Seeded deterministic Random generation, canonical distinct
+  candidate keys, owner-scoped SearchRun persistence and scope validation, bounded
+  in-flight orchestration, max-candidate/max-duration/no-improvement stopping,
+  pause/resume/cancellation handling, and delayed-port race coverage were added
+  within `modules/search/**`. The Leaderboard dependency was reconciled through
+  its canonical application port.
+- **F-AUTH result:** Development-only fixture Auth and REST client seams, register/
+  login/session restoration/logout state, protected navigation, reusable protected
+  request 401 recovery, private-cache clearing, and logout transport-failure
+  recovery were added within `apps/frontend/**`. Cookies remain the browser
+  credential boundary; client-selected identity and raw session tokens are not
+  accepted.
+- **Review result:** The independent review found deadline enforcement while a
+  fake port was awaiting, cancellation races, owner validation, protected-request
+  wiring, and truthful non-401 logout state as actionable risks. Workers fixed all
+  findings within their assigned scopes. The Manager re-reviewed the final diff,
+  confirmed no unauthorized paths changed, and reran the affected suites and
+  repository gates.
+- **Validation:** Search focused tests PASS (5 files / 18 tests), typecheck/build/
+  lint PASS. Frontend tests PASS (9 files / 22 tests), typecheck/build/lint PASS.
+  `verify:stage4a` PASS: root build, typecheck, all workspace tests, architecture
+  (55 modules / 130 dependencies; 9 expected fixture findings), source-artifact,
+  deferred-scope, and backend runtime smoke. Root lint and whitespace checks PASS.
+  The formal OpenSpec CLI is unavailable, so strict CLI validation is
+  `UNVERIFIED`; live PostgreSQL evidence remains `BLOCKED/UNVERIFIED` and was not
+  authorized for this phase.
+- **Current task state:** Q-01 and F-AUTH are `REVIEW`; D-01 and AU-01 remain
+  `REVIEW`; all other unfinished tasks remain `BLOCKED`. No newly unlocked task was
+  started. Authorization is exhausted after this checkpoint; a new Instructor
+  review and Instruction ID are required before further implementation or task
+  state transitions.
+- **Final checkpoint:** The commit containing this current source/TASKS/HANDOFF
+  checkpoint is the authoritative Git recovery point; resolve its hash with
+  `git rev-parse HEAD` after checkout.
 - **Historical implementation checkpoint:** `INS-002` /
   `APPROVED_FOR_EXECUTION`, starting at branch `MVP_IMPLEMENTATION`, HEAD
   `29544eac0e91e0c566ea75b830aa2ceea4069fdd`, clean working tree.

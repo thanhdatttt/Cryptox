@@ -27,11 +27,11 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 | B-02 | BLOCKED | 4 | YES | Unassigned Backtesting application worker | — | Not started |
 | AU-01 | REVIEW | 2 | YES | Manager / AU-01 Auth | `MVP_IMPLEMENTATION` / containing INS-005 checkpoint commit | Fake-repository phase PASS; PostgreSQL adapter/integration remains gated by D-01 and not authorized |
 | AU-02 | BLOCKED | 4 | YES | Manager / security integration worker | — | Blocked by private-resource implementations |
-| Q-01 | READY | 3–4 | Integration | Unassigned Search worker | — | Unlocked by S-01; not authorized by INS-007 (reconciliation only) |
+| Q-01 | REVIEW | 3–4 | Integration | Herschel (Q-01 worker; INS-008) | `MVP_IMPLEMENTATION` / current INS-008 checkpoint | Pure/fake-port phase reviewed PASS; real-port integration and DONE remain unauthorized |
 | N-01 | BLOCKED | 2 | Integration | Unassigned News worker | — | Not started |
 | N-02 | BLOCKED | 2 | Integration | Unassigned Sentiment worker | — | Not started |
 | F-01 | DONE | 2 | Integration | Manager / Frontend worker | `MVP_IMPLEMENTATION` / `901065a` | Independent review, frontend/global gates, and browser interaction PASS |
-| F-AUTH | READY | 3 | Integration | Unassigned Frontend worker | — | Ready after C-01A/F-01; AU-01 gates integration; INS-007 authorizes only test reconciliation |
+| F-AUTH | REVIEW | 3 | Integration | Archimedes (F-AUTH worker; INS-008) | `MVP_IMPLEMENTATION` / current INS-008 checkpoint | Fake/fixture client and UI phase reviewed PASS; AU-01 integration and DONE remain unauthorized |
 | F-02 | BLOCKED | 3 | Integration | Unassigned Frontend worker | — | Not started |
 | I-01 | BLOCKED | 5 | YES | Manager / integration worker | — | Not started |
 | I-02 | BLOCKED | 6 | YES | Manager plus independent reviewers | — | Not started |
@@ -299,7 +299,7 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 
 - **Requirement IDs:** `CSL-R-SE-01`, `CSL-R-SE-02`, `CSL-R-LB-01`,
   `CSL-R-OB-01`, `CSL-R-DM-01`, `CSL-R-AR-02`, `CSL-R-OW-01`
-- **State / owner / wave:** READY / Unassigned Search worker / Waves 3–4
+- **State / owner / wave:** REVIEW / Herschel (Q-01 worker; INS-008) / Waves 3–4
 - **Critical / parallelism:** Integration / YES for fake-port phase
 - **Start dependencies:** C-01A, S-01
 - **Integration dependencies:** D-01, L-01, B-02
@@ -307,8 +307,8 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
   an owner-scoped finite SearchRun lifecycle, first against fakes and then real ports.
 - **Write scope:** `modules/search/**` except frozen contracts and migrations.
 - **Latest branch / commit:** —; record when work starts.
-- **Validation:** READY after S-01; not authorized by INS-007, which is a
-  reconciliation-only instruction. Cannot be DONE after fake-only validation.
+- **Validation:** Pure/fake-port phase reviewed PASS under INS-008; real-port/global
+  completion remains gated. Cannot be DONE after fake-only validation.
 - **Full packet:** [`MVP_PLAN.md#q-01--seeded-random-search-and-searchrun-lifecycle`](MVP_PLAN.md#q-01--seeded-random-search-and-searchrun-lifecycle)
 
 ### N-01 — News Collection, Deduplication and Query
@@ -360,7 +360,7 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 ### F-AUTH — Frontend Authentication and Protected Navigation
 
 - **Requirement IDs:** `CSL-R-AU-01`, `CSL-R-OW-01`, `CSL-R-FE-01`, `CSL-R-DM-01`
-- **State / owner / wave:** READY / Unassigned Frontend worker / Wave 3
+- **State / owner / wave:** REVIEW / Archimedes (F-AUTH worker; INS-008) / Wave 3
 - **Critical / parallelism:** Integration / Not with an active F-01 shell writer
 - **Start dependencies:** C-01A, F-01
 - **Integration dependencies:** AU-01
@@ -368,9 +368,8 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
   401 recovery, and private-cache clearing using HttpOnly session cookies.
 - **Write scope:** Frontend Auth clients, screens, state, navigation guards, and tests.
 - **Latest branch / commit:** —; record when work starts.
-- **Validation:** Ready after C-01A and F-01; AU-01 remains an integration
-  dependency. Not started. `INS-007` is reconciliation-only and does not authorize
-  this feature task.
+- **Validation:** Fake/fixture client and UI phase reviewed PASS under INS-008;
+  AU-01 remains an integration dependency and real integration is not authorized.
 - **Full packet:** [`MVP_PLAN.md#f-auth--frontend-authentication-and-protected-navigation`](MVP_PLAN.md#f-auth--frontend-authentication-and-protected-navigation)
 
 ### F-02 — Frontend Strategy, Search, Result and Auxiliary Views

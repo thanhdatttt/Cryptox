@@ -1,24 +1,16 @@
 import type { SearchApplicationDependencies } from "../application/ports";
 import type {
+  CandidateGenerationRequest,
   GeneratedCandidate,
   SearchModulePublicApi,
   SearchRunStatus,
-  SearchSpaceConfig,
 } from "./contracts";
-import { cancel, leaderboard, list, pause, resume, start, status } from "./index";
+import { createSearchApplication } from "../application/service";
 export type SearchModuleDependencies = SearchApplicationDependencies<
   SearchRunStatus,
-  SearchSpaceConfig,
+  CandidateGenerationRequest,
   GeneratedCandidate
 >;
 export function createSearchModule(_deps: SearchModuleDependencies): SearchModulePublicApi {
-  return {
-    start,
-    pause,
-    resume,
-    cancel,
-    status,
-    list,
-    leaderboard,
-  };
+  return createSearchApplication(_deps);
 }

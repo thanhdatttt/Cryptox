@@ -30,5 +30,5 @@ export interface SearchApplicationDependencies<TSearchRun, TGenerationRequest, T
     | "summarizeSearchCandidates"
     | "cancelSearchCandidates"
   >;
-  leaderboard: Pick<LeaderboardModulePublicApi, "rankSearchRun">;
+  leaderboard: Pick<LeaderboardModulePublicApi, "getLeaderboardScope" | "rankSearchRun">;
 }
