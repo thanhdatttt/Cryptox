@@ -1,3 +1,3 @@
-// Evaluation calculation behavior is intentionally absent in Stage 4A. Neutral
-// public metric input/output contracts are owned by ../api/contracts.ts.
+// Neutral public metric input/output contracts remain owned by
+// ../api/contracts.ts. Pure REQUIRED_METRICS_V1 behavior lives in ./evaluator.ts.
 export {};
