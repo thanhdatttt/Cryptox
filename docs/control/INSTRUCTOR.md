@@ -2,30 +2,27 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-021`
+Instruction ID: `INS-022`
 
-Status: `APPROVED_FOR_EXECUTION`
+Status: `NEEDS_HUMAN_DECISION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
 ## Reviewed repository checkpoint
 
 - Branch: `MVP_IMPLEMENTATION`
-- Reviewed repository HEAD: `deb0472` (`docs(control): checkpoint INS-020 AU-02 retry blocker`)
+- Reviewed repository HEAD: `5b9018f` (`docs(control): checkpoint INS-021 AU-02 decision blocker`)
 - Working tree at review: clean. The branch is ahead of
-  `origin/MVP_IMPLEMENTATION` by 57 local commits.
-- INS-020 is exhausted at a truthful blocked checkpoint. Q-01 and F-02 remain
+  `origin/MVP_IMPLEMENTATION` by 60 local commits.
+- INS-021 is exhausted at a truthful blocked checkpoint. Q-01 and F-02 remain
   DONE at their approved packet boundaries, and D-01, AU-01, M-01, L-01,
   B-02, F-AUTH, N-01, and N-02 remain DONE; none may be reassigned or
   reworked.
 - AU-02 start dependencies are satisfied: AU-01, D-01, S-01, L-01, B-02,
-  Q-01 real integration, and F-AUTH are DONE. The INS-019 AU-02 worker was
-  safely interrupted after its focused test process stalled during setup. The
-  INS-020 retry restored lockfile-pinned dependencies and passed the in-memory
-  baseline (14 passed / 4 skipped), but still produced no AU-02 matrix
-  source/test diff, commit, or security evidence. AU-02 remains
-  BLOCKED/UNVERIFIED. This is an execution failure, not a reviewed product
-  decision that closes the packet.
+  Q-01 real integration, and F-AUTH are DONE. The INS-019 worker stalled
+  during setup; INS-020 restored dependencies but produced no matrix; and the
+  INS-021 worker again produced no matrix source/test diff, accepted evidence,
+  or commit within its bounded window. AU-02 remains BLOCKED/UNVERIFIED.
 - M-02 remains REVIEW/UNVERIFIED. Its realtime resilience suite is 9/9 and
   full Market Data is 23 passed / 1 skipped, but two bounded live Binance
   attempts ended with socket failure/reconnect exhaustion, zero normalized
@@ -36,84 +33,44 @@ Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
   Experiment/Leaderboard transaction atomicity, real frontend API/browser
   integration, live CoinDesk, and real News/Sentiment PostgreSQL evidence remain
   later I-01/final-demo concerns.
-- No source, business-state, or task-DAG drift was found after INS-020. The
+- No source, business-state, or task-DAG drift was found after INS-021. The
   current TASKS/HANDOFF checkpoint is authoritative and clean.
 
-## Approved execution frontier
+## Current decision
 
-The Orchestrator is authorized to execute exactly one bounded phase:
+No execution frontier is authorized under INS-022.
 
-1. `AU-02` — make one final implementation-first retry of the cross-module
-   per-user ownership security integration, writing the packet-scoped matrix
-   early and applying only narrowly approved owner-scoped fixes proven by
-   failing assertions.
+The repeated bounded AU-02 attempts did not produce the required security
+matrix even after dependency setup succeeded. The repository therefore cannot
+truthfully advance AU-02 or start I-01/I-02. M-02 also remains REVIEW/UNVERIFIED
+after its prior live Binance failures and is not a valid retry frontier.
 
-This is a final bounded retry of the existing AU-02 BLOCKED record after two
-non-productive worker attempts. It does not reassign completed work or broaden
-scope. The retry must use a separate worker, use the already-restored
-lockfile-pinned dependencies, and produce an early test/source checkpoint. If
-the worker again produces no matrix diff or accepted evidence in the bounded
-window, stop and report `NEEDS_HUMAN_DECISION`; do not spawn another retry.
-No M-02 retry or downstream task is authorized.
+## Human decision required
 
-### AU-02 boundary
+Before another Orchestrator execution signal can be issued, decide and record
+the recovery path:
 
-- Governing requirements: `OW-01`, `AU-01`, `ST-04`, `SE-01`, `SE-02`, `BT-01`,
-  `LB-01`, and `OB-01`.
-- Start dependencies: AU-01, D-01, S-01, L-01, B-02, Q-01 real integration,
-  and F-AUTH are DONE.
-- Allowed scope: cross-module security/integration tests plus narrowly approved
-  owner-scoped fixes across Auth, Strategy, Search, Backtesting, Leaderboard,
-  and their existing runtime boundary when a security assertion proves a
-  defect. Use trusted authenticated identity, not client-supplied identity.
-- Objective: produce the User A/B isolation matrix for read/update/delete/
-  cancel/list/rank, unauthenticated rejection, cross-user not-found semantics,
-  Search Candidate owner propagation, same-owner Leaderboard admission, and
-  shared-data behavior.
-- Required evidence: User A/B isolation, 401 unauthenticated responses, 404
-  cross-user private lookups, client identity cannot bypass request context, no
-  secret logging, reproducible setup diagnostics, an early packet-scoped
-  matrix diff, and applicable global gates.
-- Implementation-first constraint: begin with a short setup check, then create
-  and run the available deterministic/in-memory matrix through public APIs. If
-  `DATABASE_URL` is unavailable, record PostgreSQL/Auth and Search real
-  integration as `UNVERIFIED`; do not spend this bounded retry waiting for that
-  environment.
-- Forbidden: pure Strategy/simulator/Evaluation algorithms, Market Data/News
-  ownership, unrelated refactors, deferred enterprise identity, migrations,
-  contract changes, and automatic I-01/I-02 work. Any source fix must remain
-  narrowly tied to a failing security assertion.
+1. Provide a working PostgreSQL/Auth/Search integration environment, including
+   a configured `DATABASE_URL`, and confirm that one further bounded AU-02
+   implementation attempt is wanted; or
+2. Explicitly approve a different, requirement-compliant recovery plan for
+   the missing AU-02 security evidence.
 
-## Orchestrator operating rules
-
-Before assigning work, compare this reviewed checkpoint with current Git and
-verify the non-stale `INS-021` signal, task readiness after the justified
-BLOCKED-to-READY reconciliation, dependencies, and disjoint write scope.
-Delegate AU-02 implementation to one separate worker using
-`gpt-5.6-luna` with `xhigh` reasoning. The worker may not edit
-`INSTRUCTOR.md`, `DECISIONS.md`, `TASKS.md`, or `HANDOFF.md`. The Orchestrator
-alone changes TASKS/HANDOFF, reviews and integrates output, runs gates, records
-exact commits/evidence, and stops when this authorization is exhausted.
-
-If the worker again produces no early matrix diff/evidence after setup, stop
-safely and preserve AU-02 as BLOCKED/UNVERIFIED, then report
-`NEEDS_HUMAN_DECISION`; do not spawn retries in the same authorization. Do not
-start M-02, I-01, I-02, F-AUTH,
-F-02, Q-01, N-01, N-02, or B-02 rework, nor D-01/AU-01 or any other follow-on
-task. A new Instructor review and Instruction ID are required afterward.
+Until that decision and the required environment/plan are available, keep
+AU-02 `BLOCKED/UNVERIFIED`, M-02 `REVIEW/UNVERIFIED`, and I-01/I-02 `BLOCKED`.
+Do not start workers, retry AU-02, probe M-02, or perform downstream work.
 
 ## Explicitly not authorized
 
 - Reassignment or rework of D-01, AU-01, M-01, L-01, B-02, Q-01, F-AUTH,
   F-02, N-01, or N-02.
 - M-02 source changes or live re-probes, I-01, I-02, or any unfinished packet
-  outside the explicitly authorized AU-02 final retry.
+  while INS-022 is awaiting the human decision.
 - Migrations, frozen contract changes, scope expansion, deferred enterprise
   identity/queue/distributed/risk/AI features, or automatic follow-on work.
 
-Authorization ends after the single AU-02 final retry is reviewed/integrated
-or blocked with evidence/`NEEDS_HUMAN_DECISION`. A fresh Instructor review and
-new Instruction ID is required afterward.
+No authorization is active. A fresh Instructor review and new Instruction ID
+are required after the human decision and any approved recovery premise.
 
 ## Canonical references
 
