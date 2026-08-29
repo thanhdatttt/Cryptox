@@ -2,7 +2,7 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-013`
+Instruction ID: `INS-014`
 
 Status: `APPROVED_FOR_EXECUTION`
 
@@ -11,27 +11,37 @@ Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 ## Reviewed repository checkpoint
 
 - Branch: `MVP_IMPLEMENTATION`
-- Reviewed repository HEAD: `2118a08` (`docs(control): checkpoint INS-012 frontier`)
+- Reviewed repository HEAD: `158e38f` (`docs(control): clarify INS-013 checkpoint commits`)
 - Working tree at review: clean. The branch is ahead of
-  `origin/MVP_IMPLEMENTATION` by 21 local commits.
-- INS-012 is exhausted. Its Orchestrator delegated, reviewed, and integrated
-  M-01 and L-01 in disjoint scopes. D-01, AU-01, M-01, and L-01 are DONE and
+  `origin/MVP_IMPLEMENTATION` by 25 local commits.
+- INS-013 is exhausted. Its Orchestrator delegated, reviewed, and integrated
+  M-02 and B-02 in disjoint scopes. D-01, AU-01, M-01, and L-01 remain DONE and
   must not be reassigned or reworked.
-- Current checkpoint evidence: M-01 focused 14/14 and dedicated PostgreSQL
-  persistence 1/1; L-01 focused 16/16 with ranking seed initialization verified
-  against PostgreSQL; root build/typecheck/tests, architecture, artifacts,
+- Current checkpoint evidence: M-02 focused tests 22/22 PASS and B-02 focused
+  tests 32/32 PASS. Workspace tests/build/typecheck, architecture, artifacts,
   deferred-scope, runtime smoke, and whitespace checks PASS.
-- Truthful limitations remain `UNVERIFIED`: live Binance historical smoke
-  failed in this environment, full persisted Leaderboard admission was not
-  demonstrated end-to-end, and formal OpenSpec CLI validation is unavailable.
+- The checkpoint truthfully records unresolved `UNVERIFIED`/conditional gates:
+  live Binance realtime smoke, real PostgreSQL/Auth integration for B-02,
+  cancellation during the final completion window, and proof of atomic
+  Experiment plus Leaderboard persistence across module adapters.
+- No source, business state, or task-DAG change was found after the INS-013
+  execution checkpoint; the intervening commits are control-plane checkpoint
+  documentation only.
 
 ## Approved execution frontier
 
-The Orchestrator is authorized to execute exactly these two independent packets
-in parallel:
+The Orchestrator is authorized to execute exactly these two bounded review-closure
+packets in parallel:
 
-1. `M-02` — Realtime Market Delivery and Gap Recovery.
-2. `B-02` — Candidate, Execution, and Experiment Orchestration.
+1. `M-02` — Realtime Market Delivery and Gap Recovery review closure.
+2. `B-02` — Candidate, Execution, and Experiment Orchestration review closure.
+
+These are continuations of the existing `REVIEW` records, not permission to
+reassign completed work or broaden either packet. Before assigning a worker, the
+Orchestrator must reconcile each authorized review record to `READY` only if the
+review evidence supports that transition and the write scope remains unchanged.
+If no bounded implementation fix is necessary, Manager-side validation and
+checkpoint work is sufficient.
 
 ### M-02 boundary
 
@@ -42,12 +52,14 @@ in parallel:
 - Allowed write scope: Market Data application/infrastructure and market
   WebSocket tests under `modules/market-data/**`; do not alter frozen contracts
   unless a separately approved contract change exists.
-- Objective: normalized kline streaming, connection state, bounded reconnect,
-  REST gap fill before continuation, missing-candle reconciliation,
-  deduplication, shutdown, and connection observability.
-- Required evidence: forced-disconnect/backoff/resubscribe/gap-recovery and
-  duplicate-suppression tests, plus truthful real Binance stream smoke. Provider
-  access failure is `BLOCKED` or `UNVERIFIED`, never `PASS`.
+- Objective: review the implemented normalized kline streaming, connection
+  state, bounded reconnect, REST gap fill before continuation, missing-candle
+  reconciliation, deduplication, shutdown, and connection observability; fix a
+  defect only within the existing Market Data scope.
+- Required evidence: re-run the focused resilience suite and make a truthful
+  attempt at the real Binance stream smoke. Provider access failure remains
+  `BLOCKED` or `UNVERIFIED`, never `PASS`; do not mark M-02 `DONE` on fixture
+  evidence alone when a required live gate remains unresolved.
 - Forbidden: general event bus, non-market WebSocket features, frontend state,
   migrations, unrelated modules, or automatic I-01 work.
 
@@ -61,29 +73,33 @@ in parallel:
 - Allowed write scope: Backtesting application/infrastructure/API
   implementations and packet-scoped tests under `modules/backtesting/**`;
   use public module APIs and explicit in-process adapters.
-- Objective: trusted manual/Search Candidate owner propagation,
-  owner-scoped Candidate/Experiment/Trade reads, bounded execution, B-01
-  runner, Evaluation, inherited Experiment/Trades, same-owner Leaderboard
-  admission, idempotency, transaction rollback, and exactly one terminal
-  outcome.
+- Objective: review the implemented trusted manual/Search Candidate owner
+  propagation, bounded execution, B-01 runner, Evaluation, inherited
+  Experiment/Trades, same-owner Leaderboard admission, idempotency, rollback,
+  provenance, and terminal outcome handling; fix only packet-scoped defects.
 - Required evidence: success/failure/cancel/saturation paths, cross-user
-  not-found, no partial Experiment, provenance, rollback, and applicable
-  PostgreSQL/Auth integration tests without logging credentials or tokens.
+  not-found, no partial Experiment, provenance, rollback, and an attempt at the
+  applicable PostgreSQL/Auth integration tests. Specifically resolve or record
+  the cancellation race and establish the limits of atomic Experiment plus
+  Leaderboard persistence. Missing database configuration/service is
+  `BLOCKED` or `UNVERIFIED`, never `PASS`; do not claim cross-module atomicity
+  before the shared transaction-aware adapter is actually proven.
 - Forbidden: Search lifecycle changes, concrete Binance internals, distributed
   recovery, backend controllers, migrations, risk/shorting, or unrelated modules.
 
 ## Orchestrator operating rules
 
 Before assigning work, compare this reviewed checkpoint with current Git and
-verify the non-stale `INS-013` signal, TASKS readiness, dependencies, and
-disjoint write scopes. Delegate each bounded packet to a separate worker. The
-Orchestrator alone changes `TASKS.md`/`HANDOFF.md`, reviews and integrates worker
-output, runs the applicable gates, records exact commits and evidence, and
-stops when this authorization is exhausted.
+verify the non-stale `INS-014` signal, TASKS readiness after any justified
+review-to-ready reconciliation, dependencies, and disjoint write scopes.
+Delegate each bounded implementation fix to a separate worker. The Orchestrator
+alone changes `TASKS.md`/`HANDOFF.md`, reviews and integrates worker output, runs
+the applicable gates, records exact commits and evidence, and stops when this
+authorization is exhausted.
 
 Do not automatically start Q-01 real-port integration, AU-02, I-01, I-02,
-F-AUTH real integration, or any other newly unlocked task. A new Instructor
-review and Instruction ID are required for the next frontier.
+F-AUTH real integration, N-01, N-02, F-02, or any other newly unlocked task.
+A new Instructor review and Instruction ID are required for the next frontier.
 
 ## Explicitly not authorized
 
@@ -93,9 +109,10 @@ review and Instruction ID are required for the next frontier.
 - Migrations, frozen contract changes, scope expansion, deferred enterprise
   identity/queue/distributed/risk/AI features, or automatic follow-on work.
 
-Authorization ends after M-02 and B-02 are reviewed/integrated, or when a
-required evidence/environment gate blocks a safe completion. A fresh Instructor
-review and new Instruction ID are required afterward.
+Authorization ends after the M-02 and B-02 review-closure attempts are
+reviewed/integrated, or when a required evidence/environment gate blocks safe
+completion. A fresh Instructor review and new Instruction ID are required
+afterward.
 
 ## Canonical references
 
