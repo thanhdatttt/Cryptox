@@ -11,9 +11,9 @@ Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 ## Reviewed repository checkpoint
 
 - Branch: `MVP_IMPLEMENTATION`
-- Reviewed repository HEAD: `abd9b54` (`docs(control): record INS-018 commit references`)
+- Reviewed repository HEAD: `acbde53` (`docs(control): reconcile INS-018 task summary`)
 - Working tree at review: clean. The branch is ahead of
-  `origin/MVP_IMPLEMENTATION` by 51 local commits.
+  `origin/MVP_IMPLEMENTATION` by 52 local commits.
 - INS-018 is exhausted. Q-01 closed its reproduced persisted SearchRun race
   and real-port integration at source commit `317ca0d`; F-02 closed its
   fixture-first frontend packet at `84209b0`. D-01, AU-01, M-01, L-01, B-02,
