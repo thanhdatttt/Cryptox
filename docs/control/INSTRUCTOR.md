@@ -2,16 +2,16 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-037`
+Instruction ID: `INS-038`
 
-Status: `HOLD`
+Status: `NEEDS_HUMAN_DECISION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
-## INS-037 — Instructor review after INS-036
+## INS-038 — Human decision required after INS-036
 
-This is a replaceable review checkpoint. It supersedes `INS-036 /
-APPROVED_FOR_EXECUTION` and authorizes no implementation packet.
+This is a replaceable control checkpoint. It supersedes `INS-037 / HOLD` and
+authorizes no implementation packet.
 
 ### Reviewed checkpoint
 
@@ -66,7 +66,18 @@ APPROVED_FOR_EXECUTION` and authorizes no implementation packet.
   ENV-01, adding a task, or changing checker allowlists requires an explicit
   reconciled plan/DAG decision before execution.
 
-### HOLD boundary
+### Required human decision
+
+Approve a durable control-plane reconciliation that creates or otherwise
+explicitly authorizes a `READY` follow-up packet for the canonical deferred-scope
+checker. That packet must define the exact checker/script and focused-test write
+scope, allow the already approved S-05/S-06 implementation boundaries without
+weakening rejection of deferred scope, and reconcile `MVP_PLAN.md` with
+`TASKS.md` before dispatch. Alternatively, provide a different authoritative
+resolution for the conflict between the completed `ENV-01` row and its checker
+boundary. Chat-only permission to bypass the checker is not sufficient.
+
+### NEEDS_HUMAN_DECISION boundary
 
 - No Manager or worker may be created under this signal.
 - Do not mark S-05/S-06 `DONE`, start M-03, S-04, Q-02, N-03, B-03, E-02,
