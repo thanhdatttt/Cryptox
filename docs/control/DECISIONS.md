@@ -167,3 +167,56 @@ Canonical references: [Requirements](../requirements.md),
 [ADR-007](../adr/ADR_007_practical_reproducibility.md),
 [ADR-009](../adr/ADR_009_controlled_llm_and_external_content.md), and
 [active MVP change](../../openspec/changes/mvp-implementation/).
+
+## DEC-008 — Automated local PostgreSQL evidence and deferred-scope reconciliation
+
+Status: `APPROVED`
+
+Authority: Instructor operational decision approved 2026-08-29 after the blocked
+`C-02` checkpoint `7f774ed505f45d927b650ccefcd76d9e4f8611d2`
+
+Decision: Local development and migration evidence use a Codex-provisioned
+Docker/Compose PostgreSQL environment, never a manual operating-system PostgreSQL
+installation or cloud database. The environment has health-checked, persistent
+local volumes and separate development and test databases. Its committed tooling
+must provide clear commands to provision/wait, validate migrations, and reset only
+test data. Docker absence or an unusable daemon is a truthful `BLOCKED` result;
+the tooling must not install system software, use a cloud database, or request
+secrets in chat.
+
+`DATABASE_URL` and any test connection string exist only in process-local
+environment or an ignored local environment file. Tooling may generate a local
+ignored value without logging it. A committed `.env.example` may contain
+placeholders only; no password, token, or usable connection string is committed.
+Migration evidence requires real up, down, remigrate, and constraint probes against
+the local test database.
+
+The canonical deferred-scope checker owner is
+`scripts/check-deferred-scope.cjs`, invoked by the root `scope:check` script in
+`package.json`. It must be reconciled through a bounded, tested allowlist of the
+approved DEC-007 profiles while continuing to reject deferred enterprise identity,
+distributed/queue, live-trading/generalized-risk, autonomous/unconfigured LLM, and
+strict-replay scope. Disabling the checker, excluding active paths, or broadly
+allowing prohibited terms is not an acceptable remedy.
+
+`ENV-01` is the new pre-`C-02` environment/tooling reconciliation gate. It changes
+no C-02 business contract, data model, migration semantics, or feature behavior.
+`C-02` remains blocked and may be retried only after `ENV-01` is accepted and a
+separate Instructor signal explicitly authorizes it.
+
+Why: The prior C-02 attempt had no configured database for migration proof and
+failed the existing checker on now-approved DEC-007 vocabulary. Reproducible local
+infrastructure and a truthful executable policy are prerequisites to reliable
+contract/schema reconciliation, not a reason to waive validation.
+
+Affected: `ENV-01`, `C-02`, root validation tooling, local PostgreSQL operations,
+`CSL-R-RD-01`, DEC-007 extension evidence, and the active
+`mvp-implementation` delivery program.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md),
+[ADR-006](../adr/ADR_006_local_backtest_execution.md),
+[ADR-007](../adr/ADR_007_practical_reproducibility.md),
+[Implementation program](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), and
+[scope checker](../../scripts/check-deferred-scope.cjs).

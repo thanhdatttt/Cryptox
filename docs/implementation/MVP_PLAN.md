@@ -207,16 +207,19 @@ states supersede any earlier READY wording in that historical planning view.
 
 ### DEC-007 extension DAG (planned; all feature packets blocked)
 
-`RB-01` is the current Manager-owned documentation checkpoint. Every future
-extension implementation packet depends on the new `C-02` gate. `C-02` must
-reconcile the canonical executable contracts, conceptual data model, and physical
-migration plan for the amended profiles before any feature fan-out. It does not
-change those artifacts during `RB-01`, and its completion must not be inferred
-from this planning checkpoint.
+`RB-01`/`RB-02` are accepted planning checkpoints. The blocked first `C-02`
+attempt established that its migration evidence needs a reproducible local
+PostgreSQL environment and that the executable deferred-scope checker must be
+reconciled to DEC-007 before contract/schema work can be validated. `ENV-01` is
+therefore the sole pre-`C-02` environment/tooling gate. It must complete without
+changing C-02 business behavior, contracts, data model, or migration semantics.
+Every future extension implementation packet still depends on `C-02` after that
+gate passes.
 
 ```text
-RB-01 DONE
-  -> C-02 BLOCKED: extension contract/data-model/migration reconciliation gate
+RB-01/RB-02 DONE
+  -> ENV-01 BLOCKED: local Docker PostgreSQL evidence + DEC-007 scope checker
+       -> C-02 BLOCKED: extension contract/data-model/migration reconciliation gate
        |
        +--> M-03 BLOCKED: amended MD-02 + MARKET_OBSERVABILITY_V1
        +--> S-05 BLOCKED: WEIGHTED_VOTE_V1 composite
@@ -267,7 +270,8 @@ continuation of the legacy waves:
 
 | Extension wave | Gate | Planned packets | Exit checkpoint |
 |---|---|---|---|
-| E0 | `RB-01` committed and separately reviewed | `C-02` only | Contracts/data model/migrations are reconciled and validated |
+| E0a | `RB-01`/`RB-02` accepted; C-02 blocked checkpoint reviewed | `ENV-01` only | Local Docker PostgreSQL and DEC-007 scope-checker evidence are accepted |
+| E0 | `ENV-01` accepted and separately reviewed | `C-02` only | Contracts/data model/migrations are reconciled and validated |
 | E1 | `C-02` DONE | `M-03`, `S-04`, `S-05`, `S-06`, `Q-02`, `B-03`, `N-03` | Pure/provider-boundary extension behavior and provenance pass |
 | E2 | E1 packet reviews | `E-02` then `L-02` | Decimal evaluation and extension-aware ranking are proven |
 | E3 | E2 plus all E1 packets | `F-03` | Functional-state frontend projections pass without business logic |
@@ -842,15 +846,69 @@ Instructor signal can authorize one safe frontier without treating the legacy
   **Critical:** YES. **Handoff:** A later Instructor signal must authorize
   `C-02`; no packet is READY from this checkpoint.
 
+### ENV-01 — Local Docker PostgreSQL Evidence and Deferred-Scope Checker Reconciliation
+
+- **Requirement IDs / authority:** `CSL-R-RD-01`, DEC-007, DEC-008, ADR-010;
+  this is a pre-`C-02` operational/tooling gate, not a product requirement or
+  feature implementation.
+- **State / owner / wave:** BLOCKED / one Infrastructure-and-tooling worker under
+  Manager review / Extension wave E0a.
+- **Start dependencies:** Accepted `RB-01`/`RB-02`; reviewed blocked `C-02`
+  checkpoint `7f774ed505f45d927b650ccefcd76d9e4f8611d2`; Docker daemon evidence
+  must be rechecked at execution. `C-02` is not retried by this packet.
+- **Integration dependencies:** Unblocks a later, separately reviewed and
+  Instructor-authorized `C-02` only. It unlocks no E1 feature packet.
+- **Objective:** Provide Codex-operated Docker/Compose PostgreSQL development and
+  test databases with real migration proof, and reconcile the canonical
+  `scope:check` owner to narrowly recognize approved DEC-007 profiles without
+  weakening deferred-scope enforcement.
+- **Exact write scope:** `infra/docker-compose.yml` and new environment-only
+  helpers under `infra/db/local-*` (never `infra/db/migrations/**` or
+  `infra/db/migrate.config.js`); local migration-validation helpers;
+  `scripts/check-deferred-scope.cjs` and its focused test/helper files; root
+  `package.json` command wiring; `.gitignore`; and optional `.env.example`
+  placeholders. The Manager alone may update `TASKS.md` and `HANDOFF.md`. No
+  `modules/**` business code, executable C-02 contract/DTO/data-model files,
+  C-02 migrations, requirements, decisions, ADRs, architecture, OpenSpec,
+  runtime configuration, dependencies, frontend, Auth, provider, or cloud files
+  are in scope.
+- **Acceptance/tests:** Docker/Compose exposes health-checked separate local
+  development and test databases with persistent named volumes; one documented
+  command provisions, waits, and validates migrations; a separate command resets
+  test data without touching development data; local generated/configured URLs are
+  ignored and never logged/committed, while `.env.example` is placeholder-only;
+  migration evidence executes up, down, remigrate, and constraints on the test
+  database. If Docker is absent/unusable, report `BLOCKED` with evidence and do
+  not install software or use cloud services. The checker canonical owner is
+  `scripts/check-deferred-scope.cjs`; focused positive/negative tests prove
+  approved DEC-007 vocabulary is allowed only at its approved boundary while
+  deferred enterprise identity, queue/distributed, live-trading/generalized-risk,
+  autonomous/unconfigured LLM, and strict-replay scope remain rejected.
+- **Validation:** Docker client/daemon and compose health evidence; secret scan of
+  tracked diff; development/test isolation and reset proof; real migration
+  up/down/remigrate/constraint probes; focused scope-checker allow/reject tests;
+  root `scope:check`; architecture/artifact/scope/deferred-scope checks;
+  link/DAG checks; `git diff --check`; and OpenSpec status. Missing Docker,
+  daemon, or OpenSpec CLI is `BLOCKED`/`UNVERIFIED`, never `PASS`.
+- **Definition of Done:** Manager independently reviews one worker's bounded
+  output, commits a self-contained environment/checker checkpoint, and records
+  exact commands, service health, migration evidence, checker evidence, secrets
+  handling, and blockers. The system returns to Instructor review in `HOLD`; no
+  automatic C-02 retry or downstream promotion occurs. **Parallel:** NO.
+  **Critical:** YES. **Handoff:** State that ENV-01 is accepted or blocked and
+  name the exact C-02 preconditions it leaves.
+
 ### C-02 — DEC-007 Contract, Data-Model and Migration Reconciliation Gate
 
 - **Requirement IDs:** `CSL-R-MD-02`/`03`, `CSL-R-ST-05`–`07`, `CSL-R-SE-03`,
   `CSL-R-BT-02`, `CSL-R-NW-02`, `CSL-R-RP-02`.
 - **State / owner / wave:** BLOCKED / Manager with one contract-and-schema
   owner / Extension wave E0.
-- **Start dependencies:** `RB-01` DONE; baseline inputs are `C-01A`, `D-01`,
-  `M-01`, `S-01`, `Q-01`, `B-02`, `E-01`, `L-01`, `N-01`, and `N-02`. `M-02`
-  is a `REVIEW/UNVERIFIED` evidence input only and must not be retried or moved.
+- **Start dependencies:** `ENV-01` DONE and separately Instructor-reviewed;
+  baseline inputs are `C-01A`, `D-01`, `M-01`, `S-01`, `Q-01`, `B-02`, `E-01`,
+  `L-01`, `N-01`, and `N-02`. `M-02` is a `REVIEW/UNVERIFIED` evidence input
+  only and must not be retried or moved. The blocked attempt at
+  `7f774ed505f45d927b650ccefcd76d9e4f8611d2` is not retry authority.
 - **Integration dependencies:** Unblocks `M-03`, `S-04`, `S-05`, `S-06`,
   `Q-02`, `B-03`, and `N-03` only after its gate evidence passes.
 - **Objective:** Reconcile extension fields, lifecycle states, provenance,
@@ -873,8 +931,9 @@ Instructor signal can authorize one safe frontier without treating the legacy
   are representable; inherited/shared ownership remains unchanged; old public
   contracts remain compatible where not explicitly extended.
 - **Validation:** Contract serialization and boundary tests, migration
-  down/up/remigrate and constraint checks, architecture/deferred-scope/scope
-  checks, link/DAG checks, `git diff --check`, and strict OpenSpec validation if
+  down/up/remigrate and constraint checks through the accepted `ENV-01` local
+  environment, architecture/deferred-scope/scope checks through its accepted
+  checker, link/DAG checks, `git diff --check`, and strict OpenSpec validation if
   available. Unavailable checks are `BLOCKED` or `UNVERIFIED`, never `PASS`.
 - **Definition of Done:** Reviewed contract/data-model/migration checkpoint
   identifies every downstream input and no extension packet is promoted
@@ -1270,10 +1329,11 @@ are fixed by ADR-008; deterministic fixtures remain allowed but final/demo paths
 real; `lightweight-charts` is retained; C-01A is the next ownership-sensitive gate;
 E-01/F-01 are READY; and D-01/S-01 remain BLOCKED by C-01A.
 
-At the `RB-01` checkpoint the Manager must additionally be able to identify
-`C-02` as the earliest contract/data-model/migration reconciliation gate, follow
-the DEC-007 extension DAG through Market Data, Strategy, Search, Backtesting,
-News/Sentiment, Evaluation/Leaderboard, Frontend, and `I-03`, and verify that all
-new feature packets remain `BLOCKED`. `M-02` remains `REVIEW/UNVERIFIED`, `AU-02`
-and `I-01`/`I-02` remain blocked, and none of the legacy `DONE` packets is treated
-as proof of a newly approved extension requirement.
+After the accepted `RB-01`/`RB-02` planning baseline and blocked first `C-02`
+attempt, the Manager must identify `ENV-01` as the sole pre-`C-02` environment and
+checker-reconciliation gate, then follow the DEC-007 extension DAG through the
+later contract/schema gate, Market Data, Strategy, Search, Backtesting,
+News/Sentiment, Evaluation/Leaderboard, Frontend, and `I-03`. All extension
+feature packets remain `BLOCKED`. `M-02` remains `REVIEW/UNVERIFIED`, `AU-02` and
+`I-01`/`I-02` remain blocked, and none of the legacy `DONE` packets is treated as
+proof of a newly approved extension requirement.
