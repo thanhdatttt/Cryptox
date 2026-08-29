@@ -2,59 +2,103 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-025`
+Instruction ID: `INS-026`
 
-Status: `HOLD`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
-## Safety hold after `RB-01` review
+## Authorization: `RB-02 — RB-01 DAG Consistency Correction`
 
-Reason: `RB-01 documentation reconciliation planning is not internally consistent: HANDOFF.md states a topological order that directly fans out C-02 to B-03, while the detailed MVP plan and task record require S-05 and S-06 before B-03. The checkpoint therefore cannot safely support an implementation authorization.`
+Reason: `The human decision accepts the detailed dependencies in MVP_PLAN.md and TASKS.md as canonical. The RB-01 HANDOFF.md summary must be corrected without changing product scope, task scope, source behavior, requirements, or task dependencies.`
 
-`INS-024` is exhausted. Its sole Manager-owned packet, `RB-01`, was committed at `acc7441040c4e16421880c54e7c57463b1974b66`. No implementation, worker, subagent, Orchestrator, or worktree is authorized by this signal.
+This signal authorizes exactly one fresh Manager, directly in the canonical
+`MVP_IMPLEMENTATION` checkout. It authorizes no worker, subagent, child
+Orchestrator, worktree, source implementation, or implementation packet. The
+Manager stops immediately after committing `RB-02`.
 
-## Review result: `NEEDS_HUMAN_DECISION`
+## Reviewed checkpoint and applicability
 
-### Verified checkpoint facts
+- Reviewed branch/HEAD: `MVP_IMPLEMENTATION` /
+  `3b8deba7bc4736d3dc1b09e7d98d1a0faecf528a`
+  (`docs(control): hold after RB-01 DAG review`).
+- The working tree was clean at review. The only currently active Cryptox thread
+  is this Instructor review; known Manager/worker threads are idle or not loaded.
+- `INS-025 / HOLD` remains the current signal until this replacement signal is
+  committed. The human decision is limited to resolving the documented DAG
+  summary; it neither changes DEC-007 nor authorizes `C-02`.
+- Before changing any file, the Manager MUST confirm the current signal is
+  `INS-026`, the reviewed HEAD is unchanged apart from this governance signal,
+  the tree is clean, and no other Cryptox Manager or worker is active. If any
+  check fails, make no change and report `NEEDS_INSTRUCTOR_REVIEW`.
 
-- Branch/HEAD reviewed: `MVP_IMPLEMENTATION` / `acc7441040c4e16421880c54e7c57463b1974b66`; the working tree was clean.
-- The `RB-01` commit changes only the three paths authorized by `INS-024`: `docs/implementation/MVP_PLAN.md`, `docs/implementation/TASKS.md`, and `docs/implementation/HANDOFF.md`. `git diff --check` and `git show --check` for that commit passed.
-- From the reviewed re-baseline `496d5a34b76841b9f5b142fa512225f502f5fa26` through this checkpoint, no requirements, decision-ledger, ADR, architecture, data-model, active OpenSpec, source, executable-contract, migration, or runtime-configuration path changed. The only intervening control-plane changes are `INS-024` and the permitted `RB-01` implementation-document updates.
-- DEC-007 requirement traceability and the preservation of historical `DONE` evidence are otherwise present. All newly allocated feature packets remain `BLOCKED`; `M-02` remains `REVIEW/UNVERIFIED`, and `AU-02`, `I-01`, and `I-02` remain blocked.
+## Approved canonical extension DAG
 
-### Material inconsistency
+```text
+C-02
+ ├─→ M-03, S-05, S-06, Q-02, N-03
+ ├─→ S-04 for its prompt-only path; N-03 gates S-04 URL-origin completion
+ └─→ B-03 only after both S-05 and S-06
+       → E-02
+Q-02 + B-03 + E-02 → L-02
+M-03 + S-04 + S-05 + S-06 + Q-02 + B-03 + N-03 + E-02 + L-02 → F-03
+F-03 + baseline I-01 + AU-02 → I-03 → I-02
+```
 
-- `docs/implementation/HANDOFF.md` labels its graph as the planned topological order and places `B-03` in the direct `C-02` fan-out. It also claims cross-document DAG/state consistency is `PASS`.
-- `docs/implementation/MVP_PLAN.md` and `docs/implementation/TASKS.md` instead require `S-05` and `S-06` before `B-03`; they also express the safe URL content join as `N-03` before the corresponding `S-04` path. Thus the checkpoint does not state one unambiguous executable dependency order.
+The detailed dependencies already in `MVP_PLAN.md` and `TASKS.md` are
+canonical. `C-02` and every extension implementation packet remain
+`BLOCKED`; no historical `DONE` evidence expands to cover DEC-007.
 
-This signal does not repair that inconsistency. The Instructor review scope forbids changing `MVP_PLAN.md`, `TASKS.md`, or `HANDOFF.md`; a future, separately approved documentation-only correction must reconcile them before any implementation gate can be considered.
+## Exact Manager scope
 
-## Current extension frontier
+The Manager may directly edit only:
 
-`C-02` is the sole earliest *possible* extension gate. It remains `BLOCKED` and is not authorized. `M-03`, `S-04`, `S-05`, `S-06`, `Q-02`, `B-03`, `N-03`, `E-02`, `L-02`, `F-03`, and `I-03` remain `BLOCKED`; no historical `DONE` packet is evidence that any DEC-007 extension is implemented.
+- `docs/implementation/HANDOFF.md`.
 
-## Conditions for any future bounded `C-02` authorization
+A read-only comparison may establish that a minimal matching clarification in
+`docs/implementation/MVP_PLAN.md` or `docs/implementation/TASKS.md` is
+strictly necessary. Only if that evidence is recorded may the Manager make that
+minimal wording-only clarification. It must not alter a dependency, task state,
+task scope, owner, requirement, acceptance criterion, validation requirement,
+or implementation ordering.
 
-Before an Instructor can issue a new, bounded `C-02` signal, all of the following must be true:
+`RB-02` must:
 
-1. A documentation-only reconciliation has corrected the `HANDOFF.md` graph and its consistency claim so it matches the detailed `MVP_PLAN.md` and `TASKS.md` dependencies, including `S-05`/`S-06` before `B-03` and the `N-03`/`S-04` content join.
-2. The corrected planning checkpoint is independently reviewed, has complete DEC-007 traceability, preserves historical evidence, and leaves every feature packet `BLOCKED` until separately authorized.
-3. Git is clean and there is no unreviewed source, business-state, authority, or task-DAG drift after the reviewed correction checkpoint.
-4. A new Instructor signal explicitly authorizes only `C-02`, states its exact contract/data-model/migration reconciliation scope, acceptance criteria, validation, and stop condition. It must not imply downstream feature authorization or worker fan-out.
+1. replace the ambiguous direct `C-02 → B-03` fan-out in `HANDOFF.md` with
+   the approved DAG;
+2. distinguish the `S-04` prompt-only path from the `N-03`-gated URL-origin
+   completion path;
+3. correct the prior false `DAG/state consistency: PASS` claim with a truthful
+   statement of the corrected comparison;
+4. record the exact reviewed commit, changed paths, validation results, blockers,
+   and that no implementation was started;
+5. run changed-path, Markdown-link, DAG/state-consistency, and whitespace
+   checks; and
+6. commit the bounded correction, then stop.
 
-Until those conditions are met, do not create or dispatch a Manager, Orchestrator, worker, subagent, or worktree, and do not implement any feature.
+## Explicit prohibitions
+
+- Do not create a worker, subagent, child Orchestrator, extra Manager, or
+  worktree.
+- Do not edit source, executable contracts, migrations, runtime configuration,
+  dependencies, frontend implementation, requirements, decisions, ADRs,
+  architecture, data model, or OpenSpec artifacts.
+- Do not alter any task dependency, state, scope, owner, requirement, or source
+  behavior. Do not start, retry, or reclassify `C-02`, `M-02`, `AU-02`,
+  `I-01`, `I-02`, or any extension implementation packet.
+- Do not infer a general implementation authorization from this documentation
+  correction.
+
+## Stop condition
+
+After the `RB-02` commit, this authorization is exhausted. A fresh Instructor
+review is required and the system returns to `HOLD`; that later review must not
+authorize `C-02` unless it is separately and explicitly approved.
 
 ## Canonical references
 
 - [Contributor rules](../../AGENTS.md)
 - [Decision ledger](./DECISIONS.md)
-- [Requirements](../requirements.md)
-- [Architecture](../architecture.md)
-- [Data model](../data-model.md)
-- [Accepted ADRs](../adr/)
-- [Active capability specifications](../../openspec/specs/)
-- [Active MVP change](../../openspec/changes/mvp-implementation/)
 - [Implementation program](../implementation/MVP_PLAN.md)
 - [Task state](../implementation/TASKS.md)
 - [Latest execution checkpoint](../implementation/HANDOFF.md)
