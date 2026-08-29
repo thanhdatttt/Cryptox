@@ -27,11 +27,11 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 | B-02 | DONE | 4 | YES | Manager / B-02 review-closure worker | `MVP_IMPLEMENTATION` / `a24aa00` | Packet-boundary DoD proven: Backtesting 33/33, package typecheck/lint/build, Auth PostgreSQL 3/3, owner isolation, provenance, rollback, cancellation/saturation, and one-terminal-outcome evidence PASS; cross-module Experiment/Leaderboard atomicity remains UNVERIFIED for I-01 |
 | AU-01 | DONE | 2 | YES | Orchestrator / Kepler / Banach + independent Auth reviewer | `MVP_IMPLEMENTATION` / `a9b026b` | PostgreSQL Auth 11/11 and backend 9/9 PASS on dedicated PostgreSQL 16.10; independent review PASS; full `verify:stage4a` PASS; OpenSpec CLI UNVERIFIED |
 | AU-02 | BLOCKED | 4 | YES | Manager / security integration worker | — | Blocked by private-resource implementations |
-| Q-01 | REVIEW | 3–4 | Integration | Kant (Q-01 worker; INS-016) | `MVP_IMPLEMENTATION` / `d320b60` | Existing fake-port phase reviewed PASS; worker produced no changes and no real SearchRun PostgreSQL or public Backtesting/Leaderboard port evidence; real integration UNVERIFIED |
-| N-01 | BLOCKED | 2 | Integration | Unassigned News worker | — | Not started |
-| N-02 | BLOCKED | 2 | Integration | Unassigned Sentiment worker | — | Not started |
+| Q-01 | READY | 3–4 | Integration | Pending INS-017 Q-01 worker | `MVP_IMPLEMENTATION` / `67419d1` | Existing fake-port phase reviewed PASS; real-port closure is authorized after verified D-01, L-01, and B-02 dependencies |
+| N-01 | READY | 2 | Integration | Pending INS-017 N-01 worker | `MVP_IMPLEMENTATION` / `67419d1` | Initial News packet is authorized; C-01 and D-01 start dependencies are DONE |
+| N-02 | READY | 2 | Integration | Pending INS-017 N-02 worker | `MVP_IMPLEMENTATION` / `67419d1` | Initial LEXICON_V1 packet is authorized; C-01 and D-01 start dependencies are DONE |
 | F-01 | DONE | 2 | Integration | Manager / Frontend worker | `MVP_IMPLEMENTATION` / `901065a` | Independent review, frontend/global gates, and browser interaction PASS |
-| F-AUTH | REVIEW | 3 | Integration | Cicero (F-AUTH worker; INS-016) | `MVP_IMPLEMENTATION` / `8abd6a8` | Frontend 23/23, typecheck/build/lint, and AU-01 PostgreSQL proxy smoke PASS; real browser credential flow and browser-observed HttpOnly behavior UNVERIFIED, so DONE is not claimed |
+| F-AUTH | READY | 3 | Integration | Pending INS-017 F-AUTH worker | `MVP_IMPLEMENTATION` / `67419d1` | Existing real-session boundary patch reviewed; frontend and AU-01 PostgreSQL smoke evidence retained; final browser/service closure is authorized and remains UNVERIFIED |
 | F-02 | BLOCKED | 3 | Integration | Unassigned Frontend worker | — | Not started |
 | I-01 | BLOCKED | 5 | YES | Manager / integration worker | — | Not started |
 | I-02 | BLOCKED | 6 | YES | Manager plus independent reviewers | — | Not started |
@@ -309,48 +309,50 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 
 - **Requirement IDs:** `CSL-R-SE-01`, `CSL-R-SE-02`, `CSL-R-LB-01`,
   `CSL-R-OB-01`, `CSL-R-DM-01`, `CSL-R-AR-02`, `CSL-R-OW-01`
-- **State / owner / wave:** REVIEW / Kant (Q-01 worker; INS-016) / Waves 3–4
+- **State / owner / wave:** READY / Pending INS-017 Q-01 worker / Waves 3–4
 - **Critical / parallelism:** Integration / YES for fake-port phase
 - **Start dependencies:** C-01A, S-01
 - **Integration dependencies:** D-01, L-01, B-02
 - **Objective:** Implement seeded Random generation, trusted owner propagation, and
   an owner-scoped finite SearchRun lifecycle, first against fakes and then real ports.
 - **Write scope:** `modules/search/**` except frozen contracts and migrations.
-- **Latest branch / commit:** `MVP_IMPLEMENTATION` / `d320b60` (Manager assignment checkpoint; no Q-01 source commit).
-- **Validation:** Pure/fake-port phase reviewed PASS. Kant reported no changes,
-  no real SearchRun PostgreSQL persistence, no public Backtesting/Leaderboard
-  port integration, and no database/port probe. Real integration and DONE remain
-  `UNVERIFIED`; fake-only evidence cannot close Q-01.
+- **Latest branch / commit:** `MVP_IMPLEMENTATION` / `67419d1` (INS-017 authorization checkpoint; no new Q-01 source commit).
+- **Validation:** Pure/fake-port phase reviewed PASS. D-01, L-01, and B-02 are
+  verified DONE, so the authorized real-port closure is READY. Real persistence,
+  Backtesting/Leaderboard port evidence, and DONE remain `UNVERIFIED`; fake-only
+  evidence cannot close Q-01.
 - **Full packet:** [`MVP_PLAN.md#q-01--seeded-random-search-and-searchrun-lifecycle`](MVP_PLAN.md#q-01--seeded-random-search-and-searchrun-lifecycle)
 
 ### N-01 — News Collection, Deduplication and Query
 
 - **Requirement IDs:** `CSL-R-NW-01`, `CSL-R-SN-01`, `CSL-R-OB-01`, `CSL-R-DM-01`,
   `CSL-R-RD-01`
-- **State / owner / wave:** BLOCKED / Unassigned News worker / Wave 2
+- **State / owner / wave:** READY / Pending INS-017 N-01 worker / Wave 2
 - **Critical / parallelism:** Integration / YES
 - **Start dependencies:** C-01, D-01
 - **Integration dependencies:** N-02 and I-01
 - **Objective:** Build fixture-first provider-neutral News with a real configured
   final/demo source and explicit provider provenance.
 - **Write scope:** `modules/news/**` except frozen contracts and migrations.
-- **Latest branch / commit:** —; record when work starts.
-- **Validation:** Not started; API credentials affect live smoke only.
+- **Latest branch / commit:** `MVP_IMPLEMENTATION` / `67419d1` (INS-017 authorization checkpoint).
+- **Validation:** Initial News packet is READY with C-01/D-01 dependencies DONE;
+  live CoinDesk evidence may remain `UNVERIFIED` when unavailable.
 - **Full packet:** [`MVP_PLAN.md#n-01--news-collection-deduplication-and-query`](MVP_PLAN.md#n-01--news-collection-deduplication-and-query)
 
 ### N-02 — `LEXICON_V1` Sentiment
 
 - **Requirement IDs:** `CSL-R-SN-01`, `CSL-R-OB-01`, `CSL-R-AR-02`,
   `CSL-R-AR-03`, `CSL-R-DM-01`
-- **State / owner / wave:** BLOCKED / Unassigned Sentiment worker / Wave 2
+- **State / owner / wave:** READY / Pending INS-017 N-02 worker / Wave 2
 - **Critical / parallelism:** Integration / YES
 - **Start dependencies:** C-01, D-01
 - **Integration dependencies:** N-01 and I-01
 - **Objective:** Implement deterministic local lexicon/rule sentiment with normalized
   score, provenance, persistence, and failure isolation.
 - **Write scope:** `modules/sentiment/**` except frozen contracts and migrations.
-- **Latest branch / commit:** —; record when work starts.
-- **Validation:** Not started; hosted services and downloaded model runtimes are forbidden.
+- **Latest branch / commit:** `MVP_IMPLEMENTATION` / `67419d1` (INS-017 authorization checkpoint).
+- **Validation:** Initial local LEXICON_V1 packet is READY with C-01/D-01
+  dependencies DONE; hosted services and downloaded model runtimes remain forbidden.
 - **Full packet:** [`MVP_PLAN.md#n-02--lexicon_v1-sentiment`](MVP_PLAN.md#n-02--lexicon_v1-sentiment)
 
 ### F-01 — Frontend Chart and Client Foundation
@@ -372,7 +374,7 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 ### F-AUTH — Frontend Authentication and Protected Navigation
 
 - **Requirement IDs:** `CSL-R-AU-01`, `CSL-R-OW-01`, `CSL-R-FE-01`, `CSL-R-DM-01`
-- **State / owner / wave:** REVIEW / Cicero (F-AUTH worker; INS-016) / Wave 3
+- **State / owner / wave:** READY / Pending INS-017 F-AUTH worker / Wave 3
 - **Critical / parallelism:** Integration / Not with an active F-01 shell writer
 - **Start dependencies:** C-01A, F-01
 - **Integration dependencies:** AU-01
@@ -382,12 +384,11 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 - **Latest branch / commit:** `MVP_IMPLEMENTATION` / `8abd6a8`.
 - **Validation:** The real-session frontend boundary patch is reviewed in scope;
   23/23 frontend tests plus typecheck/build/lint PASS, and the configured AU-01
-  PostgreSQL proxy smoke covers register 200, current-user 200, login 200,
-  logout 200, restored current-user 200, and revoked-session 401; response
-  cookie was HttpOnly/SameSite=Lax/Path=/Max-Age=86400 with no token in the
-  body. The worker reports unauthenticated browser navigation redirecting to
-  login/401 messaging, but the full interactive credential flow and deployed
-  HTTPS cookie behavior remain `UNVERIFIED`; DONE is not claimed.
+  PostgreSQL proxy smoke covers register/login/current-user/session restore/
+  logout/revoked-session 401 with HttpOnly/SameSite=Lax/Path=/Max-Age=86400 and
+  no token in the body. Final browser/service closure is READY for INS-017;
+  interactive credential flow and deployed HTTPS cookie behavior remain
+  `UNVERIFIED` until independently re-proven.
 - **Full packet:** [`MVP_PLAN.md#f-auth--frontend-authentication-and-protected-navigation`](MVP_PLAN.md#f-auth--frontend-authentication-and-protected-navigation)
 
 ### F-02 — Frontend Strategy, Search, Result and Auxiliary Views
@@ -445,8 +446,8 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 P-00, C-01, A-00, C-01A, E-01, F-01, S-01, D-01, AU-01, M-01, L-01, and B-02
 are DONE. B-02 is closed only at its DEC-006 packet boundary; cross-module
 Experiment/Leaderboard transaction coupling remains UNVERIFIED for I-01.
-M-02 remains REVIEW because live-provider evidence is UNVERIFIED. F-AUTH and
-Q-01 are REVIEW after their bounded INS-016 workers; F-AUTH has partial real
-AU-01 proxy evidence but browser credential/deployed-cookie proof is
-UNVERIFIED, while Q-01 has no real-port handoff. All other unfinished tasks
-remain BLOCKED. No unauthorized task was started.
+M-02 remains REVIEW because live-provider evidence is UNVERIFIED. F-AUTH, Q-01,
+N-01, and N-02 are READY solely for the authorized INS-017 frontier; real
+browser/service, real Search ports, live News, and persisted News/Sentiment
+evidence remain UNVERIFIED. All other unfinished tasks remain BLOCKED. No
+unauthorized task was started.

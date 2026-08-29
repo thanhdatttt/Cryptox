@@ -1,46 +1,31 @@
-# INS-016 Execution Checkpoint
+# INS-017 Execution Checkpoint
 
 ## Resume here
 
-- **Level 2 control plane:** Active. INS-016 is the current Instructor signal;
-  its reviewed checkpoint `4e00c42` matches the current `MVP_IMPLEMENTATION`
-  branch and clean worktree. `INSTRUCTOR.md` and `DECISIONS.md` were not edited.
-- **Authorization:** Execute exactly the independent F-AUTH real AU-01 and
-  Q-01 real-port review-closure phases. F-AUTH is limited to
-  `apps/frontend/**`; Q-01 is limited to `modules/search/**` excluding frozen
-  contracts/migrations. No M-02, B-02, AU-02, N-01/N-02, F-02, I-01/I-02, or
-  other task is authorized.
-- **Reconciliation:** Existing F-AUTH and Q-01 REVIEW records were reconciled
-  to READY because C-01A/F-01/AU-01 and C-01A/S-01/D-01/L-01/B-02 dependencies
-  are DONE. Each phase is delegated to a separate worker with disjoint scope;
+- **Level 2 control plane:** Active. INS-017 is the current Instructor signal;
+  the reviewed signal commit `67419d1` matches current HEAD and changes only
+  `INSTRUCTOR.md` relative to the reviewed clean checkpoint `ce24396`.
+  `INSTRUCTOR.md` and `DECISIONS.md` were not edited by the Manager.
+- **Authorization:** Execute exactly F-AUTH final real AU-01/browser closure,
+  Q-01 real-port Search integration, N-01 initial News, and N-02 initial local
+  LEXICON_V1 Sentiment. F-AUTH is limited to `apps/frontend/**`; Q-01 to
+  `modules/search/**`; N-01 to `modules/news/**`; N-02 to
+  `modules/sentiment/**`, with frozen contracts/migrations excluded. No M-02,
+  B-02, AU-02, F-02, I-01/I-02, D-01, AU-01, or follow-on work is authorized.
+- **Reconciliation:** Existing F-AUTH/Q-01 REVIEW records and N-01/N-02
+  BLOCKED initial records were reconciled to READY after verifying their
+  authorized start dependencies. Four workers are assigned in disjoint scopes;
   workers may not edit global control artifacts.
-- **B-02 boundary:** B-02 remains DONE under DEC-006. Cross-module
-  Experiment/Leaderboard transaction atomicity remains `UNVERIFIED` for I-01.
-- **Current known evidence:** F-AUTH has source commit `8abd6a8`, frontend
-  23/23 plus typecheck/build/lint PASS, and a reported PostgreSQL-backed AU-01
-  proxy smoke covering register/login/current-user/session restore/logout and
-  revoked-session 401. The cookie was reported HttpOnly/SameSite=Lax/Path=/
-  with no token in the response body. Unauthenticated browser navigation
-  redirected to login/401 messaging, but the full interactive credential flow
-  and deployed HTTPS cookie behavior remain `UNVERIFIED`. Q-01 has a reviewed
-  fake-port phase, but no real persistence/Backtesting/Leaderboard integration
-  or database/port probe was completed.
-- **Delegation and result:** F-AUTH was assigned to worker
-  `01a04b76-f51c-7363-aa12-1a9836892394` (Cicero) with write scope
-  `apps/frontend/**` and returned no new source changes; its scoped result is
-  REVIEW/UNVERIFIED. Q-01 was assigned to worker
-  `01a04b76-f65c-76a3-af5f-8ff93e33eaee` (Kant) with write scope
-  `modules/search/**` and returned no source changes, no database/port probe,
-  and REVIEW/UNVERIFIED. Scopes were disjoint and workers did not edit global
-  control artifacts.
-- **Validation:** `npm run verify:stage4a` PASS: workspace build, typecheck,
-  tests, architecture, artifacts, deferred-scope, and runtime smoke. Focused
-  frontend is 23/23 and Search is 18/18. The global Auth E2E remains an
-  expected skip without `DATABASE_URL`; the explicit PostgreSQL-backed AU-01
-  E2E passed 1/1. No passwords, cookies, tokens, or token digests were logged.
-- **Final checkpoint:** F-AUTH and Q-01 remain REVIEW; no task is DONE from
-  INS-016. Missing service/provider evidence is BLOCKED or UNVERIFIED, never
-  PASS. No downstream task was started.
+- **Baseline carried forward:** B-02 remains DONE only at the DEC-006 packet
+  boundary; I-01 cross-module Experiment/Leaderboard atomicity is UNVERIFIED.
+  M-02 remains REVIEW with live Binance evidence UNVERIFIED. F-AUTH retains
+  source `8abd6a8`, frontend 23/23 and package gates PASS, and partial
+  PostgreSQL AU-01 evidence; full browser credential/cookie proof is pending.
+  Q-01 retains only its reviewed fake-port phase and has no real-port evidence.
+- **Next Manager action:** Review the four worker outputs independently, run
+  packet/global gates, integrate only authorized changes, and replace this
+  checkpoint with the final INS-017 result. Missing provider/service evidence
+  is BLOCKED or UNVERIFIED, never PASS.
 
 ## INS-014 Historical Checkpoint
 
