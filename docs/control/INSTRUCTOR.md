@@ -2,81 +2,92 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-040`
+Instruction ID: `INS-041`
 
-Status: `HOLD`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
-## INS-040 — HOLD after ENV-02 independent review
+## INS-041 — Closure review for ENV-02, S-05, and S-06
 
-This replaceable signal supersedes `INS-039 / APPROVED_FOR_EXECUTION`. The
-authorized ENV-02 implementation is accepted at the evidence boundary, but
-operational task promotion and any next packet require a fresh authorization.
-No implementation packet is authorized by this HOLD.
+This replaceable signal supersedes `INS-040 / HOLD` and authorizes exactly one
+Manager-owned closure review of already implemented, independently validated
+work. It authorizes no new implementation and no downstream packet. No worker
+is authorized or needed because the packet contains only evidence review and
+operational state transitions.
 
-### Reviewed checkpoint
+### Reviewed checkpoint and preconditions
 
 - Branch: `MVP_IMPLEMENTATION`.
-- HEAD: `2751fbe3e554351c4629b230b4951c4121702416`
-  (`checkpoint(ins-039): record ENV-02 handoff`).
-- Working tree: clean; `git diff --check` passes.
-- The post-INS-036 range contains only the Instructor governance update for
-  `ENV-02`, the Manager-owned ENV-02 checkpoint, and the two authorized checker
-  files. No module, package, app, infrastructure, migration, dependency,
-  runtime, frontend, contract, or unrelated source path changed.
-- The fresh INS-039 Manager
-  (`01a04ea7-b1bd-73c2-972a-7d67e6f551c9`) is idle after its checkpoint; its
-  one worker (`01a04eae-367c-7fc3-8961-dccb9e760cf9`, Confucius) is closed.
-  No other active Cryptox Manager, Orchestrator, or worker is running. No
-  historical Manager or worktree was reused or removed.
+- Authorization base HEAD: `bac4df05ec7cbe16753196013c38f4e30120dbca`
+  (`docs(control): hold after ENV-02 review`).
+- Working tree was clean; current signal was `INS-040 / HOLD`.
+- `ENV-01 = DONE`, `C-02 = DONE`, `ENV-02 = REVIEW`, `S-05 = REVIEW`, and
+  `S-06 = REVIEW`. `M-03`, `S-04`, `Q-02`, `N-03`, `B-03`, and all later
+  extension/integration packets remain `BLOCKED`.
+- The ENV-02 Manager
+  (`01a04ea7-b1bd-73c2-972a-7d67e6f551c9`) is idle after completion and its
+  one worker (`01a04eae-367c-7fc3-8961-dccb9e760cf9`) is closed. No other
+  active Cryptox Manager, Orchestrator, or worker is running. No historical
+  Manager or worktree was reused or removed.
 
-### Independent review evidence
+### Authorized closure scope
 
-- `ENV-02` changed exactly `scripts/check-deferred-scope.cjs` and
-  `scripts/check-deferred-scope.test.cjs`; Manager-owned control changes are
-  limited to `docs/implementation/TASKS.md` and `HANDOFF.md`.
-- The checker retains its canonical owner and generic deferred-scope rejection.
-  `WEIGHTED_VOTE_V1` is allowed only at its existing canonical boundaries plus
-  `modules/strategy/application/composite/` and
-  `modules/strategy/domain/composite/`. `SMC_LITE_V1` and `WYCKOFF_LITE_V1`
-  are allowed only in their exact approved plugin directories.
-- Exact directory matching and exact-file matching reject near-match paths;
-  focused tests cover canonical positives, all four implementation positives,
-  unrelated-path negatives, market observability, synthetic-paper risk, and
-  every deferred family.
-- Independent `npm run test:scope-check`: `7/7 PASS`.
-- Independent `npm run scope:check`: `PASS` with no deferred enterprise-Auth,
-  queue/distributed, risk, autonomous-LLM, or strict-replay leakage.
-- Independent `npm run arch:check`: `PASS` (75 modules, 197 dependencies;
-  expected forbidden fixtures detected).
-- Independent `npm run artifacts:check`: `PASS`.
-- Independent `npm run typecheck`, `npm run build`, and `npm run lint`: `PASS`.
-- Independent `npm test`: executed tests passed, but 6 environment-gated
-  PostgreSQL/integration/E2E tests were skipped; classify the full gate as
-  `UNVERIFIED`, not PASS.
-- OpenSpec CLI status/apply and dedicated link/DAG automation remain
-  `UNVERIFIED` because the executables/checker are unavailable. PostgreSQL,
-  live-provider, migration, browser, and runtime-smoke checks are not
-  applicable to this pure checker-boundary packet and are not claimed PASS.
+- **Only state transitions:** Review the existing `ENV-02`, `S-05`, and `S-06`
+  evidence and, only if all acceptance and validation evidence remains
+  applicable, transition those three rows independently from `REVIEW` to
+  `DONE`. Do not alter any other task row.
+- **Manager-owned files:** Only `docs/implementation/TASKS.md` and
+  `docs/implementation/HANDOFF.md` may change. The Manager must record this
+  instruction ID, the reviewed commits, the unchanged worker topology, the
+  evidence decision, and the stop boundary. No worker may be created.
+- **No implementation:** Do not edit `scripts/**`, `modules/**`,
+  `packages/**`, `apps/**`, `infra/**`, dependencies, migrations, runtime,
+  frontend, requirements, ADRs, OpenSpec, `MVP_PLAN.md`, `DECISIONS.md`, or
+  `INSTRUCTOR.md`. Do not amend or rewrite prior evidence; append/replace only
+  the current Manager checkpoint as its ownership permits.
 
-### Operational state
+### Acceptance and validation required for promotion
 
-- `TASKS.md` remains authoritative and Manager-owned:
-  `ENV-02 = REVIEW`, `S-05 = REVIEW`, `S-06 = REVIEW`.
-- `ENV-01 = DONE` and `C-02 = DONE`; all other downstream extension packets
-  retain their recorded states. No downstream packet was started or promoted.
-- The accepted checker gate now supplies the missing closure evidence for
-  S-05/S-06, but no agent may silently transition their task rows. A new
-  Manager authorization must explicitly perform the review-state promotion.
+- Confirm `d8c5bf3324cbee349e272cb177537fa6ed062df0` contains only the
+  authorized checker/test implementation plus the Manager checkpoint changes,
+  and `2751fbe3e554351c4629b230b4951c4121702416` records the completed ENV-02
+  handoff.
+- Confirm the four exact extension boundaries remain allowlisted, near-match
+  paths remain rejected, and no generic deferred-scope rejection was weakened.
+- Re-run or verify evidence for `npm run test:scope-check` (`7/7 PASS`),
+  `npm run scope:check` (`PASS`), `npm run arch:check`,
+  `npm run artifacts:check`, `npm run typecheck`, `npm run build`,
+  `npm run lint`, and `git diff --check`.
+- The root `npm test` result remains `UNVERIFIED` because six
+  environment-gated PostgreSQL/integration/E2E tests are skipped despite all
+  executed tests passing. OpenSpec CLI and dedicated link/DAG automation remain
+  `UNVERIFIED`; do not convert these to PASS.
+- If any source/business-state drift, evidence gap, or task-DAG inconsistency
+  is found, do not promote rows; record `BLOCKED`/`NEEDS_INSTRUCTOR_REVIEW` in
+  the handoff and stop.
 
-### Next decision boundary
+### Prohibitions and stop condition
 
-The next authorization may permit only a Manager-owned closure review of the
-already implemented `ENV-02`, `S-05`, and `S-06` evidence. It must not modify
-source, start downstream work, or treat the passing checker as automatic
-authorization. After that closure, the Instructor will review the new
-checkpoint before selecting the next E1 implementation frontier.
+- Do not create a worker, do not create another Manager, do not retry ENV-02,
+  and do not start or promote `M-03`, `S-04`, `Q-02`, `N-03`, `B-03`, `E-02`,
+  `L-02`, `F-03`, `I-03`, `M-02`, `AU-02`, `I-01`, `I-02`, or any deferred
+  packet.
+- After the closure review and required Manager checkpoint commit, stop with
+  `ENV-02`, `S-05`, and `S-06` at `DONE` if accepted, or with their exact
+  unchanged states and a blocker if not. No automatic downstream start occurs.
+- A fresh Instructor review is mandatory before the next implementation
+  authorization.
+
+### Dispatch requirements
+
+- Create exactly one fresh Manager in the same canonical checkout, no worktree,
+  using `gpt-5.6-luna` with `max` reasoning. The Manager must read `AGENTS.md`
+  and `docs/control/prompts/ORCHESTRATOR_START.md` fully, then recover all
+  authority from the repository before acting.
+- Before dispatch, the Manager must reverify branch/HEAD, clean status, this
+  signal, checkpoint applicability, task states, and absence of active
+  Cryptox Manager/worker tasks. This signal is stale if any premise fails.
 
 ## Canonical references
 
