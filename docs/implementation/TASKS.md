@@ -17,14 +17,14 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 | C-01A | DONE | 1A | YES | Manager / contract worker | `MVP_IMPLEMENTATION` / `9ca2d7c` | Independent review and all contract/global gates PASS |
 | D-01 | DONE | 2 | YES — B-02 gate | Orchestrator / Dewey + independent DB reviewer | `MVP_IMPLEMENTATION` / `f5c5562` | Live down/up/remigrate, schema/constraint/ownership/deferred-scope probes, global gates PASS; config defect fixed |
 | M-01 | DONE | 2 | Integration | Halley (Market Data worker) and Manager | `3c95063` | Focused 14/14, dedicated PostgreSQL 1/1, root gates PASS; live Binance UNVERIFIED |
-| M-02 | REVIEW | 3 | Integration | M-02 review-closure worker (INS-014) | `MVP_IMPLEMENTATION` / INS-014 integration checkpoint pending | Socket-error reconnect fix and regression coverage reviewed; focused realtime 9/9 and full Market Data 23 PASS / 1 skipped; live Binance remains UNVERIFIED |
+| M-02 | REVIEW | 3 | Integration | M-02 review-closure worker (INS-014) | `MVP_IMPLEMENTATION` / `5160c1c` | Socket-error reconnect fix and regression coverage reviewed; focused realtime 9/9 and full Market Data 23 PASS / 1 skipped; live Binance remains UNVERIFIED |
 | S-01 | DONE | 2 | YES | Manager / S-01 strategy | `MVP_IMPLEMENTATION` / containing INS-005 checkpoint commit | Strategy tests/workspace gates PASS; persistence and built-in plugin scopes untouched |
 | S-02 | DONE | 3 | Integration | Manager / reviewed Strategy worker A | `MVP_IMPLEMENTATION` / `afbd88c` | Focused 15/15, independent review, and reproducible root workspace gate PASS |
 | S-03 | DONE | 3 | Integration | Manager / reviewed Strategy worker B | `MVP_IMPLEMENTATION` / `afbd88c` | Focused 25/25, independent review, and reproducible root workspace gate PASS |
 | E-01 | DONE | 2 | YES — B-02 gate | Manager / Evaluation worker | `MVP_IMPLEMENTATION` / `a20a7c5` | Independent review and Evaluation/global gates PASS |
 | L-01 | DONE | 2 | YES — B-02 gate | Linnaeus (Leaderboard worker) and Manager | `3c95063` | Focused 16/16, adapter/initializer review, root gates PASS; persisted admission UNVERIFIED |
 | B-01 | DONE | 3 | YES | Manager / reviewed Backtesting domain worker | `MVP_IMPLEMENTATION` / `afbd88c` | Focused 9/9, Backtesting 18/18, independent review, and reproducible root workspace gate PASS |
-| B-02 | REVIEW | 4 | YES | B-02 review-closure worker (INS-014) | `MVP_IMPLEMENTATION` / INS-014 integration checkpoint pending | Cancellation/provenance/timing fixes reviewed; full Backtesting 33/33 PASS; Auth PostgreSQL 3/3 PASS; cross-module atomicity remains UNVERIFIED |
+| B-02 | REVIEW | 4 | YES | B-02 review-closure worker (INS-014) | `MVP_IMPLEMENTATION` / `5160c1c` | Cancellation/provenance/timing fixes reviewed; full Backtesting 33/33 PASS; Auth PostgreSQL 3/3 PASS; cross-module atomicity remains UNVERIFIED |
 | AU-01 | DONE | 2 | YES | Orchestrator / Kepler / Banach + independent Auth reviewer | `MVP_IMPLEMENTATION` / `a9b026b` | PostgreSQL Auth 11/11 and backend 9/9 PASS on dedicated PostgreSQL 16.10; independent review PASS; full `verify:stage4a` PASS; OpenSpec CLI UNVERIFIED |
 | AU-02 | BLOCKED | 4 | YES | Manager / security integration worker | — | Blocked by private-resource implementations |
 | Q-01 | REVIEW | 3–4 | Integration | Herschel (Q-01 worker; INS-008) | `MVP_IMPLEMENTATION` / `d226a4a` | Pure/fake-port phase reviewed PASS; real-port integration and DONE remain unauthorized |
@@ -184,7 +184,7 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 - **Objective:** Deliver normalized market klines with bounded reconnect, gap fill,
   deduplication, and observable connection state.
 - **Write scope:** Market Data application/infrastructure and market WebSocket tests.
-- **Latest branch / commit:** `MVP_IMPLEMENTATION` / INS-014 integration checkpoint pending.
+- **Latest branch / commit:** `MVP_IMPLEMENTATION` / `5160c1c`.
 - **Validation:** REVIEW after INS-014 closure; realtime 9/9 and full Market Data 23 PASS / 1 skipped, package gates PASS; live Binance stream remains UNVERIFIED after provider failure and reconnect exhaustion.
 - **Full packet:** [`MVP_PLAN.md#m-02--realtime-market-delivery-and-gap-recovery`](MVP_PLAN.md#m-02--realtime-market-delivery-and-gap-recovery)
 
@@ -285,7 +285,7 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 - **Objective:** Connect owner-scoped Candidate persistence, bounded execution,
   simulation, Evaluation, inherited Experiment/Trades, and same-owner Leaderboard.
 - **Write scope:** Backtesting application/infrastructure/API implementations/tests.
-- **Latest branch / commit:** `MVP_IMPLEMENTATION` / INS-014 integration checkpoint pending.
+- **Latest branch / commit:** `MVP_IMPLEMENTATION` / `5160c1c`.
 - **Validation:** REVIEW after INS-014 closure; full Backtesting 33/33 PASS and package gates PASS; Auth PostgreSQL 3/3 PASS; cross-module Experiment/Leaderboard atomicity remains UNVERIFIED until a shared transaction-aware adapter is proven.
 - **Full packet:** [`MVP_PLAN.md#b-02--candidate-execution-and-experiment-orchestration`](MVP_PLAN.md#b-02--candidate-execution-and-experiment-orchestration)
 

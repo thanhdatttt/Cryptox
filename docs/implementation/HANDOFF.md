@@ -55,9 +55,9 @@
   required before any further work, including I-01 or provider integration.
 - **Safe checkpoint commits:** `5ac68b9` contains the scoped M-02/B-02 source
   and tests; `98f8bb5` and `158e38f` contain the prior INS-013 checkpoint;
-  `9975a59` contains the INS-014 authorization. The final INS-014 integration
-  and control checkpoint commits are recorded below after commit. No downstream
-  task was started.
+  `9975a59` contains the INS-014 authorization; `5160c1c` contains the final
+  INS-014 source, tests, and Manager control checkpoint. No downstream task was
+  started.
 
 ## Historical checkpoints (prior to INS-012)
 - **INS-010 applicability:** PASS at execution start. Instructor reviewed HEAD
