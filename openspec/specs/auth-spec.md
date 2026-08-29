@@ -6,6 +6,11 @@
 
 A lightweight authentication module providing simple username/password registration and login, hashed password storage (bcrypt), and stateless JWT session tokens. The module is intentionally minimal – no OAuth, SSO, MFA, or refresh‑token store – suitable for an MVP/academic project.
 
+Authentication is also the ownership root for user-created Strategy Definitions,
+Composite Definitions, Leaderboard Scopes, Search Runs, and derived Backtesting
+and Experiment reads. Protected handlers derive an `AuthContext` from the
+verified token; request-body owner fields are never authorization evidence.
+
 ### Scope
 
 In scope:
@@ -26,11 +31,15 @@ Out of scope:
 | FR‑2 | `login(email, password)` validates the bcrypt hash and returns a JWT `{ sub: userId, iat, exp }`.
 | FR‑3 | `verify(token)` validates signature, expiry and extracts `sub` (userId). Invalid tokens return 401.
 | FR‑4 | All protected endpoints must reject requests lacking a valid JWT with 401.
+| FR‑5 | Protected module commands and queries receive `AuthContext { userId }`; an authenticated request for another owner’s object is concealed as 404.
+| FR‑6 | Owner-aware aggregates use owner-leading uniqueness and lookup indexes; derived resources authorize through immutable parent chains.
 
 ### Business rules
 - Email addresses are unique (`users.email UNIQUE`).
 - Passwords are never stored in plain text; only bcrypt hash is persisted.
 - JWT secret is a static server‑side secret defined in configuration.
+- Ownership is checked in application repositories before returning or mutating a user-owned aggregate. A supplied `userId` in a body is rejected or ignored.
+- Same-owner composition is mandatory: composites, scopes, Search Runs, Candidates, Experiments, and rankings cannot mix owners.
 
 ## 3. Behavior
 
@@ -57,9 +66,13 @@ Invalid credentials return 401.
 ```
 Authorization: Bearer <token>
 verify(token) -> check signature & expiry
-extract sub -> req.userId
+extract sub -> req.auth = { userId: sub }
 ```
 Missing or invalid token aborts request with 401.
+
+Every protected REST handler passes the resulting `AuthContext` to the module
+public API. Foreign or guessed IDs are returned as not-found so transport
+responses do not disclose another user’s data.
 
 ## 4. Contracts
 
@@ -70,6 +83,8 @@ export interface AuthModulePublicApi {
   login(email: string, password: string): Promise<{ token: string }>;
   verify(token: string): Promise<{ userId: string }>;
 }
+
+export interface AuthContext { userId: string }
 ```
 
 ### Bootstrap facade (`modules/auth/api/bootstrap.ts`)
@@ -96,9 +111,13 @@ CREATE TABLE users (
 - **HS256** signed with a secret configured in `apps/backend` env.
 - **No refresh tokens** – clients re‑login after expiry.
 - **No external identity providers** – pure username/password.
+- **Ownership boundary** – JWT `sub` is the only request owner; derived-resource authorization follows immutable parent links.
+- **Legacy data** – migration `013_backfill_legacy_owner.js` uses one explicit `legacy@local.invalid` user to backfill nullable legacy rows; fresh installations establish non-null ownership in migrations `003`–`005`.
 
 ## 6. Acceptance Criteria
 - [ ] Register stores bcrypt hash, rejects duplicate email.
 - [ ] Login returns a signed JWT that expires after 1 h.
 - [ ] Protected endpoints reject missing/invalid JWT with 401.
 - [ ] JWT payload contains `sub` equal to the `users.id`.
+- [x] Protected application calls carry `{ userId }` from verified JWT state, not caller-supplied body data.
+- [x] Foreign aggregate and derived-resource access is concealed as 404, while same-owner composition failures are validation errors.

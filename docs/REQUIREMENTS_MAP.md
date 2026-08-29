@@ -16,10 +16,20 @@ The assignment PDF is the authority. The Markdown companion is used for searchab
 | R-10 | Maintain a sortable/ranked leaderboard with Top-K behavior and explicit ranking score. | PDF §§21-23; `disco.jpg`, `backtest.jpg` | Ranking/Top-K tests |
 | R-11 | Collect normalized news from replaceable providers and associate items to assets/pairs. | PDF §§27-28; `news.jpg` | Provider normalization tests |
 | R-12 | Analyze news sentiment via an isolated ML/LLM boundary, preserve template/version provenance, and degrade without disabling trading views. | PDF §§29-31; `news.jpg` | Sentiment boundary/failure tests |
-| R-13 | Provide reviewable strategy authoring and a saved strategy library with validated, versioned, owner-isolated strategy/composite definitions. The Prompt/URL controls are reference-screen presentation elements; the PDF does not mandate an LLM or arbitrary-URL fetcher. | PDF §36; `strategy.jpg` | Definition-versioning, repository, and authenticated REST tests |
+| R-13 | Provide reviewable strategy authoring and a saved strategy library with validated, versioned, owner-isolated strategy/composite definitions. OpenSpec additionally confirms an authenticated, bounded generation path from exactly one text or public HTTP(S) URL source; this is constrained model assistance, not arbitrary code execution. | PDF §36; `strategy.jpg`; OpenSpec `ai-strategy-generation` | Definition-versioning, generation/schema/source-loader, repository, and authenticated REST tests |
 | R-14 | Use modular architecture so adapters, strategies, search algorithms, workers, and UI projections are replaceable without broad rewrites. | PDF §§4,12,24,35; all images | Dependency cruiser, module contract, integration tests |
 | R-15 | Provide the visual dashboard areas shown in the references: realtime, strategy/discovery, backtest, news, settings/auth shell. | PDF §35; all five images | Frontend build and screen/state tests |
 
 Important precedence note: `backtest.jpg` and the other images contain illustrative values and labels (for example, sample profits and dates). Tests must verify behavior and layout structure, not treat those sample numbers as live business constants.
 
 Important conflict resolution: the original map overstated PDF §§32-34 as requiring prompt/URL generation. Those sections are architectural drivers and an end-to-end flow, not an LLM/URL feature requirement. The `strategy.jpg` reference requires that authoring UI to be presented, while the implemented backend requirement is the reviewable, versioned Strategy Library that the PDF explicitly requires in §36.
+
+OpenSpec precedence note: the confirmed change makes constrained AI generation
+an implemented backend capability even though the PDF treats prompt/URL controls
+as a presentation/reference element. Frontend controls remain subject to the
+user's explicit UI-approval boundary.
+
+Ownership matrix: `AuthContext.userId` owns Strategy/Composite Definitions,
+Benchmark Scopes, and Search Runs. Candidate, Attempt, Trade, Experiment, and
+Leaderboard reads derive authorization through immutable parent chains; equal
+benchmark inputs under different owners never share rankings.

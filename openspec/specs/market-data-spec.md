@@ -352,12 +352,14 @@ need a gap-free range. Snapshot creation MUST always use
 `REQUIRE_COMPLETE`.
 
 For a range-based query, `from` and `to` are both required and MUST be aligned.
-For a page query without a range, `limit` is required and means the latest
+For a page query without a range, an omitted `limit` uses the fixed
+`DEFAULT_HISTORICAL_CANDLE_LIMIT = 1000`; an explicit `limit` means the latest
 closed-candle page for the pair/timeframe. The response range is the effective
 coverage of that page; `complete` describes only whether that effective page
 has no internal gaps, not whether all historical data exists. `limit` MUST be
 a positive integer and MUST NOT exceed the configured maximum. A range query
-without `limit` uses the configured default page size. A requested range span
+without `limit` keeps its existing range/snapshot semantics and uses the
+configured range-page bound. A requested range span
 or page size beyond configured bounds returns `RANGE_TOO_LARGE`; no query is
 allowed to create an unbounded result.
 
@@ -863,6 +865,8 @@ export interface HistoricalCandleQuery {
   includeForming?: boolean;
   completeness?: "ALLOW_PARTIAL" | "REQUIRE_COMPLETE";
 }
+
+export const DEFAULT_HISTORICAL_CANDLE_LIMIT = 1000;
 
 export interface HistoricalCandlePage {
   pair: Pair;
@@ -1628,6 +1632,14 @@ the behavior can be verified deterministically without Binance network access.
      `closedThrough` boundary and, when the provider supplies reliable order,
      an order key/comparator; the same reconciliation rules apply, and no
      provider-specific field reaches REST, WebSocket, Strategy, or Backtesting.
+
+30. **Historical page default**
+    - Given a limit-only `readCandles`/`GET /market/candles` request with no
+      explicit `limit`
+    - When at least 1000 closed candles are available
+    - Then the response selects the latest 1000 candles in ascending
+      timestamp order. An explicit smaller limit, an explicit range, and
+      snapshot reads retain their existing semantics.
 
 ## 11. Traceability matrix
 

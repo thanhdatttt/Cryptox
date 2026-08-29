@@ -20,6 +20,10 @@ The module's position in the overall pipeline:
 modules/search → modules/backtesting → modules/evaluation → **modules/leaderboard**
 ```
 
+Leaderboard state is private to the authenticated owner. A scope is resolved
+with `(userId, scopeId)` before Top-10 reads or admission, and a Search ranking
+is resolved with `(userId, searchRunId)` before querying Experiments.
+
 ### Scope
 
 In scope:
@@ -55,7 +59,7 @@ Out of scope (owned by other modules, consumed through their public APIs only):
 |---|---|
 | `apps/backend` | Creates the Leaderboard module at startup; exposes `GET /leaderboard` and `GET /search-runs/{id}/leaderboard` via REST using the public API. |
 | Backtesting Completion Processor | Calls `score()` to produce a `ScoredEvaluation`, then calls `submit(experiment, unitOfWork)` inside an existing PostgreSQL transaction to perform Top-10 admission atomically with Experiment persistence. |
-| `modules/search` | Calls `rankSearchRun(searchRunId)` to get the session-scoped best Experiment for `currentTopEntry` and no-improvement stop-condition checks. Reads the public `LeaderboardService` API only; never imports Leaderboard domain or infrastructure. |
+| `modules/search` | Calls `rankSearchRun(userId, searchRunId)` to get the session-scoped best Experiment for `currentTopEntry` and no-improvement stop-condition checks. Reads the public `LeaderboardService` API only; never imports Leaderboard domain or infrastructure. |
 | Frontend (via Backend REST) | Reads `GET /leaderboard?scopeId=...` for the persistent cross-run Top-10 and `GET /search-runs/{id}/leaderboard` for a run-scoped ranking. |
 
 
@@ -77,6 +81,7 @@ Out of scope (owned by other modules, consumed through their public APIs only):
 | FR-8 | The module must expose `rankSearchRun(userId, searchRunId)` returning that user's rank-eligible Experiments for the run, ordered by score descending. |
 | FR-9 | The module must persist owner-scoped immutable scopes via `createLeaderboardScope(userId, command)` and expose owner-aware reload; uniqueness is `(userId, name, version)`. |
 | FR-10 | `createLeaderboardScope()` must validate same-owner context, an existing `scoreFormulaId`, sealed snapshot/pair metadata, aligned trade range, integer warm-up capacity `0..10000`, positive capital, finite bounded non-negative costs, non-empty simulator/Evaluation versions, SHA-256 values, and policy IDs. |
+| FR-11 | `topK` and `rankSearchRun` must return only entries/Experiments reachable through the authenticated owner’s scope or Search Run; foreign IDs are concealed as not-found. |
 
 ### 2.2 Business rules
 
@@ -128,6 +133,9 @@ Out of scope (owned by other modules, consumed through their public APIs only):
 
 - **Displaced entries**: When an entry is evicted from Top-K it is marked `active = false`
   and retained for history/audit. It is never deleted.
+- **Private partitions**: Equal benchmark inputs under different owners still use
+  separate scopes and separate persistent Top-10 lists; ranking never compares or
+  exposes another owner's rows.
 
 ### 2.3 Non-functional requirements
 
@@ -165,7 +173,7 @@ sequenceDiagram
     participant LB as Leaderboard module / api
     participant PG as PostgreSQL
 
-    Admin->>LB: createLeaderboardScope(command)
+    Admin->>LB: createLeaderboardScope(userId, command)
     LB->>LB: validate scoreFormulaId references existing ScoreFormula
     LB->>LB: validate finite/positive numeric parameters
     LB->>PG: INSERT leaderboard_scopes (immutable)
@@ -252,8 +260,8 @@ sequenceDiagram
     participant LB as LeaderboardService
     participant PG as PostgreSQL
 
-    U->>API: GET /leaderboard?scopeId=<id>
-    API->>LB: topK(leaderboardScopeId)
+    U->>API: GET /leaderboard?scopeId=<id> + Bearer token
+    API->>LB: topK(userId, leaderboardScopeId)
     LB->>PG: SELECT leaderboard_entries WHERE scope_id = ? AND active = true ORDER BY score DESC, added_at ASC LIMIT 10
     PG-->>LB: LeaderboardEntry[≤10]
     LB-->>API: LeaderboardEntry[]
@@ -271,16 +279,17 @@ sequenceDiagram
     participant LB as LeaderboardService
     participant PG as PostgreSQL
 
-    S->>LB: rankSearchRun(searchRunId)
-    LB->>PG: SELECT experiment_results WHERE search_run_id = ? AND rank_eligible = true ORDER BY overall_score DESC
+    S->>LB: rankSearchRun(userId, searchRunId)
+    LB->>PG: resolve owner-matching Search Run, then SELECT rank-eligible Experiments
     PG-->>LB: ExperimentResult rows (with leaderboard_scope_id, score_formula_id, score)
     LB->>LB: map to SearchRunRankingEntry[]
     LB-->>S: SearchRunRankingEntry[]
 ```
 
-`rankSearchRun()` queries `experiment_results` directly (read-only) and does not require
-a lock. It is a best-effort read; concurrent writes during an active Search Run may mean
-the view is slightly stale.
+`rankSearchRun()` is a projection-only read and does not require a lock. It first
+resolves an owner-matching Search Run and filters through that immutable parent
+chain. It is a best-effort read; concurrent writes during an active Search Run
+may mean the view is slightly stale.
 
 ### 3.6 Error / edge cases
 
@@ -752,13 +761,14 @@ flowchart LR
 
 ### Read queries
 
-- [ ] `topK(leaderboardScopeId)` returns at most 10 active entries ordered by `score DESC`,
+- [ ] `topK(userId, leaderboardScopeId)` returns at most 10 active entries ordered by `score DESC`,
   with `addedAt ASC` as tie-breaker (older entry has the higher rank on a tie).
 - [ ] `topK()` never returns an inactive (evicted) entry.
-- [ ] `rankSearchRun(searchRunId)` returns only experiments with `rankEligible = true`,
+- [ ] `rankSearchRun(userId, searchRunId)` returns only owner-matching experiments with `rankEligible = true`,
   ordered by `score DESC`, and excludes zero-trade experiments.
 - [ ] `GET /leaderboard?scopeId=<id>` maps to `topK()` and returns a valid JSON response
   (verified by a REST integration test).
+- [x] Equal benchmark inputs under different owners remain separate Top-10 partitions; guessed scope and Search Run IDs do not disclose rows.
 
 ### Architecture and boundary
 

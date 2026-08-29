@@ -142,6 +142,7 @@ export interface Strategy {
 // stored, referenced by an ExperimentResult, and never overwritten (brief §36).
 export interface StrategyDefinition {
   id: string;                    // unique per version — see the Identity rule in §0
+  userId: string;                 // owner derived from AuthContext; never trusted from a request body
   logicalFamilyKey: string;      // required stable identity used for version allocation
   familyName?: string;           // display-only label, never a foreign key
   strategyName: string;         // matches Strategy.name, resolved via the Registry
@@ -209,6 +210,53 @@ export interface StrategyArtifactResolver {
 
 Adding `MACDStrategy` means: implement `Strategy`, provide a factory plus serializable descriptor/parameter schema and immutable implementation version/hash, and call `register()` once at bootstrap. `GET /strategies` returns descriptors, so the Frontend renders configuration fields without a MACD-specific branch. Creating a `StrategyDefinition` copies the descriptor's implementation provenance. The Registry/Artifact Resolver resolves `(strategyName, implementationSha256)` from retained build artifacts; if one is unavailable, replay returns `IMPLEMENTATION_ARTIFACT_UNAVAILABLE` instead of substituting the latest plugin. Nothing else in this document changes — plugin registration remains independent from the rest of the platform.
 
+### 3.1 AI-assisted Strategy generation
+
+Generation is a direct authenticated Strategy command, not Search candidate
+generation. It accepts exactly one source, constrains the model to the live
+plugin descriptor catalog, and routes the proposal through the normal
+same-owner definition/composite validation before persistence.
+
+```typescript
+export type StrategyGenerationSource =
+  | { sourceType: "TEXT"; text: string }
+  | { sourceType: "URL"; url: string };
+
+export type GeneratedStrategyProposal =
+  | { kind: "SINGLE"; strategyName: string; parameters: Record<string, number | string> }
+  | { kind: "COMPOSITE"; method: CombinationMethod; components: Array<{ strategyName: string; parameters: Record<string, number | string>; weight: number }>; thresholds?: { buy: number; sell: number } };
+
+export interface StrategyGenerationAdapter {
+  generate(input: {
+    sourceText: string;
+    strategies: readonly StrategyPluginDescriptor[];
+    promptVersion: string;
+  }): Promise<GeneratedStrategyProposal>;
+}
+
+export interface StrategySourceLoader {
+  load(url: string): Promise<{ sourceText: string; canonicalUrl: string }>;
+}
+
+export interface StrategyGenerationResult {
+  generationId: string;
+  kind: "SINGLE" | "COMPOSITE";
+  strategyDefinition?: StrategyDefinition;
+  compositeStrategyDefinition?: CompositeStrategyDefinition;
+  modelName: string;
+  modelVersion: string;
+  promptVersion: string;
+}
+```
+
+`StrategyGenerationAdapter` is tool-free and provider-neutral. A URL loader
+allows only public HTTP(S), bounded redirects, response bytes, extracted text,
+and timeout; it must reject private destinations and unsafe content. Model
+output is untrusted data and is never executed. The Strategy generation unit
+of work commits newly-created definitions/components and the successful audit
+row together; failed source/model/schema/plugin/parameter validation leaves no
+partial rows.
+
 ## 4. Composite Strategy Contracts
 
 Owned by `modules/strategy`. Corresponds to brief §13-14 (Composite Strategy, Weighted Combination).
@@ -218,6 +266,7 @@ Owned by `modules/strategy`. Corresponds to brief §13-14 (Composite Strategy, W
 
 export interface CompositeStrategyDefinition {
   id: string;
+  userId: string;                 // must match every component StrategyDefinition
   logicalFamilyKey: string;       // required stable identity used for version allocation
   version: number;
   method: CombinationMethod;
@@ -561,6 +610,11 @@ export interface BacktestSubmissionAccepted {
 export interface CancellationUnitOfWork {
   readonly kind: "SEARCH_CANCELLATION";
   readonly id: string;
+  query<Row>(text: string, values: unknown[]): Promise<{ rows: Row[] }>;
+  run<T>(operation: () => Promise<T>): Promise<T>;
+  onRollback(operation: () => Promise<void>): void;
+  commit(): Promise<void>;
+  rollback(): Promise<void>;
 }
 
 export interface AuthContext { userId: string }
@@ -601,8 +655,8 @@ export interface Trade {
   entryTime: string;
   marketEntryPrice: number;
   entryPrice: number;
-  stopLoss?: number;
-  takeProfit?: number;
+  stopLoss: number | null;        // entry-time trigger price; null for legacy/no-risk trades
+  takeProfit: number | null;      // entry-time trigger price; null for legacy/no-risk trades
   exitTime: string;
   marketExitPrice: number;
   exitPrice: number;
@@ -971,6 +1025,20 @@ Snapshot alignment is deterministic: `dataset_from` is inclusive and `dataset_to
 
 There is no generic `EventEnvelope`, `EventPayloads`, or Event Bus contract. The assignment's event list is optional; this architecture chooses simpler direct collaboration except for the backtest workload.
 
+All rows in the REST surface that represent user-created data are protected by
+Bearer authentication. Backend verifies the JWT once and creates
+`AuthContext { userId }`; it passes that context as the first argument to
+Strategy, Backtesting, Search, and Leaderboard APIs. Body/query owner fields are
+ignored or rejected. Foreign aggregate and derived-resource IDs resolve to
+404, while same-owner composition violations resolve to validation errors.
+
+`POST /strategy-generations` accepts either
+`{ sourceType: "TEXT", text }` or `{ sourceType: "URL", url }`, never both.
+The endpoint is synchronous and returns `generationId`, `SINGLE`/`COMPOSITE`,
+the persisted definition, and model/prompt provenance. Invalid input, unsafe
+URL loading, model/schema errors, unknown plugins, and Strategy validation
+failures produce no partial definition or audit writes.
+
 | Boundary | Contract | Rule |
 |---|---|---|
 | Frontend commands/queries | REST DTOs composed from the contracts above | Starting asynchronous work returns `202 Accepted` plus `candidateId`/`jobId` or `searchRunId` |
@@ -995,6 +1063,7 @@ Minimum REST surface for the frontend:
 | `POST /backtests/{candidateId}/cancel` | Idempotently cancel one Manual candidate after locking/checking `origin=MANUAL`; a Search candidate returns `409` and must use its Search Run cancel endpoint |
 | `GET /market/candles?pair=...&timeframe=...` | Load initial normalized chart history |
 | `GET /strategies` | List registered strategy plugins and parameter metadata |
+| `POST /strategy-generations` | Authenticated synchronous generation from exactly one text or public URL source; returns a validated single/composite definition and provenance |
 | `GET /leaderboard-scopes` | List immutable comparable benchmark scopes available to Manual/Search runs |
 | `POST /leaderboard-scopes` | Create a new scope/version when benchmark inputs or score formula change |
 | `POST /search-runs` | Start a bounded background Search Run under one `leaderboardScopeId`; return `202` plus `searchRunId` |

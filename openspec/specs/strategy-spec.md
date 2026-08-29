@@ -19,6 +19,7 @@ In scope:
 - Listing registered plugin descriptors for the Frontend's configuration UI.
 - Creating and versioning immutable `StrategyDefinition` rows (a plugin + concrete parameters).
 - Creating and versioning immutable `CompositeStrategyDefinition` rows (a set of `StrategyDefinition`s + combination method).
+- Generating one validated Strategy Definition or Composite Definition from exactly one authenticated text or public HTTP(S) source.
 - Resolving a runnable `Strategy` instance from a `StrategyDefinition`, including exact retained-artifact resolution for replay.
 - Executing `Strategy.analyze()` for one strategy and `CombinationEngine.combine()` for a composite.
 
@@ -56,6 +57,10 @@ Out of scope (owned by other modules, consumed through their public APIs only):
 | FR-8 | Repeated definition/composite creation with identical logical identity and identical content must be idempotent (return the existing row, not a duplicate). |
 | FR-9 | Every plugin descriptor must declare a deterministic non-negative `minimumHistoryCandles`; callers may use earlier candles for warm-up but must not guess requirements from the strategy name. |
 | FR-10 | The module must expose a pure generic visualization projection for a retained definition using `LINE | ZONE | SIGNAL` overlays, so adding a plugin requires no Backtesting or Frontend strategy-name branch. A plugin may return no overlays. |
+| FR-11 | Definition and composite persistence is owner-scoped; `userId` is required and composite components must belong to the same owner. |
+| FR-12 | `generateStrategy(userId, source)` accepts exactly one non-empty `TEXT` or `URL` source and returns a validated `SINGLE` or `COMPOSITE` result. |
+| FR-13 | URL generation uses a bounded public-source loader; private/loopback destinations, unsafe redirects, unsupported content, oversized responses, and timeouts are rejected before model interpretation. |
+| FR-14 | Successful generation persists definitions and an audit row atomically; invalid input, model failure, unknown plugin, or validation failure produces zero partial writes. |
 
 ### 2.2 Business rules
 
@@ -81,6 +86,9 @@ Out of scope (owned by other modules, consumed through their public APIs only):
   - Example: `{BUY, BUY, HOLD}` → `buyCount=2` → `BUY`. `{BUY, SELL, HOLD}` → all counts `=1` → tie → `HOLD`. `{BUY, SELL}` → `buyCount=1, sellCount=1` → tie → `HOLD`.
 - **Artifact fidelity:** replay must use the exact retained build (`implementationSha256`) that produced a definition. If that artifact is unavailable, the module must fail explicitly (`IMPLEMENTATION_ARTIFACT_UNAVAILABLE`) rather than silently substitute the currently deployed plugin code.
 - **Sentiment is read-only input:** an `INFORMATION`-category strategy reads `context.sentiment`; it never calls Sentiment's API itself. Ensuring that sentiment is present for a given candle window is the caller's contract (Backtesting verifies the pinned `LeaderboardScope` has a snapshot before submission), not something Strategy fetches or defends against at runtime beyond typing `sentiment` as optional.
+- **Ownership:** `StrategyDefinition`, `CompositeStrategyDefinition`, and generation audit rows are scoped by `userId`; a composite cannot reference a definition owned by another user.
+- **Generation is a proposal boundary:** model output is untrusted JSON. It may reference only descriptors returned by the live registry and must pass the same parameter, component, weight, threshold, version, and artifact validation as manual definitions.
+- **Generation atomicity:** the audit record and every newly-created definition/component are committed in one unit of work. Fetched URL HTML is not persisted in the audit row.
 
 ### 2.3 Non-functional requirements
 
@@ -253,6 +261,29 @@ sequenceDiagram
 | Conflicting reused ID | A caller supplies a `StrategyDefinition.id`/`CompositeStrategyDefinition.id` that already exists with **different** content | Reject — an existing ID is never overwritten with different content |
 | `INFORMATION` category strategy, no `context.sentiment` | Caller invokes `analyze()` without ever having supplied sentiment | Not a Strategy-module runtime guard; the strategy plugin's own `analyze()` implementation may treat missing sentiment as `HOLD`/neutral, but the *system-level* guarantee that sentiment is present for a valid backtest belongs to `modules/backtesting` (composite-uses-`INFORMATION` ⇒ scope must pin a sentiment snapshot) |
 
+### 3.8 AI-assisted Strategy generation
+
+`generateStrategy(userId, source)` is a synchronous user command, distinct from
+Search's bounded candidate generator. The request contains exactly one source:
+
+```typescript
+type StrategyGenerationSource =
+  | { sourceType: "TEXT"; text: string }
+  | { sourceType: "URL"; url: string };
+```
+
+For `URL`, the bounded source-loader follows only validated public HTTP(S)
+redirects, enforces response/time/size limits, removes unsafe non-content HTML,
+and returns readable text. The LLM adapter receives only that text, the live
+serializable plugin descriptors, and a prompt version. It has no tools and its
+output is treated as untrusted data.
+
+The application validates the proposal, persists/reuses same-owner definitions
+through `defineStrategy`/`defineComposite`, then writes the generation audit
+record in the same atomic unit of work. Exactly one result reference is stored;
+raw fetched HTML is never stored. Any source, model, schema, plugin, or Strategy
+validation failure rolls back all definitions and the audit record.
+
 ## 4. Contracts
 
 ### 4.1 Public runtime API (consumed by other modules/processes)
@@ -286,6 +317,7 @@ export function createStrategyModule(deps: {
     components: Array<{ strategyDefinitionId: string; weight: number }>;
     thresholds?: { buy: number; sell: number };
   }): Promise<CompositeStrategyDefinition>;
+  generateStrategy(userId: string, source: StrategyGenerationSource): Promise<StrategyGenerationResult>;
 };
 ```
 
@@ -329,6 +361,7 @@ export interface Strategy {
 
 export interface StrategyDefinition {
   id: string;                     // unique per version
+  userId: string;                 // owner from AuthContext/JWT, never caller body data
   logicalFamilyKey: string;
   familyName?: string;            // display-only, never a FK
   strategyName: string;
@@ -341,6 +374,7 @@ export interface StrategyDefinition {
 
 export interface CompositeStrategyDefinition {
   id: string;
+  userId: string;
   logicalFamilyKey: string;
   version: number;
   method: CombinationMethod;
@@ -400,6 +434,32 @@ export interface StrategyArtifactResolver {
   resolve(strategyName: string, implementationSha256: string): Promise<StrategyFactory>;
   // throws IMPLEMENTATION_ARTIFACT_UNAVAILABLE; never substitutes another build
 }
+
+export type StrategyGenerationSource =
+  | { sourceType: "TEXT"; text: string }
+  | { sourceType: "URL"; url: string };
+
+export interface StrategyGenerationResult {
+  generationId: string;
+  kind: "SINGLE" | "COMPOSITE";
+  strategyDefinition?: StrategyDefinition;
+  compositeStrategyDefinition?: CompositeStrategyDefinition;
+  modelName: string;
+  modelVersion: string;
+  promptVersion: string;
+}
+
+export interface StrategyGenerationAdapter {
+  generate(input: {
+    sourceText: string;
+    strategies: readonly StrategyPluginDescriptor[];
+    promptVersion: string;
+  }): Promise<unknown>;
+}
+
+export interface StrategySourceLoader {
+  load(url: string): Promise<{ sourceText: string; canonicalUrl: string }>;
+}
 ```
 
 ### 4.4 Data model (owned tables — from `data-model.md` §3.2–3.3)
@@ -433,10 +493,25 @@ erDiagram
         uuid strategy_definition_id PK, FK
         numeric weight
     }
+    STRATEGY_GENERATION_REQUESTS {
+        text id PK
+        uuid user_id FK
+        text source_type
+        text source_text
+        text source_url
+        text model_name
+        text model_version
+        text prompt_version
+        text output_kind
+        uuid strategy_definition_id FK
+        uuid composite_definition_id FK
+        timestamptz created_at
+    }
 ```
 
-- `strategy_definitions`: `SELECT`/`INSERT` only for repository roles; append-only trigger as defense in depth; `UNIQUE (logical_family_key, version)`.
-- `composite_strategy_definitions` / `composite_strategy_components`: same append-only policy; every `strategy_definition_id` is a real FK, so a composite can never silently pick up a newer version of one of its components.
+- `strategy_definitions` and `composite_strategy_definitions` carry `user_id`, use `UNIQUE (user_id, logical_family_key, version)`, and expose owner-leading lookup indexes. The repository receives the authenticated owner explicitly.
+- `composite_strategy_definitions` / `composite_strategy_components`: same append-only policy; every component must resolve under the composite's owner, so a composite can never silently pick up another user's definition.
+- `strategy_generation_requests` stores successful source/model/prompt provenance and exactly one same-owner result reference. Its source and result checks enforce one source type and one output kind; fetched URL HTML is not stored.
 - There is deliberately **no `strategy_catalog` table** — the list of currently registered plugin *types* lives only in the in-process `StrategyRegistry`, returned live by `list()`. Persisting it would create a second, driftable source of truth for "what code is currently deployed" (`data-model.md` §3.2.1).
 
 ### 4.5 Events
@@ -466,6 +541,8 @@ flowchart LR
 - `domain` (Strategy Engine, Composite combination logic, plugin implementations) must be pure TypeScript with zero framework/infra imports, since the exact same code must run identically inside both `apps/backend` and `apps/backtest-worker`.
 - Persistence for `strategy_definitions` / `composite_strategy_definitions` uses hand-written Knex repositories (no ORM), consistent with the rest of the platform's data-access choice.
 - Validation of REST-facing DTOs (`defineStrategy`/`defineComposite` request bodies) uses Zod, consistent with `tech-stack.md`.
+- Generation uses one bounded model call with no tools and exposes provider-neutral ports only; model/provider SDK types do not cross the application boundary.
+- Public URL loading allows only HTTP(S) and public destinations, follows bounded redirects, and enforces timeout, response-byte, content-type, and extracted-text limits.
 
 ### Business constraints
 
@@ -481,6 +558,7 @@ flowchart LR
 - Scoring, ranking, and Top-10 admission — `modules/leaderboard`.
 - Fetching/normalizing candles or building the `candles`/`indicators` fields of `StrategyContext` — `modules/market-data` and the calling module's context-builder.
 - Producing `SentimentResult`/sealed snapshots — `modules/sentiment`.
+- Owning conversational editing, source crawling beyond the bounded loader, model failover, background generation jobs, or executable model output.
 
 ## 6. Acceptance Criteria
 
@@ -522,3 +600,11 @@ flowchart LR
 - [ ] Given the same `StrategyDefinition`/`CompositeStrategyDefinition` and the same `StrategyContext` (or same signal array), repeated calls to `analyze()`/`combineSignals()` return identical output — verified by a determinism test that calls twice and diffs results.
 - [ ] An architecture test (e.g. dependency-cruiser / ESLint boundary rule) fails the build if `modules/strategy/domain` imports any HTTP, PostgreSQL, Redis, BullMQ, or exchange-SDK package.
 - [ ] An architecture test fails the build if any other module imports `modules/strategy/domain/*` or `modules/strategy/infrastructure/*` directly instead of `modules/strategy/api/*`.
+
+### AI generation
+
+- [x] `POST /strategy-generations` accepts exactly one non-empty text or URL source and authenticates it through `AuthContext`.
+- [x] URL sources reject unsafe redirects/private destinations and bounded-source failures without invoking the model.
+- [x] Model output is schema-constrained, references only registered plugins, passes existing Strategy validation, and cannot execute source code.
+- [x] Successful single/composite generation records model/prompt/source provenance and commits the definitions plus audit row atomically.
+- [x] Model, schema, plugin, and persistence failures produce no partial Strategy or audit rows.

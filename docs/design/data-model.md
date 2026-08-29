@@ -7,7 +7,18 @@
 | **PostgreSQL** | Single source of truth for everything with ACID/versioning/reproducibility needs: candles, strategy & composite definitions, candidates, trades, experiment results, leaderboard, news, sentiment. |
 | **Redis** | (a) BullMQ-backed backtest work queue and completion/failure notifications, (b) latest-candle/latest-tick cache for realtime reads, and (c) ephemeral exchange connection status. Redis is not a general Event Bus and stores no authoritative Experiment or Leaderboard state. |
 
-Schema ownership follows business-module ownership, even though the MVP uses one PostgreSQL database. The owning module defines the aggregate rules and repository ports; its `infrastructure` layer implements persistence. SQL migrations, seeds, and database bootstrap remain under `infra/db/migrations` and `infra/`, while deployable composition remains under `apps/`. This session changes documentation only and applies no migrations or runtime behavior; any newly stated planning invariant (such as version-family allocation) remains pending implementation.
+Schema ownership follows business-module ownership, even though the MVP uses one PostgreSQL database. The owning module defines the aggregate rules and repository ports; its `infrastructure` layer implements persistence. SQL migrations, seeds, and database bootstrap remain under `infra/db/migrations` and `infra/`, while deployable composition remains under `apps/`. Migrations `010`–`013` now cover generation provenance, positive trade-risk checks, cross-aggregate owner constraints, and the explicit legacy-owner backfill policy; the application and repository contracts below are the runtime source of truth for those rules.
+
+Ownership roots are `strategy_definitions.user_id`,
+`composite_strategy_definitions.user_id`,
+`backtest_benchmark_scopes.owner_user_id`, and `search_runs.owner_user_id`
+(the latter two are named `owner_user_id` in the physical backtesting schema).
+Existing deployments must provision the explicit `legacy@local.invalid`
+migration user and backfill any pre-ownership rows before enforcing `NOT NULL`;
+new installations create owner columns and foreign keys before accepting data.
+Candidates, Attempts, Trades, Experiments, and Leaderboard Entries authorize
+through immutable parent chains and do not become global just because their IDs
+are guessable.
 
 Redis latest-tick/latest-candle keys are cache-only. Chart realtime reads may use a fresh cache entry, but cache miss, stale data, or cache parse failure falls back to PostgreSQL. A candle cache entry is fresh only when its `asOf` is no older than `2 × timeframe interval` and its payload declares the latest closed-candle boundary; a tick entry uses a 5-second freshness threshold. The cache stores only a bounded latest window, never an authoritative historical range. A corrected candle invalidates the affected key before repopulation. All durable/history reads and every lifecycle decision use PostgreSQL; Redis never becomes authoritative for domain state.
 
@@ -37,9 +48,17 @@ erDiagram
     EXPERIMENT_RESULTS ||--o| LEADERBOARD_ENTRIES : "ranked as"
     SCORE_FORMULAS ||--o{ EXPERIMENT_RESULTS : "scores with"
     NEWS_ITEMS ||--o{ SENTIMENT_RESULTS : "analyzed as"
+    USERS ||--o{ STRATEGY_DEFINITIONS : "owns"
+    USERS ||--o{ COMPOSITE_STRATEGY_DEFINITIONS : "owns"
+    USERS ||--o{ LEADERBOARD_SCOPES : "owns"
+    USERS ||--o{ SEARCH_RUNS : "owns"
+    USERS ||--o{ STRATEGY_GENERATION_REQUESTS : "owns"
+    STRATEGY_DEFINITIONS ||--o{ STRATEGY_GENERATION_REQUESTS : "successful result"
+    COMPOSITE_STRATEGY_DEFINITIONS ||--o{ STRATEGY_GENERATION_REQUESTS : "successful result"
 
     STRATEGY_DEFINITIONS {
         uuid id PK
+        uuid user_id FK
         text logical_family_key
         text family_name
         text strategy_name
@@ -51,6 +70,7 @@ erDiagram
     }
     COMPOSITE_STRATEGY_DEFINITIONS {
         uuid id PK
+        uuid user_id FK
         text logical_family_key
         int version
         text method
@@ -64,6 +84,7 @@ erDiagram
     }
     SEARCH_RUNS {
         uuid id PK
+        uuid owner_user_id FK
         uuid leaderboard_scope_id FK
         text generator_type
         jsonb search_space
@@ -124,6 +145,8 @@ erDiagram
         uuid backtest_attempt_id FK
         timestamptz entry_time
         numeric entry_price
+        numeric stop_loss
+        numeric take_profit
         timestamptz exit_time
         numeric exit_price
         numeric result_percent
@@ -181,6 +204,20 @@ erDiagram
         numeric fee_rate_percent
         int slippage_bps
         uuid score_formula_id FK
+        timestamptz created_at
+    }
+    STRATEGY_GENERATION_REQUESTS {
+        text id PK
+        uuid user_id FK
+        text source_type
+        text source_text
+        text source_url
+        text model_name
+        text model_version
+        text prompt_version
+        text output_kind
+        uuid strategy_definition_id FK
+        uuid composite_definition_id FK
         timestamptz created_at
     }
     DATASET_SNAPSHOTS {
@@ -397,6 +434,8 @@ CREATE TABLE strategy_definitions (
   UNIQUE (id, user_id)
 );
 CREATE INDEX idx_strategy_defs_name ON strategy_definitions (strategy_name);
+CREATE INDEX strategy_definitions_owner_created_idx
+  ON strategy_definitions (user_id, created_at, id);
 ```
 
 Version allocation is an application/repository invariant. `logical_family_key` is stable for the logical strategy family and is not a display label. Before inserting, `modules/strategy` atomically locks or serializes that family, verifies the next version, and guarantees that concurrent callers may never reuse a `(logical_family_key, version)` pair. A new version is required for parameter or implementation provenance changes. The same rule applies to Composite Definitions.
@@ -439,6 +478,52 @@ Composite repository validation mirrors the public contract: at least one compon
 This is the associative table the contract's inline `components: Array<{ strategyDefinitionId, weight }>` implies but doesn't spell out as a relation — every `strategyDefinitionId` in a composite is version-pinned by FK, so a `CompositeStrategyDefinition` can never silently pick up a newer version of one of its components (same Identity/Reproducibility guarantee as §3.2, one level up — this is exactly the chain brief §40.8 needs: *experiment → composite version → each component's strategy version*).
 
 Composite definitions and their component rows are inserted together, then treated as append-only under the same repository permission/trigger policy as Strategy Definitions. Editing method, threshold, component, or weight creates a new Composite Definition version.
+
+Owner isolation is enforced at both application and database boundaries. The
+generation/definition repositories always query by owner, and migration
+`012_add_owner_isolation_constraints.js` adds owner-leading indexes plus
+same-owner composite foreign keys for benchmark scopes, Search Runs,
+Candidates, Experiments, and Leaderboard Entries. An ID alone is never an
+authorization proof.
+
+### 3.3.1 `strategy_generation_requests`
+
+Owned by `modules/strategy`. This is a successful-generation audit record, not
+a prompt history or a source-content cache. The application stores the
+original text or URL, model/prompt provenance, and exactly one same-owner
+definition result; fetched HTML and raw model output are never persisted.
+
+```sql
+CREATE TABLE strategy_generation_requests (
+  id                     TEXT PRIMARY KEY,
+  user_id                UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  source_type            TEXT NOT NULL CHECK (source_type IN ('TEXT', 'URL')),
+  source_text            TEXT,
+  source_url             TEXT,
+  model_name             TEXT NOT NULL,
+  model_version          TEXT NOT NULL,
+  prompt_version         TEXT NOT NULL,
+  output_kind            TEXT NOT NULL CHECK (output_kind IN ('SINGLE', 'COMPOSITE')),
+  strategy_definition_id  TEXT,
+  composite_definition_id TEXT,
+  created_at             TIMESTAMPTZ NOT NULL,
+  CHECK ((source_type = 'TEXT' AND btrim(source_text) <> '' AND source_url IS NULL)
+      OR (source_type = 'URL' AND source_text IS NULL AND btrim(source_url) <> '')),
+  CHECK ((output_kind = 'SINGLE' AND strategy_definition_id IS NOT NULL AND composite_definition_id IS NULL)
+      OR (output_kind = 'COMPOSITE' AND strategy_definition_id IS NULL AND composite_definition_id IS NOT NULL)),
+  FOREIGN KEY (strategy_definition_id, user_id)
+    REFERENCES strategy_definitions(id, user_id) ON DELETE RESTRICT,
+  FOREIGN KEY (composite_definition_id, user_id)
+    REFERENCES composite_strategy_definitions(id, user_id) ON DELETE RESTRICT
+);
+CREATE INDEX strategy_generation_requests_owner_created_idx
+  ON strategy_generation_requests (user_id, created_at);
+```
+
+Definitions/components and this audit row are committed through one Strategy
+generation unit of work. Any failed source load, model call/schema check,
+unknown plugin, invalid parameters, or composite validation rolls back the
+entire unit and leaves no generation audit row.
 
 ### 3.4 `score_formulas`
 
@@ -779,6 +864,13 @@ CREATE INDEX idx_trades_attempt ON trades (backtest_attempt_id, entry_time, trad
 ```
 
 Only written for a `backtest_attempts` row that reaches `COMPLETED`; a failed attempt never produces trade rows. A Candidate may be `CANCELLED` while its in-flight Attempt completes for audit, but those Trades remain excluded from Experiment creation, scoring, ranking, and Search success counters. Referencing the attempt records exactly which retry produced the trades.
+
+`stop_loss` and `take_profit` are nullable positive entry-time trigger prices,
+not percentages. The simulator chooses them at entry, persistence carries them
+through worker/Attempt/Experiment hydration unchanged, and legacy trades remain
+valid with `NULL`. Migration `011_add_positive_trade_risk_constraints.js`
+enforces the nullable-positive rule; queue terminal signals continue to carry
+references only.
 
 ### 3.10 `experiment_results`
 

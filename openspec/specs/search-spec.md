@@ -12,6 +12,11 @@
 
 Search does **not** own Candidate persistence, the BullMQ queue, backtest execution, evaluation, or scoring. It is a pure orchestration/generation module that talks to `modules/backtesting` exclusively through that module's public API (`project-structure.md` §3.1, §5).
 
+Every Search Run is owned by the authenticated user. The owner is derived from
+`AuthContext` and is carried into scope validation, Backtesting projections,
+Leaderboard ranking, and all lifecycle controls; a guessed or foreign run ID
+is concealed as not-found.
+
 ### Scope
 
 In scope:
@@ -57,6 +62,7 @@ Out of scope (owned by other modules, consumed through their public APIs only):
 | FR-7 | The module must expose `onCandidateFinished(searchRunId)` as an internal post-commit callback that triggers `fillAvailableSlots`; a lost callback must never be the sole path to progress. |
 | FR-8 | The module must invoke `fillAvailableSlots` on `start`, `resume`, every completion callback, and backend startup/periodic reconciliation for every `RUNNING` run. |
 | FR-9 | The module must expose a run-scoped ranking read (`GET /search-runs/{id}/leaderboard`) sourced from the Leaderboard public API, distinct from the persistent cross-run Top-10. |
+| FR-10 | `start`, lifecycle controls, status, and run ranking require `AuthContext`; the resolved scope and all derived Candidate/Experiment projections must belong to that owner. |
 
 ### 2.2 Business rules
 
@@ -76,6 +82,7 @@ Out of scope (owned by other modules, consumed through their public APIs only):
 - **Unrecoverable orchestration error:** an unrecoverable Search orchestration/configuration error immediately transitions a `RUNNING` or `PAUSED` run to terminal `FAILED` with `stopReason = ERROR`, `lastError`, and `endedAt`. It stops new generation but does not rewrite already-committed Candidates — those continue through Backtesting's own reconciliation and may still finish for audit/Experiment purposes. Completion callbacks may keep updating counters afterward but must never flip `FAILED` back to `COMPLETED`. `resume` rejects a `FAILED` run; `cancel` becomes an idempotent no-op after the error is recorded. A user cancellation wins only if its transaction acquires the `SearchRun` lock before the error transition commits.
 - **Recovery is not callback-dependent:** because `fillAvailableSlots` also runs on `start`, `resume`, and backend startup/periodic reconciliation for every `RUNNING` run, a lost `onCandidateFinished` callback delays but never stalls progress, and concurrent callbacks cannot exceed `maxInFlight`/`maxCandidates`.
 - **Manual candidates are invisible to Search:** Search's counts, stop-condition evaluation, and ranking apply only to Candidates it generated (`search_run_id` set); Manual candidates never affect `maxInFlight`/`maxCandidates` accounting for any run.
+- **Owner isolation:** Search resolves the `(userId, searchRunId)` pair before every protected command/query and passes the same owner to Backtesting and Leaderboard. A foreign scope or run never contributes to a projection.
 
 ### 2.3 Non-functional requirements
 
@@ -99,7 +106,7 @@ sequenceDiagram
 
     U->>FE: Choose benchmark scope, search space, stop condition, maxInFlight
     FE->>API: POST /search-runs
-    API->>O: start(config)
+    API->>O: start({ userId }, config)
     O->>O: validate StopCondition has >=1 field, all positive integers
     alt Invalid config
         O-->>API: 400 VALIDATION_ERROR
@@ -201,14 +208,14 @@ sequenceDiagram
 
     U->>FE: Pause
     FE->>API: POST /search-runs/{id}/pause
-    API->>O: pause(searchRunId)
+    API->>O: pause({ userId }, searchRunId)
     O->>PG: lock row, state RUNNING -> PAUSED (idempotent no-op if already PAUSED)
     O-->>API: 200 OK
     Note over O: claimed jobs already in flight keep running, no new slots are filled
 
     U->>FE: Resume
     FE->>API: POST /search-runs/{id}/resume
-    API->>O: resume(searchRunId)
+    API->>O: resume({ userId }, searchRunId)
     alt Run is FAILED
         O-->>API: 409 CANNOT_RESUME_FAILED_RUN
     else Run is PAUSED
@@ -232,7 +239,7 @@ sequenceDiagram
 
     U->>FE: Cancel
     FE->>API: POST /search-runs/{id}/cancel
-    API->>O: cancel(searchRunId)
+    API->>O: cancel({ userId }, searchRunId)
     O->>PG: lock Search Run row
     O->>UOW: open process-level application unit of work
     O->>PG: (within UOW) write CANCELLED, stopReason=USER_CANCELLED, endedAt
@@ -259,7 +266,7 @@ sequenceDiagram
     participant L as Leaderboard module
 
     FE->>API: GET /search-runs/{id}
-    API->>O: status(searchRunId)
+    API->>O: status({ userId }, searchRunId)
     O->>BC: summarizeSearchCandidates({ userId }, searchRunId)
     BC-->>O: Candidate projection/counts
     O->>L: read run-scoped currentTopEntry
@@ -268,7 +275,10 @@ sequenceDiagram
     API-->>FE: 200 OK
 ```
 
-`LoopStatus` is a read-only projection derived from `search_runs`, `candidate_strategies`, `backtest_attempts`, and Experiment ranking data — Search holds no second copy of Candidate state (`data-model.md` §4).
+`LoopStatus` is a read-only projection derived from the owner-matching
+`search_runs`, `candidate_strategies`, `backtest_attempts`, and Experiment
+ranking data — Search holds no second copy of Candidate state (`data-model.md`
+§4). Status performs no fill, generation, or persistence side effect.
 
 ### 3.8 Error / edge cases
 
@@ -462,6 +472,7 @@ erDiagram
 
     SEARCH_RUNS {
         uuid id PK
+        uuid user_id FK
         uuid leaderboard_scope_id FK
         text generator_type
         jsonb search_space
@@ -484,11 +495,12 @@ erDiagram
     }
 ```
 
-- `search_runs` is the **only** table `modules/search` owns. `candidate_strategies`, `backtest_attempts`, `trades`, and `experiment_results` belong to `modules/backtesting`/`modules/evaluation`/`modules/leaderboard` and are reached only through their public APIs (`data-model.md` §3.7-§3.11).
+- `search_runs` is the **only** table `modules/search` owns. Its owner column is populated from `AuthContext` and is constrained to the owning scope. `candidate_strategies`, `backtest_attempts`, `trades`, and `experiment_results` belong to `modules/backtesting`/`modules/evaluation`/`modules/leaderboard` and are reached only through their public APIs (`data-model.md` §3.7-§3.11).
 - `search_space` and `stop_condition` are stored as `jsonb` snapshots of the config supplied at `start` — the run's own configuration is immutable for its lifetime; changing search parameters requires starting a new `SearchRun`.
 - Counter invariants enforced at the schema level (`data-model.md` §3.6): `candidates_tested >= failed_candidate_count`; `failed_candidate_count = retry_exhausted_candidate_count + infrastructure_failure_candidate_count + completion_processing_failure_candidate_count`.
 - Repository roles update this row directly (it is not append-only like the versioned definition tables); `fillAvailableSlots`/`cancel` serialize on this row's lock so counters and `state` transitions stay consistent under concurrency.
 - `search_runs` carries composite unique constraints — `UNIQUE (id, leaderboard_scope_id)` and `UNIQUE (id, leaderboard_scope_id, generator_type)` — that exist purely so `modules/backtesting`'s `candidate_strategies` table can enforce a composite foreign key back to this row (`data-model.md` §3.7). Search does not consume these constraints itself; they exist only to let Backtesting guarantee a Candidate's `leaderboard_scope_id`/`generated_by` always agree with the run that spawned it.
+- Owner-leading indexes support list/status/ranking reads, and composite owner foreign keys prevent a Search Run from referencing another user's scope.
 
 ### 4.6 Events
 
@@ -582,6 +594,7 @@ flowchart LR
 - [ ] `failedAttemptCount` in `LoopStatus` includes synthetic watchdog-inserted failure Attempts and excludes any Attempt belonging to a `CANCELLED` Candidate.
 - [ ] `status(searchRunId)` never blocks on or triggers new candidate generation — it is a pure read.
 - [ ] `GET /search-runs/{id}/leaderboard` returns only rank-eligible successful Experiments belonging to that run's Candidates, ordered by the canonical `overall_score DESC, created_at ASC, id ASC` tie-break.
+- [x] Protected lifecycle, status, candidate-projection, and ranking calls resolve `(userId, searchRunId)` before reading or mutating state; foreign IDs are concealed as not-found.
 
 ### Boundary / architecture
 

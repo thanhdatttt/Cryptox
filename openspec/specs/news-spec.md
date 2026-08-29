@@ -66,6 +66,9 @@ The supplied project brief and architecture slides are requirements/reference ma
 | FR-9 | Sentiment provenance visible through a composed read projection must include the result's model name, model version, label, score, and analysis timestamp. Sealed snapshots additionally carry model and content hashes under Sentiment ownership. |
 | FR-10 | The module must not write Sentiment-owned tables, publish News/Sentiment domain events, or expose provider/model-specific payloads through its public API. |
 | FR-11 | The News/Sentiment failure boundary must preserve the availability of market charts, strategy configuration, Search Runs, ordinary backtesting, and already persisted News. |
+| FR-12 | A crawler provider must interpret bounded, safety-preprocessed HTML through a tool-free `HtmlNewsInterpreter`; selectors may preprocess safety but may not be the semantic extraction contract. |
+| FR-13 | Crawler output must be schema-validated, normalized to canonical `NewsItem` values, and rejected when fields are malformed, hallucinated, oversized, or unsupported. |
+| FR-14 | A crawler fetch/model/schema/validation failure is isolated to that provider; it must not persist malformed News or prevent other providers and existing News from operating. |
 
 ### 2.2 Business rules
 
@@ -80,6 +83,8 @@ The supplied project brief and architecture slides are requirements/reference ma
 - **Reproducible strategy input:** A backtest using an `INFORMATION` strategy must use a sealed, content-hashed, time-aligned Sentiment snapshot. Snapshot completeness, as-of alignment, and missing-window rejection are enforced by Sentiment/Backtesting scope validation, not by a News provider or the Strategy implementation.
 - **No event publication:** The MVP does not publish `NewsCollected` or `SentimentAnalyzed`. News and Sentiment collaborate synchronously through typed in-process APIs; BullMQ remains reserved for backtest work.
 - **No transport coupling:** News is a REST-read domain. It is not a WebSocket domain, and it must not add a non-market realtime channel to the Frontend.
+- **Crawler safety and trust:** fetched HTML and all interpreter output are untrusted data. The crawler allows only bounded public HTTP(S), strips active content, prevents unsafe redirects/oversized input, uses no model tools, and validates every candidate before persistence.
+- **Provider isolation:** one crawler failure is observed with provider/stage/reason but does not abort the provider loop or the persistence/readability of other News items.
 
 ### 2.3 Non-functional requirements
 
@@ -117,6 +122,15 @@ sequenceDiagram
 ```
 
 Adding a provider means implementing the `NewsProvider` boundary and registering it at composition. The Collector does not add provider-specific conditionals.
+
+For a crawler provider, the adapter fetches one bounded public page, removes
+scripts/styles/active content while retaining meaningful HTML structure, and
+passes the cleaned representation to `HtmlNewsInterpreter`. The interpreter
+returns candidate fields only; it has no tools and must treat page text as data,
+not instructions. The adapter validates field types, lengths, timestamps,
+same-page canonical URLs, and evidence in the fetched page before returning
+canonical `NewsItem` values. A failure is recorded for that provider and the
+next provider/page continues.
 
 ### 3.2 Normalize and persist a collected News item
 
@@ -260,6 +274,7 @@ Snapshot alignment is deterministic: the dataset range is half-open `[from, to)`
 | Missing snapshot point | `INFORMATION` backtest has no aligned point for a required candle window | Backtesting rejects the candidate/scope; News does not provide a live or future substitute. |
 | News/Sentiment unavailable | Auxiliary capability cannot be reached | News/Sentiment views may degrade, but market charts, strategy configuration, Search Runs, ordinary backtesting, and saved News remain operational. |
 | Event request | A consumer asks for `NewsCollected` or `SentimentAnalyzed` | No such MVP event is published; use the synchronous public APIs. |
+| Crawler fetch/model/schema failure | A page is unavailable, unsafe, oversized, times out, or interpreter output is malformed | Record `{ providerName, stage, reason }`, persist no candidate from that page, and continue other providers/pages. |
 
 ## 4. Contracts
 
@@ -337,12 +352,31 @@ export interface NewsProvider {
   fetch(): Promise<NewsItem[]>;
 }
 
+/** Tool-free semantic interpretation port owned by crawler infrastructure. */
+export interface HtmlNewsInterpreter {
+  interpret(input: { sourceUrl: string; html: string }): Promise<InterpretedNewsCandidate[]>;
+}
+
+export interface InterpretedNewsCandidate {
+  title: string;
+  content: string;
+  source: string;
+  publishedAt: string;
+  relatedCoins: string[];
+  canonicalUrl: string;
+}
+
 export interface NewsRepository {
   insert(item: NewsItem): Promise<NewsItem>;
   readAll(): Promise<NewsItem[]>;
 }
 
 export interface NewsObservability {
+  recordProviderFailure(input: {
+    providerName: string;
+    stage: "FETCH" | "MODEL" | "SCHEMA" | "VALIDATION" | "PERSISTENCE";
+    reason: "TIMEOUT" | "ERROR" | "INVALID_OUTPUT";
+  }): void;
   recordSentimentFailure(input: {
     newsId: string;
     reason: "TIMEOUT" | "INFERENCE_ERROR";
@@ -354,7 +388,7 @@ Provider registration may use a registry, a composition-time collection, or an e
 
 ### 4.4 Data model
 
-`modules/news` owns `news_items`. Sentiment result and snapshot tables belong to `modules/sentiment`; News reads them only through Sentiment's public API.
+`modules/news` owns `news_items`. Sentiment result and snapshot tables belong to `modules/sentiment`; News reads them only through Sentiment's public API. Crawler HTML and raw interpreter output are transient infrastructure data and are not persisted.
 
 ```mermaid
 erDiagram
@@ -480,6 +514,9 @@ Consumers use the allowlisted runtime or bootstrap facades only. `apps/backend` 
 - [ ] Persisting two items with the same exact URL cannot create two `news_items` rows; the database `UNIQUE(url)` constraint is authoritative.
 - [ ] The implementation does not claim URL canonicalization, a specific duplicate response, or changed-content upsert behavior unless a later application contract explicitly adds it.
 - [ ] A malformed provider value is not persisted as a `NewsItem`.
+- [x] The crawler uses bounded public HTTP(S), safety preprocessing, and the tool-free `HtmlNewsInterpreter`; selectors are not the semantic extraction source.
+- [x] Prompt-like page content is treated as untrusted data, and malformed/hallucinated/oversized candidates are rejected before News persistence.
+- [x] Crawler failures are observable and isolated from other providers, exact-URL deduplication, and the News-before-Sentiment ordering.
 
 ### Sentiment isolation and provenance
 
