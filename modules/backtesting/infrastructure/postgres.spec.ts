@@ -120,6 +120,17 @@ describe("Postgres backtesting adapter", () => {
       slippage_bps: 0,
       dataset_provider: "binance",
       dataset_version: "snapshot-v1",
+      paper_execution_provenance: {
+        executionProfileId: "SYNTHETIC_SHORT_PAPER_V1",
+        positionMode: "SYNTHETIC_SHORT",
+        exitPolicyId: "STOP_LOSS_WINS_V1",
+        feeRatePercent: 0.08,
+        adverseSlippageBps: 5,
+        decimalScale: 8,
+        roundingMode: "HALF_UP",
+        stopLoss: "111.00000000",
+        takeProfit: "90.00000000",
+      },
     };
     const pool = {
       query: async <Row extends Record<string, unknown>>(text: string) => {
@@ -151,6 +162,13 @@ describe("Postgres backtesting adapter", () => {
     });
     expect(experiment?.replay.guarantee).toBe("TRACEABLE");
     expect(experiment?.replay.unavailableInputs).toEqual(["EXECUTABLE_CODE"]);
+    expect(experiment?.configuration.paperExecution).toEqual(experiment?.paperExecutionProvenance);
+    expect(experiment?.paperExecutionProvenance).toMatchObject({
+      executionProfileId: "SYNTHETIC_SHORT_PAPER_V1",
+      positionMode: "SYNTHETIC_SHORT",
+      decimalScale: 8,
+      roundingMode: "HALF_UP",
+    });
     await dependencies.close();
   });
 
@@ -327,6 +345,7 @@ describe("Postgres backtesting adapter", () => {
       exit_time: candidateRow.range_to,
       exit_price: "101",
       exit_reason: "RANGE_END",
+      position_mode: "SYNTHETIC_SHORT",
       quantity: "1",
       notional_entry_value: "100",
       gross_profit: "1",
@@ -350,12 +369,78 @@ describe("Postgres backtesting adapter", () => {
     const dependencies = createPostgresBacktestingDependencies({ connectionString: "", pool });
     const first = await dependencies.experimentRepository.listTradesByCandidateOwner(owner, "00000000-0000-4000-8000-000000000040", { limit: 1 });
     expect(first.items.map((trade) => trade.id)).toEqual([firstId]);
+    expect(first.items[0]?.positionMode).toBe("SYNTHETIC_SHORT");
     expect(first.nextCursor).toBe(firstId);
     await dependencies.experimentRepository.listTradesByCandidateOwner(owner, "00000000-0000-4000-8000-000000000040", { limit: 1, cursor: first.nextCursor });
     const paginatedQuery = queries.at(-1)!;
     expect(paginatedQuery).toContain("(t.sequence, t.id) >");
     expect(paginatedQuery).toContain("anchor.sequence, anchor.id");
     expect(paginatedQuery).toContain("ORDER BY t.sequence ASC, t.id ASC");
+    await dependencies.close();
+  });
+
+  it("writes synthetic paper provenance and directional trade fields through approved columns", async () => {
+    const paperExecution = {
+      executionProfileId: "SYNTHETIC_SHORT_PAPER_V1" as const,
+      positionMode: "LONG" as const,
+      exitPolicyId: "STOP_LOSS_WINS_V1" as const,
+      feeRatePercent: 0.08 as const,
+      adverseSlippageBps: 5 as const,
+      decimalScale: 8 as const,
+      roundingMode: "HALF_UP" as const,
+      stopLoss: "95.00000000",
+      takeProfit: "105.00000000",
+    };
+    const queries: Array<{ text: string; values?: unknown[] }> = [];
+    const pool = {
+      query: async <Row extends Record<string, unknown>>(text: string, values?: unknown[]) => {
+        queries.push({ text, values });
+        if (text.includes("INSERT INTO candidates")) {
+          return { rows: [{ ...candidateRow, paper_execution_provenance: paperExecution }] } as { rows: Row[] };
+        }
+        if (text.includes("SELECT e.id::text FROM experiments")) return { rows: [] } as { rows: Row[] };
+        if (text.includes("INSERT INTO experiments")) return { rows: [{ id: "00000000-0000-0000-0000-000000000051" }] } as { rows: Row[] };
+        return { rows: [] } as { rows: Row[] };
+      },
+      end: async () => undefined,
+    };
+    const dependencies = createPostgresBacktestingDependencies({ connectionString: "", pool });
+    const candidate = await dependencies.candidateRepository.insert(owner, {
+      leaderboardScopeId: candidateRow.leaderboard_scope_id,
+      strategySelection: { kind: "STRATEGY", strategyDefinitionId: candidateRow.strategy_definition_id! },
+      marketInput: { pair: "BTCUSDT", timeframe: "5m", range: { from: candidateRow.range_from, to: candidateRow.range_to } },
+      configuration: { executionProfileId: "BACKTEST_EXECUTION_V1", initialCapital: 1000, feeRatePercent: 0, slippageBps: 0, paperExecution },
+    });
+    expect(candidate.configuration.paperExecution).toEqual(paperExecution);
+    const candidateInsert = queries.find(({ text }) => text.includes("INSERT INTO candidates"));
+    expect(candidateInsert?.values?.at(-2)).toBe(JSON.stringify(paperExecution));
+
+    const experiment = {
+      id: "00000000-0000-0000-0000-000000000051",
+      candidateId: candidateRow.id,
+      strategy: {
+        kind: "STRATEGY" as const,
+        definition: {
+          id: candidateRow.strategy_definition_id!, ownerUserId: owner, logicalFamilyKey: "fixture", strategyName: "FIXTURE",
+          implementationVersion: "1", behaviorProfileId: "FIXTURE_V1", version: 1, parameters: {}, createdAt: candidateRow.created_at,
+        },
+      },
+      marketData: { provider: "binance", pair: "BTCUSDT", timeframe: "5m" as const, range: { from: candidateRow.range_from, to: candidateRow.range_to }, replayGuarantee: "TRACEABLE" as const, replayLimitation: "fixture" },
+      configuration: { executionProfileId: "BACKTEST_EXECUTION_V1" as const, initialCapital: 1000, feeRatePercent: 0, slippageBps: 0, paperExecution },
+      metrics: { candidateId: candidateRow.id, totalReturnPercent: 1, winRatePercent: 100, numberOfTrades: 1, maxDrawdownMagnitudePercent: 0, evaluationProfileId: "EVALUATION_V1" as const },
+      rankingConfigurationId: "ranking-v1",
+      code: { applicationVersion: "test" },
+      replay: { guarantee: "TRACEABLE" as const, unavailableInputs: ["HISTORICAL_DATA"] as const, limitation: "fixture" },
+      visualization: { signals: [], overlays: [], tradeMarkers: [] },
+      createdAt: candidateRow.created_at,
+      paperExecutionProvenance: paperExecution,
+      endingCapital: 1001,
+      equityCurve: [{ timestamp: candidateRow.created_at, value: 1000 }],
+    } satisfies InternalPersistedExperiment;
+    await dependencies.experimentRepository.insertForCandidateOwner(owner, experiment, []);
+    const experimentInsert = queries.find(({ text }) => text.includes("INSERT INTO experiments"));
+    expect(experimentInsert?.values?.at(-2)).toBe(JSON.stringify(paperExecution));
+    expect(queries.every(({ text }) => !text.toLowerCase().includes("order_id"))).toBe(true);
     await dependencies.close();
   });
 });

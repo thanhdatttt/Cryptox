@@ -30,6 +30,7 @@ import {
   type SubmitSearchCandidateCommand,
   type TradePage,
   type TradePageRequest,
+  type SyntheticPaperExecutionConfiguration,
 } from "../api/contracts";
 import { BACKTEST_EXECUTION_V1_ID } from "../api/contracts";
 import {
@@ -120,6 +121,44 @@ function validateConfiguration(configuration: BacktestConfiguration): BacktestCo
   const slippageBps = finite(configuration.slippageBps, "slippageBps");
   if (initialCapital <= 0 || feeRatePercent < 0 || slippageBps < 0 || slippageBps >= 10_000) {
     throw new BacktestingApplicationError("INVALID_REQUEST", "invalid execution configuration");
+  }
+  const paperExecution = configuration.paperExecution;
+  if (paperExecution !== undefined) {
+    if (typeof paperExecution !== "object" || paperExecution === null || Array.isArray(paperExecution)) {
+      throw new BacktestingApplicationError("INVALID_REQUEST", "invalid synthetic paper execution configuration");
+    }
+    if (
+      paperExecution.executionProfileId !== "SYNTHETIC_SHORT_PAPER_V1" ||
+      (paperExecution.positionMode !== "LONG" && paperExecution.positionMode !== "SYNTHETIC_SHORT") ||
+      paperExecution.exitPolicyId !== "STOP_LOSS_WINS_V1" ||
+      paperExecution.feeRatePercent !== 0.08 ||
+      paperExecution.adverseSlippageBps !== 5 ||
+      paperExecution.decimalScale !== 8 ||
+      paperExecution.roundingMode !== "HALF_UP"
+    ) {
+      throw new BacktestingApplicationError("INVALID_REQUEST", "invalid synthetic paper execution configuration");
+    }
+    const validateLevel = (value: string | undefined, field: string): string | undefined => {
+      if (value === undefined) return undefined;
+      if (typeof value !== "string" || !value.trim() || !Number.isFinite(Number(value)) || Number(value) <= 0) {
+        throw new BacktestingApplicationError("INVALID_REQUEST", `${field} must be a positive decimal`);
+      }
+      return value.trim();
+    };
+    const stopLoss = validateLevel(paperExecution.stopLoss, "paperExecution.stopLoss");
+    const takeProfit = validateLevel(paperExecution.takeProfit, "paperExecution.takeProfit");
+    const normalizedPaper: SyntheticPaperExecutionConfiguration = {
+      executionProfileId: "SYNTHETIC_SHORT_PAPER_V1",
+      positionMode: paperExecution.positionMode,
+      exitPolicyId: "STOP_LOSS_WINS_V1",
+      feeRatePercent: 0.08,
+      adverseSlippageBps: 5,
+      decimalScale: 8,
+      roundingMode: "HALF_UP",
+      ...(stopLoss === undefined ? {} : { stopLoss }),
+      ...(takeProfit === undefined ? {} : { takeProfit }),
+    };
+    return { ...configuration, paperExecution: normalizedPaper };
   }
   return { ...configuration };
 }
@@ -507,7 +546,7 @@ export function createBacktestingApplication(
           strategySelection: candidate.strategySelection,
           startedAt,
           completedAt: dependencies.clock.now(),
-          ...candidate.configuration,
+          configuration: candidate.configuration,
         });
       } catch (error) {
         const simulationCode = typeof error === "object" && error !== null && "code" in error && (error as { code?: unknown }).code === "STRATEGY_FAILED"
@@ -578,6 +617,9 @@ export function createBacktestingApplication(
         replay,
         visualization: result.visualization,
         createdAt: dependencies.clock.now(),
+        ...(candidate.configuration.paperExecution === undefined
+          ? {}
+          : { paperExecutionProvenance: structuredClone(candidate.configuration.paperExecution) }),
         endingCapital: result.endingCapital,
         equityCurve: result.equityCurve,
       };

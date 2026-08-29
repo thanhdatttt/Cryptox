@@ -1,114 +1,110 @@
-# INS-049 Execution Checkpoint — M-03 Realtime Market Delivery
+# INS-051 Execution Checkpoint — B-03 Synthetic Directional Paper Execution
 
 ## Resume here
 
-- **Authorization:** `INS-049 / APPROVED_FOR_EXECUTION`; exactly one bounded
-  recovery of the existing `M-03` packet was authorized. No other packet was
-  started, promoted, or retried.
-- **Fresh Manager:** `01a04f6d-329f-7d00-a1f2-43339c5bd3e6`, operating in the
+- **Authorization:** `INS-051 / APPROVED_FOR_EXECUTION`; exactly one bounded
+  implementation/review of `B-03` was authorized. No other packet was started,
+  promoted, or retried.
+- **Fresh Manager:** `01a04f9f-b8a9-7530-bb79-9f7fddbb7878`, operating in the
   canonical same-directory checkout `D:/agy-cli-projects/AOS/Cryptox` on
-  `MVP_IMPLEMENTATION`. Parent task: `01a04d93-13a4-7d91-b010-f2b800f696df`.
-- **Fresh worker:** Chandrasekhar, `01a04f70-3324-77d3-bdf1-79e1c5b93a01`, the
-  sole new Market Data worker. It used the canonical checkout, created no
-  thread/worker, branch, worktree, or commit, and edited no control artifact.
-- **Authorization signal:** `9a3cce42bf626c851817d31ae7b84660c654734e`
-  (`INS-049`); reviewed base `daf320e7bc895cb0038824ac290d3419173a4832`.
-  The signal delta was limited to `docs/control/INSTRUCTOR.md`.
-- **Starting checkpoint:** branch `MVP_IMPLEMENTATION`, HEAD
-  `9a3cce42bf626c851817d31ae7b84660c654734e`, clean before worker changes.
-- **Preserved N-03 source/business checkpoint:**
-  `d4161ec458c869ff18fa89dd9732df260629c915`; N-03 remains `REVIEW`, not
-  `DONE`.
+  `MVP_IMPLEMENTATION`. Parent Instructor task:
+  `01a04d93-13a4-7d91-b010-f2b800f696df`.
+- **Fresh worker:** Pascal, `01a04fa2-b515-74d3-a448-0ab605dfabab`, the sole
+  new Backtesting implementation worker. It used the canonical checkout,
+  created no thread/worker, branch, worktree, or commit, and edited no control
+  artifact.
+- **Reviewed source/business base:** `9800a7d8d6ea377e956e7babbdb633732a03049a`.
+  The current authorization signal is the non-material governance delta at
+  `40163ab`; frozen Backtesting contracts and migrations were unchanged.
+- **Starting checkpoint:** branch `MVP_IMPLEMENTATION`, HEAD `40163ab`, clean
+  before the Manager task transition and worker changes.
 
 ## Applicability and preconditions
 
-- `C-02=DONE`, `M-01=DONE`, and the `F-01` normalized chart input were verified.
-  `M-02` remains `REVIEW/UNVERIFIED` and was not moved or retried.
-- The prior INS-043 Anscombe worker
-  (`01a04ef0-4cc6-78d3-af30-a393155b1953`) remains historical/inactive. It was
-  interrupted before implementation, changed no files, created no source
-  commit, and was not resumed, replaced, or retried.
-- The active-task inspection found no competing Cryptox Manager or worker;
-  historical tasks/worktrees were not used, removed, reset, or treated as active.
-- M-03 state was retained as `IN_PROGRESS` throughout implementation and moved
-  exactly `IN_PROGRESS -> REVIEW` after independent review. It was not reset
-  through `BLOCKED` or `READY`.
+- `INS-051` is current and `APPROVED_FOR_EXECUTION`. B-03 was verified as the
+  only authorized task; its start dependencies `C-02`, `B-01`, `B-02`, `M-01`,
+  `S-01`, `S-05`, and `S-06` were all `DONE`.
+- `M-03` and `N-03` remain `REVIEW`; `M-02` remains `REVIEW/UNVERIFIED`.
+  None was changed, promoted, or used as a B-03 start dependency.
+- Repository task records and active-task inspection showed no competing
+  Cryptox Manager or worker before Pascal was dispatched. Historical tasks and
+  workers were not resumed, replaced, retried, or duplicated.
+- B-03 moved exactly `BLOCKED -> READY -> IN_PROGRESS -> REVIEW`. The Manager
+  owns the state transition and this checkpoint; the worker did not edit
+  `TASKS.md` or `HANDOFF.md`.
 
 ## Worker implementation and Manager review
 
-- **Requirements:** `CSL-R-MD-02`, `CSL-R-MD-03`, `CSL-R-RP-02`,
-  `CSL-R-FE-01`, and `CSL-R-OB-01`.
-- **Scope:** `modules/market-data/api/**` excluding frozen `contracts.ts` and
-  `contracts.spec.ts`; `modules/market-data/application/**`;
-  `modules/market-data/infrastructure/**`; and focused tests only.
-- **Changed paths:**
-  `modules/market-data/api/{bootstrap,index,index.spec}.ts`;
-  `modules/market-data/application/{ports,observability,service,service.spec}.ts`;
-  `modules/market-data/infrastructure/{binance-realtime,binance-realtime.spec}.ts`.
-  No `packages/contracts/**`, frontend, migration, dependency, runtime,
-  generated, other-module, or control-plane path changed.
-- **Realtime behavior:** Binance kline and trade streams are subscribed through
-  the provider-neutral adapter. Same-timestamp candle updates replace the
-  current state; later timestamps append; duplicates, unseen older closed
-  candles, and closed-to-forming regressions are suppressed. Reconnect and REST
-  gap reconciliation are bounded, deterministic, and exclude forming candles.
-- **Observability:** `MARKET_OBSERVABILITY_V1` is exposed through
-  `readObservability` and bootstrap runtime typing. Provider event time, received
-  time, last latency, connection state, and a clone-read latest-100-per-pair ring
-  are held in a dedicated in-memory projection. Reset/new service state is empty;
-  no CandleRepository, snapshot, Backtest, or replay path consumes it. Four
-  pair/timeframe subscriptions are normalized and isolated at the application
-  boundary. Provider envelopes do not cross the adapter.
-- **Failure/resource behavior:** malformed updates are sanitized and isolated;
-  reconnect attempts, gap pages/candles, and shutdown are bounded; cleanup and
-  reconnect failures are observable. The optional external observability port is
-  delivery-only and not a persistence path.
+- **Requirements:** `CSL-R-BT-02`, `CSL-R-RP-02`, `CSL-R-BT-01`, and
+  `CSL-R-OB-01`.
+- **Worker scope:** `modules/backtesting/domain/**`,
+  `modules/backtesting/application/**`, `modules/backtesting/infrastructure/**`,
+  and focused Backtesting tests, excluding frozen API contracts and migrations.
+- **Worker paths:**
+  `modules/backtesting/domain/{simulator,simulator.spec}.ts`;
+  `modules/backtesting/application/{service,service.spec}.ts`;
+  `modules/backtesting/infrastructure/{postgres,postgres.spec}.ts`.
+- **Manager paths:** `docs/implementation/TASKS.md` and this file only for
+  state, ownership, review, evidence, limitations, and the stop boundary. The
+  Manager made one narrow review fix in the worker-owned application/test paths:
+  nested `paperExecution` is now passed under `SimulationInput.configuration`,
+  with an application assertion proving a synthetic-short run reaches a
+  directional trade.
+- **Simulation:** Explicit Long and synthetic Short candle-only modes use
+  next-candle-open signals with no lookahead, bounded OHLC Stop Loss/Take Profit,
+  conservative single-exit `STOP_LOSS_WINS_V1` dual-trigger handling, and
+  deterministic range-end closure. No exchange order, leverage, margin,
+  funding, liquidation, live execution, or generalized risk was introduced.
+- **Accounting/provenance:** Paper fills use fixed-point eight-place `HALF_UP`
+  arithmetic, 0.08% fee per entry/exit fill, and adverse 5-bps slippage per
+  fill. Trade direction and exit reason are inspectable. Approved
+  `paper_execution_provenance` and `position_mode` persistence fields are
+  round-tripped through the existing Candidate/Experiment/Trade adapters;
+  migrations were not changed. Evaluation/Leaderboard result shapes remain
+  stable.
+- **Resilience/ownership:** Existing bounded local execution, owner-filtered
+  Candidate/Experiment/Trade access, deterministic reruns, one terminal outcome,
+  cancellation, failure containment, and no-partial-Experiment behavior remain
+  covered by the focused application/infrastructure tests.
 
 ## Validation and evidence
 
-- **Focused Market Data:** PASS — 31 passed / 1 skipped across 6 passed / 1
-  skipped files. The skipped `infrastructure/postgres.integration.spec.ts` is
-  environment-gated and is not PASS evidence.
-- **Root workspace:** PASS — 318 passed / 6 skipped; the six skips are existing
+- **Focused Backtesting:** PASS — 43 passed across 7 files.
+- **Root workspace:** PASS — 327 passed / 6 skipped. The skips are existing
   environment-gated PostgreSQL/integration/E2E checks and are not PASS evidence.
-  The frozen market WebSocket contract tests passed read-only.
 - **Repository gates:** PASS — `npm run test:scope-check` (7/7),
-  `npm run arch:check`, `npm run artifacts:check`, `npm run scope:check`,
-  `npm run typecheck`, `npm run build`, `npm run lint`, and `git diff --check`.
-  Architecture reported its expected nine forbidden-dependency fixtures while
-  exiting successfully.
-- **Real Binance:** `UNVERIFIED` — no live Binance runtime configuration was
-  present on this host; fixture/fake evidence is not promoted to real-provider
-  PASS. The adapter is ready for a separately authorized configured-provider
-  smoke.
-- **PostgreSQL:** `BLOCKED/UNVERIFIED` — `DATABASE_URL` was absent and the
-  Market Data PostgreSQL integration test was skipped; no database runtime PASS
-  is claimed.
-- **Other unavailable evidence:** OpenSpec CLI is `UNVERIFIED` because the
-  command is unavailable. Browser/runtime and link/DAG automation were not run
-  and remain `UNVERIFIED`; none is claimed as PASS.
-
-## Preserved N-03 evidence
-
-- N-03 remains at source/business checkpoint
-  `d4161ec458c869ff18fa89dd9732df260629c915` and state `REVIEW`.
-- N-03 focused evidence remains News 30/30 PASS and Sentiment 19/19 PASS; its
-  root checkpoint remains 310 passed / 6 skipped with exit success. The six
-  environment-gated skips remain non-PASS.
-- N-03 root typecheck, build, lint, architecture, artifacts, scope, and diff
-  checks remain PASS. PostgreSQL migration/runtime, real configured News,
-  browser/runtime, OpenSpec, and link/DAG evidence remain BLOCKED or UNVERIFIED;
-  auto-refresh remains PARTIAL/UNVERIFIED because no scheduler was implemented.
-- N-03 retention/provenance corrections and its frozen contracts/migrations were
-  not reopened or changed by this M-03 packet.
+  `npm run arch:check`, `npm run artifacts:check`, `npm run typecheck`,
+  `npm run build`, `npm run lint`, and `git diff --check`.
+- **Deferred-scope gate:** BLOCKED — `npm run scope:check` rejects the approved
+  B-03 identifiers and directional paper vocabulary in their authorized
+  Backtesting implementation directories. The checker is outside this packet's
+  write scope and was not modified or bypassed.
+- **PostgreSQL:** BLOCKED — `npm run db:local:validate` could not run because
+  Docker Compose is unavailable on this host (`docker: unknown command: docker
+  compose`). Fixture/query-adapter provenance evidence passes, but no real
+  PostgreSQL runtime PASS is claimed.
+- **Real Binance:** UNVERIFIED — no configured live Binance historical/realtime
+  runtime was available on this host. Fixture candle evidence is not promoted
+  to real-provider PASS.
+- **OpenSpec:** UNVERIFIED — the `openspec` CLI is unavailable. The checked-in
+  active Backtesting capability spec/change and governing documents were read
+  directly.
+- **Other evidence:** Browser/runtime and link/DAG automation were not run and
+  remain `UNVERIFIED`; no unavailable check is claimed as PASS.
 
 ## State and stop boundary
 
-- `TASKS.md` records M-03 as `REVIEW`, preserves `M-02=REVIEW/UNVERIFIED` and
-  `N-03=REVIEW`, and preserves all unrelated task states/evidence.
-- M-03 is not `DONE` because required real-provider readiness evidence is
-  unavailable. No downstream task was auto-started or promoted; INS-049 is
-  exhausted at this checkpoint.
-- **Manager checkpoint commit:** one coherent Manager commit contains the
-  reviewed M-03 source plus the Manager-owned `TASKS.md` and this `HANDOFF.md`.
+- **B-03:** `REVIEW`, not `DONE`. The implementation and focused/global fixture
+  evidence are present, but the required deferred-scope gate and real
+  PostgreSQL/Binance evidence remain unavailable.
+- `M-03` and `N-03` remain `REVIEW`; `M-02` remains `REVIEW/UNVERIFIED`.
+  `S-04`, `Q-02`, `E-02`, `L-02`, `F-03`, `I-03`, `AU-02`, `I-01`, `I-02`, and
+  all other downstream/deferred tasks remain at their recorded states. No task
+  was auto-started or promoted.
+- Frozen `modules/backtesting/api/contracts.ts`,
+  `modules/backtesting/api/contracts.spec.ts`, and all migrations are unchanged.
+- **Manager checkpoint commit:** one coherent checkpoint commit contains the
+  accepted B-03 source/tests plus Manager-owned `TASKS.md` and this `HANDOFF.md`.
   Its exact Git hash is reported at the stop boundary.
+- **Renewed authorization:** required before any follow-on task or any separate
+  reconciliation of the blocked deferred-scope/real-provider gates.

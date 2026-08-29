@@ -70,6 +70,7 @@ interface CandidateRow extends Record<string, unknown> {
   initial_capital: string | number;
   fee_rate_percent: string | number;
   slippage_bps: string | number;
+  paper_execution_provenance: unknown | null;
   status: CandidateProgress["status"];
   started_at: string | null;
   completed_at: string | null;
@@ -103,6 +104,7 @@ interface ExperimentRow extends Record<string, unknown> {
   replay_limitation: string | null;
   dataset_provider: string | null;
   dataset_version: string | null;
+  paper_execution_provenance: unknown | null;
   created_at: string;
   fee_rate_percent: string | number;
   slippage_bps: string | number;
@@ -120,6 +122,7 @@ interface TradeRow extends Record<string, unknown> {
   exit_time: string;
   exit_price: string | number;
   exit_reason: Trade["exitReason"];
+  position_mode?: "LONG" | "SYNTHETIC_SHORT" | null;
   quantity: string | number;
   notional_entry_value: string | number;
   gross_profit: string | number;
@@ -148,6 +151,49 @@ function timestampColumn(value: unknown, field: string): string {
   return new Date(parsed).toISOString();
 }
 
+function paperExecutionFromPersistence(value: unknown): BacktestConfiguration["paperExecution"] {
+  if (value === undefined || value === null) return undefined;
+  let candidate: unknown = value;
+  if (typeof candidate === "string") {
+    try {
+      candidate = JSON.parse(candidate) as unknown;
+    } catch {
+      throw new Error("invalid backtesting paper execution provenance in persistence");
+    }
+  }
+  if (typeof candidate !== "object" || candidate === null || Array.isArray(candidate)) {
+    throw new Error("invalid backtesting paper execution provenance in persistence");
+  }
+  const provenance = candidate as Record<string, unknown>;
+  if (
+    provenance.executionProfileId !== "SYNTHETIC_SHORT_PAPER_V1" ||
+    (provenance.positionMode !== "LONG" && provenance.positionMode !== "SYNTHETIC_SHORT") ||
+    provenance.exitPolicyId !== "STOP_LOSS_WINS_V1" ||
+    provenance.feeRatePercent !== 0.08 ||
+    provenance.adverseSlippageBps !== 5 ||
+    provenance.decimalScale !== 8 ||
+    provenance.roundingMode !== "HALF_UP"
+  ) {
+    throw new Error("invalid backtesting paper execution provenance in persistence");
+  }
+  const stopLoss = provenance.stopLoss;
+  const takeProfit = provenance.takeProfit;
+  if ((stopLoss !== undefined && typeof stopLoss !== "string") || (takeProfit !== undefined && typeof takeProfit !== "string")) {
+    throw new Error("invalid backtesting paper execution provenance in persistence");
+  }
+  return {
+    executionProfileId: "SYNTHETIC_SHORT_PAPER_V1",
+    positionMode: provenance.positionMode as "LONG" | "SYNTHETIC_SHORT",
+    exitPolicyId: "STOP_LOSS_WINS_V1",
+    feeRatePercent: 0.08,
+    adverseSlippageBps: 5,
+    decimalScale: 8,
+    roundingMode: "HALF_UP",
+    ...(stopLoss === undefined ? {} : { stopLoss }),
+    ...(takeProfit === undefined ? {} : { takeProfit }),
+  };
+}
+
 function poolFromOptions(options: PostgresBacktestingOptions): PostgresPool {
   if (options.pool) return options.pool;
   const { Pool } = require("pg") as {
@@ -170,6 +216,7 @@ function candidateFromRow(row: CandidateRow): BacktestingCandidate {
     range: { from: timestampColumn(row.range_from, "range_from"), to: timestampColumn(row.range_to, "range_to") },
     ...(row.dataset_id === null ? {} : { datasetId: row.dataset_id, ...(row.dataset_version ? { datasetVersion: row.dataset_version } : {}) }),
   } as BacktestingCandidate["marketInput"];
+  const paperExecution = paperExecutionFromPersistence(row.paper_execution_provenance);
   return {
     candidateId: row.id,
     ownerUserId: row.owner_user_id as AuthenticatedUserId,
@@ -183,6 +230,7 @@ function candidateFromRow(row: CandidateRow): BacktestingCandidate {
       initialCapital: numberColumn(row.initial_capital, "initial_capital"),
       feeRatePercent: numberColumn(row.fee_rate_percent, "fee_rate_percent"),
       slippageBps: numberColumn(row.slippage_bps, "slippage_bps"),
+      ...(paperExecution === undefined ? {} : { paperExecution }),
     },
     status: row.status,
     ...(row.started_at === null ? {} : { startedAt: timestampColumn(row.started_at, "started_at") }),
@@ -207,6 +255,7 @@ function tradeFromRow(row: TradeRow): Trade {
     ...(row.exit_signal_at === null ? {} : { exitSignalAt: timestampColumn(row.exit_signal_at, "exit_signal_at") }),
     exitTime: timestampColumn(row.exit_time, "exit_time"),
     exitPrice: numberColumn(row.exit_price, "exit_price"),
+    ...(row.position_mode === null || row.position_mode === undefined ? {} : { positionMode: row.position_mode }),
     exitReason: row.exit_reason,
     quantity: numberColumn(row.quantity, "quantity"),
     notionalEntryValue: numberColumn(row.notional_entry_value, "notional_entry_value"),
@@ -264,6 +313,7 @@ export function createPostgresBacktestingDependencies(
       strategy_definition_id::text, composite_definition_id::text, pair, timeframe,
       range_from::text, range_to::text, dataset_id::text, dataset_version,
       execution_profile_id, initial_capital, fee_rate_percent, slippage_bps,
+      paper_execution_provenance,
       status, started_at::text, completed_at::text, duration_ms,
       failure_code, failure_message, created_at::text, updated_at::text`;
   const candidateSelect = `
@@ -272,6 +322,7 @@ export function createPostgresBacktestingDependencies(
       c.strategy_definition_id::text, c.composite_definition_id::text, c.pair, c.timeframe,
       c.range_from::text, c.range_to::text, c.dataset_id::text, c.dataset_version,
       c.execution_profile_id, c.initial_capital, c.fee_rate_percent, c.slippage_bps,
+      c.paper_execution_provenance,
       c.status, c.started_at::text, c.completed_at::text, c.duration_ms,
       c.failure_code, c.failure_message, c.created_at::text, c.updated_at::text,
       (SELECT e.id::text FROM experiments e WHERE e.candidate_id = c.id) AS experiment_id
@@ -289,10 +340,11 @@ export function createPostgresBacktestingDependencies(
              origin, strategy_selection_kind, strategy_definition_id, composite_definition_id,
              pair, timeframe, range_from, range_to, dataset_id, dataset_version,
              execution_profile_id, initial_capital, fee_rate_percent, slippage_bps,
+             paper_execution_provenance,
              status, created_at, updated_at)
           VALUES ($1::uuid, $2::uuid, $3::uuid, $4::uuid, $5, $6, $7, $8::uuid, $9::uuid,
                   $10, $11, $12::timestamptz, $13::timestamptz, $14::uuid, $15,
-                  $16, $17, $18, $19, 'ACCEPTED', $20::timestamptz, $20::timestamptz)
+                  $16, $17, $18, $19, $20::jsonb, 'ACCEPTED', $21::timestamptz, $21::timestamptz)
           RETURNING ${candidateColumns}
         `,
         [candidateId, ownerUserId, command.leaderboardScopeId, isSearch ? command.searchRunId : null, isSearch ? command.iterationNumber : null,
@@ -302,7 +354,9 @@ export function createPostgresBacktestingDependencies(
           command.marketInput.pair, command.marketInput.timeframe, command.marketInput.range.from, command.marketInput.range.to,
           command.marketInput.datasetId ?? null, command.marketInput.datasetVersion ?? null,
           command.configuration.executionProfileId, command.configuration.initialCapital, command.configuration.feeRatePercent,
-          command.configuration.slippageBps, now],
+          command.configuration.slippageBps,
+          command.configuration.paperExecution === undefined ? null : JSON.stringify(command.configuration.paperExecution),
+          now],
       );
       const row = result.rows[0];
       if (!row) throw new Error("candidate insert returned no row");
@@ -342,7 +396,8 @@ export function createPostgresBacktestingDependencies(
     e.pair, e.timeframe, e.range_from::text, e.range_to::text,
     e.execution_profile_id, e.initial_capital, e.ending_capital,
     e.equity_curve, e.ranking_configuration_id, e.code_provenance,
-    e.replay_guarantee, e.replay_limitation, e.created_at::text,
+    e.replay_guarantee, e.replay_limitation, e.paper_execution_provenance,
+    e.created_at::text,
     c.fee_rate_percent, c.slippage_bps,
     d.provider_id AS dataset_provider, d.dataset_version AS dataset_version`;
 
@@ -366,11 +421,12 @@ export function createPostgresBacktestingDependencies(
              strategy_definition_id, composite_definition_id, market_dataset_snapshot_id,
              pair, timeframe, range_from, range_to, execution_profile_id,
              initial_capital, ending_capital, equity_curve, ranking_configuration_id,
-             code_provenance, replay_guarantee, replay_limitation, created_at)
+             code_provenance, replay_guarantee, replay_limitation, created_at,
+             paper_execution_provenance)
           SELECT $1::uuid, c.id, $3::uuid, $4, $5::uuid, $6::uuid, $7::uuid,
             $8, $9, $10::timestamptz, $11::timestamptz, $12, $13, $14, $15::jsonb,
-            $16, $17::jsonb, $18, $19, $20::timestamptz
-          FROM candidates c WHERE c.id = $2::uuid AND c.owner_user_id = $21::uuid
+            $16, $17::jsonb, $18, $19, $20::timestamptz, $21::jsonb
+          FROM candidates c WHERE c.id = $2::uuid AND c.owner_user_id = $22::uuid
           ON CONFLICT (candidate_id) DO NOTHING
           RETURNING id
         `,
@@ -382,7 +438,9 @@ export function createPostgresBacktestingDependencies(
           experiment.configuration.initialCapital, endingCapital,
           JSON.stringify(equityCurve), experiment.rankingConfigurationId, JSON.stringify(experiment.code),
           experiment.replay.guarantee, experiment.replay.guarantee === "TRACEABLE" ? experiment.replay.limitation : null,
-          experiment.createdAt, ownerUserId],
+          experiment.createdAt,
+          experiment.paperExecutionProvenance === undefined ? null : JSON.stringify(experiment.paperExecutionProvenance),
+          ownerUserId],
       );
       if (!result.rows[0]) {
         const concurrent = await query<{ id: string }>(
@@ -398,7 +456,7 @@ export function createPostgresBacktestingDependencies(
       try {
         await query(`INSERT INTO evaluation_results (id, experiment_id, total_return_percent, win_rate_percent, number_of_trades, max_drawdown_magnitude_percent, evaluation_profile_id) VALUES ($1::uuid, $2::uuid, $3, $4, $5, $6, $7)`, [randomUUID(), experiment.id, experiment.metrics.totalReturnPercent, experiment.metrics.winRatePercent, experiment.metrics.numberOfTrades, experiment.metrics.maxDrawdownMagnitudePercent, experiment.metrics.evaluationProfileId]);
         for (const trade of trades) {
-          await query(`INSERT INTO trades (id, experiment_id, sequence, pair, entry_signal_at, entry_time, entry_price, exit_signal_at, exit_time, exit_price, exit_reason, quantity, notional_entry_value, gross_profit, fee_amount, slippage_bps, profit, result_percent, result) VALUES ($1::uuid, $2::uuid, $3, $4, $5::timestamptz, $6::timestamptz, $7, $8::timestamptz, $9::timestamptz, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)`, [trade.id, experiment.id, trade.sequence, trade.pair, trade.entrySignalAt, trade.entryTime, trade.entryPrice, trade.exitSignalAt ?? null, trade.exitTime, trade.exitPrice, trade.exitReason, trade.quantity, trade.notionalEntryValue, trade.grossProfit, trade.feeAmount, trade.slippageBps, trade.profit, trade.resultPercent, trade.result]);
+          await query(`INSERT INTO trades (id, experiment_id, sequence, pair, entry_signal_at, entry_time, entry_price, exit_signal_at, exit_time, exit_price, exit_reason, position_mode, quantity, notional_entry_value, gross_profit, fee_amount, slippage_bps, profit, result_percent, result) VALUES ($1::uuid, $2::uuid, $3, $4, $5::timestamptz, $6::timestamptz, $7, $8::timestamptz, $9::timestamptz, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)`, [trade.id, experiment.id, trade.sequence, trade.pair, trade.entrySignalAt, trade.entryTime, trade.entryPrice, trade.exitSignalAt ?? null, trade.exitTime, trade.exitPrice, trade.exitReason, trade.positionMode ?? null, trade.quantity, trade.notionalEntryValue, trade.grossProfit, trade.feeAmount, trade.slippageBps, trade.profit, trade.resultPercent, trade.result]);
         }
       } catch (error) {
         if (!isUnique(error)) throw error;
@@ -427,7 +485,7 @@ export function createPostgresBacktestingDependencies(
         : "";
       if (page.cursor) values.push(page.cursor);
       values.push(page.limit + 1);
-      const result = await query<TradeRow>(`SELECT t.id::text, t.experiment_id::text, t.sequence, t.pair, t.entry_signal_at::text, t.entry_time::text, t.entry_price, t.exit_signal_at::text, t.exit_time::text, t.exit_price, t.exit_reason, t.quantity, t.notional_entry_value, t.gross_profit, t.fee_amount, t.slippage_bps, t.profit, t.result_percent, t.result FROM trades t INNER JOIN experiments e ON e.id = t.experiment_id INNER JOIN candidates c ON c.id = e.candidate_id WHERE c.owner_user_id = $1::uuid AND t.experiment_id = $2::uuid ${cursor} ORDER BY t.sequence ASC, t.id ASC LIMIT $${values.length}`, values);
+      const result = await query<TradeRow>(`SELECT t.id::text, t.experiment_id::text, t.sequence, t.pair, t.entry_signal_at::text, t.entry_time::text, t.entry_price, t.exit_signal_at::text, t.exit_time::text, t.exit_price, t.exit_reason, t.position_mode, t.quantity, t.notional_entry_value, t.gross_profit, t.fee_amount, t.slippage_bps, t.profit, t.result_percent, t.result FROM trades t INNER JOIN experiments e ON e.id = t.experiment_id INNER JOIN candidates c ON c.id = e.candidate_id WHERE c.owner_user_id = $1::uuid AND t.experiment_id = $2::uuid ${cursor} ORDER BY t.sequence ASC, t.id ASC LIMIT $${values.length}`, values);
       const rows = result.rows.slice(0, page.limit);
       if (!result.rows[0]) {
         const exists = await query(`SELECT 1 FROM experiments e INNER JOIN candidates c ON c.id = e.candidate_id WHERE c.owner_user_id = $1::uuid AND e.id = $2::uuid`, [ownerUserId, experimentId]);
@@ -438,7 +496,7 @@ export function createPostgresBacktestingDependencies(
   };
 
   async function tradesForExperiment(experimentId: string): Promise<readonly Trade[]> {
-    const result = await query<TradeRow>(`SELECT id::text, experiment_id::text, sequence, pair, entry_signal_at::text, entry_time::text, entry_price, exit_signal_at::text, exit_time::text, exit_price, exit_reason, quantity, notional_entry_value, gross_profit, fee_amount, slippage_bps, profit, result_percent, result FROM trades WHERE experiment_id = $1::uuid ORDER BY sequence ASC, id ASC`, [experimentId]);
+    const result = await query<TradeRow>(`SELECT id::text, experiment_id::text, sequence, pair, entry_signal_at::text, entry_time::text, entry_price, exit_signal_at::text, exit_time::text, exit_price, exit_reason, position_mode, quantity, notional_entry_value, gross_profit, fee_amount, slippage_bps, profit, result_percent, result FROM trades WHERE experiment_id = $1::uuid ORDER BY sequence ASC, id ASC`, [experimentId]);
     return result.rows.map(tradeFromRow);
   }
 
@@ -502,6 +560,7 @@ export function createPostgresBacktestingDependencies(
     const hasCodeCommit = typeof code.gitCommit === "string" && code.gitCommit.trim().length > 0;
     const exactReplay = exactDatasetReplay && hasCodeCommit;
     const provider = row.dataset_provider ?? "unknown";
+    const paperExecution = paperExecutionFromPersistence(row.paper_execution_provenance);
     return {
       id: row.id,
       candidateId: row.candidate_id,
@@ -527,7 +586,14 @@ export function createPostgresBacktestingDependencies(
             ...(row.dataset_version ? { datasetVersion: row.dataset_version } : {}),
             replayLimitation: row.replay_limitation ?? "persisted replay guarantee is TRACEABLE",
           }),
-      configuration: { executionProfileId: row.execution_profile_id, initialCapital: numberColumn(row.initial_capital, "initial_capital"), feeRatePercent: numberColumn(row.fee_rate_percent, "fee_rate_percent"), slippageBps: integerColumn(row.slippage_bps, "slippage_bps") },
+      configuration: {
+        executionProfileId: row.execution_profile_id,
+        initialCapital: numberColumn(row.initial_capital, "initial_capital"),
+        feeRatePercent: numberColumn(row.fee_rate_percent, "fee_rate_percent"),
+        slippageBps: integerColumn(row.slippage_bps, "slippage_bps"),
+        ...(paperExecution === undefined ? {} : { paperExecution }),
+      },
+      ...(paperExecution === undefined ? {} : { paperExecutionProvenance: structuredClone(paperExecution) }),
       metrics: { ...metrics, candidateId: row.candidate_id },
       rankingConfigurationId: row.ranking_configuration_id,
       code,

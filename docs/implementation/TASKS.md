@@ -42,7 +42,7 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 | S-05 | DONE | E1 | YES | INS-036 fresh S-05 worker `01a04e66-d981-7e42-b75d-1bb3b7340c73` / Manager; INS-041 closure review | `MVP_IMPLEMENTATION` / containing INS-041 closure checkpoint | Focused 17/17 and Strategy 89/89 PASS; ENV-02 checker gate PASS; immutable weighted-composite evidence accepted |
 | S-06 | DONE | E1 | YES | INS-036 fresh S-06 worker `01a04e66-e691-7a50-af2f-b1eecd39053b` / Manager; INS-041 closure review | `MVP_IMPLEMENTATION` / containing INS-041 closure checkpoint | Focused 20/20 and Strategy 89/89 PASS; ENV-02 checker gate PASS; deterministic Lite-plugin evidence accepted |
 | Q-02 | BLOCKED | E1 | YES | Future Search worker | — | Not started; Domain-guided/Genetic seeded evidence required |
-| B-03 | BLOCKED | E1 | YES | Future Backtesting worker | — | Not started; synthetic paper/decimal/provenance evidence required |
+| B-03 | REVIEW | E1 | YES | Fresh Backtesting worker Pascal `01a04fa2-b515-74d3-a448-0ab605dfabab` under INS-051; Manager review | `MVP_IMPLEMENTATION` / containing this B-03 checkpoint commit | `BLOCKED -> READY -> IN_PROGRESS -> REVIEW`; Backtesting 43/43 and root 327 passed / 6 skipped; architecture, artifacts, typecheck, build, lint, diff, scope-test PASS; deferred-scope check BLOCKED; real Binance UNVERIFIED and PostgreSQL BLOCKED |
 | N-03 | REVIEW | E1 | YES | INS-045 Manager `01a04f09-60b5-7113-8901-bfb50ff23ecd` + exactly one fresh News-Sentiment boundary worker Singer `01a04f0e-de55-78a2-bf64-88b2ac7eb4db` (completed) | `MVP_IMPLEMENTATION` / N-03 source checkpoint `d4161ec458c869ff18fa89dd9732df260629c915` | `BLOCKED -> READY -> IN_PROGRESS -> REVIEW`; News 30/30 and Sentiment 19/19 PASS; root 310 passed / 6 skipped (exit success; six skips are environment-gated PostgreSQL/integration/E2E checks and are not PASS); PostgreSQL, real News, auto-refresh scheduler, browser/runtime, OpenSpec, and link/DAG evidence UNVERIFIED or BLOCKED |
 | E-02 | BLOCKED | E2 | Integration | Future Evaluation worker | — | Not started; decimal-boundary evaluation evidence required |
 | L-02 | BLOCKED | E2 | YES | Future Leaderboard worker | — | Not started; extension-aware ranking/provenance evidence required |
@@ -57,9 +57,11 @@ boundary after one worker completed and the Manager independently reviewed it.
 `C-02` is now DONE at its authorized contract/schema gate after one worker and
 Manager review. M-03 was recovered under INS-049 by one fresh worker and is now
 at `REVIEW`; its fixture/resilience evidence passes, but real Binance readiness
-and PostgreSQL integration remain unavailable. All other extension feature
-packets other than the now-completed `S-05`/`S-06` remain `BLOCKED`; no
-downstream packet was authorized or started.
+and PostgreSQL integration remain unavailable. B-03 is at `REVIEW` after one
+fresh worker and independent Manager review; its fixture evidence passes, but
+the deferred-scope checker and real-provider/database evidence remain blocked or
+unverified. All other extension feature packets other than the now-completed
+`S-05`/`S-06` remain `BLOCKED`; no downstream packet was authorized or started.
 The existing legacy rows, including
 `M-02` at `REVIEW`, `AU-02` at `BLOCKED`, and `I-01`/`I-02` at `BLOCKED`, retain
 their states and evidence. DEC-007 feature behavior remains unimplemented in
@@ -799,7 +801,7 @@ acceptance criteria and handoff requirements are in the linked packets in
 ### B-03 — Synthetic Directional Paper Execution and Provenance
 
 - **Requirement IDs:** `CSL-R-BT-02`, `CSL-R-RP-02`, `CSL-R-BT-01`, `CSL-R-OB-01`.
-- **State / owner / wave:** BLOCKED / Backtesting worker / E1.
+- **State / owner / wave:** REVIEW / Fresh Backtesting worker Pascal `01a04fa2-b515-74d3-a448-0ab605dfabab` under INS-051 with Manager review / E1.
 - **Dependencies:** `C-02`, B-01/B-02/M-01/S-01, S-05, S-06.
 - **Exact write scope:** Backtesting domain/application/infrastructure and focused
   tests excluding canonical contracts/migrations/frontend/orders/risk.
@@ -807,6 +809,13 @@ acceptance criteria and handoff requirements are in the linked packets in
   Stop-Wins, 0.08% fees, adverse 5-bps fills, eight-place decimal P&L,
   immutable provenance, deterministic one-terminal-outcome/no-partial behavior,
   and Backtesting/DB/architecture/global checks.
+- **Review checkpoint:** One fresh worker completed the scoped implementation
+  without a commit or control-plane edit. Manager independently reviewed the
+  diff, fixed one narrow application wiring defect so nested `paperExecution`
+  reaches the simulator, and added the corresponding application assertion in
+  the same authorized paths. B-03 remains `REVIEW`, not `DONE`, because
+  `npm run scope:check` is blocked by the existing deferred-scope allowlist for
+  approved B-03 vocabulary and real Binance/PostgreSQL evidence is unavailable.
 - **Full packet:** [`MVP_PLAN.md#b-03--synthetic-directional-paper-execution-and-provenance`](MVP_PLAN.md#b-03--synthetic-directional-paper-execution-and-provenance)
 
 ### N-03 — Safe URL Import and Versioned News Extraction Refinement
@@ -914,9 +923,12 @@ and N-02 remain DONE. `RB-01` is DONE as the current governance checkpoint.
 independent source review occurred under INS-036, the checker boundary was
 reconciled under ENV-02, and the closure promotion was authorized by INS-041.
 `M-03` is REVIEW after the INS-049 recovery, with real-provider evidence still
-UNVERIFIED. N-03 is REVIEW under INS-045 after exactly one fresh scoped worker
+UNVERIFIED. B-03 is REVIEW under INS-051 after exactly one fresh scoped worker
+completed and the Manager reviewed/fixed the application wiring and final
+evidence; deferred-scope and real-provider/database gates remain blocked or
+unverified. N-03 is REVIEW under INS-045 after exactly one fresh scoped worker
 completed and the Manager reviewed the retention correction and final evidence;
-`S-04`, `Q-02`, `B-03`,
+`S-04`, `Q-02`,
 `E-02`, `L-02`, `F-03`, and `I-03` remain BLOCKED. No downstream packet was
 authorized or started. AU-02 and
 I-01/I-02 remain blocked; no legacy DONE packet is treated as evidence for an

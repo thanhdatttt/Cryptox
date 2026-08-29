@@ -159,6 +159,72 @@ describe("BacktestingApplication", () => {
     await expect(app.readExperiment(contextA, status.experimentId!)).resolves.not.toHaveProperty("equityCurve");
   });
 
+  it("round-trips synthetic paper provenance through the Candidate and Experiment boundary", async () => {
+    const syntheticShortStrategy: Strategy = {
+      ...fixtureStrategy(),
+      analyze: (input) => ({
+        signal: input.candles.length === 1 ? "SELL" : "HOLD",
+        signalAt: input.candles.at(-1)!.timestamp,
+        visualization: [],
+      }),
+    };
+    const { app, repositories } = makeApplication(
+      new InMemoryBacktestingRepositories(),
+      undefined,
+      undefined,
+      syntheticShortStrategy,
+    );
+    const paperExecution = {
+      executionProfileId: "SYNTHETIC_SHORT_PAPER_V1" as const,
+      positionMode: "SYNTHETIC_SHORT" as const,
+      exitPolicyId: "STOP_LOSS_WINS_V1" as const,
+      feeRatePercent: 0.08 as const,
+      adverseSlippageBps: 5 as const,
+      decimalScale: 8 as const,
+      roundingMode: "HALF_UP" as const,
+      stopLoss: "112.00000000",
+      takeProfit: "90.00000000",
+    };
+    const accepted = await app.startManual(contextA, {
+      ...manualCommand(),
+      configuration: { ...configuration, paperExecution },
+    });
+
+    await vi.waitFor(async () => expect((await app.status(contextA, accepted.candidateId)).status).toBe("SUCCEEDED"));
+    const candidate = await repositories.candidateRepository.getByOwnerAndId(userA, accepted.candidateId);
+    expect(candidate?.configuration.paperExecution).toEqual(paperExecution);
+    const experimentId = (await app.status(contextA, accepted.candidateId)).experimentId!;
+    expect(repositories.trades.get(experimentId)?.[0]).toMatchObject({
+      positionMode: "SYNTHETIC_SHORT",
+      exitReason: "RANGE_END",
+    });
+    await expect(app.readExperiment(contextA, experimentId)).resolves.toMatchObject({
+      configuration: { paperExecution },
+      paperExecutionProvenance: paperExecution,
+    });
+    await expect(app.readExperiment(contextB, experimentId)).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+
+  it("rejects invalid synthetic paper settings before Candidate persistence", async () => {
+    const { app, repositories } = makeApplication();
+    await expect(app.startManual(contextA, {
+      ...manualCommand(),
+      configuration: {
+        ...configuration,
+        paperExecution: {
+          executionProfileId: "SYNTHETIC_SHORT_PAPER_V1",
+          positionMode: "LONG",
+          exitPolicyId: "STOP_LOSS_WINS_V1",
+          feeRatePercent: 0.1,
+          adverseSlippageBps: 5,
+          decimalScale: 8,
+          roundingMode: "HALF_UP",
+        } as never,
+      },
+    })).rejects.toMatchObject({ code: "INVALID_REQUEST" });
+    expect(repositories.candidates.size).toBe(0);
+  });
+
   it("contains strategy failure and leaves no partial Experiment", async () => {
     const failingStrategy: Strategy = { ...fixtureStrategy(), analyze: () => { throw new Error("fixture strategy failed"); } };
     const { app, repositories } = makeApplication(new InMemoryBacktestingRepositories(), undefined, undefined, failingStrategy);
