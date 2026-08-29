@@ -36,7 +36,7 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 | I-01 | BLOCKED | 5 | YES | Manager / integration worker | — | Not started |
 | I-02 | BLOCKED | 6 | YES | Manager plus independent reviewers | — | Not started |
 | RB-01 | DONE | E0 | YES | Manager | `MVP_IMPLEMENTATION` / containing INS-024 RB-01 checkpoint | Documentation-only DEC-007 reconciliation planning committed; no feature implementation started |
-| C-02 | BLOCKED | E0 | YES | Manager / Pauli (`01a04c90-fb47-7772-a05f-570b2c90f8b4`, stopped) | `MVP_IMPLEMENTATION` / no worker commit | Worker stopped without a final report; partial output rejected after independent failures; no accepted C-02 evidence |
+| C-02 | IN_PROGRESS | E0 | YES | Manager / exactly one contract-and-schema worker (INS-034; pending creation) | `MVP_IMPLEMENTATION` / start checkpoint pending | Applicability PASS; worker assignment and contract/schema evidence in progress |
 | M-03 | BLOCKED | E1 | YES | Future Market Data worker | — | Not started; amended MD-02/MD-03 evidence required |
 | S-04 | BLOCKED | E1 | YES | Future Strategy application worker | — | Not started; controlled LLM draft/approval evidence required |
 | S-05 | BLOCKED | E1 | YES | Future Strategy composite worker | — | Not started; weighted-vote evidence required |
@@ -551,7 +551,7 @@ acceptance criteria and handoff requirements are in the linked packets in
 ### C-02 — DEC-007 Contract, Data-Model and Migration Reconciliation Gate
 
 - **Requirement IDs:** All DEC-007 extension IDs and amended `CSL-R-MD-02`.
-- **State / owner / wave:** BLOCKED / Manager with exactly one worker Pauli (`01a04c90-fb47-7772-a05f-570b2c90f8b4`, stopped) / E0.
+- **State / owner / wave:** IN_PROGRESS / Manager with exactly one contract-and-schema worker under INS-034 (pending creation) / E0.
 - **Dependencies:** `ENV-01` DONE and separately Instructor-reviewed; baseline
   inputs are `C-01A`, `D-01`, `M-01`, `S-01`, `Q-01`, `B-02`, `E-01`, `L-01`,
   `N-01`, and `N-02`. `M-02` is `REVIEW/UNVERIFIED` review input only and is
@@ -567,6 +567,11 @@ acceptance criteria and handoff requirements are in the linked packets in
   it omitted the required ports, conceptual data model, migrations, and tests,
   failed workspace typecheck and contract tests, and triggered deferred-scope
   findings. No implementation output is accepted.
+- **Current execution:** Applicability was independently proven at `3b1766e`
+  against reviewed checkpoint `58885dd`; C-02 transitioned `BLOCKED -> READY ->
+  IN_PROGRESS`. Exactly one fresh contract-and-schema worker remains to be
+  created in this canonical checkout. No downstream task is authorized or
+  started.
 - **Full packet:** [`MVP_PLAN.md#c-02--dec-007-contract-data-model-and-migration-reconciliation-gate`](MVP_PLAN.md#c-02--dec-007-contract-data-model-and-migration-reconciliation-gate)
 
 ### M-03 — Amended Realtime Market Delivery and `MARKET_OBSERVABILITY_V1`

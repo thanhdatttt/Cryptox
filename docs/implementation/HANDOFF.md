@@ -1,62 +1,44 @@
-# INS-033 Execution Checkpoint
+# INS-034 Execution Checkpoint
 
 ## Resume here
 
-- **Authorization:** `INS-033 / APPROVED_FOR_EXECUTION`, exactly `RB-03 — C-02
-  Operational DAG Reconciliation (corrected applicability)`. This authorization
-  is exhausted by this documentation-only checkpoint and authorizes no worker,
-  subagent, worktree, retry, downstream task, or C-02 implementation.
+- **Authorization:** `INS-034 / APPROVED_FOR_EXECUTION`, exactly `C-02 — DEC-007
+  Contract, Data-Model and Migration Reconciliation Gate`.
 - **Starting checkpoint:** `MVP_IMPLEMENTATION` /
-  `87e9fad4039e8b1133c09bffd0990938c0e4e986` (`docs(control): hold for C-02
-  DAG reconciliation`). The only delta before execution was the expected sole
-  child `a7025fed645f5f1a06579d3035d637d64082ebe7` (`INS-032` authorization),
-  followed by the expected `86783652d545d0edbe9e3c0416b515fc3ab65231`
-  (`INS-033` applicability correction); both changed only
-  `docs/control/INSTRUCTOR.md`.
-- **Applicability:** Before editing, `INS-033` was current and
-  `APPROVED_FOR_EXECUTION`; HEAD was the expected `86783652…` checkpoint; the
-  canonical checkout was clean; and no other active Cryptox Manager or worker
-  was found. The reviewed checkpoint and exact two-commit Instructor-only delta
-  were verified from Git history.
-- **Manager/workers:** Exactly one Manager acted in the canonical checkout. No
-  worker, subagent, worktree, retry, or downstream task was created or used.
-- **Commit:** One coherent documentation-only commit on `MVP_IMPLEMENTATION`,
-  subject `docs(control): reconcile C-02 operational DAG dependencies`, contains
-  this checkpoint and the TASKS correction only.
+  `58885ddd4ab8019e435c0f04a70e040c794044d5` (`docs(control): reconcile C-02
+  operational DAG dependencies`). The only later commit is the expected sole
+  Instructor control commit `3b1766eb2a1af515d9d283d25e1290926027fe6a`;
+  `git diff 58885dd..3b1766e` contains only `docs/control/INSTRUCTOR.md`.
+- **Applicability:** PASS — current `INS-034` is `APPROVED_FOR_EXECUTION`; HEAD
+  is `3b1766e`; the canonical checkout was clean; C-02 dependencies match the
+  reviewed record; no other active Cryptox Manager or worker was found; Docker
+  Compose/daemon are usable; and `npm run db:local:validate` passed local
+  PostgreSQL up, constraints, down, and remigrate.
+- **Task transition:** C-02 moved exactly `BLOCKED -> READY -> IN_PROGRESS`.
+- **Manager/workers:** One Manager is active in the canonical checkout. Exactly
+  one contract-and-schema worker is authorized and is pending creation. No
+  worktree, retry, second worker, or downstream task is authorized.
 
-## RB-03 result
+## Current execution boundary
 
-- **C-02 dependency reconciliation:** Its existing start-dependency/evidence
-  summary now matches the approved `MVP_PLAN.md` definition: `ENV-01` is `DONE`
-  and separately Instructor-reviewed; baseline inputs are completed `C-01A`,
-  `D-01`, `M-01`, `S-01`, `Q-01`, `B-02`, `E-01`, `L-01`, `N-01`, and `N-02`;
-  `M-02` remains `REVIEW/UNVERIFIED` review input only and is neither retried
-  nor a completion dependency.
-- **Preserved state/evidence:** C-02 remains exactly `BLOCKED`, with its owner,
-  wave, write scope, acceptance/validation criteria, and historical checkpoint
-  evidence unchanged. The prior Pauli attempt remains recorded as producing no
-  final report or worker commit; its partial contract-only output was rejected
-  for omitting required ports, data model, migrations, and tests, failing
-  workspace typecheck/contract tests, and triggering deferred-scope findings.
-- **Changed files:** Only `docs/implementation/TASKS.md` and
-  `docs/implementation/HANDOFF.md` were edited. No task or implementation
-  started, and no other task/packet record was changed.
+- C-02 dependencies: `ENV-01 DONE` plus separate Instructor review; completed
+  `C-01A`, `D-01`, `M-01`, `S-01`, `Q-01`, `B-02`, `E-01`, `L-01`, `N-01`, and
+  `N-02`; `M-02 REVIEW/UNVERIFIED` is review input only.
+- The worker may touch only the authorized canonical contracts, existing
+  application ports, extension REST/market-WebSocket DTOs, `docs/data-model.md`,
+  approved `infra/db/**` schema/migration-validation files, and tightly scoped
+  contract/boundary/schema/migration tests. Control files remain Manager-only.
+- No runtime/application/provider/frontend/Auth/exchange behavior, dependency,
+  configuration, requirement, decision, ADR, architecture, OpenSpec, or
+  downstream feature work is in scope.
 
-## Validation
+## Validation status
 
-- Changed-path audit: **PASS** — only the two permitted control-plane files are
-  changed.
-- Link check: **PASS** — all local Markdown link targets resolve.
-- DAG/state-consistency check: **PASS** — C-02 remains `BLOCKED`, `ENV-01` is
-  `DONE`, `M-02` remains `REVIEW`, and the reconciled dependencies match
-  `MVP_PLAN.md`; all other task states are preserved.
-- Historical-evidence-preservation check: **PASS** — the prior blocked C-02
-  attempt and rejection evidence remain present and unchanged.
-- Whitespace check (`git diff --check`): **PASS**.
+- Applicability and control-plane checks: **PASS**.
+- Local PostgreSQL migration prerequisite: **PASS** via `npm run
+  db:local:validate`.
+- OpenSpec CLI: **UNVERIFIED** — executable not available in the environment.
 
-## Disposition
-
-This is the single INS-033 RB-03 documentation-correction checkpoint. After the
-validation above and one coherent commit on `MVP_IMPLEMENTATION`, the system
-returns to Instructor review/HOLD. A fresh, separately reviewed Instructor
-signal is required before any C-02 attempt; `M-02` must remain review input only.
+This is an in-progress INS-034 checkpoint. The sole worker must return scoped
+changes and evidence for independent Manager review before final state and commit
+are recorded.
