@@ -78,7 +78,7 @@
   signal.
 - **Safe checkpoint commits:** `70fdfce` records duplicate-worker ownership
   reconciliation; `04bf234` contains the reviewed INS-017 source and tests;
-  the final Manager control reconciliation is the next commit. `INSTRUCTOR.md`
+  `b67b65a` contains the final Manager control reconciliation. `INSTRUCTOR.md`
   and `DECISIONS.md` remain untouched.
 
 ## INS-014 Historical Checkpoint
