@@ -37,7 +37,7 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 | I-02 | BLOCKED | 6 | YES | Manager plus independent reviewers | — | Not started |
 | RB-01 | DONE | E0 | YES | Manager | `MVP_IMPLEMENTATION` / containing INS-024 RB-01 checkpoint | Documentation-only DEC-007 reconciliation planning committed; no feature implementation started |
 | C-02 | DONE | E0 | YES | Manager / exactly one contract-and-schema worker `01a04d53-6ab4-70c1-a926-f68464b0fc6a` (INS-034) | `MVP_IMPLEMENTATION` / containing INS-034 closure checkpoint | Contract/schema review, 254/254 workspace tests, PostgreSQL up/constraints/down/remigrate, architecture, artifacts, scope, deferred-scope, typecheck, build, lint, and diff checks PASS; OpenSpec CLI and link/DAG automation UNVERIFIED |
-| M-03 | BLOCKED | E1 | YES | Future Market Data worker | — | Not started; amended MD-02/MD-03 evidence required |
+| M-03 | IN_PROGRESS | E1 | YES | INS-043 Manager + Market Data worker Anscombe (`01a04ef0-4cc6-78d3-af30-a393155b1953`, interrupted) | `MVP_IMPLEMENTATION` / worker interrupted; no source commit; checkpoint pending | C-02, M-01, and F-01 normalized chart input verified; exactly one worker stopped before implementation; no M-03 validation evidence |
 | S-04 | BLOCKED | E1 | YES | Future Strategy application worker | — | Not started; controlled LLM draft/approval evidence required |
 | S-05 | DONE | E1 | YES | INS-036 fresh S-05 worker `01a04e66-d981-7e42-b75d-1bb3b7340c73` / Manager; INS-041 closure review | `MVP_IMPLEMENTATION` / containing INS-041 closure checkpoint | Focused 17/17 and Strategy 89/89 PASS; ENV-02 checker gate PASS; immutable weighted-composite evidence accepted |
 | S-06 | DONE | E1 | YES | INS-036 fresh S-06 worker `01a04e66-e691-7a50-af2f-b1eecd39053b` / Manager; INS-041 closure review | `MVP_IMPLEMENTATION` / containing INS-041 closure checkpoint | Focused 20/20 and Strategy 89/89 PASS; ENV-02 checker gate PASS; deterministic Lite-plugin evidence accepted |
@@ -603,12 +603,19 @@ acceptance criteria and handoff requirements are in the linked packets in
 
 - **Requirement IDs:** `CSL-R-MD-02`, `CSL-R-MD-03`, `CSL-R-RP-02`, `CSL-R-FE-01`,
   `CSL-R-OB-01`.
-- **State / owner / wave:** BLOCKED / Market Data worker / E1.
+- **State / owner / wave:** IN_PROGRESS / INS-043 Manager + Market Data worker Anscombe (`01a04ef0-4cc6-78d3-af30-a393155b1953`) / E1.
 - **Dependencies:** `C-02`, M-01, F-01 input; M-02 remains REVIEW/UNVERIFIED and
   is not moved.
 - **Exact write scope:** `modules/market-data/api/**` excluding contracts,
   application/infrastructure implementations and focused tests; no frontend,
   transport contracts, migration, or event-bus changes.
+- **Worker checkpoint:** Anscombe (`01a04ef0-4cc6-78d3-af30-a393155b1953`) was
+  the only worker created under INS-043. It ended `interrupted` before
+  implementation began; it changed no files, created no source commit, and ran
+  no focused tests. No replacement or resume is authorized in this checkpoint.
+- **Manager review:** No implementation diff exists under the authorized API
+  scope. M-03 remains `IN_PROGRESS` because the worker interruption supplies no
+  reviewable implementation or acceptance evidence; it is not `DONE`.
 - **Acceptance/validation:** Re-prove amended realtime continuity, gap recovery,
   100-tick ephemeral observability, restart loss, and honest real-Binance status
   with focused/resilience/architecture/scope/global checks.
