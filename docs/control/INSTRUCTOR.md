@@ -2,7 +2,7 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-019`
+Instruction ID: `INS-020`
 
 Status: `APPROVED_FOR_EXECUTION`
 
@@ -11,55 +11,44 @@ Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 ## Reviewed repository checkpoint
 
 - Branch: `MVP_IMPLEMENTATION`
-- Reviewed repository HEAD: `acbde53` (`docs(control): reconcile INS-018 task summary`)
+- Reviewed repository HEAD: `0939175` (`docs(control): checkpoint INS-019 AU-02 blocker`)
 - Working tree at review: clean. The branch is ahead of
-  `origin/MVP_IMPLEMENTATION` by 52 local commits.
-- INS-018 is exhausted. Q-01 closed its reproduced persisted SearchRun race
-  and real-port integration at source commit `317ca0d`; F-02 closed its
-  fixture-first frontend packet at `84209b0`. D-01, AU-01, M-01, L-01, B-02,
-  F-AUTH, N-01, and N-02 remain DONE and must not be reassigned or reworked.
-- Q-01 evidence is now complete: focused Search 22 passed / 1 skipped,
-  package gates pass, and the real PostgreSQL public Search→Backtesting→
-  Leaderboard pipeline passed twice, including persisted terminal state,
-  ownership checks, Backtesting completion, and Leaderboard admission.
-- F-02 evidence is complete at its authorized fixture-first boundary: frontend
-  31/31, six packet-scoped tests, typecheck/lint/build/global gates PASS.
-  Real API/browser integration remains a later I-01 concern. F-AUTH's local
-  browser/Auth evidence is complete at packet boundary; deployed HTTPS and a
-  real private business endpoint remain `UNVERIFIED` for I-01.
-- N-01 and N-02 are DONE at their initial packet boundaries with their fixture,
-  adapter, persistence-mapping, and failure-isolation gates PASS. Live CoinDesk
-  and real News/Sentiment PostgreSQL evidence remain `UNVERIFIED` for later
-  runtime integration.
+  `origin/MVP_IMPLEMENTATION` by 55 local commits.
+- INS-019 is exhausted at a truthful blocked checkpoint. Q-01 and F-02 remain
+  DONE at their approved packet boundaries, and D-01, AU-01, M-01, L-01,
+  B-02, F-AUTH, N-01, and N-02 remain DONE; none may be reassigned or
+  reworked.
+- AU-02 start dependencies are satisfied: AU-01, D-01, S-01, L-01, B-02,
+  Q-01 real integration, and F-AUTH are DONE. The INS-019 AU-02 worker was
+  safely interrupted after its focused test process stalled during setup. It
+  produced no source/test diff, commit, or security evidence, so AU-02 remains
+  BLOCKED/UNVERIFIED. This is an execution/environment stall, not a reviewed
+  product decision that closes the packet.
 - M-02 remains REVIEW/UNVERIFIED. Its realtime resilience suite is 9/9 and
-  full Market Data is 23 passed / 1 skipped; the INS-018 live Binance attempt
-  reached the provider but ended with reconnect-limit exhaustion. No source or
-  configuration rework was made.
-- AU-02 remains BLOCKED only on its unreconciled task state: its start
-  dependencies AU-01, D-01, S-01, L-01, B-02, Q-01 real integration, and
-  F-AUTH are now satisfied. I-01/I-02 remain blocked. `verify:stage4a` passed;
-  formal OpenSpec CLI validation remains `UNVERIFIED` because the CLI is
-  unavailable. Cross-module Experiment/Leaderboard transaction atomicity is
-  still reserved for I-01.
-- No source, business-state, or task-DAG drift was found after INS-018. The
-  current task board and handoff are authoritative.
+  full Market Data is 23 passed / 1 skipped, but two bounded live Binance
+  attempts ended with socket failure/reconnect exhaustion, zero normalized
+  candles, and no live recovery evidence. No source or configuration rework is
+  authorized until the provider/environment premise changes.
+- `verify:stage4a` passed for the completed source tree. Formal OpenSpec CLI
+  validation remains `UNVERIFIED` because the CLI is unavailable. Cross-module
+  Experiment/Leaderboard transaction atomicity, real frontend API/browser
+  integration, live CoinDesk, and real News/Sentiment PostgreSQL evidence remain
+  later I-01/final-demo concerns.
+- No source, business-state, or task-DAG drift was found after INS-019. The
+  current TASKS/HANDOFF checkpoint is authoritative and clean.
 
 ## Approved execution frontier
 
-The Orchestrator is authorized to execute exactly these two bounded phases:
+The Orchestrator is authorized to execute exactly one bounded phase:
 
-1. `AU-02` — implement the cross-module per-user ownership security matrix and
-   narrowly approved owner-scoped fixes.
-2. `M-02` — perform one bounded evidence-only live Binance realtime re-probe
-   using the existing Market Data implementation; no source rework is
-   authorized.
+1. `AU-02` — retry the cross-module per-user ownership security integration,
+   including setup diagnosis, the required two-user security matrix, and only
+   narrowly approved owner-scoped fixes proven by failing assertions.
 
-AU-02 is an initial security-integration packet now that its start dependencies
-are satisfied; its final runtime composition remains an I-01 concern. M-02 is
-an evidence-only review closure. AU-02 implementation work must be delegated to
-a worker; M-02 may be validated by the Manager because it has no implementation
-write scope. No downstream task may start automatically when either phase is
-complete.
+This is a renewed retry of the existing AU-02 BLOCKED record after a prior
+worker setup stall; it does not reassign completed work or broaden scope. The
+retry must use a separate worker and stop without source changes if the same
+environment blocker persists. No M-02 retry or downstream task is authorized.
 
 ### AU-02 boundary
 
@@ -69,58 +58,48 @@ complete.
   and F-AUTH are DONE.
 - Allowed scope: cross-module security/integration tests plus narrowly approved
   owner-scoped fixes across Auth, Strategy, Search, Backtesting, Leaderboard,
-  and their existing runtime boundary where integration evidence proves a
+  and their existing runtime boundary when a security assertion proves a
   defect. Use trusted authenticated identity, not client-supplied identity.
-- Objective: produce the two-user isolation matrix for read/update/delete/
+- Objective: produce the User A/B isolation matrix for read/update/delete/
   cancel/list/rank, unauthenticated rejection, cross-user not-found semantics,
   Search Candidate owner propagation, same-owner Leaderboard admission, and
   shared-data behavior.
 - Required evidence: User A/B isolation, 401 unauthenticated responses, 404
   cross-user private lookups, client identity cannot bypass request context, no
-  secret logging, and all applicable package/global gates.
+  secret logging, reproducible setup diagnostics, and applicable global gates.
 - Forbidden: pure Strategy/simulator/Evaluation algorithms, Market Data/News
   ownership, unrelated refactors, deferred enterprise identity, migrations,
-  and automatic I-01/I-02 work. Any source fix must remain narrowly tied to a
-  failing security assertion and preserve public contracts.
-
-### M-02 evidence boundary
-
-- Governing requirements: `MD-02`, `RD-01`, `FE-01`, `OB-01`, `AR-02`, and
-  `DM-01`.
-- Use the existing configured Binance WebSocket/Market Data implementation and
-  perform one bounded live attempt, reporting provider reachability, normalized
-  delivery, connection state, and reconnect/gap behavior truthfully.
-- No source, contract, migration, frontend, or configuration rework is
-  authorized. If Binance again fails or reconnects exhaust, retain M-02 as
-  REVIEW/`UNVERIFIED`; fixture resilience cannot be promoted to live PASS.
+  contract changes, and automatic I-01/I-02 work. Any source fix must remain
+  narrowly tied to a failing security assertion.
 
 ## Orchestrator operating rules
 
 Before assigning work, compare this reviewed checkpoint with current Git and
-verify the non-stale `INS-019` signal, task readiness after any justified
-blocked/review-to-ready reconciliation, dependencies, and disjoint write
-scopes. Delegate AU-02 implementation to a separate worker. The Orchestrator
-alone changes `TASKS.md`/`HANDOFF.md`, reviews and integrates worker output,
-runs applicable gates, records exact commits and evidence, and stops when this
-authorization is exhausted.
+verify the non-stale `INS-020` signal, task readiness after the justified
+BLOCKED-to-READY reconciliation, dependencies, and disjoint write scope.
+Delegate AU-02 implementation to one separate worker using
+`gpt-5.6-luna` with `xhigh` reasoning. The worker may not edit
+`INSTRUCTOR.md`, `DECISIONS.md`, `TASKS.md`, or `HANDOFF.md`. The Orchestrator
+alone changes TASKS/HANDOFF, reviews and integrates output, runs gates, records
+exact commits/evidence, and stops when this authorization is exhausted.
 
-Do not start I-01, I-02, F-AUTH/F-02/Q-01/N-01/N-02 rework, B-02 rework, M-02
-source rework, D-01, AU-01, or any other newly unlocked task. Do not claim
-final/demo completion from fixture-only or unavailable-provider evidence. A new
-Instructor review and Instruction ID are required for the next frontier.
+If the focused test setup stalls again, interrupt safely, preserve AU-02 as
+BLOCKED/UNVERIFIED, and report the exact environment blocker. Do not spawn
+retries in the same authorization. Do not start M-02, I-01, I-02, F-AUTH,
+F-02, Q-01, N-01, N-02, or B-02 rework, nor D-01/AU-01 or any other follow-on
+task. A new Instructor review and Instruction ID are required afterward.
 
 ## Explicitly not authorized
 
 - Reassignment or rework of D-01, AU-01, M-01, L-01, B-02, Q-01, F-AUTH,
   F-02, N-01, or N-02.
-- I-01, I-02, M-02 source changes, or any unfinished packet outside AU-02 and
-  the M-02 evidence-only probe.
+- M-02 source changes or live re-probes, I-01, I-02, or any unfinished packet
+  outside the explicitly authorized AU-02 retry.
 - Migrations, frozen contract changes, scope expansion, deferred enterprise
   identity/queue/distributed/risk/AI features, or automatic follow-on work.
 
-Authorization ends after AU-02 review/integration and the single M-02 live
-evidence attempt are recorded, or when a required evidence/environment gate
-blocks safe completion. A fresh Instructor review and new Instruction ID are
+Authorization ends after the single AU-02 retry is reviewed/integrated or
+blocked with evidence. A fresh Instructor review and new Instruction ID are
 required afterward.
 
 ## Canonical references
