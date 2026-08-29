@@ -2,7 +2,7 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-015`
+Instruction ID: `INS-016`
 
 Status: `APPROVED_FOR_EXECUTION`
 
@@ -11,61 +11,39 @@ Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 ## Reviewed repository checkpoint
 
 - Branch: `MVP_IMPLEMENTATION`
-- Reviewed repository HEAD: `d9346fe` (`docs(control): record INS-014 closure checkpoint`)
+- Reviewed repository HEAD: `f351bca` (`docs(control): close INS-015 checkpoint`)
 - Working tree at review: clean. The branch is ahead of
-  `origin/MVP_IMPLEMENTATION` by 30 local commits.
-- INS-014 is exhausted. Its Orchestrator delegated, reviewed, and integrated
-  bounded closure fixes for M-02 and B-02 in disjoint scopes. D-01, AU-01, M-01,
-  and L-01 remain DONE and
+  `origin/MVP_IMPLEMENTATION` by 34 local commits.
+- INS-015 is exhausted. Its Orchestrator closed B-02 at the DEC-006 packet
+  boundary, integrated the F-AUTH real-session boundary patch, and safely
+  stopped Q-01 when no reviewable real-port handoff arrived. D-01, AU-01, M-01,
+  L-01, and B-02 remain DONE and
   must not be reassigned or reworked.
-- Current checkpoint evidence: M-02 focused realtime 9/9 and full Market Data
-  23 PASS / 1 skipped; B-02 full Backtesting 33/33, Auth PostgreSQL 3/3, and
-  same-owner/cross-user adapter probes PASS. Workspace build/typecheck/tests,
+- Current checkpoint evidence: F-AUTH has a frontend real-session boundary patch
+  with 23/23 tests and typecheck/build/lint PASS, plus an AU-01 PostgreSQL smoke
+  1/1 PASS. Q-01's prior fake-port phase remains reviewed PASS but its real-port
+  worker produced no reviewable handoff. M-02 focused realtime 9/9 and full
+  Market Data 23 PASS / 1 skipped. Workspace build/typecheck/tests,
   architecture, artifacts, deferred-scope, runtime smoke, and whitespace checks
   PASS.
-- Remaining truthful `UNVERIFIED` gates are live Binance realtime smoke and
-  proof of atomic Experiment plus Leaderboard persistence across module
-  adapters. The cancellation-race and replay-provenance findings from INS-014
-  are fixed and covered by passing tests.
-- No source, business-state, or task-DAG drift was found after the INS-014
-  checkpoint. The current task board and handoff are the authority for the
-  remaining REVIEW/BLOCKED states.
+- Remaining truthful `UNVERIFIED` gates are F-AUTH browser/service completion,
+  Q-01 real persistence/Backtesting/Leaderboard integration, live Binance
+  realtime smoke, and I-01 cross-module Experiment/Leaderboard atomicity.
+- No source, business-state, or task-DAG drift was found after the INS-015
+  checkpoint. The current task board and handoff are authoritative.
 
 ## Approved execution frontier
 
-The Orchestrator is authorized to execute exactly this bounded,
-dependency-ordered frontier:
+The Orchestrator is authorized to execute exactly these two independent
+review-closure phases in parallel:
 
-1. `B-02` — packet-boundary closure and state reconciliation only.
-2. `F-AUTH` — real AU-01 integration of the existing frontend Auth phase.
-3. `Q-01` — real-port integration of the existing Search phase, but only after
-   B-02 is closed by the Orchestrator under this instruction.
+1. `F-AUTH` — complete real AU-01 integration of the existing frontend Auth phase.
+2. `Q-01` — complete real-port integration of the existing Search phase.
 
 These continue existing REVIEW records; they do not reassign completed work or
-broaden scope. B-02 closure is Manager-side review/state work. F-AUTH and Q-01
-implementation/integration work must each be delegated to separate workers with
-disjoint write scopes. F-AUTH may run in parallel with B-02 closure. Q-01 is
-explicitly sequenced after B-02 reaches `DONE`.
-
-### B-02 boundary
-
-- Governing requirements: `OW-01`, `BT-01`, `ST-04`, `RP-01`, `OB-01`,
-  `AR-01`, `AR-02`.
-- Start dependencies: `D-01`, `S-01`, `B-01`, `E-01`, and `L-01`, all `DONE`.
-- Integration dependencies: `M-01`, `S-02`, and `S-03`, all satisfied.
-- Allowed write scope: Backtesting application/infrastructure/API
-  implementations and packet-scoped tests under `modules/backtesting/**`;
-  use public module APIs and explicit in-process adapters.
-- Objective: independently verify the INS-014 packet evidence and close B-02 at
-  its MVP_PLAN packet boundary if its DoD is met. No new implementation scope is
-  permitted unless a bounded regression is found.
-- Required evidence: success/failure/cancel/saturation paths, cross-user
-  not-found, no partial Experiment, provenance, rollback, PostgreSQL/Auth
-  integration, and exactly one terminal outcome. Cross-module
-  Experiment/Leaderboard atomicity is an I-01 gate and must remain `UNVERIFIED`
-  here.
-- Forbidden: Search lifecycle changes, concrete Binance internals, distributed
-  recovery, backend controllers, migrations, risk/shorting, or unrelated modules.
+broaden scope. Each bounded implementation fix must be delegated to a separate
+worker with a disjoint write scope. B-02 is already DONE at its packet boundary;
+M-02 remains REVIEW and is not part of this instruction.
 
 ### F-AUTH boundary
 
@@ -74,9 +52,9 @@ explicitly sequenced after B-02 reaches `DONE`.
 - Allowed scope: only `apps/frontend/**` Auth clients, screens, state,
   navigation guards, and tests; use the existing AU-01 public transport and
   HttpOnly cookie boundary.
-- Objective: integrate the existing fixture-first frontend Auth flow with real
-  AU-01 register/login/session restoration/logout behavior and close F-AUTH if
-  its protected-navigation and cache-isolation DoD passes.
+- Objective: review the existing real-session boundary patch, complete the real
+  AU-01 register/login/session restoration/logout integration, and close F-AUTH
+  if its protected-navigation and cache-isolation DoD passes.
 - Required evidence: real register/login/session restore/logout, protected
   navigation, 401 recovery, private-cache clearing, and truthful cookie behavior.
 - Forbidden: backend/module implementation, client-selected identity, browser
@@ -104,28 +82,29 @@ explicitly sequenced after B-02 reaches `DONE`.
 ## Orchestrator operating rules
 
 Before assigning work, compare this reviewed checkpoint with current Git and
-verify the non-stale `INS-015` signal, B-02 evidence, task readiness after any
-justified review-to-ready reconciliation, dependencies, and disjoint write
-scopes. Delegate F-AUTH and Q-01 implementation work to separate workers. Q-01
-must not start before B-02 is DONE. The Orchestrator alone changes
+verify the non-stale `INS-016` signal, task readiness after any justified
+review-to-ready reconciliation, dependencies, and disjoint write scopes.
+Delegate F-AUTH and Q-01 implementation work to separate workers. The
+Orchestrator alone changes
 `TASKS.md`/`HANDOFF.md`, reviews and integrates worker output, runs applicable
 gates, records exact commits and evidence, and stops when this authorization is
 exhausted.
 
-Do not start M-02 rework, AU-02, I-01, I-02, N-01, N-02, F-02, or any other
-newly unlocked task. M-02 remains REVIEW with its live-provider limitation;
-carry that evidence to a later explicitly authorized integration gate. A new
-Instructor review and Instruction ID are required for the next frontier.
+Do not start M-02 rework, B-02 rework, AU-02, I-01, I-02, N-01, N-02, F-02, or
+any other newly unlocked task. M-02 remains REVIEW with its live-provider
+limitation; carry that evidence to a later explicitly authorized integration
+gate. A new Instructor review and Instruction ID are required for the next
+frontier.
 
 ## Explicitly not authorized
 
-- Reassignment or rework of D-01, AU-01, M-01, or L-01.
+- Reassignment or rework of D-01, AU-01, M-01, L-01, or B-02.
 - M-02 source/rework, AU-02, N-01, N-02, F-02, I-01, I-02, or any other
-  unfinished packet outside the B-02/F-AUTH/Q-01 sequence above.
+  unfinished packet outside F-AUTH/Q-01 review closure.
 - Migrations, frozen contract changes, scope expansion, deferred enterprise
   identity/queue/distributed/risk/AI features, or automatic follow-on work.
 
-Authorization ends after B-02 closure and the authorized F-AUTH/Q-01 work are
+Authorization ends after the authorized F-AUTH/Q-01 review-closure work is
 reviewed/integrated, or when a required evidence/environment gate blocks safe
 completion. A fresh Instructor review and new Instruction ID are required
 afterward.
