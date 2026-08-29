@@ -2,114 +2,134 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-023`
+Instruction ID: `INS-024`
 
-Status: `HOLD`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
-## Safety hold
+## Authorization: documentation-only reconciliation planning
 
-Reason: `Instructor functional amendment from five supplied screenshots is under review/re-baselining`
+Reason: `The approved DEC-007 functional re-baseline must be translated into a durable implementation-plan and task-DAG reconciliation before any extension implementation can be considered.`
 
-- This is a system-functional scope amendment only. The supplied screenshots
-  are evidence for behavior, not authorization to reproduce layout, color,
-  visual styling, or pixel-perfect frontend details.
-- Every prior implementation authorization, including the exhausted `INS-021`
-  retry and the no-execution `INS-022` signal, is suspended by this hold.
-- No Orchestrator may assign new work, start a retry, create a worker, or
-  continue implementation until a new `APPROVED_FOR_EXECUTION` signal is
-  issued after re-baselining.
-- No feature implementation, runtime-contract change, migration, frontend
-  implementation, `TASKS.md` update, `HANDOFF.md` update, or competing active
-  OpenSpec change is authorized by `INS-023`.
+This authorization permits exactly one Manager-owned governance packet, `RB-01 —
+DEC-007 Documentation Reconciliation Planning`. It is not a feature
+implementation authorization and is exhausted when that packet's documentation
+checkpoint is committed.
 
-## Reviewed repository checkpoint
+## Reviewed repository checkpoint and applicability
 
-- Branch: `MVP_IMPLEMENTATION`
-- HEAD at HOLD: `92fcb0a8e28a77667ca5a2bcbf1dacab7bb0bac6`
-  (`docs(control): pause after INS-021 blocker`)
-- Working tree at HOLD: clean. The branch is ahead of
-  `origin/MVP_IMPLEMENTATION` by 61 local commits.
-- Current pre-amendment signal: `INS-022 / NEEDS_HUMAN_DECISION`, with no
-  execution frontier. The current Manager checkpoint remains the `INS-021`
-  AU-02 blocked checkpoint in `docs/implementation/HANDOFF.md`.
-- `TASKS.md` remains the operational source of truth: AU-02 is
-  `BLOCKED/UNVERIFIED`, M-02 is `REVIEW/UNVERIFIED`, I-01 and I-02 are
-  `BLOCKED`, and completed packets remain at their approved baseline
-  boundaries. No task-state or handoff edit was made for this HOLD.
+- Reviewed branch and HEAD: `MVP_IMPLEMENTATION` /
+  `496d5a34b76841b9f5b142fa512225f502f5fa26`
+  (`docs: rebaseline academic functional extensions`).
+- Review observation: working tree was clean and the branch was ahead of
+  `origin/MVP_IMPLEMENTATION` by 63 local commits. `git diff` from the reviewed
+  re-baseline commit to the reviewed HEAD was empty; therefore no source or
+  business-state drift occurred after that re-baseline.
+- The authority chain is internally consistent for the new functional scope:
+  `docs/requirements.md`, `DEC-007`, ADR-001/002/004/006/007 as amended,
+  ADR-009, architecture, data model, active `mvp-implementation`, and affected
+  capability specs all carry the approved profiles.
+- A documentation reconciliation is required because `MVP_PLAN.md` still records
+  legacy V1 decisions/deferred items, `TASKS.md` lacks DEC-007 extension packets,
+  and `HANDOFF.md` is an old INS-021 checkpoint. This is an expected
+  control-plane gap, not authority to repair source or revise historical task
+  evidence.
+- Before acting, the Manager MUST verify the exact reviewed checkpoint, a clean
+  working tree, and that the only later commit is this Instructor signal changing
+  `docs/control/INSTRUCTOR.md`. Any source, business-state, task-DAG, or other
+  material drift beyond that governance-only signal requires
+  `NEEDS_INSTRUCTOR_REVIEW` and no work.
 
-## Automation stop observation
+## Exact Manager scope
 
-At the time of this signal, the Codex thread inventory showed no running
-Orchestrator or worker execution for Cryptox:
+The Manager performs `RB-01` directly; this governance work does not require
+delegation. It may edit only:
 
-- Manager/Orchestrator `01a04adc-d425-7970-8a04-5bf8ed314fd0`: `idle`; its
-  latest INS-021 turn is completed and no new work was requested.
-- Prior specification-review thread `01a04bf1-0364-72b0-a9cd-6563c67b4222`:
-  `idle`; read-only review completed, no implementation ownership.
-- AU-02 worker Gibbs `01a04bf2-c013-7e73-a2b7-0b7781ac0a52`: safely stopped
-  under the INS-021 checkpoint; no source commit or accepted matrix was
-  produced.
-- Earlier AU-02 worker threads `01a04bd0-2e0a-7320-b0be-f6755c484a66`
-  (`idle`), `01a04bd5-8608-70c3-abae-94176723da39` (`notLoaded`), and
-  `01a04be0-cc57-7c10-be30-5a845615eb88` (`notLoaded`) are not running; no
-  duplicate output is accepted.
-- M-02 review worker `01a04b38-10bd-7d21-9be0-598f311b80c6` is `notLoaded`
-  after its bounded review checkpoint. No active worker could be asked to
-  stop, and no worker was found whose safe stop was incomplete.
-- The currently active thread is the Instructor review context, not an
-  implementation Orchestrator or worker. No new thread was created for this
-  amendment.
+- `docs/implementation/MVP_PLAN.md`;
+- `docs/implementation/TASKS.md`; and
+- `docs/implementation/HANDOFF.md`.
 
-## Scope-review state
+`RB-01` MUST be added as a new unique reconciliation/planning packet and may
+follow its normal Manager-owned documentation lifecycle. The Manager must create
+new, unique **future feature implementation** packets that trace every approved
+extension requirement, while leaving every such future implementation packet
+`BLOCKED` when this authorization ends. No new feature packet may be marked
+`READY`, `IN_PROGRESS`, `REVIEW`, or `DONE` by this authorization.
 
-The five supplied screenshots are treated as a functional delta against the
-reviewed baseline, never as visual/pixel-level frontend instructions. The human
-decisions received on 2026-08-29 approve the bounded academic profiles recorded
-in `DEC-007` and the re-baselined requirements, ADRs, architecture, data model,
-and active `mvp-implementation` specifications. The controlled scope includes
-market observability, LLM draft authoring, safe external content/extraction,
-synthetic paper Long/Short backtesting, deterministic Lite strategy plugins, and
-bounded seeded discovery. It does not authorize implementation or task planning
-under this signal.
+The planning packet MUST:
 
-## Explicitly not authorized
+1. map the amended `CSL-R-MD-02` plus `CSL-R-MD-03`, `CSL-R-ST-05` through
+   `CSL-R-ST-07`, `CSL-R-SE-03`, `CSL-R-BT-02`, `CSL-R-NW-02`, and
+   `CSL-R-RP-02` to new extension/reconciliation packets with requirement IDs,
+   bounded write scopes, acceptance criteria, validation, and explicit order;
+2. define a new earliest contract/data-model/migration reconciliation gate that
+   all extension feature fan-out depends upon, without changing contracts,
+   migrations, or data-model authority in this phase;
+3. record the dependency DAG from that gate through Market Data, Strategy,
+   Search, Backtesting, News/Sentiment, Evaluation/Leaderboard, Frontend, and
+   final integration/reproducibility proof, including shared-boundary joins;
+4. preserve every existing `DONE` packet and its source/validation evidence as
+   historical baseline evidence only. It may add explicit links and limitation
+   notes but MUST NOT rewrite historical claims or treat old completion as proof
+   of any DEC-007 requirement;
+5. leave `M-02` at its current `REVIEW/UNVERIFIED` evidence state, `AU-02` and
+   `I-01`/`I-02` blocked, and never retry/rework an existing packet; and
+6. replace `HANDOFF.md` with a current `INS-024` checkpoint naming the reviewed
+   re-baseline commit, `RB-01`, all newly allocated task IDs, the blocked
+   extension frontier, validation actually run, unresolved existing evidence,
+   and every `UNVERIFIED` item.
 
-- Any Orchestrator or worker creation, assignment, retry, implementation, or
-  downstream integration.
-- Reassignment or rework of completed packets, including D-01, AU-01, M-01,
-  L-01, B-02, Q-01, F-AUTH, F-02, N-01, and N-02.
-- AU-02 retry, M-02 probe/rework, I-01, I-02, or any other unfinished packet.
-- Changes to application source, executable contracts, migrations, frontend
-  implementation, `TASKS.md`, `HANDOFF.md`, `MVP_PLAN.md`, or task-DAG state.
-  The approved re-baseline documents do not themselves authorize execution.
+## Explicit prohibitions
 
-## Required next authority sequence
+- Do not create an Orchestrator child, worker, subagent, worktree, assignment, or
+  retry.
+- Do not edit application source, executable contracts, migrations, frontend
+  implementation, runtime configuration, dependencies, generated artifacts, or
+  any non-`docs/implementation/` path.
+- Do not edit `docs/requirements.md`, `docs/control/DECISIONS.md`, ADRs,
+  architecture, data model, OpenSpec change/specifications, or this Instructor
+  signal.
+- Do not change an existing task's state, owner, completed history, source commit,
+  validation claim, or implementation scope except to add a truthful
+  reconciliation dependency/reference required to preserve baseline evidence.
+- Do not mark any DEC-007 feature implementation packet READY or create a worker
+  merely because a documentation dependency has been recorded.
+- Do not retry AU-02 or M-02, start I-01/I-02, or infer a general implementation
+  frontier from this signal.
 
-1. Keep this HOLD while the committed re-baseline is independently reviewed for
-   internal consistency; this review has no execution authority.
-2. After a future explicit `APPROVED_FOR_EXECUTION` signal, have the Manager
-   reconcile `MVP_PLAN.md`, the task DAG, and `TASKS.md` with new
-   extension/reconciliation packets while preserving historical `DONE` evidence.
-3. The future signal must name a bounded scope, reviewed Git checkpoint, and
-   allowed packet frontier. Until then no Manager planning, assignment, or retry
-   is permitted.
+## Required validation and stop condition
+
+The Manager must validate the final documentation checkpoint with at least:
+
+- Git reviewed-checkpoint/applicability proof and changed-path proof;
+- complete requirement-to-packet traceability for the DEC-007 extensions;
+- DAG/dependency and state consistency between `MVP_PLAN.md`, `TASKS.md`, and
+  `HANDOFF.md`;
+- `git diff --check`; and
+- truthful status for unavailable validation. Formal OpenSpec CLI validation is
+  currently `UNVERIFIED` unless the Manager can actually run it successfully.
+
+After committing the coherent `RB-01` planning checkpoint, the Manager stops.
+This authorization is then exhausted. No task may be assigned or started until an
+Instructor independently reviews that checkpoint and issues a separate explicit
+signal; the expected post-review state is `HOLD` until a later bounded first
+implementation packet is approved.
 
 ## Canonical references
 
 - [Contributor rules](../../AGENTS.md)
-- [Instructor bootstrap](./prompts/INSTRUCTOR_START.md)
 - [Decision ledger](./DECISIONS.md)
-- [Task state](../implementation/TASKS.md)
-- [Latest execution checkpoint](../implementation/HANDOFF.md)
-- [Implementation program](../implementation/MVP_PLAN.md)
 - [Requirements](../requirements.md)
 - [Architecture](../architecture.md)
 - [Data model](../data-model.md)
 - [Accepted ADRs](../adr/)
 - [Active capability specifications](../../openspec/specs/)
 - [Active MVP change](../../openspec/changes/mvp-implementation/)
+- [Implementation program](../implementation/MVP_PLAN.md)
+- [Task state](../implementation/TASKS.md)
+- [Latest execution checkpoint](../implementation/HANDOFF.md)
 
-Notes: this is the current Instructor safety signal. It is governance only;
-no feature implementation or task-state mutation is performed under `INS-023`.
+Notes: `INS-024` authorizes Manager-owned documentation reconciliation planning
+only. It replaces the prior `INS-023 / HOLD` for this single bounded phase and
+does not authorize feature implementation.
