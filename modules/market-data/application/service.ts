@@ -7,8 +7,13 @@ import type {
   HistoricalCandleQuery,
   MarketDataModulePublicApi,
   MarketDataProvenance,
+  MarketDataConnectionStatus,
+  MarketObservedTick,
+  MarketObservabilityReader,
+  MarketObservabilityState,
   MarketDataUpdate,
   MarketSubscription,
+  Pair,
 } from "../api/contracts";
 import { MARKET_TIMEFRAMES } from "../api/contracts";
 import type {
@@ -16,14 +21,19 @@ import type {
 } from "../domain/contracts";
 import type {
   DatasetSnapshotRecord,
+  EphemeralMarketObservabilityStore,
   MarketDataHistoryRequest,
   MarketDataHistoryResult,
   MarketDataModuleDependencies,
   MarketDataProvider,
+  MarketDataProviderUpdate,
 } from "./ports";
+import { InMemoryMarketObservability } from "./observability";
 
 const DEFAULT_MAX_RANGE_CANDLES = 100_000;
 const DEFAULT_PAGE_LIMIT = 1_000;
+const DEFAULT_MAX_SUBSCRIPTIONS = 4;
+const DEFAULT_SHUTDOWN_TIMEOUT_MS = 5_000;
 const CURSOR_MAX_LENGTH = 1_024;
 
 const TIMEFRAME_MS: Record<(typeof MARKET_TIMEFRAMES)[number], number> = {
@@ -60,6 +70,8 @@ export class MarketDataApplicationError extends Error {
 export interface MarketDataApplicationOptions {
   readonly maxRangeCandles?: number;
   readonly defaultPageLimit?: number;
+  readonly maxSubscriptions?: number;
+  readonly shutdownTimeoutMs?: number;
 }
 
 interface ValidatedHistoryQuery {
@@ -292,17 +304,134 @@ function assertSnapshotRecord(record: DatasetSnapshotRecord): void {
   }
 }
 
-export class MarketDataApplicationService implements MarketDataModulePublicApi {
+interface RealtimeCandleState {
+  readonly latestClosedAt: Map<string, number>;
+  readonly lastCandleByTimestamp: Map<string, string>;
+  readonly closedCandleKeys: Set<string>;
+}
+
+function realtimeScopeKey(candle: Pick<Candle, "pair" | "timeframe">): string {
+  return `${candle.pair}|${candle.timeframe}`;
+}
+
+function realtimeCandleKey(candle: Candle): string {
+  return `${candle.pair}|${candle.timeframe}|${candle.timestamp}`;
+}
+
+function realtimeCandleSignature(candle: Candle): string {
+  return [candle.open, candle.high, candle.low, candle.close, candle.volume, candle.isClosed].join("|");
+}
+
+function normalizeProviderCandle(value: unknown): Candle {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("malformed provider candle");
+  const raw = value as Partial<Candle>;
+  const pair = canonicalPair(raw.pair);
+  const timeframe = canonicalTimeframe(raw.timeframe);
+  return canonicalCandle({ ...raw, pair, timeframe }, { pair, timeframe });
+}
+
+function normalizeProviderStatus(value: unknown): MarketDataConnectionStatus {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("malformed provider status");
+  const raw = value as Partial<MarketDataConnectionStatus>;
+  if (typeof raw.provider !== "string" || !raw.provider.trim()) throw new Error("malformed provider status");
+  if (raw.status !== "CONNECTED" && raw.status !== "RECONNECTING" && raw.status !== "DISCONNECTED") {
+    throw new Error("malformed provider status");
+  }
+  return {
+    provider: raw.provider.trim(),
+    status: raw.status,
+    lastEventAt: canonicalTimestamp(raw.lastEventAt, "lastEventAt"),
+  };
+}
+
+function normalizeProviderTick(value: unknown, receivedAt: string): MarketObservedTick {
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new Error("malformed provider tick");
+  const raw = value as Partial<{ pair: unknown; price: unknown; timestamp: unknown }>;
+  const pair = canonicalPair(raw.pair);
+  if (typeof raw.price !== "number" || !Number.isFinite(raw.price)) throw new Error("malformed provider tick");
+  const providerEventAt = canonicalTimestamp(raw.timestamp, "provider event time");
+  const latencyMs = Math.max(0, Date.parse(receivedAt) - Date.parse(providerEventAt));
+  return {
+    pair,
+    price: raw.price,
+    timestamp: providerEventAt,
+    providerEventAt,
+    receivedAt,
+    latencyMs,
+  };
+}
+
+function acceptRealtimeCandle(state: RealtimeCandleState, candle: Candle): boolean {
+  const scope = realtimeScopeKey(candle);
+  const key = realtimeCandleKey(candle);
+  const signature = realtimeCandleSignature(candle);
+  const previousSignature = state.lastCandleByTimestamp.get(key);
+  if (previousSignature === signature) return false;
+  if (!candle.isClosed && state.closedCandleKeys.has(key)) return false;
+
+  const time = Date.parse(candle.timestamp);
+  const latestClosed = state.latestClosedAt.get(scope);
+  if (latestClosed !== undefined && time < latestClosed && (!candle.isClosed || previousSignature === undefined)) return false;
+
+  if (candle.isClosed) {
+    state.latestClosedAt.set(scope, Math.max(latestClosed ?? time, time));
+    state.closedCandleKeys.add(key);
+  }
+  state.lastCandleByTimestamp.set(key, signature);
+  return true;
+}
+
+export class MarketDataApplicationService implements MarketDataModulePublicApi, MarketObservabilityReader {
   private readonly options: Required<MarketDataApplicationOptions>;
   private stopped = false;
+  private readonly ephemeralObservability = new InMemoryMarketObservability();
 
   public constructor(private readonly dependencies: MarketDataModuleDependencies, options: MarketDataApplicationOptions = {}) {
     const maxRangeCandles = options.maxRangeCandles ?? DEFAULT_MAX_RANGE_CANDLES;
     const defaultPageLimit = options.defaultPageLimit ?? DEFAULT_PAGE_LIMIT;
-    if (!Number.isSafeInteger(maxRangeCandles) || maxRangeCandles < 1 || !Number.isSafeInteger(defaultPageLimit) || defaultPageLimit < 1) {
+    const maxSubscriptions = options.maxSubscriptions ?? DEFAULT_MAX_SUBSCRIPTIONS;
+    const shutdownTimeoutMs = options.shutdownTimeoutMs ?? DEFAULT_SHUTDOWN_TIMEOUT_MS;
+    if (
+      !Number.isSafeInteger(maxRangeCandles) ||
+      maxRangeCandles < 1 ||
+      !Number.isSafeInteger(defaultPageLimit) ||
+      defaultPageLimit < 1 ||
+      !Number.isSafeInteger(maxSubscriptions) ||
+      maxSubscriptions < 1 ||
+      !Number.isSafeInteger(shutdownTimeoutMs) ||
+      shutdownTimeoutMs < 1
+    ) {
       throw new Error("market data bounds must be positive safe integers");
     }
-    this.options = { maxRangeCandles, defaultPageLimit };
+    this.options = { maxRangeCandles, defaultPageLimit, maxSubscriptions, shutdownTimeoutMs };
+  }
+
+  private recordOperationalEvent(event: Parameters<MarketDataModuleDependencies["observability"]["record"]>[0]): void {
+    try {
+      this.dependencies.observability.record(event);
+    } catch {
+      // Observability must not take down market delivery when its sink fails.
+    }
+  }
+
+  private recordExternalTick(tick: MarketObservedTick): void {
+    const store = this.dependencies.ephemeralObservability;
+    if (!store) return;
+    try {
+      store.recordTick(tick);
+    } catch {
+      // The optional compatibility port is delivery-only and non-critical.
+    }
+  }
+
+  private recordExternalConnection(connection: MarketDataConnectionStatus): void {
+    const store = this.dependencies.ephemeralObservability;
+    if (!store) return;
+    try {
+      store.recordConnection(connection);
+    } catch {
+      // The optional compatibility port is delivery-only and non-critical.
+    }
   }
 
   private provider(): MarketDataProvider {
@@ -458,6 +587,20 @@ export class MarketDataApplicationService implements MarketDataModulePublicApi {
     }
   }
 
+  public async readObservability(pair: Pair): Promise<MarketObservabilityState | undefined> {
+    return this.ephemeralObservability.read(canonicalPair(pair));
+  }
+
+  /** Explicit restart/reset seam for the delivery-only in-memory projection. */
+  public resetObservability(): void {
+    this.ephemeralObservability.clearOnRestart();
+    try {
+      this.dependencies.ephemeralObservability?.clearOnRestart();
+    } catch {
+      // A failing optional observability sink cannot affect the reset boundary.
+    }
+  }
+
   public async subscribeMarketData(
     subscriptions: readonly MarketSubscription[],
     sink: (update: MarketDataUpdate) => void,
@@ -466,14 +609,85 @@ export class MarketDataApplicationService implements MarketDataModulePublicApi {
     if (!Array.isArray(subscriptions) || subscriptions.length === 0 || typeof sink !== "function") {
       invalid("INVALID_RANGE", "subscriptions and sink are required");
     }
+    const normalizedSubscriptions = [
+      ...new Map(
+        subscriptions.map((subscription) => {
+          const normalized = { pair: canonicalPair(subscription.pair), timeframe: canonicalTimeframe(subscription.timeframe) };
+          return [`${normalized.pair}|${normalized.timeframe}`, normalized] as const;
+        }),
+      ).values(),
+    ];
+    if (normalizedSubscriptions.length > this.options.maxSubscriptions) {
+      invalid("INVALID_RANGE", `at most ${this.options.maxSubscriptions} market subscriptions are supported`);
+    }
     const provider = this.provider();
+
+    const subscribedScopes = new Set(normalizedSubscriptions.map((subscription) => `${subscription.pair}|${subscription.timeframe}`));
+    const subscribedPairs = new Set(normalizedSubscriptions.map((subscription) => subscription.pair));
+    let active = true;
+    const candleState: RealtimeCandleState = {
+      latestClosedAt: new Map(),
+      lastCandleByTimestamp: new Map(),
+      closedCandleKeys: new Set(),
+    };
+    const latestConnection = (): MarketDataConnectionStatus => ({
+      provider: provider.id,
+      status: "CONNECTED",
+      lastEventAt: canonicalTimestamp(this.dependencies.clock.now(), "receivedAt"),
+    });
+    const deliver = (update: MarketDataProviderUpdate): void => {
+      if (!active) return;
+      try {
+        switch (update.kind) {
+          case "TICK": {
+            const receivedAt = canonicalTimestamp(this.dependencies.clock.now(), "receivedAt");
+            const tick = normalizeProviderTick(update.payload, receivedAt);
+            if (!subscribedPairs.has(tick.pair)) return;
+            const connection = this.ephemeralObservability.read(tick.pair)?.connection ?? latestConnection();
+            this.ephemeralObservability.recordTick(tick.pair, tick, connection);
+            this.recordExternalTick(tick);
+            sink({
+              kind: "TICK",
+              payload: { pair: tick.pair, price: tick.price, timestamp: tick.timestamp },
+            });
+            return;
+          }
+          case "CANDLE": {
+            const candle = normalizeProviderCandle(update.payload);
+            if (!subscribedScopes.has(realtimeScopeKey(candle))) return;
+            if (!acceptRealtimeCandle(candleState, candle)) return;
+            sink({ kind: "CANDLE", payload: candle });
+            return;
+          }
+          case "CONNECTION_STATUS": {
+            const connection = normalizeProviderStatus(update.payload);
+            for (const subscription of normalizedSubscriptions) {
+              this.ephemeralObservability.recordConnection(subscription.pair, connection);
+            }
+            this.recordExternalConnection(connection);
+            if (connection.status === "RECONNECTING") {
+              this.recordOperationalEvent({ type: "PROVIDER_RECONNECT", providerId: connection.provider, detail: "market data connection is reconnecting" });
+            } else if (connection.status === "DISCONNECTED") {
+              this.recordOperationalEvent({ type: "PROVIDER_FAILURE", providerId: connection.provider, detail: "market data connection disconnected" });
+            }
+            sink({ kind: "CONNECTION_STATUS", payload: connection });
+            return;
+          }
+          default:
+            throw new Error("unsupported provider update");
+        }
+      } catch {
+        this.recordOperationalEvent({ type: "PROVIDER_FAILURE", providerId: provider.id, detail: "provider update was malformed" });
+      }
+    };
     try {
-      return await provider.subscribe(
-        subscriptions.map((subscription) => ({ pair: canonicalPair(subscription.pair), timeframe: canonicalTimeframe(subscription.timeframe) })),
-        sink,
-      );
+      const unsubscribe = await provider.subscribe(normalizedSubscriptions, deliver);
+      return async () => {
+        active = false;
+        await unsubscribe();
+      };
     } catch {
-      this.dependencies.observability.record({ type: "PROVIDER_FAILURE", providerId: provider.id, detail: "market subscription failed" });
+      this.recordOperationalEvent({ type: "PROVIDER_FAILURE", providerId: provider.id, detail: "market subscription failed" });
       throw new MarketDataApplicationError("PROVIDER_UNAVAILABLE", "market data provider subscription is unavailable");
     }
   }
@@ -481,6 +695,24 @@ export class MarketDataApplicationService implements MarketDataModulePublicApi {
   public async shutdown(): Promise<void> {
     if (this.stopped) return;
     this.stopped = true;
-    await Promise.allSettled(this.dependencies.providers.map((provider) => provider.shutdown()));
+    await Promise.all(this.dependencies.providers.map(async (provider) => {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const outcome = await Promise.race([
+        Promise.resolve()
+          .then(() => provider.shutdown())
+          .then(() => "FULFILLED" as const, () => "REJECTED" as const),
+        new Promise<"TIMED_OUT">((resolve) => {
+          timer = setTimeout(() => resolve("TIMED_OUT"), this.options.shutdownTimeoutMs);
+        }),
+      ]);
+      if (timer) clearTimeout(timer);
+      if (outcome !== "FULFILLED") {
+        this.recordOperationalEvent({
+          type: "PROVIDER_FAILURE",
+          providerId: typeof provider.id === "string" ? provider.id : "unknown",
+          detail: outcome === "TIMED_OUT" ? "market data provider shutdown timed out" : "market data provider shutdown failed",
+        });
+      }
+    }));
   }
 }

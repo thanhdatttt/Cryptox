@@ -1,4 +1,4 @@
-import type { Candle } from "../domain/contracts";
+import type { Candle, MarketTick } from "../domain/contracts";
 import type {
   MarketDataHistoryRequest,
   MarketDataHistoryResult,
@@ -138,6 +138,19 @@ function parseRealtimeCandle(value: unknown): Candle | undefined {
   };
 }
 
+function parseRealtimeTick(value: unknown): MarketTick | undefined {
+  const envelope = objectValue(value);
+  const payload = envelope.data === undefined ? envelope : objectValue(envelope.data);
+  if (payload.e !== "trade" && payload.e !== "aggTrade") return undefined;
+  const pair = typeof payload.s === "string" ? payload.s : "";
+  if (!pair) throw new Error("Binance returned a malformed realtime trade");
+  return {
+    pair: pair.toUpperCase(),
+    price: finiteNumber(payload.p, "trade price"),
+    timestamp: new Date(timestamp(payload.E, "event time")).toISOString(),
+  };
+}
+
 function nowIso(clock: () => string): string {
   const value = clock();
   const parsed = Date.parse(value);
@@ -146,9 +159,14 @@ function nowIso(clock: () => string): string {
 }
 
 function subscriptionMessage(subscriptions: readonly MarketDataProviderSubscription[], id: number): string {
+  const params = new Set<string>();
+  for (const { pair, timeframe } of subscriptions) {
+    params.add(`${pair.toLowerCase()}@kline_${timeframe}`);
+    params.add(`${pair.toLowerCase()}@trade`);
+  }
   return JSON.stringify({
     method: "SUBSCRIBE",
-    params: subscriptions.map(({ pair, timeframe }) => `${pair.toLowerCase()}@kline_${timeframe}`),
+    params: [...params],
     id,
   });
 }
@@ -158,7 +176,11 @@ function report(
   type: "PROVIDER_FAILURE" | "PROVIDER_RECONNECT" | "HISTORY_GAP",
   detail: string,
 ): void {
-  observability?.record({ type, providerId: "binance", detail });
+  try {
+    observability?.record({ type, providerId: "binance", detail });
+  } catch {
+    // Provider diagnostics must not break the delivery/reconnect state machine.
+  }
 }
 
 export function createBinanceRealtimeProvider(options: BinanceRealtimeProviderOptions = {}): MarketDataProvider {
@@ -200,10 +222,10 @@ export function createBinanceRealtimeProvider(options: BinanceRealtimeProviderOp
     const signature = candleSignature(candle);
     if (session.lastCandleByTimestamp.get(timestampKey) === signature) return;
     if (!candle.isClosed && session.closedCandleKeys.has(timestampKey)) return;
+    const latest = session.latestClosedAt.get(scope);
+    const wasPreviouslyObserved = session.lastCandleByTimestamp.has(timestampKey);
+    if (latest !== undefined && time < latest && (!candle.isClosed || !wasPreviouslyObserved)) return;
     if (candle.isClosed) {
-      const latest = session.latestClosedAt.get(scope);
-      const wasPreviouslyObserved = session.lastCandleByTimestamp.has(timestampKey);
-      if (latest !== undefined && time < latest && !wasPreviouslyObserved) return;
       session.latestClosedAt.set(scope, Math.max(latest ?? time, time));
       session.closedCandleKeys.add(timestampKey);
     }
@@ -236,7 +258,13 @@ export function createBinanceRealtimeProvider(options: BinanceRealtimeProviderOp
       const candles: Candle[] = [];
       let cursor: string | undefined;
       let complete = false;
+      let pages = 0;
       do {
+        pages += 1;
+        if (pages > maxGapCandles) {
+          report(options.observability, "HISTORY_GAP", `${scopeKey(request.subscription)} reconciliation exceeded the request bound`);
+          throw new Error("Binance realtime gap reconciliation exceeded the request bound");
+        }
         const result = await history.readCandles({
           pair: request.subscription.pair,
           timeframe: request.subscription.timeframe,
@@ -245,7 +273,18 @@ export function createBinanceRealtimeProvider(options: BinanceRealtimeProviderOp
           ...(cursor ? { cursor } : {}),
           includeForming: false,
         });
-        candles.push(...result.candles);
+        candles.push(
+          ...result.candles.filter((candle) => {
+            const timestamp = Date.parse(candle.timestamp);
+            return (
+              candle.isClosed &&
+              candle.pair === request.subscription.pair &&
+              candle.timeframe === request.subscription.timeframe &&
+              timestamp >= expectedFrom &&
+              timestamp < expectedTo
+            );
+          }),
+        );
         if (candles.length > maxGapCandles) {
           report(options.observability, "HISTORY_GAP", `${scopeKey(request.subscription)} exceeds the reconciliation bound`);
           throw new Error("Binance realtime gap exceeds the configured bound");
@@ -263,7 +302,13 @@ export function createBinanceRealtimeProvider(options: BinanceRealtimeProviderOp
         report(options.observability, "HISTORY_GAP", `${scopeKey(request.subscription)} could not be fully reconciled`);
         throw new Error("Binance realtime gap reconciliation was incomplete");
       }
-      candles
+      const uniqueCandles = new Map<string, Candle>();
+      for (const candle of candles) {
+        const key = `${candle.pair}|${candle.timeframe}|${candle.timestamp}`;
+        const previous = uniqueCandles.get(key);
+        if (!previous || candleSignature(candle) > candleSignature(previous)) uniqueCandles.set(key, candle);
+      }
+      [...uniqueCandles.values()]
         .sort((left, right) => left.timestamp.localeCompare(right.timestamp))
         .forEach((candle) => acceptCandle(session, candle));
     }
@@ -287,7 +332,17 @@ export function createBinanceRealtimeProvider(options: BinanceRealtimeProviderOp
     };
     session.reconnectPending = true;
     if (sleep) {
-      void sleep(delay).then(reconnect);
+      try {
+        void sleep(delay).then(reconnect).catch(() => {
+          session.reconnectPending = false;
+          report(options.observability, "PROVIDER_FAILURE", "Binance realtime reconnect wait failed");
+          if (!session.stopped && !stopped) scheduleReconnect(session);
+        });
+      } catch {
+        session.reconnectPending = false;
+        report(options.observability, "PROVIDER_FAILURE", "Binance realtime reconnect wait failed");
+        if (!session.stopped && !stopped) scheduleReconnect(session);
+      }
     } else {
       session.reconnectTimer = setTimeout(reconnect, delay);
     }
@@ -343,7 +398,13 @@ export function createBinanceRealtimeProvider(options: BinanceRealtimeProviderOp
       if (session.stopped || session.socket !== socket) return;
       session.continuation = session.continuation
         .then(async () => {
-          const candle = parseRealtimeCandle(typeof event.data === "string" ? JSON.parse(event.data) : event.data);
+          const payload = typeof event.data === "string" ? JSON.parse(event.data) : event.data;
+          const tick = parseRealtimeTick(payload);
+          if (tick) {
+            session.sink({ kind: "TICK", payload: tick });
+            return;
+          }
+          const candle = parseRealtimeCandle(payload);
           if (candle) acceptCandle(session, candle);
         })
         .catch(() => {

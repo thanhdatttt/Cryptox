@@ -6,6 +6,7 @@ import type {
   HistoricalCandlePage,
   HistoricalCandleQuery,
   MarketDataModulePublicApi,
+  MarketObservabilityReader,
   MarketDataUpdate,
   MarketSubscription,
 } from "./contracts";
@@ -46,4 +47,6 @@ export const subscribeMarketData = async (
   subscriptions: readonly MarketSubscription[],
   sink: (update: MarketDataUpdate) => void,
 ): Promise<() => Promise<void>> => defaultService.subscribeMarketData(subscriptions, sink);
+export const readObservability: MarketObservabilityReader["readObservability"] = async (pair) =>
+  defaultService.readObservability(pair);
 export const shutdown: MarketDataModulePublicApi["shutdown"] = async () => defaultService.shutdown();

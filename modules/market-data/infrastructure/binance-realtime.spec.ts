@@ -87,6 +87,34 @@ async function flushAsyncWork(): Promise<void> {
 }
 
 describe("Binance realtime provider", () => {
+  it("normalizes Binance trade events into provider-neutral ticks without forwarding the provider envelope", async () => {
+    const sockets = socketFactory();
+    const updates: Array<{ kind: string; payload: unknown }> = [];
+    const provider = createBinanceRealtimeProvider({
+      webSocket: sockets.factory,
+      fetch: async () => response([]),
+    });
+    const subscriptionPromise = provider.subscribe([{ pair: "BTCUSDT", timeframe: "5m" }], (update) => updates.push(update));
+    sockets.sockets[0]!.open();
+    await subscriptionPromise;
+
+    sockets.sockets[0]!.message(JSON.stringify({
+      e: "trade",
+      E: Date.parse("2026-01-01T00:00:00.125Z"),
+      s: "BTCUSDT",
+      p: "100.25",
+      q: "3",
+      secret: "must-not-cross-boundary",
+    }));
+    await flushAsyncWork();
+
+    expect(updates.filter((update) => update.kind === "TICK").map((update) => update.payload)).toEqual([
+      { pair: "BTCUSDT", price: 100.25, timestamp: "2026-01-01T00:00:00.125Z" },
+    ]);
+    expect(JSON.stringify(updates)).not.toContain("must-not-cross-boundary");
+    await provider.shutdown();
+  });
+
   it("normalizes klines, suppresses duplicate/out-of-order closed candles, and resubscribes after bounded backoff", async () => {
     const sockets = socketFactory();
     const sleeps: number[] = [];
@@ -105,7 +133,7 @@ describe("Binance realtime provider", () => {
     await subscriptionPromise;
     expect(JSON.parse((sockets.sockets[0]!.send as ReturnType<typeof vi.fn>).mock.calls[0]![0] as string)).toMatchObject({
       method: "SUBSCRIBE",
-      params: ["btcusdt@kline_5m"],
+      params: ["btcusdt@kline_5m", "btcusdt@trade"],
     });
 
     sockets.sockets[0]!.message(JSON.stringify(kline("2026-01-01T00:00:00.000Z", "100", true)));
@@ -310,6 +338,37 @@ describe("Binance realtime provider", () => {
     await provider.shutdown();
   });
 
+  it("bounds REST gap reconciliation before requesting an oversized missing range", async () => {
+    const sockets = socketFactory();
+    const fetcher = vi.fn(async () => response([]));
+    const observations: unknown[] = [];
+    const provider = createBinanceRealtimeProvider({
+      webSocket: sockets.factory,
+      sleep: async () => undefined,
+      clock: () => "2026-01-01T00:20:00.000Z",
+      maxGapCandles: 2,
+      observability: { record: (event) => observations.push(event) },
+      fetch: fetcher,
+    });
+    const updates: Array<{ kind: string; payload: unknown }> = [];
+    const subscriptionPromise = provider.subscribe([{ pair: "BTCUSDT", timeframe: "5m" }], (update) => updates.push(update));
+    sockets.sockets[0]!.open();
+    await subscriptionPromise;
+    sockets.sockets[0]!.message(JSON.stringify(kline("2026-01-01T00:00:00.000Z", "100", true)));
+    await flushAsyncWork();
+    sockets.sockets[0]!.disconnect();
+    await flushAsyncWork();
+    sockets.sockets[1]!.open();
+    await flushAsyncWork();
+
+    expect(fetcher).not.toHaveBeenCalled();
+    expect(observations).toEqual(expect.arrayContaining([expect.objectContaining({ type: "HISTORY_GAP" })]));
+    expect(updates.filter((update) => update.kind === "CANDLE").map((update) => (update.payload as Candle).timestamp)).toEqual([
+      "2026-01-01T00:00:00.000Z",
+    ]);
+    await provider.shutdown();
+  });
+
   it("ends a mid-candle REST recovery window at the latest fully closed interval", async () => {
     const sockets = socketFactory();
     const reads: Array<{ from: string; to: string }> = [];
@@ -372,6 +431,28 @@ describe("Binance realtime provider", () => {
     expect(failures).toEqual(expect.arrayContaining([expect.objectContaining({ type: "PROVIDER_FAILURE" })]));
     expect(JSON.stringify(failures)).not.toContain("do-not-forward");
     expect(sockets.sockets[0]!.close).toHaveBeenCalled();
+    expect(sockets.sockets).toHaveLength(1);
+  });
+
+  it("does not create a replacement socket after shutdown cancels a pending reconnect", async () => {
+    const sockets = socketFactory();
+    let releaseSleep!: () => void;
+    const sleep = () => new Promise<void>((resolve) => { releaseSleep = resolve; });
+    const provider = createBinanceRealtimeProvider({
+      webSocket: sockets.factory,
+      sleep,
+      maxReconnectAttempts: 2,
+      fetch: async () => response([]),
+    });
+    const subscriptionPromise = provider.subscribe([{ pair: "BTCUSDT", timeframe: "5m" }], () => undefined);
+    sockets.sockets[0]!.open();
+    await subscriptionPromise;
+    sockets.sockets[0]!.disconnect();
+    await flushAsyncWork();
+    await provider.shutdown();
+    releaseSleep();
+    await flushAsyncWork();
+
     expect(sockets.sockets).toHaveLength(1);
   });
 });

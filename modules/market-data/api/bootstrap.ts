@@ -5,6 +5,7 @@ export type {
   DatasetSnapshotPage,
   DatasetSnapshotRecord,
   DatasetSnapshotReadInput,
+  EphemeralMarketObservabilityStore,
   MarketDataHistoryRequest,
   MarketDataHistoryResult,
   MarketDataModuleDependencies,
@@ -16,11 +17,14 @@ export type {
 } from "../application/ports";
 import type { MarketDataModuleDependencies } from "../application/ports";
 import { MarketDataApplicationService, type MarketDataApplicationOptions } from "../application/service";
-import type { MarketDataModulePublicApi } from "./contracts";
+import type { MarketDataModulePublicApi, MarketObservabilityReader } from "./contracts";
+
+export type MarketDataModuleRuntime = MarketDataModulePublicApi & MarketObservabilityReader;
+
 export function createMarketDataModule(
   deps: MarketDataModuleDependencies,
   options?: MarketDataApplicationOptions,
-): MarketDataModulePublicApi {
+): MarketDataModuleRuntime {
   return new MarketDataApplicationService(deps, options);
 }
 export { createMarketDataSnapshotReader } from "./snapshot-reader";

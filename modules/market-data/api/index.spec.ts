@@ -11,6 +11,7 @@ describe("market-data public entrypoint", () => {
         "createDatasetSnapshot",
         "readCandles",
         "readDatasetSnapshot",
+        "readObservability",
         "shutdown",
         "subscribeMarketData",
       ].sort(),
@@ -22,5 +23,6 @@ describe("market-data public entrypoint", () => {
         range: { from: "2026-01-01T00:00:00Z", to: "2026-01-02T00:00:00Z" },
       }),
     ).rejects.toMatchObject({ code: "PROVIDER_UNAVAILABLE" });
+    await expect(marketDataApi.readObservability("BTCUSDT")).resolves.toBeUndefined();
   });
 });

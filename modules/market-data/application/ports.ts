@@ -119,4 +119,6 @@ export interface MarketDataModuleDependencies {
   snapshotRepository: SnapshotRepository;
   clock: Clock;
   observability: MarketDataObservability;
+  /** Optional compatibility projection; it is never used for history or snapshots. */
+  ephemeralObservability?: EphemeralMarketObservabilityStore;
 }
