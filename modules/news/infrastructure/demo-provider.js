@@ -3,6 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.createDemoNewsProvider = createDemoNewsProvider;
 exports.createConfiguredNewsProviders = createConfiguredNewsProviders;
 const node_crypto_1 = require("node:crypto");
+const crawler_provider_1 = require("./crawler-provider");
 const makeId = (url) => (0, node_crypto_1.createHash)("sha256").update(url, "utf8").digest("hex").slice(0, 24);
 const stamp = (now, offsetMinutes) => new Date(Date.parse(now) - offsetMinutes * 60_000).toISOString();
 function createDemoNewsProvider(clock = { now: () => new Date().toISOString() }) {
@@ -22,5 +23,10 @@ function createConfiguredNewsProviders(input = {}) {
     const configured = (input.provider ?? "DEMO").trim().toUpperCase();
     if (configured === "DEMO" || configured === "LOCAL_DEMO")
         return [createDemoNewsProvider(input.clock)];
+    if (configured === "CRAWLER" || configured === "CRAWLER_LLM" || configured === "LLM_CRAWLER") {
+        if (input.crawler)
+            return [(0, crawler_provider_1.createCrawlerNewsProvider)({ ...input.crawler, clock: input.crawler.clock ?? input.clock, observability: input.crawler.observability ?? input.observability })];
+        return [{ name: "CRAWLER_LLM_V1", fetch: async () => { throw new Error("NEWS_PROVIDER_CRAWLER_NOT_CONFIGURED"); } }];
+    }
     return [{ name: configured, fetch: async () => { throw new Error(`NEWS_PROVIDER_${configured}_NOT_CONFIGURED`); } }];
 }

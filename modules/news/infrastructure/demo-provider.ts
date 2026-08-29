@@ -1,6 +1,8 @@
 import { createHash } from "node:crypto";
-import type { NewsProvider } from "../application/ports";
+import type { NewsObservability, NewsProvider } from "../application/ports";
 import type { NewsItem } from "../domain/contracts";
+import type { CrawlerNewsProviderOptions } from "./crawler-provider";
+import { createCrawlerNewsProvider } from "./crawler-provider";
 
 const makeId = (url: string): string => createHash("sha256").update(url, "utf8").digest("hex").slice(0, 24);
 const stamp = (now: string, offsetMinutes: number): string => new Date(Date.parse(now) - offsetMinutes * 60_000).toISOString();
@@ -19,8 +21,12 @@ export function createDemoNewsProvider(clock: { now(): string } = { now: () => n
   };
 }
 
-export function createConfiguredNewsProviders(input: { provider?: string; clock?: { now(): string } } = {}): readonly NewsProvider[] {
+export function createConfiguredNewsProviders(input: { provider?: string; clock?: { now(): string }; crawler?: CrawlerNewsProviderOptions; observability?: Pick<NewsObservability, "recordProviderFailure"> } = {}): readonly NewsProvider[] {
   const configured = (input.provider ?? "DEMO").trim().toUpperCase();
   if (configured === "DEMO" || configured === "LOCAL_DEMO") return [createDemoNewsProvider(input.clock)];
+  if (configured === "CRAWLER" || configured === "CRAWLER_LLM" || configured === "LLM_CRAWLER") {
+    if (input.crawler) return [createCrawlerNewsProvider({ ...input.crawler, clock: input.crawler.clock ?? input.clock, observability: input.crawler.observability ?? input.observability })];
+    return [{ name: "CRAWLER_LLM_V1", fetch: async () => { throw new Error("NEWS_PROVIDER_CRAWLER_NOT_CONFIGURED"); } }];
+  }
   return [{ name: configured, fetch: async () => { throw new Error(`NEWS_PROVIDER_${configured}_NOT_CONFIGURED`); } }];
 }

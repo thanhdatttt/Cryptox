@@ -1,5 +1,35 @@
 import type { NewsItem } from "../domain/contracts";
+
 export interface NewsProvider { readonly name: string; fetch(): Promise<NewsItem[]>; }
 export interface NewsRepository { insert(item: NewsItem): Promise<NewsItem>; readAll(): Promise<NewsItem[]>; }
-export interface NewsObservability { recordSentimentFailure(input: { newsId: string; reason: "TIMEOUT" | "INFERENCE_ERROR" }): void; }
+
+/**
+ * The crawler's model boundary is deliberately tool-free. Provider SDK types,
+ * raw model responses, and fetched HTML stay inside infrastructure.
+ */
+export interface HtmlNewsInterpreter {
+  interpret(input: { sourceUrl: string; html: string }): Promise<InterpretedNewsCandidate[]>;
+}
+
+export interface InterpretedNewsCandidate {
+  title: string;
+  content: string;
+  source: string;
+  publishedAt: string;
+  relatedCoins: string[];
+  canonicalUrl: string;
+}
+
+export type NewsProviderFailureStage = "FETCH" | "MODEL" | "SCHEMA" | "VALIDATION" | "PERSISTENCE";
+export type NewsProviderFailureReason = "TIMEOUT" | "ERROR" | "INVALID_OUTPUT";
+
+export interface NewsObservability {
+  recordProviderFailure?(input: {
+    providerName: string;
+    stage: NewsProviderFailureStage;
+    reason: NewsProviderFailureReason;
+  }): void;
+  recordSentimentFailure?(input: { newsId: string; reason: "TIMEOUT" | "INFERENCE_ERROR" }): void;
+}
+
 export interface NewsModuleDependencies { providers: readonly NewsProvider[]; newsRepository: NewsRepository; sentiment: import("../domain/contracts").NewsSentimentPort; observability?: NewsObservability; }

@@ -23,15 +23,36 @@ const unavailableSentiment = {
 };
 const sentimentFailureReason = (error) => /timeout/i.test(error instanceof Error ? `${error.name} ${error.message}` : String(error)) ? "TIMEOUT" : "INFERENCE_ERROR";
 const toSentimentInput = (item) => ({ newsId: item.id, title: item.title, content: item.content, source: item.source, publishedAt: item.publishedAt, relatedCoins: [...item.relatedCoins] });
+const providerFailureReason = (error) => /timeout|abort/i.test(error instanceof Error ? `${error.name} ${error.message}` : String(error)) ? "TIMEOUT" : "ERROR";
+const defaultObservability = () => ({
+    recordProviderFailure: ({ providerName, stage, reason }) => {
+        console.warn(`[news] provider failure: ${providerName} ${stage} ${reason}`);
+    },
+    recordSentimentFailure: ({ newsId, reason }) => {
+        console.warn(`[news] sentiment failure: ${newsId} ${reason}`);
+    },
+});
+const observeProviderFailure = (observability, input) => {
+    try {
+        observability?.recordProviderFailure?.(input);
+    }
+    catch { }
+};
+const observeSentimentFailure = (observability, input) => {
+    try {
+        observability?.recordSentimentFailure?.(input);
+    }
+    catch { }
+};
 function createInMemoryNewsDependencies() {
-    return { providers: [], newsRepository: new MemoryNewsRepository(), sentiment: unavailableSentiment, observability: { recordSentimentFailure: () => undefined } };
+    return { providers: [], newsRepository: new MemoryNewsRepository(), sentiment: unavailableSentiment };
 }
 function createNewsModule(dependencies = createInMemoryNewsDependencies()) {
     const defaults = createInMemoryNewsDependencies();
     const providers = dependencies.providers ?? defaults.providers;
     const newsRepository = dependencies.newsRepository ?? defaults.newsRepository;
     const sentiment = dependencies.sentiment ?? defaults.sentiment;
-    const observability = dependencies.observability ?? defaults.observability;
+    const observability = dependencies.observability ?? defaultObservability();
     const persistAndAnalyze = async (rawItem) => {
         const item = (0, rules_1.validateNewsItem)(rawItem);
         let persisted;
@@ -44,10 +65,10 @@ function createNewsModule(dependencies = createInMemoryNewsDependencies()) {
             throw new errors_1.NewsException("PERSISTENCE_FAILED", "News item could not be persisted.");
         }
         try {
-            await sentiment.analyze(toSentimentInput(persisted));
+            await sentiment.analyze(toSentimentInput((0, rules_1.validateNewsItem)(persisted)));
         }
         catch (error) {
-            observability?.recordSentimentFailure({ newsId: persisted.id, reason: sentimentFailureReason(error) });
+            observeSentimentFailure(observability, { newsId: persisted.id, reason: sentimentFailureReason(error) });
         }
     };
     return {
@@ -57,11 +78,23 @@ function createNewsModule(dependencies = createInMemoryNewsDependencies()) {
                 try {
                     items = await provider.fetch();
                 }
-                catch {
-                    throw new errors_1.NewsException("PROVIDER_UNAVAILABLE", `News provider ${provider.name} is unavailable.`);
+                catch (error) {
+                    observeProviderFailure(observability, { providerName: provider.name, stage: "FETCH", reason: providerFailureReason(error) });
+                    continue;
                 }
-                for (const item of items)
-                    await persistAndAnalyze(item);
+                if (!Array.isArray(items)) {
+                    observeProviderFailure(observability, { providerName: provider.name, stage: "SCHEMA", reason: "INVALID_OUTPUT" });
+                    continue;
+                }
+                for (const item of items) {
+                    try {
+                        await persistAndAnalyze(item);
+                    }
+                    catch (error) {
+                        const stage = error instanceof errors_1.NewsException && error.code === "INVALID_NEWS_ITEM" ? "VALIDATION" : "PERSISTENCE";
+                        observeProviderFailure(observability, { providerName: provider.name, stage, reason: "ERROR" });
+                    }
+                }
             }
         },
         async readNews() {
@@ -73,7 +106,7 @@ function createNewsModule(dependencies = createInMemoryNewsDependencies()) {
                     return sentimentResult ? { ...item, sentiment: sentimentResult } : item;
                 }
                 catch (error) {
-                    observability?.recordSentimentFailure({ newsId: item.id, reason: sentimentFailureReason(error) });
+                    observeSentimentFailure(observability, { newsId: item.id, reason: sentimentFailureReason(error) });
                     return item;
                 }
             }));

@@ -1,4 +1,5 @@
 export type { NewsModuleDependencies } from "../application/ports";
+export type { HtmlNewsInterpreter, InterpretedNewsCandidate, NewsObservability, NewsProvider, NewsProviderFailureReason, NewsProviderFailureStage, NewsRepository } from "../application/ports";
 import type { NewsModuleDependencies } from "../application/ports";
 import type { NewsModulePublicApi } from "./index";
 import { createNewsModule as createRuntime } from "../application/service";
@@ -6,3 +7,5 @@ export function createNewsModule(deps?: Partial<NewsModuleDependencies>): NewsMo
 export { PostgresNewsRepository } from "../infrastructure/postgres-repository";
 export type { NewsSqlClient } from "../infrastructure/postgres-repository";
 export { createConfiguredNewsProviders, createDemoNewsProvider } from "../infrastructure/demo-provider";
+export { createCrawlerNewsProvider } from "../infrastructure/crawler-provider";
+export type { CrawlerNewsProviderOptions, CrawlerLimits, FetchedNewsPage } from "../infrastructure/crawler-provider";

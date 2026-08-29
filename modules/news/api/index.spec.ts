@@ -72,16 +72,41 @@ describe("news runtime", () => {
     expect(failures).toEqual(["TIMEOUT"]);
   });
 
-  it("rejects malformed provider values before they reach News persistence", async () => {
-    let persisted = false;
+  it("isolates malformed provider values before they reach News persistence", async () => {
+    const rows: NewsItem[] = [];
+    const failures: Array<{ providerName: string; stage: string }> = [];
     const runtime = createNewsModule({
-      providers: [{ name: "api", fetch: async () => [{ ...item("bad", 1), url: "not-a-url" }] }],
-      newsRepository: { insert: async (value) => { persisted = true; return value; }, readAll: async () => [] },
-      sentiment: { analyze: async () => { throw new Error("unexpected"); }, readLatestForNews: async () => undefined },
+      providers: [
+        { name: "api", fetch: async () => [{ ...item("bad", 1), url: "not-a-url" }] },
+        { name: "rss", fetch: async () => [item("good", 2)] },
+      ],
+      newsRepository: { insert: async (value) => { rows.push(value); return value; }, readAll: async () => rows },
+      sentiment: { analyze: async () => ({ newsId: "good", label: "POSITIVE", score: 0.5, modelName: "demo", modelVersion: "1", analyzedAt: "2025-01-01T01:01:00.000Z" }), readLatestForNews: async () => undefined },
+      observability: { recordProviderFailure: ({ providerName, stage }) => failures.push({ providerName, stage }) },
     });
 
-    await expect(runtime.collect()).rejects.toMatchObject({ code: "INVALID_NEWS_ITEM" });
-    expect(persisted).toBe(false);
+    await expect(runtime.collect()).resolves.toBeUndefined();
+    expect(rows.map((row) => row.id)).toEqual(["good"]);
+    expect(failures).toEqual([{ providerName: "api", stage: "VALIDATION" }]);
+  });
+
+  it("continues with independent providers after a provider fetch failure", async () => {
+    const rows: NewsItem[] = [];
+    const failures: Array<{ providerName: string; stage: string; reason: string }> = [];
+    const runtime = createNewsModule({
+      providers: [
+        { name: "crawler", fetch: async () => { throw new Error("connection refused"); } },
+        { name: "rss", fetch: async () => [item("rss-item", 3)] },
+      ],
+      newsRepository: { insert: async (value) => { rows.push(value); return value; }, readAll: async () => rows },
+      sentiment: { analyze: async () => ({ newsId: "rss-item", label: "NEUTRAL", score: 0, modelName: "demo", modelVersion: "1", analyzedAt: "2025-01-01T01:01:00.000Z" }), readLatestForNews: async () => undefined },
+      observability: { recordProviderFailure: (failure) => failures.push(failure) },
+    });
+
+    await runtime.collect();
+
+    expect(rows.map((row) => row.id)).toEqual(["rss-item"]);
+    expect(failures).toEqual([{ providerName: "crawler", stage: "FETCH", reason: "ERROR" }]);
   });
 
   it("collects concrete local-demo News with deterministic local Sentiment and fails unsupported configured providers explicitly", async () => {
