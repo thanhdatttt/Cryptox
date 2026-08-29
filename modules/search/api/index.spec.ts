@@ -42,6 +42,6 @@ describe("search public entrypoint", () => {
         },
         maxInFlight: 1,
       }),
-    ).rejects.toThrow("NOT_IMPLEMENTED");
+    ).rejects.toThrow("NOT_FOUND");
   });
 });

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import * as sentimentApi from "./index";
 
 describe("sentiment public entrypoint", () => {
-  it("allowlists model-neutral analysis and excludes superseded snapshots", async () => {
+  it("runs local LEXICON_V1 analysis and excludes superseded snapshots", async () => {
     expect(Object.keys(sentimentApi).sort()).toEqual(
       [
         "LEXICON_V1",
@@ -12,16 +12,24 @@ describe("sentiment public entrypoint", () => {
         "readLatestForNews",
       ].sort(),
     );
-    await expect(
-      sentimentApi.analyze({
-        newsId: "news-1",
-        title: "Title",
-        content: "Content",
-        source: "provider-a",
-        publishedAt: "2026-01-01T00:00:00Z",
-        relatedCoins: ["BTC"],
-      }),
-    ).rejects.toThrow("NOT_IMPLEMENTED");
+    const input = {
+      newsId: "news-public-entrypoint",
+      title: "Bitcoin gains",
+      content: "The market is bullish.",
+      source: "provider-a",
+      publishedAt: "2026-01-01T00:00:00Z",
+      relatedCoins: ["BTC"],
+    };
+    await expect(sentimentApi.analyze(input)).resolves.toMatchObject({
+      newsId: input.newsId,
+      label: "POSITIVE",
+      providerId: "LEXICON_V1",
+      modelName: "LEXICON_V1",
+      modelVersion: "1",
+    });
+    await expect(sentimentApi.readLatestForNews(input.newsId)).resolves.toMatchObject({
+      newsId: input.newsId,
+    });
     expect(sentimentApi).not.toHaveProperty("createSnapshot");
   });
 });

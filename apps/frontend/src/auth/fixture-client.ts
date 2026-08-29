@@ -30,9 +30,14 @@ function normalizeEmail(email: string): string {
 }
 
 function credentialProof(password: string): string {
-  // This is a deterministic fixture proof only. The real client never handles
-  // credentials beyond the request body and the real server owns Argon2id.
-  return `${password.length}:${password}`;
+  // This is a deterministic, non-secret fixture proof only. The real client
+  // never persists credentials and the real server owns Argon2id hashing.
+  let hash = 2166136261;
+  for (let index = 0; index < password.length; index += 1) {
+    hash ^= password.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16);
 }
 
 function validateCredentials(credentials: AuthCredentials): AuthCredentials {

@@ -356,6 +356,7 @@ export function createSearchApplication(
 
   const scheduleDrive = (control: SearchRunControl): void => {
     if (control.pollTimer !== undefined || control.driving) return;
+    if (isTerminal(control.status.state)) return;
     if (!isTerminal(control.status.state) && control.status.state === "PAUSED") {
       if (control.status.activeCandidateIds.length === 0) return;
     }
@@ -392,7 +393,20 @@ export function createSearchApplication(
     if (error !== undefined) control.status.lastError = error;
     touch(control);
     await persist(control);
-    scheduleDrive(control);
+    if (stopReason === "MAX_DURATION" && control.status.activeCandidateIds.length > 0) {
+      try {
+        await dependencies.backtesting.cancelSearchCandidates(
+          makeContext(control.status.ownerUserId),
+          control.status.searchRunId,
+        );
+      } catch (cancellationError) {
+        control.status.lastError = `candidate cancellation failed: ${readableError(cancellationError)}`;
+      }
+      control.cancelledCandidateIds = new Set(control.status.activeCandidateIds);
+      setActiveCandidateIds(control, []);
+      touch(control);
+      await persist(control);
+    }
   };
 
   const failRun = async (control: SearchRunControl, message: string): Promise<void> => {
@@ -829,7 +843,7 @@ export function createSearchApplication(
     for (const candidateId of cancelled.candidateIds) {
       control.cancelledCandidateIds.add(candidateId);
     }
-    setActiveCandidateIds(control, control.status.activeCandidateIds);
+    setActiveCandidateIds(control, []);
     touch(control);
     await persist(control);
     scheduleDrive(control);

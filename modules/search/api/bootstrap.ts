@@ -5,12 +5,25 @@ import type {
   SearchModulePublicApi,
   SearchRunStatus,
 } from "./contracts";
-import { createSearchApplication } from "../application/service";
+import {
+  createSearchApplication,
+  type SearchApplicationOptions,
+} from "../application/service";
 export type SearchModuleDependencies = SearchApplicationDependencies<
   SearchRunStatus,
   CandidateGenerationRequest,
   GeneratedCandidate
 >;
-export function createSearchModule(_deps: SearchModuleDependencies): SearchModulePublicApi {
-  return createSearchApplication(_deps);
+export function createSearchModule(
+  _deps: SearchModuleDependencies,
+  options: SearchApplicationOptions = {},
+): SearchModulePublicApi {
+  return createSearchApplication(_deps, options);
 }
+
+export { createPostgresSearchRunRepository, PostgresSearchRunRepository } from "../infrastructure/postgres";
+export type {
+  PostgresPool,
+  PostgresQueryResult,
+  PostgresSearchRunOptions,
+} from "../infrastructure/postgres";

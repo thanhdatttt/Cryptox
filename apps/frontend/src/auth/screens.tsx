@@ -1,7 +1,8 @@
 import { useEffect, useId, useState } from "react";
-import { navigateTo, type AppRouteName } from "./navigation";
+import { navigateTo, routeHash, type AppRouteName } from "./navigation";
 import { useAuth } from "./hooks";
-import type { ProtectedRequestClient } from "./clients";
+import { AUTH_ENDPOINTS, type ProtectedRequestClient } from "./clients";
+import { REST_SCHEMA_VERSION } from "@cryptox/contracts/rest";
 import type { AuthStore } from "./state";
 
 export interface AuthScreenProps {
@@ -95,7 +96,7 @@ export function AuthScreen({ mode, store, returnTo = "market" }: AuthScreenProps
       </form>
       <p className="auth-card__switch">
         {isRegister ? "Already have an account?" : "New to Cryptox?"}{" "}
-        <a href={isRegister ? "#login" : "#register"}>
+        <a href={routeHash(isRegister ? "login" : "register", returnTo)}>
           {isRegister ? "Sign in" : "Create an account"}
         </a>
       </p>
@@ -113,7 +114,10 @@ function privateWorkspaceStatus(value: unknown): { readonly status: "ready" } {
   if (
     typeof value !== "object" ||
     value === null ||
-    (value as { status?: unknown }).status !== "ready"
+    ((value as { status?: unknown }).status !== "ready" &&
+      ((value as { schemaVersion?: unknown }).schemaVersion !== REST_SCHEMA_VERSION ||
+        typeof (value as { user?: unknown }).user !== "object" ||
+        (value as { user?: unknown }).user === null))
   ) {
     throw new Error("Private workspace returned an invalid response.");
   }
@@ -131,7 +135,7 @@ export function PrivateWorkspace({
   useEffect(() => {
     let active = true;
     void protectedClient
-      .get("/private/workspace", privateWorkspaceStatus)
+      .get(AUTH_ENDPOINTS.currentUser, privateWorkspaceStatus)
       .then(() => {
         if (active) setResourceState("ready");
       })

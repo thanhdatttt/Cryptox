@@ -7,10 +7,10 @@ export type {
   SentimentResultRepository,
 } from "../application/ports";
 import type { SentimentModuleDependencies } from "../application/ports";
-import type { SentimentModulePublicApi } from "./index";
-import { analyze, readLatestForNews } from "./index";
+import type { SentimentModulePublicApi } from "./contracts";
+import { createSentimentApplication } from "../application/service";
 export function createSentimentModule(
-  _deps: SentimentModuleDependencies,
+  deps: SentimentModuleDependencies,
 ): SentimentModulePublicApi {
-  return { analyze, readLatestForNews };
+  return createSentimentApplication(deps) as unknown as SentimentModulePublicApi;
 }

@@ -13,6 +13,6 @@ describe("news public entrypoint", () => {
         limit: 10,
         order: "PUBLISHED_AT_DESC_PROVIDER_ID_ASC_PROVIDER_ITEM_ID_ASC",
       }),
-    ).rejects.toThrow("NOT_IMPLEMENTED");
+    ).resolves.toEqual({ items: [] });
   });
 });

@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { REST_SCHEMA_VERSION } from "@cryptox/contracts/rest";
-import { AuthClientError, AUTH_ENDPOINTS, RestAuthClient } from "./clients";
+import {
+  AuthClientError,
+  AUTH_ENDPOINTS,
+  RestAuthClient,
+  RestProtectedRequestClient,
+} from "./clients";
 
 const user = {
   id: "user-1",
@@ -61,5 +66,38 @@ describe("RestAuthClient", () => {
     expect(currentUserError).toMatchObject({ status: 401 });
     expect(currentCall).toBe(true);
     await expect(client.logout()).resolves.toEqual({ schemaVersion: REST_SCHEMA_VERSION, authenticated: false });
+  });
+
+  it("uses the existing current-user transport for protected session checks", async () => {
+    let request: { input: string; init?: RequestInit } | undefined;
+    const client = new RestProtectedRequestClient("/api", async (input, init) => {
+      request = { input, init };
+      return response({ schemaVersion: REST_SCHEMA_VERSION, user }, 200);
+    });
+
+    await expect(client.get(AUTH_ENDPOINTS.currentUser, (value) => value)).resolves.toMatchObject({
+      schemaVersion: REST_SCHEMA_VERSION,
+      user,
+    });
+    expect(request?.input).toBe(`/api${AUTH_ENDPOINTS.currentUser}`);
+    expect(request?.init?.credentials).toBe("include");
+    expect(request?.init?.headers).toEqual({ accept: "application/json" });
+  });
+
+  it("invokes 401 recovery before rejecting an expired protected request", async () => {
+    let recovered = 0;
+    const client = new RestProtectedRequestClient(
+      "/api",
+      async () => response({ schemaVersion: REST_SCHEMA_VERSION, error: { code: "UNAUTHENTICATED" } }, 401),
+      () => {
+        recovered += 1;
+      },
+    );
+
+    await expect(client.get(AUTH_ENDPOINTS.currentUser, (value) => value)).rejects.toMatchObject({
+      status: 401,
+      code: "UNAUTHENTICATED",
+    });
+    expect(recovered).toBe(1);
   });
 });

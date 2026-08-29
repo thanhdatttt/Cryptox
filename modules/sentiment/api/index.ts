@@ -1,11 +1,14 @@
 import type { SentimentInput, SentimentModulePublicApi, SentimentResult } from "./contracts";
+import { createInMemorySentimentDependencies } from "../application/memory";
+import { createSentimentApplication } from "../application/service";
 
 export * from "./contracts";
 
-const notImplemented = (): never => {
-  throw new Error("NOT_IMPLEMENTED");
-};
+const defaultSentimentApplication = createSentimentApplication(
+  createInMemorySentimentDependencies(),
+);
 
-export const analyze = async (_input: SentimentInput): Promise<SentimentResult> => notImplemented();
-export const readLatestForNews: SentimentModulePublicApi["readLatestForNews"] = async () =>
-  notImplemented();
+export const analyze = (input: SentimentInput): Promise<SentimentResult> =>
+  defaultSentimentApplication.analyze(input);
+export const readLatestForNews: SentimentModulePublicApi["readLatestForNews"] = (newsId) =>
+  defaultSentimentApplication.readLatestForNews(newsId);

@@ -40,8 +40,8 @@ export function parseLocation(hash: string): AppLocation {
 }
 
 export function routeHash(route: AppRouteName, returnTo?: AppRouteName): string {
-  if (route === "login" && returnTo && isProtectedRoute(returnTo)) {
-    return `#login?returnTo=${encodeURIComponent(returnTo)}`;
+  if ((route === "login" || route === "register") && returnTo && isProtectedRoute(returnTo)) {
+    return `#${route}?returnTo=${encodeURIComponent(returnTo)}`;
   }
   return `#${route}`;
 }
