@@ -1,4 +1,58 @@
-# INS-017 Execution Checkpoint
+# INS-018 Execution Checkpoint
+
+## Resume here
+
+- **Level 2 control plane:** INS-018 is the current Instructor signal. Its
+  authorization commit is `c97b83b`, reviewed against `95e0f3c`; applicability
+  passed because current `HEAD` was exactly `c97b83b` with a clean worktree and
+  no material source, business-state, or task-DAG drift.
+- **Authorized work:** Only Q-01 persisted SearchRun race repair/real-port
+  closure, F-02 initial authenticated frontend feature views, and an evidence-
+  only M-02 live Binance probe were executed. No M-02 source/configuration
+  changes or downstream work were started.
+- **Workers:** Q-01 sole worker Ohm
+  (`01a04bab-a02c-7221-9382-acf9a9a7d192`) wrote only
+  `modules/search/**` and committed `317ca0d`. F-02 sole worker Mendel
+  (`01a04bab-a123-7bd2-855b-c02a6ab30f1c`) wrote only frontend feature scope;
+  `apps/frontend/src/auth/**` and all global control artifacts were unchanged.
+- **Transitions:** Q-01 REVIEW→READY→IN_PROGRESS→DONE after independent
+  review and real-port validation. F-02 BLOCKED→READY→IN_PROGRESS→DONE at
+  its fixture-first packet boundary after the full feature suite and global
+  gates passed. M-02 remains REVIEW/UNVERIFIED.
+- **Q-01 evidence:** `317ca0d` serializes persisted SearchRun snapshots per
+  run and adds deterministic delayed-write regression coverage. Full Search is
+  22 passed / 1 skipped; typecheck, lint, and build pass. The real PostgreSQL
+  public Search→Backtesting→Leaderboard integration passed twice against the
+  dedicated endpoint, including persisted terminal state, owner isolation,
+  Backtesting completion, and Leaderboard admission. No credentials/tokens
+  were logged.
+- **F-02 evidence:** Reviewed paths are `apps/frontend/src/App.tsx`,
+  `apps/frontend/src/style.css`, and `apps/frontend/src/features/{types,
+  clients,fixture-client,fixture-data,state,state.spec,screens,screens.spec,
+  fixture-client.spec}.(ts|tsx)`. The feature client/state/fixture flow covers
+  descriptor-driven controls, owner-derived fixture isolation, bounded Search
+  presentation, results/metrics/provenance, overlays/trades, and News with
+  missing-Sentiment degradation. Frontend tests are 31/31 across 12 files,
+  including six packet-scoped tests; typecheck/lint/build and global gates
+  pass. Evidence is fixture/fake-client only: no browser or real API/I-01
+  completion is claimed.
+- **M-02 evidence:** Existing realtime resilience tests remain 9/9 and full
+  Market Data remains 23 passed / 1 skipped. One bounded live Binance WebSocket
+  attempt ended with reconnect-limit exhaustion; live normalized delivery and
+  recovery are `UNVERIFIED`. Fixture evidence was not promoted to PASS.
+- **Validation limits:** Formal OpenSpec CLI status/instructions remain
+  `UNVERIFIED` because the CLI is unavailable. Cross-module Experiment/
+  Leaderboard transaction atomicity remains reserved and `UNVERIFIED` for
+  I-01. Real API/browser integration for F-02 remains an I-01 concern. No
+  AU-02, I-01/I-02, M-02 rework, or other follow-on task was started.
+
+## Final control note
+
+- Manager-owned TASKS/HANDOFF updates record the worker IDs, scope, evidence,
+  blockers, and exact source/control commits. `INSTRUCTOR.md` and
+  `DECISIONS.md` were not edited.
+
+## Prior checkpoint
 
 ## Resume here
 

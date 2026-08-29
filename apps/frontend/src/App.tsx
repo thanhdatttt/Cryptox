@@ -8,13 +8,9 @@ import type { MarketDataSource } from "./market/types";
 import { InMemoryPrivateCache } from "./auth/cache";
 import {
   RestAuthClient,
-  RestProtectedRequestClient,
   UnavailableAuthClient,
-  UnavailableProtectedRequestClient,
-  browserAuthFetch,
-  type ProtectedRequestClient,
 } from "./auth/clients";
-import { FixtureAuthClient, FixtureProtectedRequestClient } from "./auth/fixture-client";
+import { FixtureAuthClient } from "./auth/fixture-client";
 import { useAuth } from "./auth/hooks";
 import {
   guardRoute,
@@ -22,9 +18,13 @@ import {
   navigateTo,
   useAppLocation,
 } from "./auth/navigation";
-import { AuthScreen, PrivateWorkspace } from "./auth/screens";
+import { AuthScreen } from "./auth/screens";
 import { AuthStore } from "./auth/state";
 import type { AuthClient } from "./auth/types";
+import { RestFeatureClient } from "./features/clients";
+import { FixtureFeatureClient } from "./features/fixture-client";
+import { FeatureWorkspace } from "./features/screens";
+import { FeatureWorkspaceStore } from "./features/state";
 
 interface RuntimeMarketSource {
   readonly source?: MarketDataSource;
@@ -67,7 +67,6 @@ function runtimeMarketSource(): RuntimeMarketSource {
 
 interface RuntimeAuthSource {
   readonly client: AuthClient;
-  readonly protectedClientFactory: (onUnauthorized: () => void) => ProtectedRequestClient;
   readonly label: string;
   readonly fixture: boolean;
   readonly error?: string;
@@ -81,7 +80,6 @@ function runtimeAuthSource(): RuntimeAuthSource {
   if (fixtureAllowed) {
     return {
       client: fixtureAuthClient,
-      protectedClientFactory: (onUnauthorized) => new FixtureProtectedRequestClient(onUnauthorized),
       label: "Fixture session",
       fixture: true,
     };
@@ -90,7 +88,6 @@ function runtimeAuthSource(): RuntimeAuthSource {
     const error = "Unsupported Auth source. Use VITE_AUTH_SOURCE=remote or explicitly use fixture in development.";
     return {
       client: new UnavailableAuthClient(error),
-      protectedClientFactory: () => new UnavailableProtectedRequestClient(error),
       label: "Not configured",
       fixture: false,
       error,
@@ -101,26 +98,53 @@ function runtimeAuthSource(): RuntimeAuthSource {
   const baseUrl = import.meta.env.VITE_AUTH_BASE_URL?.trim() || "/api";
   return {
     client: new RestAuthClient(baseUrl),
-    protectedClientFactory: (onUnauthorized) =>
-      new RestProtectedRequestClient(baseUrl, browserAuthFetch, onUnauthorized),
     label: baseUrl === "/api" ? "Backend session" : "Configured Auth",
     fixture: false,
   };
 }
 
+interface RuntimeFeatureSource {
+  readonly client: RestFeatureClient | FixtureFeatureClient;
+  readonly label: string;
+  readonly fixture: boolean;
+  readonly error?: string;
+}
+
+function runtimeFeatureSource(ownerUserId: string, onUnauthorized: () => void): RuntimeFeatureSource {
+  const requestedMode =
+    import.meta.env.VITE_FEATURE_SOURCE?.trim().toLowerCase() ||
+    (import.meta.env.VITE_AUTH_SOURCE?.trim().toLowerCase() === "fixture" ? "fixture" : "remote");
+  if (requestedMode === "fixture" && import.meta.env.DEV) {
+    return { client: new FixtureFeatureClient({ ownerUserId }), label: "Fixture features", fixture: true };
+  }
+  if (requestedMode !== "remote") {
+    const error = "Fixture features are development-only. Use VITE_FEATURE_SOURCE=remote for production.";
+    return { client: new RestFeatureClient("/api", undefined, onUnauthorized), label: "Not configured", fixture: false, error };
+  }
+  const baseUrl = import.meta.env.VITE_FEATURE_BASE_URL?.trim() || "/api";
+  return { client: new RestFeatureClient(baseUrl, undefined, onUnauthorized), label: "Backend features", fixture: false };
+}
+
 export function App(): React.ReactElement {
   const runtime = useMemo(runtimeMarketSource, []);
   const authRuntime = useMemo(runtimeAuthSource, []);
+  const privateCache = useMemo(() => new InMemoryPrivateCache(), []);
   const authStore = useMemo(
-    () => new AuthStore(authRuntime.client, new InMemoryPrivateCache()),
-    [authRuntime.client],
+    () => new AuthStore(authRuntime.client, privateCache),
+    [authRuntime.client, privateCache],
   );
   const authState = useAuth(authStore);
   const location = useAppLocation();
   const routeGuard = guardRoute(location.name, authState.status);
-  const protectedClient = useMemo(
-    () => authRuntime.protectedClientFactory(() => authStore.handleUnauthorized()),
-    [authRuntime, authStore],
+  const featureRuntime = useMemo(
+    () => authState.user
+      ? runtimeFeatureSource(authState.user.id, () => authStore.handleUnauthorized())
+      : undefined,
+    [authState.user?.id, authStore],
+  );
+  const featureStore = useMemo(
+    () => featureRuntime ? new FeatureWorkspaceStore(featureRuntime.client, privateCache) : undefined,
+    [featureRuntime, privateCache],
   );
   const dashboard = useMemo(
     () =>
@@ -194,13 +218,14 @@ export function App(): React.ReactElement {
       />
     );
   } else if (location.name === "strategies" || location.name === "experiments") {
-    page = (
-      <PrivateWorkspace
-        section={location.name === "strategies" ? "Strategies" : "Experiments"}
+    page = featureStore ? (
+      <FeatureWorkspace
+        key={authState.user?.id}
+        section={location.name}
         email={authState.user?.email ?? "authenticated user"}
-        protectedClient={protectedClient}
+        store={featureStore}
       />
-    );
+    ) : <section className="route-status" role="status">Preparing your private workspace…</section>;
   } else {
     page = (
       <>

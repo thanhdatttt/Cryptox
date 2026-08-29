@@ -185,7 +185,11 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
   deduplication, and observable connection state.
 - **Write scope:** Market Data application/infrastructure and market WebSocket tests.
 - **Latest branch / commit:** `MVP_IMPLEMENTATION` / `5160c1c`.
-- **Validation:** REVIEW after INS-014 closure; realtime 9/9 and full Market Data 23 PASS / 1 skipped, package gates PASS; live Binance stream remains UNVERIFIED after provider failure and reconnect exhaustion.
+- **Validation:** REVIEW after INS-014 closure; realtime 9/9 and full Market
+  Data 23 PASS / 1 skipped, package gates PASS. INS-018 made one bounded live
+  Binance WebSocket attempt using the existing provider; it ended with
+  reconnect-limit exhaustion and is UNVERIFIED. No M-02 source/configuration
+  changes were made.
 - **Full packet:** [`MVP_PLAN.md#m-02--realtime-market-delivery-and-gap-recovery`](MVP_PLAN.md#m-02--realtime-market-delivery-and-gap-recovery)
 
 ### S-01 — Strategy Registry, Definitions and Composite Core
@@ -309,20 +313,21 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 
 - **Requirement IDs:** `CSL-R-SE-01`, `CSL-R-SE-02`, `CSL-R-LB-01`,
   `CSL-R-OB-01`, `CSL-R-DM-01`, `CSL-R-AR-02`, `CSL-R-OW-01`
-- **State / owner / wave:** REVIEW / Manager and Ramanujan (`01a04b84-df4f-75e0-a24b-d7182f5c0f01`) / Waves 3–4
+- **State / owner / wave:** DONE / Ohm (`01a04bab-a02c-7221-9382-acf9a9a7d192`) / Waves 3–4
 - **Critical / parallelism:** Integration / YES for fake-port phase
 - **Start dependencies:** C-01A, S-01
 - **Integration dependencies:** D-01, L-01, B-02
 - **Objective:** Implement seeded Random generation, trusted owner propagation, and
   an owner-scoped finite SearchRun lifecycle, first against fakes and then real ports.
 - **Write scope:** `modules/search/**` except frozen contracts and migrations.
-- **Latest branch / commit:** `MVP_IMPLEMENTATION` / `04bf234`.
-- **Validation:** Pure/fake-port and Search adapter suites pass (21/21), with
-  typecheck/lint/build and global gates PASS. The real integration was attempted
-  against `postgres://cryptox@localhost:55432/cryptox` and reached the public
-  Search/Backtesting/Leaderboard pipeline, but the in-process status became
-  `COMPLETED` while the persisted SearchRun row remained `RUNNING`. Q-01 stays
-  REVIEW; fake-only evidence cannot close it and no concurrency fix was started.
+- **Latest branch / commit:** `MVP_IMPLEMENTATION` / `317ca0d`.
+- **Validation:** Pure/fake-port and Search adapter suites pass with
+  typecheck/lint/build and global gates PASS. INS-018 repair serializes
+  persisted snapshots per SearchRun and adds a delayed-write regression. Full
+  Search is 22 passed / 1 skipped; the real public Search→Backtesting→
+  Leaderboard PostgreSQL integration passed twice against
+  `postgres://cryptox@localhost:55432/cryptox`, including persisted terminal
+  state, ownership isolation, Backtesting completion, and Leaderboard admission.
 - **Full packet:** [`MVP_PLAN.md#q-01--seeded-random-search-and-searchrun-lifecycle`](MVP_PLAN.md#q-01--seeded-random-search-and-searchrun-lifecycle)
 
 ### N-01 — News Collection, Deduplication and Query
@@ -408,15 +413,21 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
   `CSL-R-SE-02`, `CSL-R-BT-01`, `CSL-R-EV-01`, `CSL-R-LB-01`,
   `CSL-R-VIS-01`, `CSL-R-NW-01`, `CSL-R-SN-01`, `CSL-R-DM-01`,
   `CSL-R-AU-01`, `CSL-R-OW-01`
-- **State / owner / wave:** BLOCKED / Unassigned Frontend worker / Wave 3
+- **State / owner / wave:** DONE / Mendel (`01a04bab-a123-7bd2-855b-c02a6ab30f1c`) / Wave 3
 - **Critical / parallelism:** Integration / YES
 - **Start dependencies:** C-01A, F-01, F-AUTH
 - **Integration dependencies:** All real APIs and AU-02 at I-01
 - **Objective:** Build authenticated, owner-scoped Strategy/Search/Experiment/
   Leaderboard, visualization, News, and Sentiment views against typed fakes.
 - **Write scope:** Frontend features and tests only.
-- **Latest branch / commit:** —; record when work starts.
-- **Validation:** Not started.
+- **Latest branch / commit:** `MVP_IMPLEMENTATION` / pending INS-018 Manager
+  checkpoint commit.
+- **Validation:** Initial fixture implementation reviewed within
+  `apps/frontend/**`; Auth files are unchanged. Frontend tests are 31/31 across
+  12 files, including six packet-scoped F-02 tests; typecheck/lint/build,
+  architecture, artifact, deferred-scope, runtime, and whitespace gates PASS.
+  Evidence is fixture/fake-client only; no browser or real API/I-01 evidence is
+  claimed. Real APIs and AU-02 remain later I-01 dependencies.
 - **Full packet:** [`MVP_PLAN.md#f-02--frontend-strategy-search-result-and-auxiliary-views`](MVP_PLAN.md#f-02--frontend-strategy-search-result-and-auxiliary-views)
 
 ### I-01 — Runtime, Transports and Observability Integration
@@ -457,9 +468,8 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 P-00, C-01, A-00, C-01A, E-01, F-01, S-01, D-01, AU-01, M-01, L-01, and B-02
 are DONE. B-02 is closed only at its DEC-006 packet boundary; cross-module
 Experiment/Leaderboard transaction coupling remains UNVERIFIED for I-01.
-M-02 remains REVIEW because live-provider evidence is UNVERIFIED. N-02 is
-IN_PROGRESS under INS-017; F-AUTH, Q-01, and N-01 remain READY solely for the
-authorized frontier. Real browser/service, real Search ports, live News, and
-persisted News/Sentiment evidence remain UNVERIFIED. The host worker-thread
-limit prevents parallel dispatch beyond the active N-02 worker; no other task
-was started and no manager-side feature implementation substituted for it.
+M-02 remains REVIEW because live-provider evidence is UNVERIFIED. Q-01 and
+F-02 are DONE at their authorized packet boundaries; F-02 is fixture/fake-client
+evidence only and real API/browser integration remains for I-01. F-AUTH, N-01,
+and N-02 remain DONE. AU-02 and I-01/I-02 remain blocked; no other task is
+started by this checkpoint.
