@@ -2,79 +2,105 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-022`
+Instruction ID: `INS-023`
 
-Status: `NEEDS_HUMAN_DECISION`
+Status: `HOLD`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## Safety hold
+
+Reason: `Instructor functional amendment from five supplied screenshots is under review/re-baselining`
+
+- This is a system-functional scope amendment only. The supplied screenshots
+  are evidence for behavior, not authorization to reproduce layout, color,
+  visual styling, or pixel-perfect frontend details.
+- Every prior implementation authorization, including the exhausted `INS-021`
+  retry and the no-execution `INS-022` signal, is suspended by this hold.
+- No Orchestrator may assign new work, start a retry, create a worker, or
+  continue implementation until a new `APPROVED_FOR_EXECUTION` signal is
+  issued after re-baselining.
+- No feature implementation, runtime-contract change, migration, frontend
+  implementation, `TASKS.md` update, `HANDOFF.md` update, or competing active
+  OpenSpec change is authorized by `INS-023`.
 
 ## Reviewed repository checkpoint
 
 - Branch: `MVP_IMPLEMENTATION`
-- Reviewed repository HEAD: `5b9018f` (`docs(control): checkpoint INS-021 AU-02 decision blocker`)
-- Working tree at review: clean. The branch is ahead of
-  `origin/MVP_IMPLEMENTATION` by 60 local commits.
-- INS-021 is exhausted at a truthful blocked checkpoint. Q-01 and F-02 remain
-  DONE at their approved packet boundaries, and D-01, AU-01, M-01, L-01,
-  B-02, F-AUTH, N-01, and N-02 remain DONE; none may be reassigned or
-  reworked.
-- AU-02 start dependencies are satisfied: AU-01, D-01, S-01, L-01, B-02,
-  Q-01 real integration, and F-AUTH are DONE. The INS-019 worker stalled
-  during setup; INS-020 restored dependencies but produced no matrix; and the
-  INS-021 worker again produced no matrix source/test diff, accepted evidence,
-  or commit within its bounded window. AU-02 remains BLOCKED/UNVERIFIED.
-- M-02 remains REVIEW/UNVERIFIED. Its realtime resilience suite is 9/9 and
-  full Market Data is 23 passed / 1 skipped, but two bounded live Binance
-  attempts ended with socket failure/reconnect exhaustion, zero normalized
-  candles, and no live recovery evidence. No source or configuration rework is
-  authorized until the provider/environment premise changes.
-- `verify:stage4a` passed for the completed source tree. Formal OpenSpec CLI
-  validation remains `UNVERIFIED` because the CLI is unavailable. Cross-module
-  Experiment/Leaderboard transaction atomicity, real frontend API/browser
-  integration, live CoinDesk, and real News/Sentiment PostgreSQL evidence remain
-  later I-01/final-demo concerns.
-- No source, business-state, or task-DAG drift was found after INS-021. The
-  current TASKS/HANDOFF checkpoint is authoritative and clean.
+- HEAD at HOLD: `92fcb0a8e28a77667ca5a2bcbf1dacab7bb0bac6`
+  (`docs(control): pause after INS-021 blocker`)
+- Working tree at HOLD: clean. The branch is ahead of
+  `origin/MVP_IMPLEMENTATION` by 61 local commits.
+- Current pre-amendment signal: `INS-022 / NEEDS_HUMAN_DECISION`, with no
+  execution frontier. The current Manager checkpoint remains the `INS-021`
+  AU-02 blocked checkpoint in `docs/implementation/HANDOFF.md`.
+- `TASKS.md` remains the operational source of truth: AU-02 is
+  `BLOCKED/UNVERIFIED`, M-02 is `REVIEW/UNVERIFIED`, I-01 and I-02 are
+  `BLOCKED`, and completed packets remain at their approved baseline
+  boundaries. No task-state or handoff edit was made for this HOLD.
 
-## Current decision
+## Automation stop observation
 
-No execution frontier is authorized under INS-022.
+At the time of this signal, the Codex thread inventory showed no running
+Orchestrator or worker execution for Cryptox:
 
-The repeated bounded AU-02 attempts did not produce the required security
-matrix even after dependency setup succeeded. The repository therefore cannot
-truthfully advance AU-02 or start I-01/I-02. M-02 also remains REVIEW/UNVERIFIED
-after its prior live Binance failures and is not a valid retry frontier.
+- Manager/Orchestrator `01a04adc-d425-7970-8a04-5bf8ed314fd0`: `idle`; its
+  latest INS-021 turn is completed and no new work was requested.
+- Prior specification-review thread `01a04bf1-0364-72b0-a9cd-6563c67b4222`:
+  `idle`; read-only review completed, no implementation ownership.
+- AU-02 worker Gibbs `01a04bf2-c013-7e73-a2b7-0b7781ac0a52`: safely stopped
+  under the INS-021 checkpoint; no source commit or accepted matrix was
+  produced.
+- Earlier AU-02 worker threads `01a04bd0-2e0a-7320-b0be-f6755c484a66`
+  (`idle`), `01a04bd5-8608-70c3-abae-94176723da39` (`notLoaded`), and
+  `01a04be0-cc57-7c10-be30-5a845615eb88` (`notLoaded`) are not running; no
+  duplicate output is accepted.
+- M-02 review worker `01a04b38-10bd-7d21-9be0-598f311b80c6` is `notLoaded`
+  after its bounded review checkpoint. No active worker could be asked to
+  stop, and no worker was found whose safe stop was incomplete.
+- The currently active thread is the Instructor review context, not an
+  implementation Orchestrator or worker. No new thread was created for this
+  amendment.
 
-## Human decision required
+## Scope-review state
 
-Before another Orchestrator execution signal can be issued, decide and record
-the recovery path:
-
-1. Provide a working PostgreSQL/Auth/Search integration environment, including
-   a configured `DATABASE_URL`, and confirm that one further bounded AU-02
-   implementation attempt is wanted; or
-2. Explicitly approve a different, requirement-compliant recovery plan for
-   the missing AU-02 security evidence.
-
-Until that decision and the required environment/plan are available, keep
-AU-02 `BLOCKED/UNVERIFIED`, M-02 `REVIEW/UNVERIFIED`, and I-01/I-02 `BLOCKED`.
-Do not start workers, retry AU-02, probe M-02, or perform downstream work.
+The five supplied screenshots are now treated as a proposed functional delta
+against the reviewed baseline. The delta includes realtime multi-timeframe
+market delivery, prompt/URL strategy authoring with LLM analysis, HTML/RSS/news
+extraction with versioned templates and controlled refinement, Long/Short
+backtesting with transaction cost/slippage and OHLC SL/TP behavior, and
+expanded strategy/discovery capabilities. These requirements are not yet
+approved executable scope; the Instructor must complete the authority-ordered
+re-baseline and obtain the required human/instructor decisions first.
 
 ## Explicitly not authorized
 
-- Reassignment or rework of D-01, AU-01, M-01, L-01, B-02, Q-01, F-AUTH,
-  F-02, N-01, or N-02.
-- M-02 source changes or live re-probes, I-01, I-02, or any unfinished packet
-  while INS-022 is awaiting the human decision.
-- Migrations, frozen contract changes, scope expansion, deferred enterprise
-  identity/queue/distributed/risk/AI features, or automatic follow-on work.
+- Any Orchestrator or worker creation, assignment, retry, implementation, or
+  downstream integration.
+- Reassignment or rework of completed packets, including D-01, AU-01, M-01,
+  L-01, B-02, Q-01, F-AUTH, F-02, N-01, and N-02.
+- AU-02 retry, M-02 probe/rework, I-01, I-02, or any other unfinished packet.
+- Changes to application source, executable contracts, migrations, frontend
+  implementation, `TASKS.md`, `HANDOFF.md`, or the active change/specs before
+  the requirement delta is approved through the authority order.
 
-No authorization is active. A fresh Instructor review and new Instruction ID
-are required after the human decision and any approved recovery premise.
+## Required next authority sequence
+
+1. Review and approve the functional delta, add requirement IDs and acceptance
+   criteria in `docs/requirements.md`.
+2. Record durable decisions in `docs/control/DECISIONS.md` and amend accepted
+   ADRs, `docs/architecture.md`, and `docs/data-model.md` where warranted.
+3. Amend the existing active `mvp-implementation` change and affected
+   capability specifications; do not create a competing cross-cutting change.
+4. Only after those approvals, have the Manager reconcile `MVP_PLAN.md`, the
+   task DAG, and `TASKS.md` with new extension/reconciliation packets while
+   preserving historical `DONE` evidence.
+5. Issue a new Instructor execution signal with explicit bounded scope.
 
 ## Canonical references
 
 - [Contributor rules](../../AGENTS.md)
+- [Instructor bootstrap](./prompts/INSTRUCTOR_START.md)
 - [Decision ledger](./DECISIONS.md)
 - [Task state](../implementation/TASKS.md)
 - [Latest execution checkpoint](../implementation/HANDOFF.md)
@@ -82,13 +108,9 @@ are required after the human decision and any approved recovery premise.
 - [Requirements](../requirements.md)
 - [Architecture](../architecture.md)
 - [Data model](../data-model.md)
-- [ADR-001](../adr/ADR_001_websocket.md)
-- [ADR-005](../adr/ADR_005_module_first_structure.md)
-- [ADR-006](../adr/ADR_006_local_backtest_execution.md)
-- [ADR-007](../adr/ADR_007_practical_reproducibility.md)
-- [ADR-008](../adr/ADR_008_simple_auth_and_per_user_ownership.md)
+- [Accepted ADRs](../adr/)
 - [Active capability specifications](../../openspec/specs/)
 - [Active MVP change](../../openspec/changes/mvp-implementation/)
 
-Notes: this is the current execution signal, not a task board or implementation
-handoff. No feature implementation is performed by this Instructor update.
+Notes: this is the current Instructor safety signal. It is governance only;
+no feature implementation or task-state mutation is performed under `INS-023`.
