@@ -14,6 +14,10 @@
     "arch:check": "dependency-cruiser --config .dependency-cruiser.js --exclude \"(^|/)dist/\" --validate modules apps packages && node scripts/check-architecture-rules.mjs",
     "artifacts:check": "node scripts/check-source-sidecars.cjs",
     "scope:check": "node scripts/check-deferred-scope.cjs",
+    "test:scope-check": "node --test scripts/check-deferred-scope.test.cjs",
+    "db:local:prepare": "node infra/db/local-postgres.cjs prepare",
+    "db:local:validate": "node infra/db/local-postgres.cjs validate",
+    "db:local:reset-test": "node infra/db/local-postgres.cjs reset-test",
     "runtime:smoke": "node scripts/smoke-backend.cjs",
     "verify:stage4a": "npm run build && npm run typecheck && npm test && npm run arch:check && npm run artifacts:check && npm run scope:check && npm run runtime:smoke"
   },

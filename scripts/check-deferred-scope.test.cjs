@@ -1,0 +1,71 @@
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const os = require("node:os");
+const path = require("node:path");
+const test = require("node:test");
+const { scanDeferredScope } = require("./check-deferred-scope.cjs");
+
+function withFixture(files, callback) {
+  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), "cryptox-scope-check-"));
+  try {
+    for (const [relativePath, content] of Object.entries(files)) {
+      const target = path.join(fixture, relativePath);
+      fs.mkdirSync(path.dirname(target), { recursive: true });
+      fs.writeFileSync(target, content);
+    }
+    callback(fixture);
+  } finally {
+    fs.rmSync(fixture, { recursive: true, force: true });
+  }
+}
+
+test("permits approved DEC-007 profiles only in named contract boundaries", () => {
+  withFixture({
+    "modules/search/api/contracts.ts": "export const profiles = ['DOMAIN_GUIDED_V1', 'GENETIC_V1'];",
+    "modules/backtesting/api/contracts.ts": "export const profile = { id: 'SYNTHETIC_SHORT_PAPER_V1', positionPolicy: { leverage: 'PROHIBITED' }, excluded: ['MARGIN', 'FUNDING', 'LIQUIDATION', 'GENERALIZED_RISK_MANAGEMENT'] }; export const exit = 'STOP_LOSS_WINS_V1'; export const direction = 'LONG'; export const stopLoss = true;",
+    "modules/strategy/api/contracts.ts": "export const authoring = 'LLM_AUTHORING_V1'; export const vote = 'WEIGHTED_VOTE_V1'; export const lite = ['SMC_LITE_V1', 'WYCKOFF_LITE_V1'];",
+    "modules/strategy/application/ports.ts": "export const extensions = ['WEIGHTED_VOTE_V1', 'SMC_LITE_V1', 'WYCKOFF_LITE_V1'];",
+    "modules/market-data/api/contracts.ts": "export const observability = 'MARKET_OBSERVABILITY_V1';",
+  }, (fixture) => assert.deepEqual(scanDeferredScope(fixture), []));
+});
+
+test("rejects an otherwise approved profile outside its named boundary", () => {
+  withFixture({
+    "modules/strategy/api/contracts.ts": "export const profile = 'DOMAIN_GUIDED_V1';",
+  }, (fixture) => assert.match(scanDeferredScope(fixture).join("\n"), /outside its supported boundary/));
+});
+
+test("rejects market observability outside its ephemeral market-WebSocket boundary", () => {
+  withFixture({
+    "packages/contracts/rest/market-data/contracts.ts": "export const profile = 'MARKET_OBSERVABILITY_V1';",
+    "infra/db/migrations/003_market_observability.js": "const profile = 'MARKET_OBSERVABILITY_V1';",
+  }, (fixture) => {
+    const findings = scanDeferredScope(fixture).join("\n");
+    assert.match(findings, /packages\/contracts\/rest\/market-data\/contracts\.ts: approved profile MARKET_OBSERVABILITY_V1 is outside its supported boundary/);
+    assert.match(findings, /infra\/db\/migrations\/003_market_observability\.js: approved profile MARKET_OBSERVABILITY_V1 is outside its supported boundary/);
+  });
+});
+
+test("rejects operational risk even inside the synthetic-paper contract boundary", () => {
+  withFixture({
+    "modules/backtesting/api/contracts.ts": "export const policy = { leverage: 'PROHIBITED', excluded: ['LEVERAGE'] }; const leverage = 5;",
+  }, (fixture) => assert.match(scanDeferredScope(fixture).join("\n"), /deferred risk vocabulary lacks an approved synthetic-paper prohibition context/));
+});
+
+test("continues rejecting every deferred-scope family", () => {
+  withFixture({
+    "modules/strategy/api/contracts.ts": "const tenantId = 'forbidden'; const autonomous = true; const unconfiguredLlm = true;",
+    "modules/search/api/contracts.ts": "const queue = 'BullMQ';",
+    "modules/backtesting/api/contracts.ts": "const trailingStop = true;",
+    "modules/evaluation/api/contracts.ts": "const liveTrading = true; const leverage = true; const generalizedRisk = true; const live_trading = true;",
+    "modules/news/api/contracts.ts": "const strict = 'SentimentDatasetSnapshotRef';",
+  }, (fixture) => {
+    const findings = scanDeferredScope(fixture).join("\n");
+    assert.match(findings, /tenantId/);
+    assert.match(findings, /BullMQ/);
+    assert.match(findings, /trailingStop/);
+    assert.match(findings, /deferred risk vocabulary lacks an approved synthetic-paper prohibition context/);
+    assert.match(findings, /unconfigured/);
+    assert.match(findings, /SentimentDatasetSnapshotRef/);
+  });
+});

@@ -48,13 +48,16 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 | L-02 | BLOCKED | E2 | YES | Future Leaderboard worker | — | Not started; extension-aware ranking/provenance evidence required |
 | F-03 | BLOCKED | E3 | YES | Future Frontend worker | — | Not started; DEC-007 functional-state projections required |
 | I-03 | BLOCKED | E4 | YES | Manager / future integration worker | — | Not started; final extension integration/reproducibility proof required |
+| ENV-01 | DONE | E0a | YES | Manager / Infrastructure-and-tooling worker `01a04d08-19c8-76e1-ad32-57471e75f430` | `MVP_IMPLEMENTATION` / containing INS-030 ENV-01 checkpoint commit | Independent review PASS; Docker/migration/checker/root validation PASS; OpenSpec CLI UNVERIFIED |
 
-The `RB-01` row records the current authorization's completed governance
-checkpoint. `C-02` and every feature packet allocated by it remain `BLOCKED`; no
-new packet is READY or IN_PROGRESS. The existing legacy rows, including `M-02`
-at `REVIEW`, `AU-02` at `BLOCKED`, and `I-01`/`I-02` at `BLOCKED`, retain their
-states and evidence. DEC-007 extension requirements are not satisfied by any
-legacy `DONE` row.
+The `RB-01` row records the completed governance checkpoint. `ENV-01` is the
+sole packet allocated by current `INS-030`; it is DONE at its authorized
+boundary after one worker completed and the Manager independently reviewed it.
+`C-02` and every other feature packet remain `BLOCKED`; no
+other packet is authorized or may start. The existing legacy rows, including
+`M-02` at `REVIEW`, `AU-02` at `BLOCKED`, and `I-01`/`I-02` at `BLOCKED`, retain
+their states and evidence. DEC-007 extension requirements are not satisfied by
+any legacy `DONE` row.
 
 ## Task records
 
@@ -503,6 +506,47 @@ acceptance criteria and handoff requirements are in the linked packets in
   changed-path proof, documentation/link checks, state/DAG consistency, and
   `git diff --check`; formal OpenSpec is `UNVERIFIED` if unavailable.
 - **Full packet:** [`MVP_PLAN.md#rb-01--dec-007-documentation-reconciliation-planning`](MVP_PLAN.md#rb-01--dec-007-documentation-reconciliation-planning)
+
+### ENV-01 — Local Docker PostgreSQL Evidence and Deferred-Scope Checker Reconciliation
+
+- **Requirement IDs / authority:** `CSL-R-RD-01`, DEC-007, DEC-008, ADR-010;
+  this is a pre-`C-02` operational/tooling gate, not a product requirement or
+  feature implementation.
+- **State / owner / wave:** DONE / Manager plus one Infrastructure-and-tooling
+  worker / Extension wave E0a
+- **Critical / parallelism:** YES / NO; exactly one worker, no worktree
+- **Start dependencies:** Accepted `RB-01`/`RB-02`; reviewed blocked `C-02`
+  checkpoint `7f774ed505f45d927b650ccefcd76d9e4f8611d2`; current `INS-030`;
+  clean canonical checkout; Docker Engine and Compose reachable; no other
+  active Cryptox Manager/worker. All applicability premises were proven before
+  allocation.
+- **Integration dependencies:** Unblocks only a later, separately reviewed and
+  Instructor-authorized `C-02`; it unlocks no E1 feature packet.
+- **Objective:** Provide Codex-operated Docker/Compose PostgreSQL development and
+  test databases with real migration proof, and reconcile the canonical
+  `scope:check` owner to narrowly recognize approved DEC-007 profiles without
+  weakening deferred-scope enforcement.
+- **Exact write scope:** `infra/docker-compose.yml`; new environment-only
+  helpers under `infra/db/local-*` (never `infra/db/migrations/**` or
+  `infra/db/migrate.config.js`); local migration-validation helper/test files;
+  `scripts/check-deferred-scope.cjs` and tightly scoped checker test/helper files;
+  root `package.json` command wiring; `.gitignore`; and optional placeholder-only
+  `.env.example`. The Manager alone owns `TASKS.md` and `HANDOFF.md`.
+- **Forbidden:** C-02 contracts, ports, DTOs, `docs/data-model.md`, business
+  migration semantics, runtime/application/provider/frontend/Auth/exchange
+  behavior, cloud operations, dependencies, requirements, decisions, ADRs,
+  architecture, OpenSpec, and every downstream packet.
+- **Acceptance/validation:** Health-checked separate local development and test
+  PostgreSQL services with persistent named volumes; prepare/validate/reset-test
+  commands; secret-free tracked and logged output; real test-database migration
+  up/down/remigrate/constraint probes; focused checker positive/negative tests;
+  root and relevant architecture/artifact/scope/deferred-scope/link/DAG checks;
+  `git diff --check`; and truthful OpenSpec status.
+- **Latest branch / commit:** `MVP_IMPLEMENTATION` / containing INS-030 ENV-01
+  checkpoint commit; worker produced no commit.
+- **Review result:** Accepted after independent changed-path review and the
+  validation evidence recorded in [`HANDOFF.md`](HANDOFF.md).
+- **Full packet:** [`MVP_PLAN.md#env-01--local-docker-postgresql-evidence-and-deferred-scope-checker-reconciliation`](MVP_PLAN.md#env-01--local-docker-postgresql-evidence-and-deferred-scope-checker-reconciliation)
 
 ### C-02 — DEC-007 Contract, Data-Model and Migration Reconciliation Gate
 

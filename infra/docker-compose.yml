@@ -1,17 +1,38 @@
 services:
-  postgres:
+  postgres-dev:
     image: postgres:17
     environment:
       POSTGRES_USER: cryptox
-      POSTGRES_PASSWORD: cryptox
-      POSTGRES_DB: cryptox
-    ports: ["5432:5432"]
-    volumes: [pgdata:/var/lib/postgresql/data]
+      POSTGRES_PASSWORD: ${CRYPTOX_LOCAL_POSTGRES_PASSWORD:?Run npm run db:local:prepare first}
+      POSTGRES_DB: cryptox_development
+    ports: ["55432:5432"]
+    volumes: [cryptox_pgdata_development:/var/lib/postgresql/data]
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U cryptox -d cryptox"]
+      test: ["CMD-SHELL", "pg_isready -U cryptox -d cryptox_development"]
       interval: 5s
       timeout: 5s
       retries: 10
+
+  postgres-test:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: cryptox
+      POSTGRES_PASSWORD: ${CRYPTOX_LOCAL_POSTGRES_PASSWORD:?Run npm run db:local:prepare first}
+      POSTGRES_DB: cryptox_test
+    ports: ["55433:5432"]
+    volumes: [cryptox_pgdata_test:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cryptox -d cryptox_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  migration-runner:
+    image: node:22-alpine
+    working_dir: /workspace
+    volumes:
+      - ..:/workspace:ro
+    entrypoint: ["node"]
 
   backend:
     build:
@@ -42,4 +63,5 @@ services:
       retries: 10
 
 volumes:
-  pgdata:
+  cryptox_pgdata_development:
+  cryptox_pgdata_test:
