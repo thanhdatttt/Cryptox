@@ -243,6 +243,10 @@ B-03 REVIEW + ENV-02 DONE
   -> ENV-03 BLOCKED: B-03 approved-profile checker-boundary reconciliation
        -> B-03 closure review; only then may E-02/L-02 consume its clean gate
 
+ENV-03 REVIEW + C-02 DONE
+  -> C-03 BLOCKED: seeded-discovery canonical contract reconciliation
+       -> Q-02 implementation; no generator behavior is claimed by C-03
+
 {C-02 | M-03 | S-04 | S-05 | S-06 | Q-02 | N-03 | B-03}
   -> E-02 BLOCKED: extension evaluation/decimal-boundary reconciliation
 {Q-02 | B-03 | E-02}
@@ -286,7 +290,7 @@ continuation of the legacy waves:
 |---|---|---|---|
 | E0a | `RB-01`/`RB-02` accepted; C-02 blocked checkpoint reviewed | `ENV-01` only | Local Docker PostgreSQL and DEC-007 scope-checker evidence are accepted |
 | E0 | `ENV-01` accepted and separately reviewed | `C-02` only | Contracts/data model/migrations are reconciled and validated |
-| E1 | `C-02` DONE; `ENV-02` DONE; B-03 review available | `M-03`, `S-04`, `S-05`, `S-06`, `Q-02`, `B-03`, `N-03`, `ENV-03` | Pure/provider-boundary extension behavior, approved checker boundaries, and provenance pass |
+| E1 | `C-02` DONE; `ENV-02` DONE; `ENV-03` REVIEW; B-03 review available | `M-03`, `S-04`, `S-05`, `S-06`, `C-03`, `Q-02`, `B-03`, `N-03`, `ENV-03` | Pure/provider-boundary extension behavior, approved checker boundaries, reconciled public contracts, and provenance pass |
 | E2 | E1 packet reviews | `E-02` then `L-02` | Decimal evaluation and extension-aware ranking are proven |
 | E3 | E2 plus all E1 packets | `F-03` | Functional-state frontend projections pass without business logic |
 | E4 | E3 plus baseline `I-01` and `AU-02` | `I-03` | Shared-boundary joins, real-provider readiness, and reproducibility proof pass |
@@ -1156,12 +1160,58 @@ Instructor signal can authorize one safe frontier without treating the legacy
   the three Backtesting implementation boundaries, focused positive/negative
   results, root scope result, and any unavailable checks.
 
+### C-03 — Seeded-Discovery Canonical Contract Reconciliation
+
+- **Requirement IDs / authority:** `CSL-R-SE-03`, `CSL-R-RP-02`,
+  `CSL-R-LB-01`, `CSL-R-OB-01`, DEC-007, DEC-012, and the existing C-02
+  contract boundary.
+- **State / owner / wave:** BLOCKED / Manager with exactly one Search-contract
+  worker / E1 contract reconciliation gate.
+- **Start dependencies:** `C-02` DONE and `ENV-03` REVIEW with the clean
+  deferred-scope gate. The current Instructor signal must explicitly authorize
+  this packet. `C-03` is not a retry or reopening of `C-02`.
+- **Integration dependencies:** The reconciled public surface is required
+  before Q-02 implementation; no generator algorithm or downstream feature is
+  promoted by this packet.
+- **Objective:** Make the approved seeded discovery profiles expressible at the
+  canonical Search API/application-port/REST contract boundaries without
+  changing the Search lifecycle or claiming that Q-02 algorithms exist.
+- **Exact write scope:** `modules/search/api/contracts.ts` and its focused
+  contract tests; `modules/search/application/ports.ts` and focused port tests;
+  `packages/contracts/rest/search.ts` and focused REST contract tests; and the
+  minimal actual-path recognition plus focused tests in
+  `scripts/check-deferred-scope.cjs` and
+  `scripts/check-deferred-scope.test.cjs`. The Manager may update only
+  `docs/implementation/TASKS.md` and `docs/implementation/HANDOFF.md`.
+  No Search application lifecycle, generator implementation, persistence code,
+  migration, frontend, provider, or unrelated file is in scope.
+- **Acceptance/tests:** Public generator types and the generator registry shape
+  explicitly represent `RANDOM`, `DOMAIN_GUIDED`, and `GENETIC`; seeded profile
+  IDs/provenance retain the existing bounded shape; REST request/status types
+  and parsing accept only those explicit values while rejecting unsupported
+  values and client identity fields; current RANDOM behavior remains unchanged.
+  The checker recognizes the actual canonical Search REST path without a broad
+  exclusion and continues to reject the profiles elsewhere. No new algorithm
+  or runtime behavior is claimed.
+- **Validation:** Focused module and REST contract tests, checker positive and
+  negative tests, `npm run test:scope-check`, `npm run scope:check`, applicable
+  architecture/artifact/deferred-scope/typecheck/build/lint checks, and
+  `git diff --check`. Unavailable tools remain `UNVERIFIED`/`BLOCKED`, never
+  `PASS`.
+- **Definition of Done:** One fresh Manager moves C-03 through the valid state
+  sequence, delegates exactly one disjoint worker, independently reviews the
+  exact contract/checker diff, commits one coherent C-03 checkpoint, and stops.
+  Q-02 remains `BLOCKED` until a separate Instructor authorization. **Parallel:**
+  NO. **Critical:** YES to Q-02. **Handoff:** identify every canonical contract,
+  REST, checker path, accepted profile union, negative cases, and unchanged
+  runtime behavior.
+
 ### Q-02 — Seeded `DOMAIN_GUIDED_V1` and `GENETIC_V1` Discovery
 
 - **Requirement IDs:** `CSL-R-SE-03`, `CSL-R-RP-02`, `CSL-R-OB-01`,
   `CSL-R-LB-01`.
 - **State / owner / wave:** BLOCKED / Search worker / E1.
-- **Start dependencies:** `C-02`, `S-01`, and legacy `Q-01`'s public generator/
+- **Start dependencies:** `C-02`, `C-03`, `S-01`, and legacy `Q-01`'s public generator/
   lifecycle boundary. `Q-01` remains evidence for Random only and is not evidence
   that SE-03 is implemented.
 - **Integration dependencies:** `B-02`, `L-01`, `B-03`, `L-02`, `F-03`, and

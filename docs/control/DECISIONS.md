@@ -350,3 +350,51 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [MVP plan](../implementation/MVP_PLAN.md), [Task state](../implementation/TASKS.md),
 [scope checker](../../scripts/check-deferred-scope.cjs), and
 [INS-052](./INSTRUCTOR.md).
+
+## DEC-012 — Q-02 seeded-discovery contract boundary reconciliation
+
+Status: `APPROVED`
+
+Authority: Instructor operational decision after the `INS-054` frontier review
+and the accepted `ENV-03` checker checkpoint
+`0bc215f5781a7a2860d439b3b4953104a99d9e3a`
+
+Decision: A distinct `C-03` packet is approved to reconcile the canonical
+Search contract surface required by the already approved `CSL-R-SE-03` seeded
+discovery capability. The public Search generator type, generator port
+registry shape, SearchRun status/command types, and Search REST request/status
+surface may explicitly represent `RANDOM`, `DOMAIN_GUIDED`, and `GENETIC`
+while retaining the existing one-candidate form, owner-free client commands,
+finite stop conditions, and `RANDOM_V1`/`DOMAIN_GUIDED_V1`/`GENETIC_V1`
+provenance vocabulary. The REST parser may validate the explicit accepted
+generator values, but this packet does not implement a generator or make the
+application run a new profile.
+
+The canonical deferred-scope checker may be updated only as needed to recognize
+the actual canonical Search contract/REST paths without weakening its policy.
+Focused positive and negative checker tests must remain. No algorithm,
+generator implementation, Search lifecycle change, migration, database schema
+change, frontend, provider, queue/distributed behavior, LLM behavior, or
+unrelated source is authorized. `C-03` is not a retry or reopening of `C-02`;
+the later Q-02 implementation packet remains separately authorized work and
+must retain its own exact generator write scope.
+
+Why: `modules/search/api/contracts.ts` already records the approved seeded
+profile IDs and provenance shape, but its executable generator union and
+application port registry remain `RANDOM`-only; the Search REST contract/parser
+also remains `RANDOM`-only. Allowing Q-02 to proceed without reconciling this
+would silently widen or contradict the frozen public contract boundary.
+
+Affected: `C-03`, the named Search contract/port/REST files and focused tests,
+the canonical deferred-scope checker path recognition, and the Q-02 start gate.
+`C-02`, B-03, ENV-02, ENV-03, migrations, Search algorithms, and downstream
+task state are not reopened or promoted by this decision.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md),
+[DEC-007](#dec-007--controlled-academic-functional-extension-profiles),
+[DEC-010](#dec-010--post-extension-deferred-scope-boundary-reconciliation),
+[DEC-011](#dec-011--b-03-approved-profile-checker-boundary-reconciliation),
+[MVP plan](../implementation/MVP_PLAN.md), [Task state](../implementation/TASKS.md),
+[Search capability spec](../../openspec/specs/search/spec.md), and
+[INS-054](./INSTRUCTOR.md).
