@@ -220,3 +220,41 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Implementation program](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), and
 [scope checker](../../scripts/check-deferred-scope.cjs).
+
+## DEC-009 — Later functional-amendment precedence
+
+Status: `APPROVED`
+
+Authority: Later Instructor functional amendment approved 2026-08-29 and
+preserved as repository evidence under
+`docs/assignment/amendment-2026-08-29/`
+
+Decision: For a functional capability that an explicit later Instructor
+amendment adds, changes, or expands, the later amendment takes precedence over
+conflicting or absent behavior in the protected assignment PDF. The PDF remains
+authoritative for requirements that the amendment does not change, including its
+foundational academic and architectural constraints. This precedence does not
+override a newer approved decision or an approved architecture constraint.
+
+The five amendment screenshots and their README are functional evidence only.
+They do not authorize visual reproduction, create task state, or expand the
+bounded profiles. `docs/requirements.md`, accepted ADR amendments,
+`docs/architecture.md`, `docs/data-model.md`, and active OpenSpec specifications
+remain the normalized detailed authority for executable behavior and deferred
+scope. This clarification creates no implementation authorization and changes
+no operational task state.
+
+Why: The later amendment explicitly re-baselines approved academic behavior,
+including capabilities not present in the original assignment. Recording the
+precedence prevents an approved functional delta from being discarded merely
+because the PDF predates it, while preserving the PDF for all unchanged
+requirements and the repository's higher-level constraints.
+
+Affected: `CSL-R-MD-03`, `CSL-R-ST-05` through `CSL-R-ST-07`,
+`CSL-R-SE-03`, `CSL-R-BT-02`, `CSL-R-NW-02`, `CSL-R-RP-02`, DEC-007, and
+future amendment-scoped implementation reviews.
+
+Canonical references: [Assignment evidence](../assignment/amendment-2026-08-29/README.md),
+[Requirements](../requirements.md), [DEC-007](#dec-007--controlled-academic-functional-extension-profiles),
+[Architecture](../architecture.md), [Data model](../data-model.md), and the
+[active MVP change](../../openspec/changes/mvp-implementation/).
