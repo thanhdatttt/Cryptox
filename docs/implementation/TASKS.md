@@ -50,6 +50,7 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 | I-03 | BLOCKED | E4 | YES | Manager / future integration worker | — | Not started; final extension integration/reproducibility proof required |
 | ENV-01 | DONE | E0a | YES | Manager / Infrastructure-and-tooling worker `01a04d08-19c8-76e1-ad32-57471e75f430` | `MVP_IMPLEMENTATION` / containing INS-030 ENV-01 checkpoint commit | Independent review PASS; Docker/migration/checker/root validation PASS; OpenSpec CLI UNVERIFIED |
 | ENV-02 | DONE | E1 closure | YES | Manager `01a04ea7-b1bd-73c2-972a-7d67e6f551c9` / checker-tooling worker `01a04eae-367c-7fc3-8961-dccb9e760cf9` (Confucius) under `INS-039`; INS-041 closure review | `MVP_IMPLEMENTATION` / `d8c5bf3324cbee349e272cb177537fa6ed062df0` plus INS-041 closure checkpoint | `BLOCKED -> READY -> IN_PROGRESS -> REVIEW -> DONE`; immutable checker evidence accepted; no worker created for closure |
+| ENV-03 | REVIEW | E1 validation gate | YES | Fresh Manager under `INS-053` / exactly one fresh checker-tooling worker Tesla `01a04fd3-2a76-7132-a7f7-abdcbbe0c01b` | `MVP_IMPLEMENTATION` / containing this ENV-03 checkpoint commit | `BLOCKED -> READY -> IN_PROGRESS -> REVIEW`; scope tests 9/9, scope, architecture, artifacts, typecheck, build, lint, diff checks PASS; OpenSpec UNVERIFIED |
 
 The `RB-01` row records the completed governance checkpoint. `ENV-01` is the
 sole packet allocated by current `INS-030`; it is DONE at its authorized
@@ -784,6 +785,57 @@ acceptance criteria and handoff requirements are in the linked packets in
   `ENV-02`, `S-05`, and `S-06` independently to `DONE`; no worker was created
   and no downstream packet was started.
 - **Full packet:** [`MVP_PLAN.md#env-02--post-extension-approved-profile-checker-boundary-reconciliation`](MVP_PLAN.md#env-02--post-extension-approved-profile-checker-boundary-reconciliation)
+
+### ENV-03 — B-03 Approved-Profile Checker Boundary Reconciliation
+
+- **Requirement IDs / authority:** `CSL-R-RP-02`, DEC-007, DEC-011, ADR-010;
+  this is a post-B-03 validation/tooling gate and creates no product
+  behavior, contract, migration, or new profile.
+- **State / owner / wave:** REVIEW / Fresh Manager under `INS-053` with exactly
+  one fresh checker-tooling worker / E1 validation gate.
+- **Start dependencies:** `ENV-02` DONE and `B-03` REVIEW with source
+  checkpoint `692754051f2c43bf7ab70a453adb1b9c9d3ca6d4` available. `ENV-03` is
+  not a retry or reopening of `ENV-01` or `ENV-02`.
+- **Integration dependencies:** The accepted checker gate is required before
+  B-03 can be promoted to `DONE` and before its E2 consumers rely on a clean
+  deferred-scope result. No downstream feature packet is promoted by this
+  packet.
+- **Objective:** Reconcile the canonical deferred-scope checker with the exact
+  Backtesting implementation boundaries already authorized for
+  `SYNTHETIC_SHORT_PAPER_V1` and `STOP_LOSS_WINS_V1`, while retaining rejection
+  of every deferred or unapproved boundary.
+- **Exact write scope:** Worker: `scripts/check-deferred-scope.cjs` and
+  `scripts/check-deferred-scope.test.cjs` only. Manager: this task board and
+  `docs/implementation/HANDOFF.md` only for state and checkpoint evidence. No
+  module, package, app, migration, dependency, runtime, frontend, requirement,
+  ADR, OpenSpec, or other governance file is in scope.
+- **Acceptance/validation:** The checker must permit the two B-03 profile
+  identifiers at existing canonical Backtesting contract/port/REST/migration
+  boundaries and only in `modules/backtesting/domain/`,
+  `modules/backtesting/application/`, and
+  `modules/backtesting/infrastructure/`. Directional paper vocabulary is
+  permitted only in those same exact boundaries. Focused tests must prove
+  positive approved boundaries and negative unrelated paths, while preserving
+  all deferred enterprise identity, distributed/queue,
+  live-trading/generalized-risk, autonomous/unconfigured LLM, strict-replay,
+  operational-risk, and other unapproved-scope rejection.
+- **Worker result / Manager review:** Exactly one fresh worker, Tesla
+  `01a04fd3-2a76-7132-a7f7-abdcbbe0c01b`, changed only the two checker files and
+  created no commit. The Manager independently reviewed the exact trailing-slash
+  boundaries, the three implementation-directory positives, the unrelated and
+  near-match negatives, and preservation of all prior tests/rejections. B-03,
+  its contracts, migrations, and all unrelated source remain unchanged.
+- **Validation:** `npm run test:scope-check` PASS (9/9), `npm run scope:check`
+  PASS, `npm run arch:check` PASS, `npm run artifacts:check` PASS,
+  `npm run typecheck` PASS, `npm run build` PASS, `npm run lint` PASS, and
+  `git diff --check` PASS. OpenSpec CLI is UNVERIFIED because it is unavailable.
+  Real PostgreSQL/Binance evidence is outside this tooling packet and no such
+  evidence is claimed.
+- **Definition of Done:** Moved only through
+  `BLOCKED -> READY -> IN_PROGRESS -> REVIEW`; exactly one fresh worker was
+  delegated and independently reviewed; one coherent ENV-03 checkpoint is
+  committed; B-03 remains `REVIEW` and no downstream work was started.
+- **Full packet:** [`MVP_PLAN.md#env-03--b-03-approved-profile-checker-boundary-reconciliation`](MVP_PLAN.md#env-03--b-03-approved-profile-checker-boundary-reconciliation)
 
 ### Q-02 — Seeded `DOMAIN_GUIDED_V1` and `GENETIC_V1` Discovery
 

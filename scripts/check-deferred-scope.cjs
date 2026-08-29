@@ -10,8 +10,24 @@ const roots = ["modules", "apps", "packages", "infra"];
 const approvedProfileBoundaries = {
   "DOMAIN_GUIDED_V1": ["modules/search/api/contracts.ts", "modules/search/application/ports.ts", "packages/contracts/rest/search/", "infra/db/migrations/"],
   "GENETIC_V1": ["modules/search/api/contracts.ts", "modules/search/application/ports.ts", "packages/contracts/rest/search/", "infra/db/migrations/"],
-  "SYNTHETIC_SHORT_PAPER_V1": ["modules/backtesting/api/contracts.ts", "modules/backtesting/application/ports.ts", "packages/contracts/rest/backtesting/", "infra/db/migrations/"],
-  "STOP_LOSS_WINS_V1": ["modules/backtesting/api/contracts.ts", "modules/backtesting/application/ports.ts", "packages/contracts/rest/backtesting/", "infra/db/migrations/"],
+  "SYNTHETIC_SHORT_PAPER_V1": [
+    "modules/backtesting/api/contracts.ts",
+    "modules/backtesting/application/ports.ts",
+    "packages/contracts/rest/backtesting/",
+    "infra/db/migrations/",
+    "modules/backtesting/domain/",
+    "modules/backtesting/application/",
+    "modules/backtesting/infrastructure/",
+  ],
+  "STOP_LOSS_WINS_V1": [
+    "modules/backtesting/api/contracts.ts",
+    "modules/backtesting/application/ports.ts",
+    "packages/contracts/rest/backtesting/",
+    "infra/db/migrations/",
+    "modules/backtesting/domain/",
+    "modules/backtesting/application/",
+    "modules/backtesting/infrastructure/",
+  ],
   "LLM_AUTHORING_V1": ["modules/strategy/api/contracts.ts", "modules/strategy/application/ports.ts", "packages/contracts/rest/strategy/", "infra/db/migrations/"],
   "WEIGHTED_VOTE_V1": [
     "modules/strategy/api/contracts.ts",
@@ -52,6 +68,9 @@ const directionalProfileBoundaries = [
   "modules/backtesting/application/ports.ts",
   "packages/contracts/rest/backtesting/",
   "infra/db/migrations/",
+  "modules/backtesting/domain/",
+  "modules/backtesting/application/",
+  "modules/backtesting/infrastructure/",
 ];
 const deferredRiskPattern = /\b(?:leverage|margin|funding|liquidation)\b|generalized[_\s-]?risk|live(?:\s|_|-)*trading|liveTrading/gi;
 const syntheticPaperContractPath = "modules/backtesting/api/contracts.ts";

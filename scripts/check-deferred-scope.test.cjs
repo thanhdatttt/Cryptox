@@ -55,6 +55,33 @@ test("rejects approved Strategy extension profiles outside their exact implement
   });
 });
 
+test("permits B-03 paper profiles and vocabulary in exact Backtesting implementation directories", () => {
+  withFixture({
+    "modules/backtesting/domain/simulator.ts": "const profiles = ['SYNTHETIC_SHORT_PAPER_V1', 'STOP_LOSS_WINS_V1']; const directions = ['LONG', 'SHORT']; const stopLoss = true; const takeProfit = true;",
+    "modules/backtesting/application/service.ts": "const profiles = ['SYNTHETIC_SHORT_PAPER_V1', 'STOP_LOSS_WINS_V1']; const directions = ['LONG', 'SHORT']; const stopLoss = true; const takeProfit = true;",
+    "modules/backtesting/infrastructure/postgres.ts": "const profiles = ['SYNTHETIC_SHORT_PAPER_V1', 'STOP_LOSS_WINS_V1']; const directions = ['LONG', 'SHORT']; const stopLoss = true; const takeProfit = true;",
+  }, (fixture) => assert.deepEqual(scanDeferredScope(fixture), []));
+});
+
+test("rejects B-03 paper profiles and vocabulary outside exact Backtesting implementation directories", () => {
+  const files = {
+    "modules/backtesting/domain-legacy/simulator.ts": "const profiles = ['SYNTHETIC_SHORT_PAPER_V1', 'STOP_LOSS_WINS_V1']; const directions = ['LONG', 'SHORT']; const stopLoss = true; const takeProfit = true;",
+    "modules/backtesting/application-old/service.ts": "const profiles = ['SYNTHETIC_SHORT_PAPER_V1', 'STOP_LOSS_WINS_V1']; const directions = ['LONG', 'SHORT']; const stopLoss = true; const takeProfit = true;",
+    "modules/backtesting/infrastructure-legacy/postgres.ts": "const profiles = ['SYNTHETIC_SHORT_PAPER_V1', 'STOP_LOSS_WINS_V1']; const directions = ['LONG', 'SHORT']; const stopLoss = true; const takeProfit = true;",
+    "modules/backtesting/paper.ts": "const profiles = ['SYNTHETIC_SHORT_PAPER_V1', 'STOP_LOSS_WINS_V1']; const directions = ['LONG', 'SHORT']; const stopLoss = true; const takeProfit = true;",
+    "modules/evaluation/backtesting.ts": "const profiles = ['SYNTHETIC_SHORT_PAPER_V1', 'STOP_LOSS_WINS_V1']; const directions = ['LONG', 'SHORT']; const stopLoss = true; const takeProfit = true;",
+  };
+  withFixture(files, (fixture) => {
+    const findings = scanDeferredScope(fixture).join("\n");
+    for (const relativePath of Object.keys(files)) {
+      const escapedPath = relativePath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      assert.match(findings, new RegExp(`${escapedPath}: approved profile SYNTHETIC_SHORT_PAPER_V1 is outside its supported boundary`));
+      assert.match(findings, new RegExp(`${escapedPath}: approved profile STOP_LOSS_WINS_V1 is outside its supported boundary`));
+      assert.match(findings, new RegExp(`${escapedPath}: directional paper profile vocabulary is outside its supported boundary`));
+    }
+  });
+});
+
 test("rejects an otherwise approved profile outside its named boundary", () => {
   withFixture({
     "modules/strategy/api/contracts.ts": "export const profile = 'DOMAIN_GUIDED_V1';",
