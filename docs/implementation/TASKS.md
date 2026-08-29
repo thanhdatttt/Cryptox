@@ -39,8 +39,8 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 | C-02 | DONE | E0 | YES | Manager / exactly one contract-and-schema worker `01a04d53-6ab4-70c1-a926-f68464b0fc6a` (INS-034) | `MVP_IMPLEMENTATION` / containing INS-034 closure checkpoint | Contract/schema review, 254/254 workspace tests, PostgreSQL up/constraints/down/remigrate, architecture, artifacts, scope, deferred-scope, typecheck, build, lint, and diff checks PASS; OpenSpec CLI and link/DAG automation UNVERIFIED |
 | M-03 | BLOCKED | E1 | YES | Future Market Data worker | — | Not started; amended MD-02/MD-03 evidence required |
 | S-04 | BLOCKED | E1 | YES | Future Strategy application worker | — | Not started; controlled LLM draft/approval evidence required |
-| S-05 | REVIEW | E1 | YES | INS-036 fresh S-05 worker `01a04e66-d981-7e42-b75d-1bb3b7340c73` / Manager | `MVP_IMPLEMENTATION` / containing INS-036 checkpoint | Focused 17/17 and Strategy 89/89 PASS; root scope checker BLOCKED on authorized extension paths, so not DONE |
-| S-06 | REVIEW | E1 | YES | INS-036 fresh S-06 worker `01a04e66-e691-7a50-af2f-b1eecd39053b` / Manager | `MVP_IMPLEMENTATION` / containing INS-036 checkpoint | Focused 20/20 and Strategy 89/89 PASS; root scope checker BLOCKED on authorized extension paths, so not DONE |
+| S-05 | DONE | E1 | YES | INS-036 fresh S-05 worker `01a04e66-d981-7e42-b75d-1bb3b7340c73` / Manager; INS-041 closure review | `MVP_IMPLEMENTATION` / containing INS-041 closure checkpoint | Focused 17/17 and Strategy 89/89 PASS; ENV-02 checker gate PASS; immutable weighted-composite evidence accepted |
+| S-06 | DONE | E1 | YES | INS-036 fresh S-06 worker `01a04e66-e691-7a50-af2f-b1eecd39053b` / Manager; INS-041 closure review | `MVP_IMPLEMENTATION` / containing INS-041 closure checkpoint | Focused 20/20 and Strategy 89/89 PASS; ENV-02 checker gate PASS; deterministic Lite-plugin evidence accepted |
 | Q-02 | BLOCKED | E1 | YES | Future Search worker | — | Not started; Domain-guided/Genetic seeded evidence required |
 | B-03 | BLOCKED | E1 | YES | Future Backtesting worker | — | Not started; synthetic paper/decimal/provenance evidence required |
 | N-03 | BLOCKED | E1 | YES | Future News/Sentiment boundary worker | — | Not started; safe URL/extraction/refinement evidence required |
@@ -49,22 +49,25 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 | F-03 | BLOCKED | E3 | YES | Future Frontend worker | — | Not started; DEC-007 functional-state projections required |
 | I-03 | BLOCKED | E4 | YES | Manager / future integration worker | — | Not started; final extension integration/reproducibility proof required |
 | ENV-01 | DONE | E0a | YES | Manager / Infrastructure-and-tooling worker `01a04d08-19c8-76e1-ad32-57471e75f430` | `MVP_IMPLEMENTATION` / containing INS-030 ENV-01 checkpoint commit | Independent review PASS; Docker/migration/checker/root validation PASS; OpenSpec CLI UNVERIFIED |
-| ENV-02 | REVIEW | E1 closure | YES | Manager `01a04ea7-b1bd-73c2-972a-7d67e6f551c9` / checker-tooling worker `01a04eae-367c-7fc3-8961-dccb9e760cf9` (Confucius) under `INS-039` | `MVP_IMPLEMENTATION` / `d8c5bf3324cbee349e272cb177537fa6ed062df0` (`checkpoint(ins-039): reconcile checker boundaries`) | `BLOCKED -> READY -> IN_PROGRESS -> REVIEW`; independent changed-path review and applicable validation PASS; checkpoint commit recorded |
+| ENV-02 | DONE | E1 closure | YES | Manager `01a04ea7-b1bd-73c2-972a-7d67e6f551c9` / checker-tooling worker `01a04eae-367c-7fc3-8961-dccb9e760cf9` (Confucius) under `INS-039`; INS-041 closure review | `MVP_IMPLEMENTATION` / `d8c5bf3324cbee349e272cb177537fa6ed062df0` plus INS-041 closure checkpoint | `BLOCKED -> READY -> IN_PROGRESS -> REVIEW -> DONE`; immutable checker evidence accepted; no worker created for closure |
 
 The `RB-01` row records the completed governance checkpoint. `ENV-01` is the
 sole packet allocated by current `INS-030`; it is DONE at its authorized
 boundary after one worker completed and the Manager independently reviewed it.
 `C-02` is now DONE at its authorized contract/schema gate after one worker and
-Manager review. Every other extension feature packet remains `BLOCKED`; no
-downstream packet was authorized or started. The existing legacy rows, including
+Manager review. All extension feature packets other than the now-completed
+`S-05`/`S-06` remain `BLOCKED`; no downstream packet was authorized or started.
+The existing legacy rows, including
 `M-02` at `REVIEW`, `AU-02` at `BLOCKED`, and `I-01`/`I-02` at `BLOCKED`, retain
 their states and evidence. DEC-007 feature behavior remains unimplemented in
 the separately gated downstream packets.
 
-`ENV-02` is the sole packet named by current `INS-039`; it was persisted as
-`BLOCKED`, moved to `READY` after the Manager's dependency/applicability
-recheck passed, executed by exactly one scoped worker, and is now `REVIEW` after
-independent Manager validation. No downstream packet was started.
+`ENV-02` was the sole implementation packet named by `INS-039`; it was
+persisted as `BLOCKED`, moved to `READY`, executed by exactly one scoped worker,
+and reviewed at `REVIEW`. `INS-041` then authorized only the Manager-owned
+closure review; `ENV-02`, `S-05`, and `S-06` are now `DONE` after the immutable
+evidence and fresh validation gates remained valid. No downstream packet was
+started and no worker was created for closure.
 
 ## Task records
 
@@ -627,7 +630,7 @@ acceptance criteria and handoff requirements are in the linked packets in
 ### S-05 — Immutable `WEIGHTED_VOTE_V1` Composite
 
 - **Requirement IDs:** `CSL-R-ST-03`, `CSL-R-ST-06`, `CSL-R-RP-02`.
-- **State / owner / wave:** REVIEW / INS-036 fresh S-05 worker `01a04e66-d981-7e42-b75d-1bb3b7340c73` and Manager / E1.
+- **State / owner / wave:** DONE / INS-036 fresh S-05 worker `01a04e66-d981-7e42-b75d-1bb3b7340c73`, Manager, and INS-041 closure review / E1.
 - **Dependencies:** `C-02`, S-01; downstream B-03/L-02/F-03/I-03.
 - **Exact write scope:** Only new files under
   `modules/strategy/domain/composite/**` and
@@ -644,15 +647,16 @@ acceptance criteria and handoff requirements are in the linked packets in
   commit, registration, integration, or control-plane edit. Manager independently
   reviewed the files and made one readonly-test cast fix in the same authorized
   test path. Focused tests are 17/17; package Strategy tests are 89/89; package
-  typecheck/lint/build and applicable root gates pass. `scope:check` remains
-  BLOCKED because its current allowlist rejects the authorized new implementation
-  paths; the checker is outside this authorization.
+  typecheck/lint/build and applicable root gates pass. The separately authorized
+  `ENV-02` checker reconciliation now passes the four extension-directory
+  boundaries and near-match negative cases, so the weighted-composite evidence
+  was accepted under `INS-041` without source changes.
 - **Full packet:** [`MVP_PLAN.md#s-05--immutable-weighted_vote_v1-composite`](MVP_PLAN.md#s-05--immutable-weighted_vote_v1-composite)
 
 ### S-06 — Deterministic `SMC_LITE_V1` and `WYCKOFF_LITE_V1` Plugins
 
 - **Requirement IDs:** `CSL-R-ST-07`, `CSL-R-RP-02`.
-- **State / owner / wave:** REVIEW / INS-036 fresh S-06 worker `01a04e66-e691-7a50-af2f-b1eecd39053b` and Manager / E1.
+- **State / owner / wave:** DONE / INS-036 fresh S-06 worker `01a04e66-e691-7a50-af2f-b1eecd39053b`, Manager, and INS-041 closure review / E1.
 - **Dependencies:** `C-02`, S-01; downstream B-03/F-03/I-03.
 - **Exact write scope:** Only new files under
   `modules/strategy/domain/plugins/smc-lite/**` and
@@ -667,9 +671,11 @@ acceptance criteria and handoff requirements are in the linked packets in
 - **Review/checkpoint:** Worker produced the six in-scope files without a
   commit, registration, integration, or control-plane edit. Manager independently
   reviewed the files. Focused tests are 20/20; package Strategy tests are 89/89;
-  package typecheck/lint/build and applicable root gates pass. `scope:check`
-  remains BLOCKED because its current allowlist rejects the authorized new
-  implementation paths; the checker is outside this authorization.
+  package typecheck/lint/build and applicable root gates pass. The separately
+  authorized `ENV-02` checker reconciliation now passes the four
+  extension-directory boundaries and near-match negative cases, so the
+  deterministic Lite-plugin evidence was accepted under `INS-041` without
+  source changes.
 - **Full packet:** [`MVP_PLAN.md#s-06--deterministic-smc_lite_v1-and-wyckoff_lite_v1-plugins`](MVP_PLAN.md#s-06--deterministic-smc_lite_v1-and-wyckoff_lite_v1-plugins)
 
 ### ENV-02 — Post-Extension Approved-Profile Checker Boundary Reconciliation
@@ -677,13 +683,14 @@ acceptance criteria and handoff requirements are in the linked packets in
 - **Requirement IDs / authority:** `CSL-R-RP-02`, DEC-007, DEC-010, ADR-010;
   this is a post-extension validation/tooling gate and creates no product
   behavior or new profile.
-- **State / owner / wave:** REVIEW / Manager `01a04ea7-b1bd-73c2-972a-7d67e6f551c9`
+- **State / owner / wave:** DONE / Manager `01a04ea7-b1bd-73c2-972a-7d67e6f551c9`
   with exactly one checker-tooling worker `01a04eae-367c-7fc3-8961-dccb9e760cf9`
-  (Confucius) under `INS-039` / E1 closure gate.
+  (Confucius) under `INS-039`, followed by the INS-041 Manager closure review /
+  E1 closure gate.
 - **Start dependencies:** `ENV-01` DONE, `C-02` DONE, and `S-05`/`S-06` at
-  `REVIEW` with their source evidence available. The current `INS-039 /
-  APPROVED_FOR_EXECUTION` signal must remain applicable. `ENV-02` is not a
-  retry of `ENV-01`.
+  `REVIEW` with their source evidence available. The implementation ran under
+  `INS-039`; the current `INS-041 / APPROVED_FOR_EXECUTION` signal authorized
+  only the closure review. `ENV-02` is not a retry of `ENV-01`.
 - **Integration dependencies:** The accepted checker gate is required before
   `S-05`/`S-06` can be promoted to `DONE`; no downstream feature packet is
   promoted by this packet.
@@ -721,8 +728,10 @@ acceptance criteria and handoff requirements are in the linked packets in
   checker boundaries`). Exactly one worker,
   `01a04eae-367c-7fc3-8961-dccb9e760cf9` (Confucius), changed only the two
   checker files. Manager `01a04ea7-b1bd-73c2-972a-7d67e6f551c9` independently
-  reviewed the diff and validation; the checkpoint commit is recorded. ENV-02
-  remains `REVIEW` under the INS-039 stop boundary.
+  reviewed the diff and validation; the checkpoint commit is recorded. Under
+  `INS-041`, the fresh Manager reverified the immutable evidence and promoted
+  `ENV-02`, `S-05`, and `S-06` independently to `DONE`; no worker was created
+  and no downstream packet was started.
 - **Full packet:** [`MVP_PLAN.md#env-02--post-extension-approved-profile-checker-boundary-reconciliation`](MVP_PLAN.md#env-02--post-extension-approved-profile-checker-boundary-reconciliation)
 
 ### Q-02 — Seeded `DOMAIN_GUIDED_V1` and `GENETIC_V1` Discovery
@@ -831,10 +840,10 @@ F-02 are DONE at their authorized packet boundaries; F-02 is fixture/fake-client
 evidence only and real API/browser integration remains for I-01. F-AUTH, N-01,
 and N-02 remain DONE. `RB-01` is DONE as the current governance checkpoint.
 `C-02` is DONE. `S-05` and `S-06` transitioned exactly
-`BLOCKED -> READY -> IN_PROGRESS -> REVIEW` under INS-036 after worker and
-Manager evidence. They remain REVIEW, not DONE, because the mandatory root
-`scope:check` rejects the four authorized implementation files and the checker
-cannot be edited under INS-036. `M-03`, `S-04`, `Q-02`, `B-03`, `N-03`, `E-02`,
-`L-02`, `F-03`, and `I-03` remain BLOCKED; no downstream packet was authorized
-or started. AU-02 and I-01/I-02 remain blocked; no legacy DONE packet is treated
-as evidence for a DEC-007 requirement.
+`BLOCKED -> READY -> IN_PROGRESS -> REVIEW -> DONE`: the implementation and
+independent source review occurred under INS-036, the checker boundary was
+reconciled under ENV-02, and the closure promotion was authorized by INS-041.
+`M-03`, `S-04`, `Q-02`, `B-03`, `N-03`, `E-02`, `L-02`, `F-03`, and `I-03`
+remain BLOCKED; no downstream packet was authorized or started. AU-02 and
+I-01/I-02 remain blocked; no legacy DONE packet is treated as evidence for an
+unrelated DEC-007 requirement.
