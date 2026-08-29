@@ -1,27 +1,24 @@
 import type { SearchRun, StopCondition, GeneratorType, LoopStatus, SearchRunRankingEntry } from "../domain/contracts";
+import type { AuthContext } from "modules/auth/api";
 export { createSearchModule, createInMemorySearchDependencies } from "../application/service";
 export type { SearchModuleRuntime } from "../application/service";
 export type { GeneratorType, StrategyCategory, GeneratedCandidate, StrategyGenerator, SearchSpaceConfig, StopCondition, CandidateProgress, SearchRunRankingEntry, LoopStatus } from "../domain/contracts";
-export interface SearchReadOptions {
-    ownerUserId?: string;
-}
+export type { AuthContext } from "modules/auth/api";
 export interface SearchModulePublicApi {
-    start(config: {
+    start(auth: AuthContext, config: {
         searchSpace: SearchRun["searchSpace"];
         stopCondition: StopCondition;
         generatorType: GeneratorType;
         leaderboardScopeId: string;
         maxInFlight: number;
-    }, options: {
-        ownerUserId: string;
     }): Promise<{
         searchRunId: string;
     }>;
-    pause(searchRunId: string, options?: SearchReadOptions): Promise<void>;
-    resume(searchRunId: string, options?: SearchReadOptions): Promise<void>;
-    cancel(searchRunId: string, options?: SearchReadOptions): Promise<void>;
-    status(searchRunId: string, options?: SearchReadOptions): Promise<LoopStatus>;
-    leaderboard(searchRunId: string, options?: SearchReadOptions): Promise<SearchRunRankingEntry[]>;
+    pause(auth: AuthContext, searchRunId: string): Promise<void>;
+    resume(auth: AuthContext, searchRunId: string): Promise<void>;
+    cancel(auth: AuthContext, searchRunId: string): Promise<void>;
+    status(auth: AuthContext, searchRunId: string): Promise<LoopStatus>;
+    leaderboard(auth: AuthContext, searchRunId: string): Promise<SearchRunRankingEntry[]>;
     reconcileRunningRuns(): Promise<number>;
 }
 export declare const start: SearchModulePublicApi["start"];

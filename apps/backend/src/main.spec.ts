@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BadRequestException, ConflictException, UnauthorizedException } from "@nestjs/common";
+import { BadRequestException, ConflictException, ServiceUnavailableException, UnauthorizedException, UnprocessableEntityException } from "@nestjs/common";
 import { createAuthModule, createInMemoryAuthDependencies } from "modules/auth/api";
 import { createBacktestingService, createInMemoryBacktestingDependencies } from "modules/backtesting/api";
 import { createEvaluationModule } from "modules/evaluation/api/bootstrap";
@@ -54,7 +54,13 @@ describe("backend composition", () => {
     const auth = createAuthModule(createInMemoryAuthDependencies());
     await auth.register("student@example.com", "correct-horse-battery-staple");
     const { token } = await auth.login("student@example.com", "correct-horse-battery-staple");
-    const modules = { auth, strategy: createStrategyModule(createInMemoryStrategyDependencies()) } as BackendModules;
+    const strategyDependencies = createInMemoryStrategyDependencies();
+    strategyDependencies.generationAdapter = {
+      modelName: "test-model",
+      modelVersion: "1",
+      generate: async () => ({ kind: "SINGLE", strategyName: "RSI", parameters: { period: 14, buyThreshold: 30, sellThreshold: 70 } }),
+    };
+    const modules = { auth, strategy: createStrategyModule(strategyDependencies) } as BackendModules;
     const controller = new StrategyController(modules);
     const ma = await controller.define(`Bearer ${token}`, { strategyName: "MA", parameters: { fastPeriod: 20, slowPeriod: 50 } });
     const rsi = await controller.define(`Bearer ${token}`, { strategyName: "RSI", parameters: { period: 14, buyThreshold: 30, sellThreshold: 70 } });
@@ -67,8 +73,24 @@ describe("backend composition", () => {
     await expect(controller.define(`Bearer ${token}`, { strategyName: "MA", parameters: { fastPeriod: 50, slowPeriod: 20 } })).rejects.toBeInstanceOf(BadRequestException);
 
     const generated = await new StrategyGenerationController(modules).generate(`Bearer ${token}`, { sourceType: "TEXT", text: "Use RSI to identify oversold conditions." });
-    expect(generated).toMatchObject({ kind: "SINGLE", modelName: "LOCAL_DETERMINISTIC", strategyDefinition: { strategyName: "RSI" } });
+    expect(generated).toMatchObject({ kind: "SINGLE", modelName: "test-model", strategyDefinition: { strategyName: "RSI" } });
     await expect(new StrategyGenerationController(modules).generate(`Bearer ${token}`, { sourceType: "URL", url: "file:///unsafe" })).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it("maps generation validation, unusable-source, and bounded model failures to documented HTTP statuses", async () => {
+    const controller = new StrategyGenerationController({
+      auth: { verify: async () => ({ userId: "user-1" }) },
+      strategy: { generateStrategy: async () => { throw new Error("STRATEGY_SOURCE_UNSUPPORTED_CONTENT"); } },
+    } as unknown as BackendModules);
+    await expect(controller.generate("Bearer token", { sourceType: "TEXT", text: "source" })).rejects.toBeInstanceOf(UnprocessableEntityException);
+
+    const unavailable = new StrategyGenerationController({
+      auth: { verify: async () => ({ userId: "user-1" }) },
+      strategy: { generateStrategy: async () => { throw new Error("STRATEGY_MODEL_TIMEOUT"); } },
+    } as unknown as BackendModules);
+    await expect(unavailable.generate("Bearer token", { sourceType: "TEXT", text: "source" })).rejects.toBeInstanceOf(ServiceUnavailableException);
+
+    await expect(controller.generate("Bearer token", { sourceType: "TEXT", text: "source", url: "https://example.com" } as never)).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it("maps authenticated scope, manual backtest, attempt, and experiment routes to the Backtesting public API", async () => {
@@ -84,7 +106,7 @@ describe("backend composition", () => {
     const definition = { id: "definition-1", logicalFamilyKey: "strategy:test", strategyName: "TEST", implementationVersion: "1", implementationSha256: "b".repeat(64), version: 1, parameters: {}, createdAt: snapshot.createdAt };
     const composite = { id: "composite-1", logicalFamilyKey: "composite:test", version: 1, method: "MAJORITY_VOTE" as const, components: [{ strategyDefinitionId: definition.id, weight: 0 }], createdAt: snapshot.createdAt };
     let id = 0;
-    const backtesting = createBacktestingService({ ...createInMemoryBacktestingDependencies(), marketData: { readDatasetSnapshot: async () => ({ snapshot, candles }) }, strategy: { resolveStrategy: async () => ({ name: "test", category: "TREND", analyze: (context) => context.candles.length === 1 ? "BUY" : "HOLD" }), combineSignals: (_composite, signals) => signals[0]?.signal ?? "HOLD" }, evaluation: createEvaluationModule(), clock: { now: () => "2025-01-01T03:00:00.000Z" }, idGenerator: () => `id-${id++}` });
+    const backtesting = createBacktestingService({ ...createInMemoryBacktestingDependencies(), marketData: { readDatasetSnapshot: async () => ({ snapshot, candles }) }, strategy: { readDefinitions: async (_userId, ids) => ids.map((id) => ({ ...definition, id })), readComposite: async (_userId, id) => ({ ...composite, id }), resolveStrategy: async () => ({ name: "test", category: "TREND", analyze: (context) => context.candles.length === 1 ? "BUY" : "HOLD" }), combineSignals: (_composite, signals) => signals[0]?.signal ?? "HOLD" }, evaluation: createEvaluationModule(), clock: { now: () => "2025-01-01T03:00:00.000Z" }, idGenerator: () => `id-${id++}` });
     const leaderboard = createLeaderboardModule({ ...createInMemoryLeaderboardDependencies(), scopeRepository: createBacktestingScopeRepository(backtesting), experimentReader: createBacktestingExperimentReader(backtesting), clock: { now: () => "2025-01-01T03:00:00.000Z" } });
     const search = createSearchModule({ ...createInMemorySearchDependencies(), backtestCoordinator: backtesting, leaderboardService: leaderboard, clock: { now: () => "2025-01-01T03:00:00.000Z" } });
     const modules = {
@@ -121,7 +143,7 @@ describe("backend composition", () => {
       backtesting: { readBenchmarkScope: async () => ({ id: "scope-1" }) },
       strategy: { readDefinitions: async (_owner: string, ids: string[]) => ids.map((id) => ({ id })) },
       search: {
-        start: async (config: { generatorType: string; searchSpace: { availableStrategies: unknown[] } }) => { calls.push(`start:${config.generatorType}:${config.searchSpace.availableStrategies.length}`); return { searchRunId: "run-1" }; },
+        start: async (_auth: unknown, config: { generatorType: string; searchSpace: { availableStrategies: unknown[] } }) => { calls.push(`start:${config.generatorType}:${config.searchSpace.availableStrategies.length}`); return { searchRunId: "run-1" }; },
         status: async () => ({ searchRunId: "run-1", state: "RUNNING" }),
         pause: async () => { calls.push("pause"); }, resume: async () => { calls.push("resume"); }, cancel: async () => { calls.push("cancel"); }, leaderboard: async () => [{ rank: 1 }],
       },
@@ -143,11 +165,11 @@ describe("backend composition", () => {
     const modules = {
       auth: { verify: async () => ({ userId: "user-1" }) },
       backtesting: {
-        listBenchmarkScopes: async (options: unknown) => { calls.push(["scopes", options]); return [{ id: "scope-1" }]; },
+        listBenchmarkScopes: async (auth: unknown) => { calls.push(["scopes", auth]); return [{ id: "scope-1" }]; },
         cancelManualCandidate: async (...args: unknown[]) => { calls.push(["cancel", args]); },
-        listSearchCandidates: async (searchRunId: string, page: unknown) => { calls.push(["candidates", searchRunId, page]); return { items: [{ candidateId: "candidate-1" }] }; },
-        readExperimentVisualization: async (experimentId: string, page: unknown, options: unknown) => { calls.push(["visualization", experimentId, page, options]); return { experimentId, candles: [], overlays: [], markers: [] }; },
-        verifyReplay: async (experimentId: string, options: unknown) => { calls.push(["replay", experimentId, options]); return { experimentId, status: "MATCH" }; },
+        listSearchCandidates: async (auth: unknown, searchRunId: string, page: unknown) => { calls.push(["candidates", auth, searchRunId, page]); return { items: [{ candidateId: "candidate-1" }] }; },
+        readExperimentVisualization: async (auth: unknown, experimentId: string, page: unknown) => { calls.push(["visualization", auth, experimentId, page]); return { experimentId, candles: [], overlays: [], markers: [] }; },
+        verifyReplay: async (auth: unknown, experimentId: string) => { calls.push(["replay", auth, experimentId]); return { experimentId, status: "MATCH" }; },
         readBenchmarkScope: async () => ({ id: "scope-1" }),
       },
       search: { status: async () => ({ searchRunId: "run-1", state: "RUNNING" }) },
@@ -163,10 +185,10 @@ describe("backend composition", () => {
     await expect(new LeaderboardController(modules).topK("Bearer token", "scope-1")).resolves.toEqual([{ rank: 1 }]);
     await expect(new MarketController(modules).candles("Bearer token", "BTCUSDT", "1h", undefined, "2025-01-01T00:00:00.000Z", "2025-01-01T02:00:00.000Z", "cursor-2", "true", "REQUIRE_COMPLETE")).resolves.toEqual({ candles: [] });
 
-    expect(calls).toContainEqual(["scopes", { ownerUserId: "user-1" }]);
-    expect(calls).toContainEqual(["candidates", "run-1", { limit: 20, cursor: "cursor-1" }]);
-    expect(calls).toContainEqual(["visualization", "experiment-1", { limit: 10, cursor: "cursor-1", from: undefined, to: undefined, highlightTradeId: undefined }, { ownerUserId: "user-1" }]);
-    expect(calls).toContainEqual(["replay", "experiment-1", { ownerUserId: "user-1" }]);
+    expect(calls).toContainEqual(["scopes", { userId: "user-1" }]);
+    expect(calls).toContainEqual(["candidates", { userId: "user-1" }, "run-1", { limit: 20, cursor: "cursor-1" }]);
+    expect(calls).toContainEqual(["visualization", { userId: "user-1" }, "experiment-1", { limit: 10, cursor: "cursor-1", from: undefined, to: undefined, highlightTradeId: undefined }]);
+    expect(calls).toContainEqual(["replay", { userId: "user-1" }, "experiment-1"]);
     expect(calls).toContainEqual(["candles", { pair: "BTCUSDT", timeframe: "1h", limit: undefined, range: { from: "2025-01-01T00:00:00.000Z", to: "2025-01-01T02:00:00.000Z" }, cursor: "cursor-2", includeForming: true, completeness: "REQUIRE_COMPLETE" }]);
   });
 

@@ -1,6 +1,6 @@
 import type { EvaluationMetrics } from "modules/evaluation/api";
 import type { Candle, DatasetSnapshotRef } from "modules/market-data/api";
-import type { BacktestAttemptAudit, BacktestAttemptProgress, CompletedBacktestResult, Trade } from "../domain/contracts";
+import type { BacktestAttemptAudit, BacktestAttemptProgress, CancellationUnitOfWork, CompletedBacktestResult, Trade } from "../domain/contracts";
 import type { BacktestDispatch, BacktestingRepository, CompletionProcessingClaim, StoredBenchmarkScope, StoredCandidate, StoredExperiment, WorkerAttemptClaim } from "../application/ports";
 export interface BacktestingSqlClient {
     query<Row>(text: string, values: unknown[]): Promise<{
@@ -25,7 +25,7 @@ export declare class PostgresBacktestingRepository implements BacktestingReposit
     createScope(input: StoredBenchmarkScope, idempotencyKey: string): Promise<StoredBenchmarkScope>;
     private scopeRows;
     findScopeByIdempotency(ownerUserId: string, idempotencyKey: string): Promise<StoredBenchmarkScope | undefined>;
-    readScope(scopeId: string): Promise<StoredBenchmarkScope | undefined>;
+    readScope(scopeId: string, ownerUserId?: string): Promise<StoredBenchmarkScope | undefined>;
     listScopesByOwner(ownerUserId: string): Promise<StoredBenchmarkScope[]>;
     private candidateFrom;
     private candidateSql;
@@ -36,18 +36,18 @@ export declare class PostgresBacktestingRepository implements BacktestingReposit
         submissionIdempotencyKey?: string;
     }): Promise<StoredCandidate>;
     findCandidateBySubmission(ownerUserId: string, key: string): Promise<StoredCandidate | undefined>;
-    readCandidate(candidateId: string): Promise<StoredCandidate | undefined>;
-    updateCandidate(input: StoredCandidate): Promise<void>;
+    readCandidate(candidateId: string, ownerUserId?: string): Promise<StoredCandidate | undefined>;
+    updateCandidate(input: StoredCandidate, unitOfWork?: CancellationUnitOfWork): Promise<void>;
     readDispatch(jobId: string): Promise<BacktestDispatch | undefined>;
     listPendingDispatches(limit: number): Promise<BacktestDispatch[]>;
     listQueueRecoveryCandidates(limit: number): Promise<string[]>;
     markDispatchDispatched(jobId: string, dispatchedAt: string): Promise<void>;
     markDispatchFailed(jobId: string, error: string, at: string): Promise<void>;
-    markDispatchCancelled(jobId: string, at: string): Promise<void>;
-    listCandidatesBySearchRun(searchRunId: string): Promise<StoredCandidate[]>;
+    markDispatchCancelled(jobId: string, at: string, unitOfWork?: CancellationUnitOfWork): Promise<void>;
+    listCandidatesBySearchRun(searchRunId: string, ownerUserId?: string): Promise<StoredCandidate[]>;
     createAttempt(input: BacktestAttemptAudit): Promise<void>;
     updateAttempt(input: BacktestAttemptAudit): Promise<void>;
-    readAttempt(attemptId: string): Promise<BacktestAttemptAudit | undefined>;
+    readAttempt(attemptId: string, ownerUserId?: string): Promise<BacktestAttemptAudit | undefined>;
     listAttempts(candidateId: string): Promise<BacktestAttemptProgress[]>;
     claimWorkerAttempt(input: {
         candidateId: string;
@@ -116,13 +116,13 @@ export declare class PostgresBacktestingRepository implements BacktestingReposit
         fenceToken?: string;
     }): Promise<void>;
     listTrades(attemptId: string): Promise<Trade[]>;
-    readExperiment(experimentId: string): Promise<StoredExperiment | undefined>;
+    readExperiment(experimentId: string, ownerUserId?: string): Promise<StoredExperiment | undefined>;
     findExperimentByCandidate(candidateId: string): Promise<StoredExperiment | undefined>;
-    listExperimentsBySearchRun(searchRunId: string): Promise<StoredExperiment[]>;
+    listExperimentsBySearchRun(searchRunId: string, ownerUserId?: string): Promise<StoredExperiment[]>;
     updateExperimentScore(experimentId: string, input: {
         overallScore: number;
         rankEligible: boolean;
-    }): Promise<StoredExperiment | undefined>;
+    }, ownerUserId?: string): Promise<StoredExperiment | undefined>;
     private experiment;
 }
 export declare const createPostgresBacktestingDependencies: (pool: TransactionPool, dependencies: Omit<import("../application/ports").BacktestingModuleDependencies, "repository">) => import("../application/ports").BacktestingModuleDependencies;

@@ -60,7 +60,7 @@ export interface BacktestingRepository {
     } | undefined>;
     createScope(scope: StoredBenchmarkScope, idempotencyKey: string): Promise<StoredBenchmarkScope>;
     findScopeByIdempotency(ownerUserId: string, idempotencyKey: string): Promise<StoredBenchmarkScope | undefined>;
-    readScope(scopeId: string): Promise<StoredBenchmarkScope | undefined>;
+    readScope(scopeId: string, ownerUserId?: string): Promise<StoredBenchmarkScope | undefined>;
     listScopesByOwner(ownerUserId: string): Promise<StoredBenchmarkScope[]>;
     createCandidate(candidate: StoredCandidate, submissionIdempotencyKey?: string): Promise<StoredCandidate>;
     createQueuedSubmission(input: {
@@ -69,14 +69,14 @@ export interface BacktestingRepository {
         submissionIdempotencyKey?: string;
     }): Promise<StoredCandidate>;
     findCandidateBySubmission(ownerUserId: string, submissionIdempotencyKey: string): Promise<StoredCandidate | undefined>;
-    readCandidate(candidateId: string): Promise<StoredCandidate | undefined>;
-    updateCandidate(candidate: StoredCandidate): Promise<void>;
+    readCandidate(candidateId: string, ownerUserId?: string): Promise<StoredCandidate | undefined>;
+    updateCandidate(candidate: StoredCandidate, unitOfWork?: import("../domain/contracts").CancellationUnitOfWork): Promise<void>;
     readDispatch(jobId: string): Promise<BacktestDispatch | undefined>;
     listPendingDispatches(limit: number): Promise<BacktestDispatch[]>;
     listQueueRecoveryCandidates(limit: number): Promise<string[]>;
     markDispatchDispatched(jobId: string, dispatchedAt: string): Promise<void>;
     markDispatchFailed(jobId: string, error: string, at: string): Promise<void>;
-    markDispatchCancelled(jobId: string, at: string): Promise<void>;
+    markDispatchCancelled(jobId: string, at: string, unitOfWork?: import("../domain/contracts").CancellationUnitOfWork): Promise<void>;
     claimWorkerAttempt(input: {
         candidateId: string;
         queueJobId: string;
@@ -134,10 +134,10 @@ export interface BacktestingRepository {
         now: string;
         error: string;
     }): Promise<void>;
-    listCandidatesBySearchRun(searchRunId: string): Promise<StoredCandidate[]>;
+    listCandidatesBySearchRun(searchRunId: string, ownerUserId?: string): Promise<StoredCandidate[]>;
     createAttempt(attempt: BacktestAttemptAudit): Promise<void>;
     updateAttempt(attempt: BacktestAttemptAudit): Promise<void>;
-    readAttempt(attemptId: string): Promise<BacktestAttemptAudit | undefined>;
+    readAttempt(attemptId: string, ownerUserId?: string): Promise<BacktestAttemptAudit | undefined>;
     listAttempts(candidateId: string): Promise<BacktestAttemptProgress[]>;
     completeAttempt(input: {
         candidate: StoredCandidate;
@@ -148,17 +148,17 @@ export interface BacktestingRepository {
         fenceToken?: string;
     }): Promise<void>;
     listTrades(attemptId: string): Promise<Trade[]>;
-    readExperiment(experimentId: string): Promise<StoredExperiment | undefined>;
+    readExperiment(experimentId: string, ownerUserId?: string): Promise<StoredExperiment | undefined>;
     findExperimentByCandidate(candidateId: string): Promise<StoredExperiment | undefined>;
-    listExperimentsBySearchRun(searchRunId: string): Promise<StoredExperiment[]>;
+    listExperimentsBySearchRun(searchRunId: string, ownerUserId?: string): Promise<StoredExperiment[]>;
     updateExperimentScore(experimentId: string, input: {
         overallScore: number;
         rankEligible: boolean;
-    }): Promise<StoredExperiment | undefined>;
+    }, ownerUserId?: string): Promise<StoredExperiment | undefined>;
 }
 export interface BacktestingModuleDependencies {
     marketData: Pick<MarketDataModulePublicApi, "readDatasetSnapshot">;
-    strategy: Pick<StrategyModulePublicApi, "resolveStrategy" | "combineSignals">;
+    strategy: Pick<StrategyModulePublicApi, "resolveStrategy" | "combineSignals" | "readDefinitions" | "readComposite">;
     evaluation: Pick<EvaluatorModulePublicApi, "evaluator">;
     repository: BacktestingRepository;
     queue: BacktestQueuePort;

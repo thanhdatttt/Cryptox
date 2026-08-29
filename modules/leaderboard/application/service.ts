@@ -22,11 +22,11 @@ export const DEFAULT_SCORE_FORMULA: ScoreFormula = {
 
 export interface LeaderboardModuleRuntime {
   score(leaderboardScopeId: string, metrics: EvaluationMetrics): Promise<ScoredEvaluation>;
-  topK(leaderboardScopeId: string): Promise<LeaderboardEntry[]>;
-  rankSearchRun(searchRunId: string): Promise<SearchRunRankingEntry[]>;
+  topK(userId: string, leaderboardScopeId: string): Promise<LeaderboardEntry[]>;
+  rankSearchRun(userId: string, searchRunId: string): Promise<SearchRunRankingEntry[]>;
   submit(experiment: ExperimentResult, unitOfWork: import("modules/backtesting/api").CompletionUnitOfWork): Promise<LeaderboardSubmissionResult>;
-  createLeaderboardScope(command: CreateLeaderboardScopeCommand): Promise<LeaderboardScope>;
-  getLeaderboardScope(id: string): Promise<LeaderboardScope>;
+  createLeaderboardScope(userId: string, command: CreateLeaderboardScopeCommand): Promise<LeaderboardScope>;
+  getLeaderboardScope(userId: string, id: string): Promise<LeaderboardScope>;
 }
 
 export function createInMemoryLeaderboardDependencies(): LeaderboardModuleDependencies {
@@ -37,7 +37,7 @@ export function createInMemoryLeaderboardDependencies(): LeaderboardModuleDepend
   return {
     scopeRepository: {
       insert: async (scope) => { scopes.set(scope.id, scope); return scope; },
-      getById: async (id) => scopes.get(id),
+      getById: async (userId, id) => { const scope = scopes.get(id); return scope?.userId === userId ? scope : undefined; },
     },
     formulaRepository: {
       getById: async (id) => formulas.get(id),
@@ -72,6 +72,7 @@ export function createLeaderboardModule(dependencies: LeaderboardModuleDependenc
   const scopeCache = new Map((dependencies.initialScopes ?? []).map((scope) => [scope.id, scope]));
   const formulaCache = new Map((dependencies.initialFormulas ?? []).map((formula) => [formula.id, formula]));
   const idGenerator = dependencies.idGenerator ?? (() => `leaderboard-scope-${crypto.randomUUID()}`);
+  const assertOwner = (userId: string): void => { if (!userId?.trim()) throw new Error("INVALID_AUTH_CONTEXT"); };
 
   const cacheScopeAndFormula = async (scope: LeaderboardScope): Promise<ScoreFormula> => {
     scopeCache.set(scope.id, scope);
@@ -85,19 +86,21 @@ export function createLeaderboardModule(dependencies: LeaderboardModuleDependenc
 
   return {
     score: async (leaderboardScopeId, metrics) => {
-      const scope = scopeCache.get(leaderboardScopeId) ?? await dependencies.scopeRepository.getById(leaderboardScopeId);
-      if (!scope) throw new Error("SCOPE_NOT_FOUND");
-      const formula = await cacheScopeAndFormula(scope);
+      const scope = scopeCache.get(leaderboardScopeId);
+      const formula = scope ? await cacheScopeAndFormula(scope) : formulaCache.get(DEFAULT_SCORE_FORMULA.id) ?? DEFAULT_SCORE_FORMULA;
       return scoreEvaluation(leaderboardScopeId, formula, metrics);
     },
-    topK: async (leaderboardScopeId) => {
-      const scope = await dependencies.scopeRepository.getById(leaderboardScopeId);
+    topK: async (userId, leaderboardScopeId) => {
+      assertOwner(userId);
+      const scope = await dependencies.scopeRepository.getById(userId, leaderboardScopeId);
       if (!scope) throw new Error("SCOPE_NOT_FOUND");
       await cacheScopeAndFormula(scope);
       return rankEntries(await dependencies.entryRepository.getActiveTopK(leaderboardScopeId, TOP_K));
     },
-    rankSearchRun: async (searchRunId) => {
-      const experiments = await dependencies.experimentReader.getBySearchRunId(searchRunId);
+    rankSearchRun: async (userId, searchRunId) => {
+      assertOwner(userId);
+      if (dependencies.searchRunReader && !await dependencies.searchRunReader.getByOwner(userId, searchRunId)) throw new Error("SEARCH_RUN_NOT_FOUND");
+      const experiments = await dependencies.experimentReader.getBySearchRunId(userId, searchRunId);
       return experiments
         .filter((experiment) => experiment.rankEligible && Number.isFinite(experiment.overallScore))
         .sort((left, right) => right.overallScore - left.overallScore || left.id.localeCompare(right.id))
@@ -106,7 +109,8 @@ export function createLeaderboardModule(dependencies: LeaderboardModuleDependenc
     submit: async (experiment, _unitOfWork) => {
       if (!experiment.rankEligible) return { admitted: false };
       if (!Number.isFinite(experiment.overallScore)) throw new Error("INVALID_SCORE");
-      const scope = await dependencies.scopeRepository.getById(experiment.leaderboardScopeId);
+      if (!experiment.ownerUserId?.trim()) throw new Error("EXPERIMENT_OWNER_REQUIRED");
+      const scope = await dependencies.scopeRepository.getById(experiment.ownerUserId, experiment.leaderboardScopeId);
       if (!scope) throw new Error("SCOPE_NOT_FOUND");
       await cacheScopeAndFormula(scope);
       const existing = await dependencies.entryRepository.getByExperimentResultId(experiment.id);
@@ -119,18 +123,20 @@ export function createLeaderboardModule(dependencies: LeaderboardModuleDependenc
       const entry = rankEntries(await dependencies.entryRepository.getActiveTopK(experiment.leaderboardScopeId, TOP_K)).find((candidate) => candidate.id === inserted.id) ?? inserted;
       return { admitted: true, entry, evictedExperimentResultId: lowest?.experimentResultId };
     },
-    createLeaderboardScope: async (command) => {
+    createLeaderboardScope: async (userId, command) => {
+      assertOwner(userId);
       validateScopeCommand(command);
       const formula = await dependencies.formulaRepository.getById(command.scoreFormulaId);
       if (!formula) throw new Error("SCORE_FORMULA_NOT_FOUND");
       formulaCache.set(formula.id, formula);
-      const scope: LeaderboardScope = { id: idGenerator(), name: command.name, version: 1, datasetSnapshot: command.datasetSnapshot, sentimentDatasetSnapshot: command.sentimentDatasetSnapshot, workerRuntimeVersion: command.workerRuntimeVersion, workerRuntimeSha256: command.workerRuntimeSha256, evaluationRuntimeVersion: command.evaluationRuntimeVersion, evaluationRuntimeSha256: command.evaluationRuntimeSha256, initialCapital: command.initialCapital, feeRatePercent: command.feeRatePercent, slippageBps: command.slippageBps, scoreFormulaId: command.scoreFormulaId, createdAt: dependencies.clock.now() };
+      const scope: LeaderboardScope = { id: idGenerator(), userId, name: command.name, version: 1, datasetSnapshot: command.datasetSnapshot, sentimentDatasetSnapshot: command.sentimentDatasetSnapshot, workerRuntimeVersion: command.workerRuntimeVersion, workerRuntimeSha256: command.workerRuntimeSha256, evaluationRuntimeVersion: command.evaluationRuntimeVersion, evaluationRuntimeSha256: command.evaluationRuntimeSha256, initialCapital: command.initialCapital, feeRatePercent: command.feeRatePercent, slippageBps: command.slippageBps, scoreFormulaId: command.scoreFormulaId, createdAt: dependencies.clock.now() };
       const saved = await dependencies.scopeRepository.insert(scope);
       scopeCache.set(saved.id, saved);
       return saved;
     },
-    getLeaderboardScope: async (id) => {
-      const scope = await dependencies.scopeRepository.getById(id);
+    getLeaderboardScope: async (userId, id) => {
+      assertOwner(userId);
+      const scope = await dependencies.scopeRepository.getById(userId, id);
       if (!scope) throw new Error("SCOPE_NOT_FOUND");
       await cacheScopeAndFormula(scope);
       return scope;

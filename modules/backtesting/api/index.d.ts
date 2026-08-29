@@ -1,5 +1,6 @@
 import type { BacktestAttemptAudit, BacktestSubmissionAccepted, BenchmarkScopeSummary, CandidateProgress, CancellationUnitOfWork, CreateLeaderboardScopeCommand, ExperimentResultSummary, ExperimentVisualization, ReplayVerificationResult, StartManualBacktestCommand, SubmitSearchCandidateCommand, Trade } from "../domain/contracts";
 import type { BacktestQueueJob, BacktestQueueReturn, BacktestQueueTerminalSignal } from "@cryptox/contracts/queue";
+import type { AuthContext } from "modules/auth/api";
 export { simulateBacktest } from "../domain/simulator";
 export type { SimulationInput } from "../domain/simulator";
 export type { CandidateStatus, BacktestSubmissionAccepted, CancellationUnitOfWork, CompletionUnitOfWork, Trade, CompletedBacktestResult, GeneratorType, CreateLeaderboardScopeCommand, StartManualBacktestCommand, SubmitSearchCandidateCommand, BenchmarkScopeSummary, ReplayVerificationResult, CandidateProgress, BacktestAttemptProgress, BacktestAttemptAudit, ExperimentResult, ExperimentResultSummary, ExperimentVisualization, ExperimentVisualizationMarker } from "../domain/contracts";
@@ -39,21 +40,17 @@ export interface ExperimentVisualizationPageRequest {
     to?: string;
     highlightTradeId?: string;
 }
-export interface BacktestReadOptions {
-    ownerUserId?: string;
-}
+export type { AuthContext } from "modules/auth/api";
 export interface BacktestLogApi {
-    createBenchmarkScope(command: CreateLeaderboardScopeCommand, options: {
+    createBenchmarkScope(auth: AuthContext, command: CreateLeaderboardScopeCommand, options: {
         scopeIdempotencyKey: string;
-        ownerUserId: string;
     }): Promise<BenchmarkScopeSummary>;
-    readBenchmarkScope(scopeId: string, options?: BacktestReadOptions): Promise<BenchmarkScopeSummary>;
-    listBenchmarkScopes(options: Required<BacktestReadOptions>): Promise<BenchmarkScopeSummary[]>;
-    startManual(command: StartManualBacktestCommand, options: {
-        ownerUserId: string;
+    readBenchmarkScope(auth: AuthContext, scopeId: string): Promise<BenchmarkScopeSummary>;
+    listBenchmarkScopes(auth: AuthContext): Promise<BenchmarkScopeSummary[]>;
+    startManual(auth: AuthContext, command: StartManualBacktestCommand, options?: {
         submissionIdempotencyKey?: string;
     }): Promise<BacktestSubmissionAccepted>;
-    submitSearchCandidate(command: SubmitSearchCandidateCommand): Promise<BacktestSubmissionAccepted>;
+    submitSearchCandidate(auth: AuthContext, command: SubmitSearchCandidateCommand): Promise<BacktestSubmissionAccepted>;
     reconcileQueue(limit?: number): Promise<{
         dispatched: number;
         pending: number;
@@ -75,25 +72,25 @@ export interface BacktestLogApi {
         candidateId: string;
         status: "COMPLETED" | "FAILED" | "IGNORED";
     }>;
-    status(candidateId: string, options?: BacktestReadOptions): Promise<CandidateProgress>;
-    summarizeSearchCandidates(searchRunId: string): Promise<SearchCandidateSummary>;
-    listSearchCandidates(searchRunId: string, page: SearchCandidatePageRequest): Promise<SearchCandidatePage>;
-    cancelSearchCandidates(searchRunId: string, unitOfWork: CancellationUnitOfWork): Promise<{
+    status(auth: AuthContext, candidateId: string): Promise<CandidateProgress>;
+    summarizeSearchCandidates(auth: AuthContext, searchRunId: string): Promise<SearchCandidateSummary>;
+    listSearchCandidates(auth: AuthContext, searchRunId: string, page: SearchCandidatePageRequest): Promise<SearchCandidatePage>;
+    cancelSearchCandidates(auth: AuthContext, searchRunId: string, unitOfWork: CancellationUnitOfWork): Promise<{
         candidateIds: string[];
     }>;
-    cancelManualCandidate(candidateId: string, unitOfWork: CancellationUnitOfWork, options?: BacktestReadOptions): Promise<void>;
+    cancelManualCandidate(auth: AuthContext, candidateId: string): Promise<void>;
     removePendingJobs(candidateIds: string[]): Promise<void>;
-    readAttempt(attemptId: string, options?: BacktestReadOptions): Promise<BacktestAttemptAudit>;
-    listAttemptTrades(attemptId: string, page: TradePageRequest, options?: BacktestReadOptions): Promise<TradePage>;
-    readExperimentSummary(experimentId: string, options?: BacktestReadOptions): Promise<ExperimentResultSummary>;
-    listSearchExperimentSummaries(searchRunId: string, options?: BacktestReadOptions): Promise<ExperimentResultSummary[]>;
-    scoreExperiment(experimentId: string, input: {
+    readAttempt(auth: AuthContext, attemptId: string): Promise<BacktestAttemptAudit>;
+    listAttemptTrades(auth: AuthContext, attemptId: string, page: TradePageRequest): Promise<TradePage>;
+    readExperimentSummary(auth: AuthContext, experimentId: string): Promise<ExperimentResultSummary>;
+    listSearchExperimentSummaries(auth: AuthContext, searchRunId: string): Promise<ExperimentResultSummary[]>;
+    scoreExperiment(auth: AuthContext, experimentId: string, input: {
         overallScore: number;
         rankEligible: boolean;
-    }, options?: BacktestReadOptions): Promise<ExperimentResultSummary>;
-    listExperimentTrades(experimentId: string, page: TradePageRequest, options?: BacktestReadOptions): Promise<TradePage>;
-    readExperimentVisualization(experimentId: string, page: ExperimentVisualizationPageRequest, options?: BacktestReadOptions): Promise<ExperimentVisualization>;
-    verifyReplay(experimentId: string, options?: BacktestReadOptions): Promise<ReplayVerificationResult>;
+    }): Promise<ExperimentResultSummary>;
+    listExperimentTrades(auth: AuthContext, experimentId: string, page: TradePageRequest): Promise<TradePage>;
+    readExperimentVisualization(auth: AuthContext, experimentId: string, page: ExperimentVisualizationPageRequest): Promise<ExperimentVisualization>;
+    verifyReplay(auth: AuthContext, experimentId: string): Promise<ReplayVerificationResult>;
 }
 export declare const createBenchmarkScope: BacktestLogApi["createBenchmarkScope"];
 export declare const readBenchmarkScope: BacktestLogApi["readBenchmarkScope"];

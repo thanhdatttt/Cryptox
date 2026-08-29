@@ -1,5 +1,5 @@
 import type { BacktestLogApi } from "modules/backtesting/api";
-import type { ExperimentResultReader, LeaderboardEntryRepository, LeaderboardModuleDependencies, LeaderboardScopeRepository } from "../application/ports";
+import type { ExperimentResultReader, LeaderboardEntryRepository, LeaderboardModuleDependencies, LeaderboardScopeRepository, SearchRunOwnerReader } from "../application/ports";
 import type { LeaderboardEntry } from "../domain/contracts";
 export interface LeaderboardSqlClient {
     query<Row>(text: string, values: unknown[]): Promise<{
@@ -19,6 +19,7 @@ export declare const createBacktestingExperimentReader: (backtesting: Pick<Backt
 export declare const createPostgresLeaderboardDependencies: (pool: LeaderboardSqlClient, input: {
     scopeRepository: LeaderboardScopeRepository;
     experimentReader: ExperimentResultReader;
+    searchRunReader?: SearchRunOwnerReader;
     clock: {
         now(): string;
     };

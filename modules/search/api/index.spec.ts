@@ -13,9 +13,10 @@ function dependencies(tested = 0) {
   let cancellations = 0;
   deps.generators.RANDOM = { type: "RANDOM", generate: () => ({ generatedBy: "RANDOM", strategyDefinitions: [], compositeDefinition: {} } as never) };
   deps.backtestCoordinator = {
-    submitSearchCandidate: async () => { submissions += 1; return { candidateId: `candidate-${submissions}`, jobId: `job-${submissions}`, status: "QUEUED" as const }; },
-    summarizeSearchCandidates: async (searchRunId) => summary(searchRunId, tested),
-    cancelSearchCandidates: async () => { cancellations += 1; return { candidateIds: ["candidate-1"] }; },
+    readBenchmarkScope: async (_auth, scopeId) => ({ id: scopeId } as never),
+    submitSearchCandidate: async (_auth, _command) => { submissions += 1; return { candidateId: `candidate-${submissions}`, jobId: `job-${submissions}`, status: "QUEUED" as const }; },
+    summarizeSearchCandidates: async (_auth, searchRunId) => summary(searchRunId, tested),
+    cancelSearchCandidates: async (_auth, _searchRunId, _unitOfWork) => { cancellations += 1; return { candidateIds: ["candidate-1"] }; },
     removePendingJobs: async () => undefined,
   };
   deps.leaderboardService = { rankSearchRun: async () => [] };
@@ -24,36 +25,37 @@ function dependencies(tested = 0) {
 }
 
 const config = { searchSpace: { availableStrategies: [{ id: "strategy-1" }] as never[] }, stopCondition: { maxCandidates: 3 }, generatorType: "RANDOM" as const, leaderboardScopeId: "scope", maxInFlight: 2 };
-const owner = { ownerUserId: "user-1" };
+const owner = { userId: "user-1" };
 
 describe("search runtime", () => {
   it("fills bounded slots and completes when a poll observes the final deterministic candidate", async () => {
     const fixture = dependencies();
     const runtime = createSearchModule(fixture.deps);
-    const { searchRunId } = await runtime.start(config, owner);
+    const { searchRunId } = await runtime.start(owner, config);
 
     expect(fixture.submissions()).toBe(2);
-    expect(await runtime.status(searchRunId)).toMatchObject({ state: "COMPLETED", maxInFlight: 2, nextIteration: 4, stopReason: "MAX_CANDIDATES" });
+    await runtime.onCandidateFinished(searchRunId);
+    expect(await runtime.status(owner, searchRunId)).toMatchObject({ state: "COMPLETED", maxInFlight: 2, nextIteration: 4, stopReason: "MAX_CANDIDATES" });
     expect(fixture.submissions()).toBe(3);
   });
 
   it("completes immediately when a stop boundary is drained and cancels idempotently", async () => {
     const stopped = dependencies(3);
     const stoppedRuntime = createSearchModule(stopped.deps);
-    const stoppedRun = await stoppedRuntime.start(config, owner);
-    await expect(stoppedRuntime.status(stoppedRun.searchRunId)).resolves.toMatchObject({ state: "COMPLETED", stopReason: "MAX_CANDIDATES" });
+    const stoppedRun = await stoppedRuntime.start(owner, config);
+    await expect(stoppedRuntime.status(owner, stoppedRun.searchRunId)).resolves.toMatchObject({ state: "COMPLETED", stopReason: "MAX_CANDIDATES" });
 
     const active = dependencies();
     const activeRuntime = createSearchModule(active.deps);
-    const activeRun = await activeRuntime.start(config, owner);
-    await activeRuntime.cancel(activeRun.searchRunId);
-    await activeRuntime.cancel(activeRun.searchRunId);
-    await expect(activeRuntime.status(activeRun.searchRunId)).resolves.toMatchObject({ state: "CANCELLED", stopReason: "USER_CANCELLED" });
+    const activeRun = await activeRuntime.start(owner, config);
+    await activeRuntime.cancel(owner, activeRun.searchRunId);
+    await activeRuntime.cancel(owner, activeRun.searchRunId);
+    await expect(activeRuntime.status(owner, activeRun.searchRunId)).resolves.toMatchObject({ state: "CANCELLED", stopReason: "USER_CANCELLED" });
     expect(active.cancellations()).toBe(1);
   });
 
   it("provides a deterministic in-memory lifecycle facade when composition is not supplied", async () => {
-    await expect(start(config, owner)).resolves.toMatchObject({ searchRunId: expect.any(String) });
+    await expect(start(owner, config)).resolves.toMatchObject({ searchRunId: expect.any(String) });
   });
 
   it("advances deterministic Search through queued worker completion, scoring, and ranking", async () => {
@@ -68,22 +70,22 @@ describe("search runtime", () => {
     const queue = new InMemoryBacktestQueue();
     let leaderboard!: ReturnType<typeof createLeaderboardModule>;
     let search!: ReturnType<typeof createSearchModule>;
-    const backtesting = createBacktestingService({ ...createInMemoryBacktestingDependencies(), queue, marketData: { readDatasetSnapshot: async () => ({ snapshot, candles }) }, strategy: { resolveStrategy: async () => ({ name: "test", category: "TREND", analyze: (context) => context.candles.length === 1 ? "BUY" : "HOLD" }), combineSignals: (_composite, signals) => signals[0]?.signal ?? "HOLD" }, evaluation: createEvaluationModule(), completion: { score: (scopeId, metrics) => leaderboard.score(scopeId, metrics), submit: async (experiment, unitOfWork) => { await leaderboard.submit(experiment, unitOfWork); }, notifySearchCandidateFinished: async (searchRunId) => { await search.onCandidateFinished(searchRunId); } }, clock: { now: () => "2025-01-01T03:00:00.000Z" }, idGenerator: () => `id-${sequence++}` });
-    const scope = await backtesting.createBenchmarkScope({ name: "fixture", datasetSnapshot: snapshot, initialCapital: 1000, feeRatePercent: 0, slippageBps: 0, scoreFormulaId: "MVP_MANUAL_V1", workerRuntimeVersion: "1", workerRuntimeSha256: "c".repeat(64), evaluationRuntimeVersion: "1", evaluationRuntimeSha256: "d".repeat(64) }, { ownerUserId: "user-1", scopeIdempotencyKey: "scope-key" });
+    const backtesting = createBacktestingService({ ...createInMemoryBacktestingDependencies(), queue, marketData: { readDatasetSnapshot: async () => ({ snapshot, candles }) }, strategy: { readDefinitions: async (_userId, ids) => ids.map((id) => ({ ...definition, id })), readComposite: async (_userId, id) => ({ id, logicalFamilyKey: "generated", version: 1, method: "MAJORITY_VOTE" as const, components: [{ strategyDefinitionId: definition.id, weight: 1 }], createdAt: snapshot.createdAt }), resolveStrategy: async () => ({ name: "test", category: "TREND", analyze: (context) => context.candles.length === 1 ? "BUY" : "HOLD" }), combineSignals: (_composite, signals) => signals[0]?.signal ?? "HOLD" }, evaluation: createEvaluationModule(), completion: { score: (scopeId, metrics) => leaderboard.score(scopeId, metrics), submit: async (experiment, unitOfWork) => { await leaderboard.submit(experiment, unitOfWork); }, notifySearchCandidateFinished: async (searchRunId) => { await search.onCandidateFinished(searchRunId); } }, clock: { now: () => "2025-01-01T03:00:00.000Z" }, idGenerator: () => `id-${sequence++}` });
+    const scope = await backtesting.createBenchmarkScope({ userId: "user-1" }, { name: "fixture", datasetSnapshot: snapshot, initialCapital: 1000, feeRatePercent: 0, slippageBps: 0, scoreFormulaId: "MVP_MANUAL_V1", workerRuntimeVersion: "1", workerRuntimeSha256: "c".repeat(64), evaluationRuntimeVersion: "1", evaluationRuntimeSha256: "d".repeat(64) }, { scopeIdempotencyKey: "scope-key" });
     leaderboard = createLeaderboardModule({ ...createInMemoryLeaderboardDependencies(), scopeRepository: createBacktestingScopeRepository(backtesting), experimentReader: createBacktestingExperimentReader(backtesting), clock: { now: () => "2025-01-01T03:00:00.000Z" } });
     search = createSearchModule({ ...createInMemorySearchDependencies(), backtestCoordinator: backtesting, leaderboardService: leaderboard, clock: { now: () => "2025-01-01T03:00:00.000Z" }, idGenerator: () => "search-run-1" });
 
-    const started = await search.start({ searchSpace: { availableStrategies: [definition] }, stopCondition: { maxCandidates: 2 }, generatorType: "RANDOM", leaderboardScopeId: scope.id, maxInFlight: 1 }, owner);
-    const first = (await backtesting.listSearchCandidates(started.searchRunId, { limit: 10 })).items[0]!;
+    const started = await search.start(owner, { searchSpace: { availableStrategies: [definition] }, stopCondition: { maxCandidates: 2 }, generatorType: "RANDOM", leaderboardScopeId: scope.id, maxInFlight: 1 });
+    const first = (await backtesting.listSearchCandidates(owner, started.searchRunId, { limit: 10 })).items[0]!;
     await backtesting.processQueueJob(queue.jobs.get(first.candidateId)!, { attemptNumber: 1, fenceToken: "worker-1" });
     await backtesting.processCompletion(first.candidateId);
-    const middle = await search.status(started.searchRunId, owner);
+    const middle = await search.status(owner, started.searchRunId);
     expect(middle).toMatchObject({ state: "RUNNING", candidatesTested: 2, queuedCount: 1 });
-    const second = (await backtesting.listSearchCandidates(started.searchRunId, { limit: 10 })).items.find((candidate) => candidate.candidateId !== first.candidateId)!;
+    const second = (await backtesting.listSearchCandidates(owner, started.searchRunId, { limit: 10 })).items.find((candidate) => candidate.candidateId !== first.candidateId)!;
     await backtesting.processQueueJob(queue.jobs.get(second.candidateId)!, { attemptNumber: 1, fenceToken: "worker-2" });
     await backtesting.processCompletion(second.candidateId);
-    await expect(search.status(started.searchRunId, owner)).resolves.toMatchObject({ state: "COMPLETED", stopReason: "MAX_CANDIDATES", candidatesTested: 2 });
-    await expect(search.leaderboard(started.searchRunId, owner)).resolves.toHaveLength(2);
-    await expect(leaderboard.topK(scope.id)).resolves.toHaveLength(2);
+    await expect(search.status(owner, started.searchRunId)).resolves.toMatchObject({ state: "COMPLETED", stopReason: "MAX_CANDIDATES", candidatesTested: 2 });
+    await expect(search.leaderboard(owner, started.searchRunId)).resolves.toHaveLength(2);
+    await expect(leaderboard.topK(owner.userId, scope.id)).resolves.toHaveLength(2);
   });
 });

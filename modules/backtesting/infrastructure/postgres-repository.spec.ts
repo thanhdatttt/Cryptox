@@ -55,4 +55,25 @@ describe("PostgresBacktestingRepository", () => {
     });
     expect(calls[0]).toContain("i.created_at AS snapshot_created_at");
   });
+
+  it("hydrates positive numeric risk fields and preserves legacy nulls", async () => {
+    const row: { [key: string]: unknown; stop_loss: number | string | null; take_profit: number | string | null } = {
+      id: "trade-1", sequence: 1, pair: "BTCUSDT", settlement_asset: "USDT", backtest_attempt_id: "attempt-1", signal: "LONG",
+      entry_time: "2025-01-01T01:00:00.000Z", market_entry_price: "100", entry_price: "100", stop_loss: "95", take_profit: "105",
+      exit_time: "2025-01-01T02:00:00.000Z", market_exit_price: "105", exit_price: "105", exit_reason: "TAKE_PROFIT", quantity: "10",
+      notional_entry_value: "1000", equity_before_trade: "1000", equity_after_trade: "1050", gross_profit: "50", fee_amount: "0",
+      slippage_bps: 0, slippage_amount: "0", profit: "50", result_percent: "5", result: "WIN",
+    };
+    const repository = new PostgresBacktestingRepository({ query: async <Row>() => ({ rows: [row as unknown as Row] }) });
+
+    await expect(repository.listTrades("attempt-1")).resolves.toMatchObject([{ stopLoss: 95, takeProfit: 105 }]);
+    row.stop_loss = null;
+    row.take_profit = null;
+    await expect(repository.listTrades("attempt-1")).resolves.toMatchObject([{ stopLoss: null, takeProfit: null }]);
+    row.stop_loss = "0";
+    await expect(repository.listTrades("attempt-1")).rejects.toThrow("BACKTEST_INVALID_TRADE_RISK_FIELD");
+    row.stop_loss = "95";
+    row.take_profit = "-1";
+    await expect(repository.listTrades("attempt-1")).rejects.toThrow("BACKTEST_INVALID_TRADE_RISK_FIELD");
+  });
 });

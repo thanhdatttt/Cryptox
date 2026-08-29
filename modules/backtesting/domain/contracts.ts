@@ -3,7 +3,15 @@ import type { Candle, DatasetSnapshotRef, Pair, Timeframe } from "modules/market
 import type { SentimentDatasetSnapshotRef } from "modules/sentiment/api";
 export type CandidateStatus = "CREATED" | "QUEUED" | "BACKTESTING" | "RETRY_WAIT" | "PROCESSING_RESULT" | "TERMINAL_FAILURE_PENDING" | "COMPLETED" | "FAILED" | "CANCELLED";
 export interface BacktestSubmissionAccepted { candidateId: string; jobId: string; status: CandidateStatus; }
-export interface CancellationUnitOfWork { kind: "CANCELLATION"; id: string; }
+export interface CancellationUnitOfWork {
+  kind: "CANCELLATION";
+  id: string;
+  query?<Row>(text: string, values: unknown[]): Promise<{ rows: Row[] }>;
+  run<T>(operation: () => Promise<T>): Promise<T>;
+  onRollback(operation: () => Promise<void>): void;
+  commit(): Promise<void>;
+  rollback(): Promise<void>;
+}
 export interface CompletionUnitOfWork { kind: "COMPLETION"; id: string; candidateId: string; completionAttemptCount: number; completionClaimToken: string; enlist(moduleName: "EVALUATION" | "LEADERBOARD" | "SEARCH"): void; }
 export interface Trade { id: string; sequence: number; pair: Pair; settlementAsset: string; backtestAttemptId: string; signal: "LONG" | "SHORT"; entryTime: string; marketEntryPrice: number; entryPrice: number; stopLoss: number | null; takeProfit: number | null; exitTime: string; marketExitPrice: number; exitPrice: number; exitReason: "STOP_LOSS" | "TAKE_PROFIT" | "STRATEGY_CLOSE" | "RANGE_END"; quantity: number; notionalEntryValue: number; equityBeforeTrade: number; equityAfterTrade: number; grossProfit: number; feeAmount: number; slippageBps: number; slippageAmount: number; profit: number; resultPercent: number; result: "WIN" | "LOSS" | "BREAKEVEN"; }
 export interface CompletedBacktestResult { status: "COMPLETED"; candidateId: string; attemptId: string; workerRuntimeVersion: string; workerRuntimeSha256: string; startedAt: string; completedAt: string; trades: Trade[]; }
@@ -16,7 +24,7 @@ export interface ReplayVerificationResult { experimentId: string; sourceAttemptI
 export interface CandidateProgress { candidateId: string; origin: "MANUAL" | "SEARCH"; selectionMode: "SINGLE" | "COMPOSITE"; searchRunId?: string; iterationNumber?: number; leaderboardScopeId: string; status: CandidateStatus; attempts: BacktestAttemptProgress[]; maxAttempts: number; activeAttemptNumber?: number; completionAttemptCount: number; completionMaxAttempts: number; completionNextRetryAt?: string; experimentResultId?: string; failureKind?: "RETRY_EXHAUSTED" | "INFRASTRUCTURE" | "COMPLETION_PROCESSING"; failureCode?: string; lastError?: string; createdAt: string; updatedAt: string; }
 export interface BacktestAttemptProgress { attemptId: string; attemptNumber: number; status: "QUEUED" | "RUNNING" | "RETRY_WAIT" | "COMPLETED" | "FAILED" | "CANCELLED"; startedAt: string; completedAt?: string; deliveryAttemptCount?: number; failureCategory?: "RETRYABLE" | "INFRASTRUCTURE" | "CANCELLED_AUDIT"; failureCode?: string; errorMessage?: string; }
 export interface BacktestAttemptAudit extends BacktestAttemptProgress { candidateId: string; queueJobId: string; workerRuntimeVersion: string; workerRuntimeSha256: string; tradeCount: number; auditOnly: boolean; fenceToken?: string; leaseExpiresAt?: string; }
-export interface ExperimentResult { id: string; candidateId: string; searchRunId?: string; leaderboardScopeId: string; scoreFormulaId: string; overallScore: number; rankEligible: boolean; }
+export interface ExperimentResult { id: string; ownerUserId?: string; candidateId: string; searchRunId?: string; leaderboardScopeId: string; scoreFormulaId: string; overallScore: number; rankEligible: boolean; }
 export interface ExperimentResultSummary extends ExperimentResult { backtestAttemptId: string; compositeDefinitionId: string; compositeDefinition: CompositeStrategyDefinition; datasetSnapshot: DatasetSnapshotRef; sentimentDatasetSnapshot?: SentimentDatasetSnapshotRef; strategyDefinitions: StrategyDefinition[]; metrics: import("modules/evaluation/api").EvaluationMetrics; trades: Trade[]; createdAt: string; }
 export interface ExperimentVisualizationMarker { id: string; tradeId: string; sequence: number; kind: "ENTRY" | "STOP_LOSS" | "TAKE_PROFIT" | "EXIT"; time: string; price: number; highlighted: boolean; }
 export interface ExperimentVisualization { experimentId: string; datasetSnapshot: DatasetSnapshotRef; candles: Candle[]; overlays: []; markers: ExperimentVisualizationMarker[]; nextCursor?: string; }

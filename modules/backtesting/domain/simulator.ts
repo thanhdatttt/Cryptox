@@ -121,6 +121,9 @@ const toStrategyCandle = (candle: Candle): StrategyCandle => ({ timestamp: candl
 const assertPositivePercent = (value: number | undefined): void => {
   if (value !== undefined && (!Number.isFinite(value) || value <= 0 || value >= 100)) throw new Error("INVALID_INPUT");
 };
+const assertPositivePrice = (value: Decimal | null): void => {
+  if (value !== null && value.units <= 0n) throw new Error("INVALID_INPUT");
+};
 
 const validateCandle = (candle: Candle, input: SimulationInput): void => {
   if (candle.pair !== input.pair || candle.timeframe !== input.timeframe || !Number.isFinite(Date.parse(candle.timestamp))) throw new Error("INVALID_INPUT");
@@ -211,6 +214,8 @@ export function simulateBacktest(input: SimulationInput): CompletedBacktestResul
     if (quantity.units <= 0n) return;
     const stopLoss = input.stopLossPercent === undefined ? null : round(multiply(marketEntryPrice, subtract(fromInteger(1), multiply(tradeDirection, divide(decimal(input.stopLossPercent), fromInteger(100), 20)))), 8);
     const takeProfit = input.takeProfitPercent === undefined ? null : round(multiply(marketEntryPrice, add(fromInteger(1), multiply(tradeDirection, divide(decimal(input.takeProfitPercent), fromInteger(100), 20)))), 8);
+    assertPositivePrice(stopLoss);
+    assertPositivePrice(takeProfit);
     position = { signal, entryIndex: index, marketEntryPrice, entryPrice, entryTime: candle.timestamp, quantity, equityBeforeTrade: equity, stopLoss, takeProfit };
   };
 

@@ -18,4 +18,16 @@ const run = {
         (0, vitest_1.expect)(calls.some((call) => call.text.startsWith("UPDATE search_runs") && call.values.includes("COMPLETED"))).toBe(true);
         (0, vitest_1.expect)(calls.flatMap((call) => call.values)).toContain(JSON.stringify(run.searchSpace));
     });
+    (0, vitest_1.it)("uses unique UUID run IDs for PostgreSQL composition instead of the in-memory sequence", () => {
+        const dependencies = (0, postgres_repository_1.createPostgresSearchDependencies)({ query: async () => ({ rows: [] }) }, {
+            backtestCoordinator: {},
+            leaderboardService: {},
+            clock: { now: () => "2025-01-01T00:00:00.000Z" },
+        });
+        const first = dependencies.idGenerator?.();
+        const second = dependencies.idGenerator?.();
+        (0, vitest_1.expect)(first).toMatch(/^[0-9a-f-]{36}$/);
+        (0, vitest_1.expect)(second).toMatch(/^[0-9a-f-]{36}$/);
+        (0, vitest_1.expect)(second).not.toBe(first);
+    });
 });

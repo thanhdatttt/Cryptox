@@ -1,7 +1,7 @@
 import type { LeaderboardEntry, LeaderboardScope, ScoreFormula } from "../domain/contracts";
 export interface LeaderboardScopeRepository {
     insert(scope: LeaderboardScope): Promise<LeaderboardScope>;
-    getById(id: string): Promise<LeaderboardScope | undefined>;
+    getById(userId: string, id: string): Promise<LeaderboardScope | undefined>;
 }
 export interface ScoreFormulaRepository {
     getById(id: string): Promise<ScoreFormula | undefined>;
@@ -14,7 +14,7 @@ export interface LeaderboardEntryRepository {
     deactivate(entryId: string): Promise<void>;
 }
 export interface ExperimentResultReader {
-    getBySearchRunId(searchRunId: string): Promise<Array<{
+    getBySearchRunId(userId: string, searchRunId: string): Promise<Array<{
         id: string;
         candidateId: string;
         searchRunId: string;
@@ -24,6 +24,9 @@ export interface ExperimentResultReader {
         rankEligible: boolean;
     }>>;
 }
+export interface SearchRunOwnerReader {
+    getByOwner(userId: string, searchRunId: string): Promise<unknown | undefined>;
+}
 export interface Clock {
     now(): string;
 }
@@ -32,6 +35,7 @@ export interface LeaderboardModuleDependencies {
     entryRepository: LeaderboardEntryRepository;
     formulaRepository: ScoreFormulaRepository;
     experimentReader: ExperimentResultReader;
+    searchRunReader?: SearchRunOwnerReader;
     clock: Clock;
     initialScopes?: LeaderboardScope[];
     initialFormulas?: ScoreFormula[];

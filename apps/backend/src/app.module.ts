@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { BadRequestException, Body, ConflictException, Controller, Get, Headers, HttpCode, Inject, Module, NotFoundException, Param, Post, Query, UnauthorizedException } from "@nestjs/common";
+import { BadRequestException, Body, ConflictException, Controller, Get, Headers, HttpCode, Inject, Module, NotFoundException, Param, Post, Query, ServiceUnavailableException, UnauthorizedException, UnprocessableEntityException } from "@nestjs/common";
 import { AuthException, type AuthModulePublicApi } from "modules/auth/api";
 import { BACKTEST_RUNTIME_SHA256, BACKTEST_RUNTIME_VERSION } from "modules/backtesting/api/bootstrap";
 import type { Timeframe } from "modules/market-data/api";
@@ -80,7 +80,10 @@ abstract class ProtectedController {
 const strategyHttpError = (error: unknown): never => {
   if (!(error instanceof Error)) throw error;
   if (error.message.endsWith("_NOT_FOUND")) throw new NotFoundException(error.message);
-  if (error.message.startsWith("INVALID_") || error.message === "VALIDATION_ERROR" || error.message === "STRATEGY_NOT_REGISTERED") throw new BadRequestException(error.message);
+  if (["STRATEGY_SOURCE_UNUSABLE", "STRATEGY_SOURCE_UNSUPPORTED_CONTENT"].includes(error.message)) throw new UnprocessableEntityException(error.message);
+  if (["STRATEGY_SOURCE_TIMEOUT", "STRATEGY_SOURCE_TOO_LARGE", "STRATEGY_SOURCE_REDIRECT_LIMIT", "STRATEGY_SOURCE_UNAVAILABLE", "STRATEGY_MODEL_TIMEOUT", "STRATEGY_MODEL_UNAVAILABLE"].includes(error.message)) throw new ServiceUnavailableException(error.message);
+  if (["STRATEGY_SOURCE_INVALID_URL", "STRATEGY_SOURCE_UNSAFE"].includes(error.message)) throw new BadRequestException(error.message);
+  if (error.message.startsWith("INVALID_") || error.message.startsWith("STRATEGY_MODEL_SCHEMA") || error.message === "VALIDATION_ERROR" || error.message === "STRATEGY_NOT_REGISTERED") throw new BadRequestException(error.message);
   throw error;
 };
 
@@ -177,10 +180,10 @@ export class StrategyGenerationController extends ProtectedController {
   @HttpCode(201)
   async generate(@Headers("authorization") authorization: string | undefined, @Body() body: { sourceType?: unknown; text?: unknown; url?: unknown }) {
     const userId = await this.authenticate(authorization);
-    if (body?.sourceType === "TEXT" && typeof body.text === "string" && body.text.trim()) {
+    if (body?.sourceType === "TEXT" && body.url === undefined && typeof body.text === "string" && body.text.trim()) {
       try { return await this.modules.strategy.generateStrategy(userId, { sourceType: "TEXT", text: body.text }); } catch (error) { return strategyHttpError(error); }
     }
-    if (body?.sourceType === "URL" && typeof body.url === "string" && body.url.trim()) {
+    if (body?.sourceType === "URL" && body.text === undefined && typeof body.url === "string" && body.url.trim()) {
       try { return await this.modules.strategy.generateStrategy(userId, { sourceType: "URL", url: body.url }); } catch (error) { return strategyHttpError(error); }
     }
     throw new BadRequestException("sourceType and a non-empty text or URL are required.");
@@ -320,14 +323,14 @@ export class BacktestScopeController extends ProtectedController {
     if ((body.stopLossPercent !== undefined && stopLossPercent === undefined) || (body.takeProfitPercent !== undefined && takeProfitPercent === undefined)) throw new BadRequestException("risk percentages must be positive numbers.");
     try {
       const datasetSnapshot = await this.modules.marketData.createDatasetSnapshot({ pair: body.pair, timeframe: body.timeframe as Timeframe, range: { from: body.from, to: body.to } });
-      return await this.modules.backtesting.createBenchmarkScope({ name: body.name, datasetSnapshot, initialCapital, feeRatePercent, slippageBps, riskPolicy: stopLossPercent === undefined && takeProfitPercent === undefined ? undefined : { stopLossPercent, takeProfitPercent }, scoreFormulaId: typeof body.scoreFormulaId === "string" && body.scoreFormulaId.trim() ? body.scoreFormulaId : "MVP_MANUAL_V1", workerRuntimeVersion: BACKTEST_RUNTIME_VERSION, workerRuntimeSha256: BACKTEST_RUNTIME_SHA256, evaluationRuntimeVersion: this.modules.evaluation.runtimeVersion, evaluationRuntimeSha256: this.modules.evaluation.runtimeSha256 }, { ownerUserId: userId, scopeIdempotencyKey: idempotencyKey?.trim() || randomUUID() });
+      return await this.modules.backtesting.createBenchmarkScope({ userId }, { name: body.name, datasetSnapshot, initialCapital, feeRatePercent, slippageBps, riskPolicy: stopLossPercent === undefined && takeProfitPercent === undefined ? undefined : { stopLossPercent, takeProfitPercent }, scoreFormulaId: typeof body.scoreFormulaId === "string" && body.scoreFormulaId.trim() ? body.scoreFormulaId : "MVP_MANUAL_V1", workerRuntimeVersion: BACKTEST_RUNTIME_VERSION, workerRuntimeSha256: BACKTEST_RUNTIME_SHA256, evaluationRuntimeVersion: this.modules.evaluation.runtimeVersion, evaluationRuntimeSha256: this.modules.evaluation.runtimeSha256 }, { scopeIdempotencyKey: idempotencyKey?.trim() || randomUUID() });
     } catch (error) { return backtestHttpError(error); }
   }
 
   @Get()
   async list(@Headers("authorization") authorization: string | undefined) {
     const userId = await this.authenticate(authorization);
-    try { return await this.modules.backtesting.listBenchmarkScopes({ ownerUserId: userId }); } catch (error) { return backtestHttpError(error); }
+    try { return await this.modules.backtesting.listBenchmarkScopes({ userId }); } catch (error) { return backtestHttpError(error); }
   }
 }
 
@@ -349,7 +352,7 @@ export class BacktestController extends ProtectedController {
     try {
       const strategyDefinitions = await this.modules.strategy.readDefinitions(userId, body.strategyDefinitionIds);
       const compositeDefinition = await this.modules.strategy.readComposite(userId, body.compositeDefinitionId);
-      return await this.modules.backtesting.startManual({ leaderboardScopeId: body.leaderboardScopeId, strategyDefinitions, compositeDefinition, maxAttempts }, { ownerUserId: userId, submissionIdempotencyKey: idempotencyKey?.trim() || undefined });
+      return await this.modules.backtesting.startManual({ userId }, { leaderboardScopeId: body.leaderboardScopeId, strategyDefinitions, compositeDefinition, maxAttempts }, { submissionIdempotencyKey: idempotencyKey?.trim() || undefined });
     } catch (error) { return backtestHttpError(error); }
   }
 
@@ -357,13 +360,13 @@ export class BacktestController extends ProtectedController {
   @HttpCode(204)
   async cancel(@Headers("authorization") authorization: string | undefined, @Param("candidateId") candidateId: string) {
     const userId = await this.authenticate(authorization);
-    try { await this.modules.backtesting.cancelManualCandidate(candidateId, { kind: "CANCELLATION", id: randomUUID() }, { ownerUserId: userId }); } catch (error) { return backtestHttpError(error); }
+    try { await this.modules.backtesting.cancelManualCandidate({ userId }, candidateId); } catch (error) { return backtestHttpError(error); }
   }
 
   @Get(":candidateId")
   async status(@Headers("authorization") authorization: string | undefined, @Param("candidateId") candidateId: string) {
     const userId = await this.authenticate(authorization);
-    try { return await this.modules.backtesting.status(candidateId, { ownerUserId: userId }); } catch (error) { return backtestHttpError(error); }
+    try { return await this.modules.backtesting.status({ userId }, candidateId); } catch (error) { return backtestHttpError(error); }
   }
 }
 
@@ -371,22 +374,22 @@ export class BacktestController extends ProtectedController {
 export class BacktestAttemptController extends ProtectedController {
   constructor(@Inject(BACKEND_MODULES) modules: BackendModules) { super(modules); }
   @Get(":attemptId")
-  async read(@Headers("authorization") authorization: string | undefined, @Param("attemptId") attemptId: string) { const userId = await this.authenticate(authorization); try { return await this.modules.backtesting.readAttempt(attemptId, { ownerUserId: userId }); } catch (error) { return backtestHttpError(error); } }
+  async read(@Headers("authorization") authorization: string | undefined, @Param("attemptId") attemptId: string) { const userId = await this.authenticate(authorization); try { return await this.modules.backtesting.readAttempt({ userId }, attemptId); } catch (error) { return backtestHttpError(error); } }
   @Get(":attemptId/trades")
-  async trades(@Headers("authorization") authorization: string | undefined, @Param("attemptId") attemptId: string, @Query("limit") limit?: string, @Query("cursor") cursor?: string) { const userId = await this.authenticate(authorization); const parsed = limit === undefined ? 100 : Number(limit); if (!Number.isInteger(parsed) || parsed < 1) throw new BadRequestException("limit must be a positive integer."); try { return await this.modules.backtesting.listAttemptTrades(attemptId, { limit: parsed, cursor }, { ownerUserId: userId }); } catch (error) { return backtestHttpError(error); } }
+  async trades(@Headers("authorization") authorization: string | undefined, @Param("attemptId") attemptId: string, @Query("limit") limit?: string, @Query("cursor") cursor?: string) { const userId = await this.authenticate(authorization); const parsed = limit === undefined ? 100 : Number(limit); if (!Number.isInteger(parsed) || parsed < 1) throw new BadRequestException("limit must be a positive integer."); try { return await this.modules.backtesting.listAttemptTrades({ userId }, attemptId, { limit: parsed, cursor }); } catch (error) { return backtestHttpError(error); } }
 }
 
 @Controller("experiments")
 export class ExperimentController extends ProtectedController {
   constructor(@Inject(BACKEND_MODULES) modules: BackendModules) { super(modules); }
   @Get(":experimentId")
-  async read(@Headers("authorization") authorization: string | undefined, @Param("experimentId") experimentId: string) { const userId = await this.authenticate(authorization); try { return await this.modules.backtesting.readExperimentSummary(experimentId, { ownerUserId: userId }); } catch (error) { return backtestHttpError(error); } }
+  async read(@Headers("authorization") authorization: string | undefined, @Param("experimentId") experimentId: string) { const userId = await this.authenticate(authorization); try { return await this.modules.backtesting.readExperimentSummary({ userId }, experimentId); } catch (error) { return backtestHttpError(error); } }
   @Get(":experimentId/trades")
-  async trades(@Headers("authorization") authorization: string | undefined, @Param("experimentId") experimentId: string, @Query("limit") limit?: string, @Query("cursor") cursor?: string) { const userId = await this.authenticate(authorization); const parsed = limit === undefined ? 100 : Number(limit); if (!Number.isInteger(parsed) || parsed < 1) throw new BadRequestException("limit must be a positive integer."); try { return await this.modules.backtesting.listExperimentTrades(experimentId, { limit: parsed, cursor }, { ownerUserId: userId }); } catch (error) { return backtestHttpError(error); } }
+  async trades(@Headers("authorization") authorization: string | undefined, @Param("experimentId") experimentId: string, @Query("limit") limit?: string, @Query("cursor") cursor?: string) { const userId = await this.authenticate(authorization); const parsed = limit === undefined ? 100 : Number(limit); if (!Number.isInteger(parsed) || parsed < 1) throw new BadRequestException("limit must be a positive integer."); try { return await this.modules.backtesting.listExperimentTrades({ userId }, experimentId, { limit: parsed, cursor }); } catch (error) { return backtestHttpError(error); } }
   @Get(":experimentId/visualization")
-  async visualization(@Headers("authorization") authorization: string | undefined, @Param("experimentId") experimentId: string, @Query("limit") limit?: string, @Query("cursor") cursor?: string, @Query("from") from?: string, @Query("to") to?: string, @Query("highlightTradeId") highlightTradeId?: string) { const userId = await this.authenticate(authorization); const parsed = limit === undefined ? 1000 : Number(limit); if (!Number.isInteger(parsed) || parsed < 1) throw new BadRequestException("limit must be a positive integer."); try { return await this.modules.backtesting.readExperimentVisualization(experimentId, { limit: parsed, cursor, from, to, highlightTradeId }, { ownerUserId: userId }); } catch (error) { return backtestHttpError(error); } }
+  async visualization(@Headers("authorization") authorization: string | undefined, @Param("experimentId") experimentId: string, @Query("limit") limit?: string, @Query("cursor") cursor?: string, @Query("from") from?: string, @Query("to") to?: string, @Query("highlightTradeId") highlightTradeId?: string) { const userId = await this.authenticate(authorization); const parsed = limit === undefined ? 1000 : Number(limit); if (!Number.isInteger(parsed) || parsed < 1) throw new BadRequestException("limit must be a positive integer."); try { return await this.modules.backtesting.readExperimentVisualization({ userId }, experimentId, { limit: parsed, cursor, from, to, highlightTradeId }); } catch (error) { return backtestHttpError(error); } }
   @Post(":experimentId/replay")
-  async replay(@Headers("authorization") authorization: string | undefined, @Param("experimentId") experimentId: string) { const userId = await this.authenticate(authorization); try { return await this.modules.backtesting.verifyReplay(experimentId, { ownerUserId: userId }); } catch (error) { return backtestHttpError(error); } }
+  async replay(@Headers("authorization") authorization: string | undefined, @Param("experimentId") experimentId: string) { const userId = await this.authenticate(authorization); try { return await this.modules.backtesting.verifyReplay({ userId }, experimentId); } catch (error) { return backtestHttpError(error); } }
 }
 
 @Controller("search-runs")
@@ -407,24 +410,23 @@ export class SearchController extends ProtectedController {
     const maxInFlight = body.maxInFlight === undefined ? 1 : positiveInteger(body.maxInFlight); const maxComponents = body.maxComponents === undefined ? undefined : positiveInteger(body.maxComponents);
     if (maxInFlight === undefined || (body.maxComponents !== undefined && maxComponents === undefined)) throw new BadRequestException("maxInFlight and maxComponents must be positive integers.");
     try {
-      await this.modules.backtesting.readBenchmarkScope(body.leaderboardScopeId, { ownerUserId: userId });
       const availableStrategies = await this.modules.strategy.readDefinitions(userId, body.strategyDefinitionIds);
-      return await this.modules.search.start({ searchSpace: { availableStrategies, maxComponents }, stopCondition: { maxCandidates, maxDurationSeconds, noImprovementAfterIterations } as import("modules/search/api").StopCondition, generatorType, leaderboardScopeId: body.leaderboardScopeId, maxInFlight }, { ownerUserId: userId });
+      return await this.modules.search.start({ userId }, { searchSpace: { availableStrategies, maxComponents }, stopCondition: { maxCandidates, maxDurationSeconds, noImprovementAfterIterations } as import("modules/search/api").StopCondition, generatorType, leaderboardScopeId: body.leaderboardScopeId, maxInFlight });
     } catch (error) { return searchHttpError(error); }
   }
 
   @Get(":searchRunId")
-  async status(@Headers("authorization") authorization: string | undefined, @Param("searchRunId") searchRunId: string) { const userId = await this.authenticate(authorization); try { return await this.modules.search.status(searchRunId, { ownerUserId: userId }); } catch (error) { return searchHttpError(error); } }
+  async status(@Headers("authorization") authorization: string | undefined, @Param("searchRunId") searchRunId: string) { const userId = await this.authenticate(authorization); try { return await this.modules.search.status({ userId }, searchRunId); } catch (error) { return searchHttpError(error); } }
   @Post(":searchRunId/pause")
-  async pause(@Headers("authorization") authorization: string | undefined, @Param("searchRunId") searchRunId: string) { const userId = await this.authenticate(authorization); try { await this.modules.search.pause(searchRunId, { ownerUserId: userId }); } catch (error) { return searchHttpError(error); } }
+  async pause(@Headers("authorization") authorization: string | undefined, @Param("searchRunId") searchRunId: string) { const userId = await this.authenticate(authorization); try { await this.modules.search.pause({ userId }, searchRunId); } catch (error) { return searchHttpError(error); } }
   @Post(":searchRunId/resume")
-  async resume(@Headers("authorization") authorization: string | undefined, @Param("searchRunId") searchRunId: string) { const userId = await this.authenticate(authorization); try { await this.modules.search.resume(searchRunId, { ownerUserId: userId }); } catch (error) { return searchHttpError(error); } }
+  async resume(@Headers("authorization") authorization: string | undefined, @Param("searchRunId") searchRunId: string) { const userId = await this.authenticate(authorization); try { await this.modules.search.resume({ userId }, searchRunId); } catch (error) { return searchHttpError(error); } }
   @Post(":searchRunId/cancel")
-  async cancel(@Headers("authorization") authorization: string | undefined, @Param("searchRunId") searchRunId: string) { const userId = await this.authenticate(authorization); try { await this.modules.search.cancel(searchRunId, { ownerUserId: userId }); } catch (error) { return searchHttpError(error); } }
+  async cancel(@Headers("authorization") authorization: string | undefined, @Param("searchRunId") searchRunId: string) { const userId = await this.authenticate(authorization); try { await this.modules.search.cancel({ userId }, searchRunId); } catch (error) { return searchHttpError(error); } }
   @Get(":searchRunId/candidates")
-  async candidates(@Headers("authorization") authorization: string | undefined, @Param("searchRunId") searchRunId: string, @Query("limit") limit?: string, @Query("cursor") cursor?: string) { const userId = await this.authenticate(authorization); const parsed = limit === undefined ? 100 : Number(limit); if (!Number.isInteger(parsed) || parsed < 1) throw new BadRequestException("limit must be a positive integer."); try { await this.modules.search.status(searchRunId, { ownerUserId: userId }); return await this.modules.backtesting.listSearchCandidates(searchRunId, { limit: parsed, cursor }); } catch (error) { return searchHttpError(error); } }
+  async candidates(@Headers("authorization") authorization: string | undefined, @Param("searchRunId") searchRunId: string, @Query("limit") limit?: string, @Query("cursor") cursor?: string) { const userId = await this.authenticate(authorization); const parsed = limit === undefined ? 100 : Number(limit); if (!Number.isInteger(parsed) || parsed < 1) throw new BadRequestException("limit must be a positive integer."); try { await this.modules.search.status({ userId }, searchRunId); return await this.modules.backtesting.listSearchCandidates({ userId }, searchRunId, { limit: parsed, cursor }); } catch (error) { return searchHttpError(error); } }
   @Get(":searchRunId/leaderboard")
-  async leaderboard(@Headers("authorization") authorization: string | undefined, @Param("searchRunId") searchRunId: string) { const userId = await this.authenticate(authorization); try { return await this.modules.search.leaderboard(searchRunId, { ownerUserId: userId }); } catch (error) { return searchHttpError(error); } }
+  async leaderboard(@Headers("authorization") authorization: string | undefined, @Param("searchRunId") searchRunId: string) { const userId = await this.authenticate(authorization); try { return await this.modules.search.leaderboard({ userId }, searchRunId); } catch (error) { return searchHttpError(error); } }
 }
 
 @Controller(["leaderboard", "leaderboards"])
@@ -434,7 +436,7 @@ export class LeaderboardController extends ProtectedController {
   async list(@Headers("authorization") authorization: string | undefined, @Query("scopeId") scopeId?: string) { if (!scopeId) throw new BadRequestException("scopeId is required."); return this.readTopK(authorization, scopeId); }
   @Get(":leaderboardScopeId")
   async topK(@Headers("authorization") authorization: string | undefined, @Param("leaderboardScopeId") leaderboardScopeId: string) { return this.readTopK(authorization, leaderboardScopeId); }
-  private async readTopK(authorization: string | undefined, leaderboardScopeId: string) { const userId = await this.authenticate(authorization); try { await this.modules.backtesting.readBenchmarkScope(leaderboardScopeId, { ownerUserId: userId }); return await this.modules.leaderboard.topK(leaderboardScopeId); } catch (error) { return searchHttpError(error); } }
+  private async readTopK(authorization: string | undefined, leaderboardScopeId: string) { const userId = await this.authenticate(authorization); try { await this.modules.backtesting.readBenchmarkScope({ userId }, leaderboardScopeId); return await this.modules.leaderboard.topK(userId, leaderboardScopeId); } catch (error) { return searchHttpError(error); } }
 }
 
 @Module({

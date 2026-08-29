@@ -6,8 +6,8 @@ export type { LeaderboardModuleRuntime } from "../application/service";
 export type { ScoreFormula, LeaderboardScope, ScoredEvaluation, LeaderboardEntry, SearchRunRankingEntry, LeaderboardSubmissionResult, CreateLeaderboardScopeCommand } from "../domain/contracts";
 export interface LeaderboardModulePublicApi {
     score(leaderboardScopeId: string, metrics: EvaluationMetrics): Promise<ScoredEvaluation>;
-    topK(leaderboardScopeId: string): Promise<LeaderboardEntry[]>;
-    rankSearchRun(searchRunId: string): Promise<SearchRunRankingEntry[]>;
+    topK(userId: string, leaderboardScopeId: string): Promise<LeaderboardEntry[]>;
+    rankSearchRun(userId: string, searchRunId: string): Promise<SearchRunRankingEntry[]>;
     submit(experiment: ExperimentResult, unitOfWork: CompletionUnitOfWork): Promise<LeaderboardSubmissionResult>;
 }
 export declare const score: LeaderboardModulePublicApi["score"];

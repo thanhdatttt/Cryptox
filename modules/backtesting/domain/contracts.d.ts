@@ -10,6 +10,13 @@ export interface BacktestSubmissionAccepted {
 export interface CancellationUnitOfWork {
     kind: "CANCELLATION";
     id: string;
+    query?<Row>(text: string, values: unknown[]): Promise<{
+        rows: Row[];
+    }>;
+    run<T>(operation: () => Promise<T>): Promise<T>;
+    onRollback(operation: () => Promise<void>): void;
+    commit(): Promise<void>;
+    rollback(): Promise<void>;
 }
 export interface CompletionUnitOfWork {
     kind: "COMPLETION";
@@ -172,6 +179,7 @@ export interface BacktestAttemptAudit extends BacktestAttemptProgress {
 }
 export interface ExperimentResult {
     id: string;
+    ownerUserId?: string;
     candidateId: string;
     searchRunId?: string;
     leaderboardScopeId: string;

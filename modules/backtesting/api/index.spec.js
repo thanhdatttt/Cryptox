@@ -67,7 +67,30 @@ const candle = (timestamp, open, close) => ({
             exitReason: "STOP_LOSS",
             marketExitPrice: 95,
             exitTime: "2025-01-01T02:00:00.000Z",
+            stopLoss: 95,
+            takeProfit: 105,
         });
+    });
+    (0, vitest_1.it)("stores positive entry-time risk prices for short trades", () => {
+        const result = (0, index_1.simulateBacktest)({
+            candidateId: "c",
+            attemptId: "a",
+            pair: "BTCUSDT",
+            settlementAsset: "USDT",
+            timeframe: "1h",
+            candles: [candle("2025-01-01T00:00:00.000Z", 100, 101), candle("2025-01-01T01:00:00.000Z", 100, 100), candle("2025-01-01T02:00:00.000Z", 100, 100)],
+            strategy: { name: "test", category: "TREND", analyze: (context) => context.candles.length === 1 ? "SELL" : "HOLD" },
+            initialCapital: 1000,
+            feeRatePercent: 0,
+            slippageBps: 0,
+            stopLossPercent: 5,
+            takeProfitPercent: 5,
+            workerRuntimeVersion: "1",
+            workerRuntimeSha256: "a".repeat(64),
+            startedAt: "2025-01-01T00:00:00.000Z",
+            completedAt: "2025-01-01T03:00:00.000Z",
+        });
+        (0, vitest_1.expect)(result.trades[0]).toMatchObject({ signal: "SHORT", stopLoss: 105, takeProfit: 95 });
     });
     (0, vitest_1.it)("rounds entry and exit costs deterministically and persists equity audit fields", () => {
         const result = (0, index_1.simulateBacktest)({
@@ -151,6 +174,8 @@ const candle = (timestamp, open, close) => ({
             queue,
             marketData: { readDatasetSnapshot: async () => ({ snapshot, candles }) },
             strategy: {
+                readDefinitions: async (_userId, ids) => ids.map((id) => ({ id, logicalFamilyKey: "strategy:test", strategyName: "TEST", implementationVersion: "1", implementationSha256: "a".repeat(64), version: 1, parameters: {}, createdAt: "2025-01-01T00:00:00.000Z" })),
+                readComposite: async (_userId, id) => ({ id, logicalFamilyKey: "composite:test", version: 1, method: "MAJORITY_VOTE", components: [{ strategyDefinitionId: "definition-1", weight: 0 }], createdAt: "2025-01-01T00:00:00.000Z" }),
                 resolveStrategy: async () => {
                     if (transientFailures-- > 0)
                         throw new Error("TRANSIENT_STRATEGY_ARTIFACT_FAILURE");
@@ -164,35 +189,35 @@ const candle = (timestamp, open, close) => ({
         });
         const definition = { id: "definition-1", logicalFamilyKey: "strategy:test", strategyName: "TEST", implementationVersion: "1", implementationSha256: "a".repeat(64), version: 1, parameters: {}, createdAt: "2025-01-01T00:00:00.000Z" };
         const composite = { id: "composite-1", logicalFamilyKey: "composite:test", version: 1, method: "MAJORITY_VOTE", components: [{ strategyDefinitionId: definition.id, weight: 0 }], createdAt: "2025-01-01T00:00:00.000Z" };
-        const scope = await service.createBenchmarkScope({ name: "BTC fixture", datasetSnapshot: snapshot, initialCapital: 1000, feeRatePercent: 0, slippageBps: 0, scoreFormulaId: "MVP_MANUAL_V1", workerRuntimeVersion: "1", workerRuntimeSha256: "b".repeat(64), evaluationRuntimeVersion: "1", evaluationRuntimeSha256: "c".repeat(64) }, { ownerUserId: "user-1", scopeIdempotencyKey: "scope-key" });
-        const accepted = await service.startManual({ leaderboardScopeId: scope.id, strategyDefinitions: [definition], compositeDefinition: composite, maxAttempts: 2 }, { ownerUserId: "user-1", submissionIdempotencyKey: "submission-key" });
+        const scope = await service.createBenchmarkScope({ userId: "user-1" }, { name: "BTC fixture", datasetSnapshot: snapshot, initialCapital: 1000, feeRatePercent: 0, slippageBps: 0, scoreFormulaId: "MVP_MANUAL_V1", workerRuntimeVersion: "1", workerRuntimeSha256: "b".repeat(64), evaluationRuntimeVersion: "1", evaluationRuntimeSha256: "c".repeat(64) }, { scopeIdempotencyKey: "scope-key" });
+        const accepted = await service.startManual({ userId: "user-1" }, { leaderboardScopeId: scope.id, strategyDefinitions: [definition], compositeDefinition: composite, maxAttempts: 2 }, { submissionIdempotencyKey: "submission-key" });
         (0, vitest_1.expect)(accepted).toMatchObject({ candidateId: accepted.jobId, status: "QUEUED" });
-        await (0, vitest_1.expect)(service.startManual({ leaderboardScopeId: scope.id, strategyDefinitions: [definition], compositeDefinition: composite, maxAttempts: 2 }, { ownerUserId: "user-1", submissionIdempotencyKey: "submission-key" })).resolves.toEqual(accepted);
+        await (0, vitest_1.expect)(service.startManual({ userId: "user-1" }, { leaderboardScopeId: scope.id, strategyDefinitions: [definition], compositeDefinition: composite, maxAttempts: 2 }, { submissionIdempotencyKey: "submission-key" })).resolves.toEqual(accepted);
         const job = queue.jobs.get(accepted.jobId);
         (0, vitest_1.expect)(job).toMatchObject({ jobId: accepted.candidateId, maxAttempts: 2 });
         await (0, vitest_1.expect)(service.processQueueJob(job, { attemptNumber: 1, fenceToken: "worker-claim-1" })).rejects.toThrow("TRANSIENT_STRATEGY_ARTIFACT_FAILURE");
-        await (0, vitest_1.expect)(service.status(accepted.candidateId, { ownerUserId: "user-1" })).resolves.toMatchObject({ status: "RETRY_WAIT", attempts: [{ status: "FAILED", failureCategory: "RETRYABLE" }] });
+        await (0, vitest_1.expect)(service.status({ userId: "user-1" }, accepted.candidateId)).resolves.toMatchObject({ status: "RETRY_WAIT", attempts: [{ status: "FAILED", failureCategory: "RETRYABLE" }] });
         const workerReturn = await service.processQueueJob(job, { attemptNumber: 2, fenceToken: "worker-claim-2" });
         (0, vitest_1.expect)(workerReturn).toMatchObject({ status: "COMPLETED", candidateId: accepted.candidateId });
-        await (0, vitest_1.expect)(service.status(accepted.candidateId, { ownerUserId: "user-1" })).resolves.toMatchObject({ status: "PROCESSING_RESULT", attempts: [{ status: "FAILED" }, { status: "COMPLETED" }] });
+        await (0, vitest_1.expect)(service.status({ userId: "user-1" }, accepted.candidateId)).resolves.toMatchObject({ status: "PROCESSING_RESULT", attempts: [{ status: "FAILED" }, { status: "COMPLETED" }] });
         await (0, vitest_1.expect)(service.processQueueTerminalSignal({ schemaVersion: 1, jobId: accepted.candidateId, status: "COMPLETED", returnValue: workerReturn })).resolves.toMatchObject({ status: "COMPLETED", candidateId: accepted.candidateId });
         await (0, vitest_1.expect)(service.processQueueTerminalSignal({ schemaVersion: 1, jobId: accepted.candidateId, status: "COMPLETED", returnValue: workerReturn })).resolves.toMatchObject({ status: "COMPLETED", candidateId: accepted.candidateId });
         await (0, vitest_1.expect)(service.processQueueJob(job, { attemptNumber: 2, fenceToken: "stale-claim" })).resolves.toMatchObject({ status: "IGNORED", reason: "ALREADY_TERMINAL" });
-        const progress = await service.status(accepted.candidateId, { ownerUserId: "user-1" });
+        const progress = await service.status({ userId: "user-1" }, accepted.candidateId);
         (0, vitest_1.expect)(progress).toMatchObject({ status: "COMPLETED", attempts: [{ status: "FAILED" }, { status: "COMPLETED" }] });
         const completedProgress = progress.attempts.find((attempt) => attempt.status === "COMPLETED");
-        const attempt = await service.readAttempt(completedProgress.attemptId, { ownerUserId: "user-1" });
-        const trades = await service.listAttemptTrades(attempt.attemptId, { limit: 10 }, { ownerUserId: "user-1" });
+        const attempt = await service.readAttempt({ userId: "user-1" }, completedProgress.attemptId);
+        const trades = await service.listAttemptTrades({ userId: "user-1" }, attempt.attemptId, { limit: 10 });
         (0, vitest_1.expect)(trades.items).toHaveLength(1);
-        const experiment = await service.readExperimentSummary(progress.experimentResultId, { ownerUserId: "user-1" });
+        const experiment = await service.readExperimentSummary({ userId: "user-1" }, progress.experimentResultId);
         (0, vitest_1.expect)(experiment.metrics).toMatchObject({ numberOfTrades: 1, candidateId: accepted.candidateId });
-        await (0, vitest_1.expect)(service.verifyReplay(experiment.id, { ownerUserId: "user-1" })).resolves.toMatchObject({ status: "MATCH", comparedTradeCount: 1 });
-        await (0, vitest_1.expect)(service.status(accepted.candidateId, { ownerUserId: "another-user" })).rejects.toThrow("BACKTEST_ACCESS_DENIED");
+        await (0, vitest_1.expect)(service.verifyReplay({ userId: "user-1" }, experiment.id)).resolves.toMatchObject({ status: "MATCH", comparedTradeCount: 1 });
+        await (0, vitest_1.expect)(service.status({ userId: "another-user" }, accepted.candidateId)).rejects.toThrow("BACKTEST_CANDIDATE_NOT_FOUND");
         transientFailures = 1;
-        const failed = await service.startManual({ leaderboardScopeId: scope.id, strategyDefinitions: [definition], compositeDefinition: composite, maxAttempts: 1 }, { ownerUserId: "user-1", submissionIdempotencyKey: "terminal-failure-key" });
+        const failed = await service.startManual({ userId: "user-1" }, { leaderboardScopeId: scope.id, strategyDefinitions: [definition], compositeDefinition: composite, maxAttempts: 1 }, { submissionIdempotencyKey: "terminal-failure-key" });
         await (0, vitest_1.expect)(service.processQueueJob(queue.jobs.get(failed.jobId), { attemptNumber: 1, fenceToken: "terminal-worker" })).rejects.toThrow("TRANSIENT_STRATEGY_ARTIFACT_FAILURE");
-        await (0, vitest_1.expect)(service.status(failed.candidateId, { ownerUserId: "user-1" })).resolves.toMatchObject({ status: "TERMINAL_FAILURE_PENDING", failureKind: "RETRY_EXHAUSTED" });
+        await (0, vitest_1.expect)(service.status({ userId: "user-1" }, failed.candidateId)).resolves.toMatchObject({ status: "TERMINAL_FAILURE_PENDING", failureKind: "RETRY_EXHAUSTED" });
         await (0, vitest_1.expect)(service.processQueueTerminalSignal({ schemaVersion: 1, jobId: failed.candidateId, status: "RETRIES_EXHAUSTED", attemptsMade: 1 })).resolves.toMatchObject({ status: "FAILED" });
-        await (0, vitest_1.expect)(service.status(failed.candidateId, { ownerUserId: "user-1" })).resolves.toMatchObject({ status: "FAILED", failureKind: "RETRY_EXHAUSTED" });
+        await (0, vitest_1.expect)(service.status({ userId: "user-1" }, failed.candidateId)).resolves.toMatchObject({ status: "FAILED", failureKind: "RETRY_EXHAUSTED" });
     });
 });

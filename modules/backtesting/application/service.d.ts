@@ -1,7 +1,8 @@
 import type { BacktestQueueJob, BacktestQueueReturn, BacktestQueueTerminalSignal } from "@cryptox/contracts/queue";
 import type { CompositeStrategyDefinition, StrategyDefinition } from "modules/strategy/api";
-import type { BacktestLogApi, BacktestReadOptions, ExperimentVisualizationPageRequest, SearchCandidatePage, SearchCandidatePageRequest, SearchCandidateSummary, TradePage, TradePageRequest } from "../api";
+import type { BacktestLogApi, ExperimentVisualizationPageRequest, SearchCandidatePage, SearchCandidatePageRequest, SearchCandidateSummary, TradePage, TradePageRequest } from "../api";
 import type { BacktestAttemptAudit, BacktestSubmissionAccepted, BenchmarkScopeSummary, CandidateProgress, CompletedBacktestResult, CreateLeaderboardScopeCommand, ExperimentResultSummary, ExperimentVisualization, ReplayVerificationResult, StartManualBacktestCommand, SubmitSearchCandidateCommand, Trade } from "../domain/contracts";
+import type { AuthContext } from "modules/auth/api";
 import type { BacktestDispatch, BacktestQueuePort, BacktestingModuleDependencies, BacktestingRepository, StoredBenchmarkScope, StoredCandidate, StoredExperiment, WorkerAttemptClaim } from "./ports";
 export declare const BACKTEST_RUNTIME_VERSION = "1.0.0";
 export declare const BACKTEST_RUNTIME_SHA256 = "c7d208d3db06e01df73733b91ed928fbd78d06f0d6d978f5821547c8ee6af75b";
@@ -27,7 +28,7 @@ export declare class InMemoryBacktestingRepository implements BacktestingReposit
     } | undefined>;
     createScope(scope: StoredBenchmarkScope, idempotencyKey: string): Promise<StoredBenchmarkScope>;
     findScopeByIdempotency(ownerUserId: string, idempotencyKey: string): Promise<StoredBenchmarkScope | undefined>;
-    readScope(scopeId: string): Promise<StoredBenchmarkScope | undefined>;
+    readScope(scopeId: string, ownerUserId?: string): Promise<StoredBenchmarkScope | undefined>;
     listScopesByOwner(ownerUserId: string): Promise<StoredBenchmarkScope[]>;
     createCandidate(candidate: StoredCandidate, key?: string): Promise<StoredCandidate>;
     createQueuedSubmission(input: {
@@ -36,18 +37,18 @@ export declare class InMemoryBacktestingRepository implements BacktestingReposit
         submissionIdempotencyKey?: string;
     }): Promise<StoredCandidate>;
     findCandidateBySubmission(ownerUserId: string, key: string): Promise<StoredCandidate | undefined>;
-    readCandidate(candidateId: string): Promise<StoredCandidate | undefined>;
-    updateCandidate(candidate: StoredCandidate): Promise<void>;
+    readCandidate(candidateId: string, ownerUserId?: string): Promise<StoredCandidate | undefined>;
+    updateCandidate(candidate: StoredCandidate, unitOfWork?: import("../domain/contracts").CancellationUnitOfWork): Promise<void>;
     readDispatch(jobId: string): Promise<BacktestDispatch | undefined>;
     listPendingDispatches(limit: number): Promise<BacktestDispatch[]>;
     listQueueRecoveryCandidates(limit: number): Promise<string[]>;
     markDispatchDispatched(jobId: string, dispatchedAt: string): Promise<void>;
     markDispatchFailed(jobId: string, error: string, at: string): Promise<void>;
-    markDispatchCancelled(jobId: string, at: string): Promise<void>;
-    listCandidatesBySearchRun(searchRunId: string): Promise<StoredCandidate[]>;
+    markDispatchCancelled(jobId: string, at: string, unitOfWork?: import("../domain/contracts").CancellationUnitOfWork): Promise<void>;
+    listCandidatesBySearchRun(searchRunId: string, ownerUserId?: string): Promise<StoredCandidate[]>;
     createAttempt(attempt: BacktestAttemptAudit): Promise<void>;
     updateAttempt(attempt: BacktestAttemptAudit): Promise<void>;
-    readAttempt(attemptId: string): Promise<BacktestAttemptAudit | undefined>;
+    readAttempt(attemptId: string, ownerUserId?: string): Promise<BacktestAttemptAudit | undefined>;
     listAttempts(candidateId: string): Promise<{
         attemptId: string;
         attemptNumber: number;
@@ -128,13 +129,13 @@ export declare class InMemoryBacktestingRepository implements BacktestingReposit
         fenceToken?: string;
     }): Promise<void>;
     listTrades(attemptId: string): Promise<Trade[]>;
-    readExperiment(experimentId: string): Promise<StoredExperiment | undefined>;
+    readExperiment(experimentId: string, ownerUserId?: string): Promise<StoredExperiment | undefined>;
     findExperimentByCandidate(candidateId: string): Promise<StoredExperiment | undefined>;
-    listExperimentsBySearchRun(searchRunId: string): Promise<StoredExperiment[]>;
+    listExperimentsBySearchRun(searchRunId: string, ownerUserId?: string): Promise<StoredExperiment[]>;
     updateExperimentScore(experimentId: string, input: {
         overallScore: number;
         rankEligible: boolean;
-    }): Promise<{
+    }, ownerUserId?: string): Promise<{
         overallScore: number;
         rankEligible: boolean;
         ownerUserId: string;
@@ -160,19 +161,22 @@ export declare class BacktestingService implements BacktestLogApi {
     constructor(deps: BacktestingModuleDependencies);
     private id;
     private now;
-    private assertOwner;
+    private assertAuth;
     private progress;
     private scope;
+    private ownedScope;
     private candidate;
+    private ownedCandidate;
+    private ownedSearchCandidates;
+    private validateStrategyReferences;
     private snapshot;
     private captureSnapshot;
     private validateScope;
-    createBenchmarkScope(command: CreateLeaderboardScopeCommand, options: {
+    createBenchmarkScope(auth: AuthContext, command: CreateLeaderboardScopeCommand, options: {
         scopeIdempotencyKey: string;
-        ownerUserId: string;
     }): Promise<BenchmarkScopeSummary>;
-    readBenchmarkScope(scopeId: string, options?: BacktestReadOptions): Promise<BenchmarkScopeSummary>;
-    listBenchmarkScopes(options: Required<BacktestReadOptions>): Promise<BenchmarkScopeSummary[]>;
+    readBenchmarkScope(auth: AuthContext, scopeId: string): Promise<BenchmarkScopeSummary>;
+    listBenchmarkScopes(auth: AuthContext): Promise<BenchmarkScopeSummary[]>;
     private compositeStrategy;
     private candidateRecord;
     private dispatchRecord;
@@ -183,11 +187,10 @@ export declare class BacktestingService implements BacktestLogApi {
     }>;
     listQueueRecoveryCandidates(limit?: number): Promise<string[]>;
     private submit;
-    startManual(command: StartManualBacktestCommand, options: {
-        ownerUserId: string;
+    startManual(auth: AuthContext, command: StartManualBacktestCommand, options?: {
         submissionIdempotencyKey?: string;
     }): Promise<BacktestSubmissionAccepted>;
-    submitSearchCandidate(command: SubmitSearchCandidateCommand): Promise<BacktestSubmissionAccepted>;
+    submitSearchCandidate(auth: AuthContext, command: SubmitSearchCandidateCommand): Promise<BacktestSubmissionAccepted>;
     processQueueJob(job: BacktestQueueJob, delivery: {
         attemptNumber: number;
         fenceToken?: string;
@@ -205,25 +208,25 @@ export declare class BacktestingService implements BacktestLogApi {
         processed: number;
         pending: number;
     }>;
-    status(candidateId: string, options?: BacktestReadOptions): Promise<CandidateProgress>;
-    summarizeSearchCandidates(searchRunId: string): Promise<SearchCandidateSummary>;
-    listSearchCandidates(searchRunId: string, page: SearchCandidatePageRequest): Promise<SearchCandidatePage>;
-    cancelSearchCandidates(searchRunId: string): Promise<{
+    status(auth: AuthContext, candidateId: string): Promise<CandidateProgress>;
+    summarizeSearchCandidates(auth: AuthContext, searchRunId: string): Promise<SearchCandidateSummary>;
+    listSearchCandidates(auth: AuthContext, searchRunId: string, page: SearchCandidatePageRequest): Promise<SearchCandidatePage>;
+    cancelSearchCandidates(auth: AuthContext, searchRunId: string, unitOfWork: import("../domain/contracts").CancellationUnitOfWork): Promise<{
         candidateIds: string[];
     }>;
-    cancelManualCandidate(candidateId: string, unitOfWork: import("../domain/contracts").CancellationUnitOfWork, options?: BacktestReadOptions): Promise<void>;
+    cancelManualCandidate(auth: AuthContext, candidateId: string): Promise<void>;
     removePendingJobs(candidateIds: string[]): Promise<void>;
-    readAttempt(attemptId: string, options?: BacktestReadOptions): Promise<BacktestAttemptAudit>;
-    listAttemptTrades(attemptId: string, page: TradePageRequest, options?: BacktestReadOptions): Promise<TradePage>;
-    readExperimentSummary(experimentId: string, options?: BacktestReadOptions): Promise<ExperimentResultSummary>;
-    listSearchExperimentSummaries(searchRunId: string, options?: BacktestReadOptions): Promise<ExperimentResultSummary[]>;
-    scoreExperiment(experimentId: string, input: {
+    readAttempt(auth: AuthContext, attemptId: string): Promise<BacktestAttemptAudit>;
+    listAttemptTrades(auth: AuthContext, attemptId: string, page: TradePageRequest): Promise<TradePage>;
+    readExperimentSummary(auth: AuthContext, experimentId: string): Promise<ExperimentResultSummary>;
+    listSearchExperimentSummaries(auth: AuthContext, searchRunId: string): Promise<ExperimentResultSummary[]>;
+    scoreExperiment(auth: AuthContext, experimentId: string, input: {
         overallScore: number;
         rankEligible: boolean;
-    }, options?: BacktestReadOptions): Promise<ExperimentResultSummary>;
-    listExperimentTrades(experimentId: string, page: TradePageRequest, options?: BacktestReadOptions): Promise<TradePage>;
-    readExperimentVisualization(experimentId: string, page: ExperimentVisualizationPageRequest, options?: BacktestReadOptions): Promise<ExperimentVisualization>;
+    }): Promise<ExperimentResultSummary>;
+    listExperimentTrades(auth: AuthContext, experimentId: string, page: TradePageRequest): Promise<TradePage>;
+    readExperimentVisualization(auth: AuthContext, experimentId: string, page: ExperimentVisualizationPageRequest): Promise<ExperimentVisualization>;
     private pageTrades;
-    verifyReplay(experimentId: string, options?: BacktestReadOptions): Promise<ReplayVerificationResult>;
+    verifyReplay(auth: AuthContext, experimentId: string): Promise<ReplayVerificationResult>;
 }
 export declare function createBacktestingService(dependencies?: BacktestingModuleDependencies): BacktestLogApi;

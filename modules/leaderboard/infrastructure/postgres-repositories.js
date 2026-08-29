@@ -18,10 +18,10 @@ class PostgresLeaderboardEntryRepository {
 exports.PostgresLeaderboardEntryRepository = PostgresLeaderboardEntryRepository;
 const createBacktestingScopeRepository = (backtesting) => ({
     insert: async () => { throw new Error("LEADERBOARD_SCOPE_CREATION_REQUIRES_BACKTESTING"); },
-    getById: async (id) => {
+    getById: async (userId, id) => {
         try {
-            const source = await backtesting.readBenchmarkScope(id);
-            return { id: source.id, name: source.name, version: source.version, datasetSnapshot: source.datasetSnapshot, sentimentDatasetSnapshot: source.sentimentDatasetSnapshot, workerRuntimeVersion: source.workerRuntimeVersion, workerRuntimeSha256: source.workerRuntimeSha256, evaluationRuntimeVersion: source.evaluationRuntimeVersion, evaluationRuntimeSha256: source.evaluationRuntimeSha256, initialCapital: source.initialCapital, feeRatePercent: source.feeRatePercent, slippageBps: source.slippageBps, scoreFormulaId: source.scoreFormulaId, createdAt: source.createdAt };
+            const source = await backtesting.readBenchmarkScope({ userId }, id);
+            return { id: source.id, userId, name: source.name, version: source.version, datasetSnapshot: source.datasetSnapshot, sentimentDatasetSnapshot: source.sentimentDatasetSnapshot, workerRuntimeVersion: source.workerRuntimeVersion, workerRuntimeSha256: source.workerRuntimeSha256, evaluationRuntimeVersion: source.evaluationRuntimeVersion, evaluationRuntimeSha256: source.evaluationRuntimeSha256, initialCapital: source.initialCapital, feeRatePercent: source.feeRatePercent, slippageBps: source.slippageBps, scoreFormulaId: source.scoreFormulaId, createdAt: source.createdAt };
         }
         catch (error) {
             if (error instanceof Error && error.message === "BACKTEST_SCOPE_NOT_FOUND")
@@ -32,7 +32,7 @@ const createBacktestingScopeRepository = (backtesting) => ({
 });
 exports.createBacktestingScopeRepository = createBacktestingScopeRepository;
 const createBacktestingExperimentReader = (backtesting) => ({
-    getBySearchRunId: async (searchRunId) => (await backtesting.listSearchExperimentSummaries(searchRunId)).map((experiment) => ({ id: experiment.id, candidateId: experiment.candidateId, searchRunId: experiment.searchRunId ?? searchRunId, leaderboardScopeId: experiment.leaderboardScopeId, scoreFormulaId: experiment.scoreFormulaId, overallScore: experiment.overallScore, rankEligible: experiment.rankEligible })),
+    getBySearchRunId: async (userId, searchRunId) => (await backtesting.listSearchExperimentSummaries({ userId }, searchRunId)).map((experiment) => ({ id: experiment.id, candidateId: experiment.candidateId, searchRunId: experiment.searchRunId ?? searchRunId, leaderboardScopeId: experiment.leaderboardScopeId, scoreFormulaId: experiment.scoreFormulaId, overallScore: experiment.overallScore, rankEligible: experiment.rankEligible })),
 });
 exports.createBacktestingExperimentReader = createBacktestingExperimentReader;
 const createPostgresLeaderboardDependencies = (pool, input) => ({
@@ -40,6 +40,7 @@ const createPostgresLeaderboardDependencies = (pool, input) => ({
     entryRepository: new PostgresLeaderboardEntryRepository(pool),
     formulaRepository: { getById: async (id) => id === service_1.DEFAULT_SCORE_FORMULA.id ? service_1.DEFAULT_SCORE_FORMULA : undefined, listAll: async () => [service_1.DEFAULT_SCORE_FORMULA] },
     experimentReader: input.experimentReader,
+    searchRunReader: input.searchRunReader,
     clock: input.clock,
     initialFormulas: [service_1.DEFAULT_SCORE_FORMULA],
 });

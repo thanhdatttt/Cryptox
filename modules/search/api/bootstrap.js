@@ -1,9 +1,10 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.createPostgresSearchDependencies = exports.PostgresSearchRunRepository = exports.createSearchModule = exports.createInMemorySearchDependencies = void 0;
+exports.createPostgresSearchDependencies = exports.createPostgresCancellationUnitOfWork = exports.PostgresSearchRunRepository = exports.createSearchModule = exports.createInMemorySearchDependencies = void 0;
 var service_1 = require("../application/service");
 Object.defineProperty(exports, "createInMemorySearchDependencies", { enumerable: true, get: function () { return service_1.createInMemorySearchDependencies; } });
 Object.defineProperty(exports, "createSearchModule", { enumerable: true, get: function () { return service_1.createSearchModule; } });
 var postgres_repository_1 = require("../infrastructure/postgres-repository");
 Object.defineProperty(exports, "PostgresSearchRunRepository", { enumerable: true, get: function () { return postgres_repository_1.PostgresSearchRunRepository; } });
+Object.defineProperty(exports, "createPostgresCancellationUnitOfWork", { enumerable: true, get: function () { return postgres_repository_1.createPostgresCancellationUnitOfWork; } });
 Object.defineProperty(exports, "createPostgresSearchDependencies", { enumerable: true, get: function () { return postgres_repository_1.createPostgresSearchDependencies; } });

@@ -14,9 +14,9 @@ import { createBacktestingExperimentReader, createBacktestingScopeRepository, cr
 import { createBinanceMarketDataAdapter, createMarketDataModule, createRedisLatestValueCache, PostgresCandleRepository, PostgresSnapshotRepository } from "modules/market-data/api/bootstrap";
 import { createConfiguredNewsProviders, createNewsModule, PostgresNewsRepository } from "modules/news/api/bootstrap";
 import type { SearchModulePublicApi, SearchModuleRuntime } from "modules/search/api";
-import { createInMemorySearchDependencies, createPostgresSearchDependencies, createSearchModule } from "modules/search/api/bootstrap";
+import { createInMemorySearchDependencies, createPostgresCancellationUnitOfWork, createPostgresSearchDependencies, createSearchModule } from "modules/search/api/bootstrap";
 import { createDeterministicSentimentAdapter, createSentimentModule, PostgresSentimentResultRepository, PostgresSentimentSnapshotRepository } from "modules/sentiment/api/bootstrap";
-import { createPostgresStrategyDependencies, createStrategyModule } from "modules/strategy/api/bootstrap";
+import { createOpenAiStrategyGenerationAdapter, createPostgresStrategyDependencies, createStrategyModule } from "modules/strategy/api/bootstrap";
 
 export interface BackendModules extends Record<string, unknown> {
   auth: AuthModulePublicApi;
@@ -45,8 +45,18 @@ export function composeAllModules(): BackendModules {
     latestValueCache,
     providerRegistry: { defaultProviderId: marketDataProvider, ...(marketDataProvider === "BINANCE" ? { defaultProvider: createBinanceMarketDataAdapter() } : {}) },
   });
-  const strategy = postgres
-    ? createStrategyModule(createPostgresStrategyDependencies(postgres))
+  const strategyDependencies = postgres ? createPostgresStrategyDependencies(postgres) : undefined;
+  const strategy = strategyDependencies
+    ? createStrategyModule({
+      ...strategyDependencies,
+      ...(process.env.OPENAI_API_KEY?.trim() ? {
+        generationAdapter: createOpenAiStrategyGenerationAdapter({
+          apiKey: process.env.OPENAI_API_KEY,
+          model: process.env.STRATEGY_MODEL_NAME ?? "gpt-4o-mini",
+          modelVersion: process.env.STRATEGY_MODEL_VERSION,
+        }),
+      } : {}),
+    })
     : createStrategyModule();
   const evaluation = createEvaluationModule();
   let backtesting: BacktestLogApi;
@@ -69,7 +79,7 @@ export function composeAllModules(): BackendModules {
     ? createBacktestingModule(createPostgresBacktestingDependencies(postgres, { marketData, strategy, evaluation, queue, completion, clock: { now: () => new Date().toISOString() } }))
     : createBacktestingModule({ ...inMemoryBacktesting, marketData, strategy, evaluation, queue, completion });
   search = postgres
-    ? createSearchModule(createPostgresSearchDependencies(postgres, { backtestCoordinator: backtesting, leaderboardService: leaderboard, clock: { now: () => new Date().toISOString() } }))
+    ? createSearchModule(createPostgresSearchDependencies(postgres, { backtestCoordinator: backtesting, leaderboardService: leaderboard, beginCancellation: () => createPostgresCancellationUnitOfWork(postgres), clock: { now: () => new Date().toISOString() } }))
     : createSearchModule({ ...createInMemorySearchDependencies(), backtestCoordinator: backtesting, leaderboardService: leaderboard, clock: { now: () => new Date().toISOString() } });
   const sentiment = createSentimentModule({
     analysis: createDeterministicSentimentAdapter(),

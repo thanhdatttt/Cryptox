@@ -17,6 +17,7 @@ export interface ScoreFormula {
 }
 export interface LeaderboardScope {
     id: string;
+    userId: string;
     name: string;
     version: number;
     datasetSnapshot: DatasetSnapshotRef;

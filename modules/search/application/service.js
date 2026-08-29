@@ -40,24 +40,50 @@ function createInMemorySearchDependencies() {
     const runs = new Map();
     const candidates = new Map();
     let sequence = 0;
+    const beginCancellation = async () => {
+        const rollbacks = [];
+        let closed = false;
+        return {
+            kind: "CANCELLATION",
+            id: `cancellation-${++sequence}`,
+            run: async (operation) => operation(),
+            onRollback: (operation) => { if (closed)
+                throw new Error("CANCELLATION_UNIT_OF_WORK_CLOSED"); rollbacks.push(operation); },
+            commit: async () => { closed = true; rollbacks.length = 0; },
+            rollback: async () => { if (closed)
+                return; closed = true; for (const operation of rollbacks.reverse())
+                await operation(); rollbacks.length = 0; },
+        };
+    };
     return {
-        searchRunRepository: { get: async (id) => runs.get(id), insert: async (run) => { runs.set(run.searchRunId, run); return run; }, save: async (run) => { runs.set(run.searchRunId, run); return run; }, listRunning: async () => [...runs.values()].filter((run) => run.state === "RUNNING") },
+        searchRunRepository: {
+            get: async (id) => runs.get(id),
+            getByOwner: async (ownerUserId, id) => { const run = runs.get(id); return run?.ownerUserId === ownerUserId ? run : undefined; },
+            getByOwnerForUpdate: async (ownerUserId, id) => { const run = runs.get(id); return run?.ownerUserId === ownerUserId ? run : undefined; },
+            insert: async (run) => { runs.set(run.searchRunId, run); return run; },
+            save: async (run, unitOfWork) => { const previous = runs.get(run.searchRunId); runs.set(run.searchRunId, run); unitOfWork?.onRollback(async () => { if (previous)
+                runs.set(run.searchRunId, previous);
+            else
+                runs.delete(run.searchRunId); }); return run; },
+            listRunning: async () => [...runs.values()].filter((run) => run.state === "RUNNING"),
+        },
         generators: {
             RANDOM: deterministicGenerator("RANDOM"),
             DOMAIN_GUIDED: deterministicGenerator("DOMAIN_GUIDED"),
             GENETIC: deterministicGenerator("GENETIC"),
         },
         backtestCoordinator: {
-            submitSearchCandidate: async (command) => {
+            readBenchmarkScope: async (_auth, scopeId) => ({ id: scopeId }),
+            submitSearchCandidate: async (_auth, command) => {
                 const candidateId = `in-memory-search-candidate-${++sequence}`;
                 candidates.set(candidateId, { candidateId, origin: "SEARCH", selectionMode: "COMPOSITE", searchRunId: command.searchRunId, iterationNumber: command.iterationNumber, leaderboardScopeId: command.leaderboardScopeId, status: "QUEUED", attempts: [], maxAttempts: command.maxAttempts, completionAttemptCount: 0, completionMaxAttempts: 5, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
                 return { candidateId, jobId: candidateId, status: "QUEUED" };
             },
-            summarizeSearchCandidates: async (searchRunId) => {
+            summarizeSearchCandidates: async (_auth, searchRunId) => {
                 const values = [...candidates.values()].filter((candidate) => candidate.searchRunId === searchRunId);
                 return { searchRunId, active: values.filter((candidate) => !["COMPLETED", "FAILED", "CANCELLED"].includes(candidate.status)), queuedCount: values.filter((candidate) => candidate.status === "QUEUED").length, runningCount: values.filter((candidate) => ["BACKTESTING", "RETRY_WAIT", "PROCESSING_RESULT"].includes(candidate.status)).length, candidatesTested: values.length, failedCandidateCount: values.filter((candidate) => candidate.status === "FAILED").length, retryExhaustedCandidateCount: 0, infrastructureFailureCandidateCount: 0, completionProcessingFailureCandidateCount: 0, failedAttemptCount: 0, averageBacktestDurationMs: null };
             },
-            cancelSearchCandidates: async (searchRunId) => {
+            cancelSearchCandidates: async (_auth, searchRunId, _unitOfWork) => {
                 const candidateIds = [...candidates.values()].filter((candidate) => candidate.searchRunId === searchRunId && !["COMPLETED", "FAILED", "CANCELLED"].includes(candidate.status)).map((candidate) => candidate.candidateId);
                 for (const candidateId of candidateIds) {
                     const candidate = candidates.get(candidateId);
@@ -68,6 +94,7 @@ function createInMemorySearchDependencies() {
             removePendingJobs: async () => undefined,
         },
         leaderboardService: { rankSearchRun: async () => [] },
+        beginCancellation,
         clock: { now: () => new Date().toISOString() },
         idGenerator: () => `search-run-${++sequence}`,
     };
@@ -78,20 +105,28 @@ const createRun = (searchRunId, config, ownerUserId, now) => ({
 function createSearchModule(dependencies = createInMemorySearchDependencies()) {
     const idGenerator = dependencies.idGenerator ?? (() => `search-run-${crypto.randomUUID()}`);
     const fills = new Map();
+    const assertAuth = (auth) => { if (!auth?.userId?.trim())
+        throw new Error("INVALID_AUTH_CONTEXT"); };
     const load = async (id) => {
         const run = await dependencies.searchRunRepository.get(id);
         if (!run)
             throw new Error("SEARCH_RUN_NOT_FOUND");
         return run;
     };
-    const assertOwner = (run, options) => { if (options?.ownerUserId && options.ownerUserId !== run.ownerUserId)
-        throw new Error("SEARCH_ACCESS_DENIED"); };
+    const loadOwned = async (auth, id) => { assertAuth(auth); const run = await dependencies.searchRunRepository.getByOwner(auth.userId, id); if (!run)
+        throw new Error("SEARCH_RUN_NOT_FOUND"); return run; };
+    const authFor = (run) => ({ userId: run.ownerUserId });
+    const project = async (run) => {
+        const auth = authFor(run);
+        const summary = await dependencies.backtestCoordinator.summarizeSearchCandidates(auth, run.searchRunId);
+        const ranking = await dependencies.leaderboardService.rankSearchRun(run.ownerUserId, run.searchRunId);
+        return { ...run, ...summary, activeCandidates: summary.active, averageBacktestDurationMs: summary.averageBacktestDurationMs ?? 0, currentTopEntry: ranking[0] };
+    };
     const refresh = async (run) => {
-        const summary = await dependencies.backtestCoordinator.summarizeSearchCandidates(run.searchRunId);
-        const ranking = await dependencies.leaderboardService.rankSearchRun(run.searchRunId);
-        Object.assign(run, summary, { activeCandidates: summary.active, averageBacktestDurationMs: summary.averageBacktestDurationMs ?? 0, currentTopEntry: ranking[0], updatedAt: dependencies.clock.now() });
-        if (ranking[0] && (run.bestScore === undefined || ranking[0].score > run.bestScore))
-            Object.assign(run, { bestScore: ranking[0].score, lastImprovementAtCandidates: summary.candidatesTested });
+        const projection = await project(run);
+        Object.assign(run, projection, { updatedAt: dependencies.clock.now() });
+        if (projection.currentTopEntry && (run.bestScore === undefined || projection.currentTopEntry.score > run.bestScore))
+            Object.assign(run, { bestScore: projection.currentTopEntry.score, lastImprovementAtCandidates: projection.candidatesTested });
     };
     const stopReason = (run) => {
         const elapsedMilliseconds = run.activeDurationMs + (run.activeSince ? Date.parse(dependencies.clock.now()) - Date.parse(run.activeSince) : 0);
@@ -106,7 +141,7 @@ function createSearchModule(dependencies = createInMemorySearchDependencies()) {
         return undefined;
     };
     const submit = async (run, candidate) => {
-        await dependencies.backtestCoordinator.submitSearchCandidate({ leaderboardScopeId: run.leaderboardScopeId, strategyDefinitions: candidate.strategyDefinitions, compositeDefinition: candidate.compositeDefinition, maxAttempts: 1, searchRunId: run.searchRunId, iterationNumber: run.nextIteration, generatedBy: candidate.generatedBy });
+        await dependencies.backtestCoordinator.submitSearchCandidate(authFor(run), { leaderboardScopeId: run.leaderboardScopeId, strategyDefinitions: candidate.strategyDefinitions, compositeDefinition: candidate.compositeDefinition, maxAttempts: 1, searchRunId: run.searchRunId, iterationNumber: run.nextIteration, generatedBy: candidate.generatedBy });
         run.nextIteration += 1;
     };
     const fill = async (searchRunId) => {
@@ -148,22 +183,43 @@ function createSearchModule(dependencies = createInMemorySearchDependencies()) {
         return current;
     };
     return {
-        start: async (config, options) => { validateStopCondition(config.stopCondition); if (!options.ownerUserId.trim() || !Number.isInteger(config.maxInFlight) || config.maxInFlight <= 0 || !config.leaderboardScopeId || config.searchSpace.availableStrategies.length === 0)
-            throw new Error("INVALID_SEARCH_CONFIG"); const run = createRun(idGenerator(), config, options.ownerUserId, dependencies.clock.now()); await dependencies.searchRunRepository.insert(run); await fill(run.searchRunId); return { searchRunId: run.searchRunId }; },
-        pause: async (id, options) => { const run = await load(id); assertOwner(run, options); if (run.state === "RUNNING") {
+        start: async (auth, config) => { assertAuth(auth); validateStopCondition(config.stopCondition); if (!Number.isInteger(config.maxInFlight) || config.maxInFlight <= 0 || !config.leaderboardScopeId || config.searchSpace.availableStrategies.length === 0)
+            throw new Error("INVALID_SEARCH_CONFIG"); await dependencies.backtestCoordinator.readBenchmarkScope(auth, config.leaderboardScopeId); const run = createRun(idGenerator(), config, auth.userId, dependencies.clock.now()); await dependencies.searchRunRepository.insert(run); await fill(run.searchRunId); return { searchRunId: run.searchRunId }; },
+        pause: async (auth, id) => { const run = await loadOwned(auth, id); if (run.state === "RUNNING") {
             const now = dependencies.clock.now();
             await dependencies.searchRunRepository.save({ ...run, state: "PAUSED", activeDurationMs: run.activeDurationMs + (run.activeSince ? Date.parse(now) - Date.parse(run.activeSince) : 0), activeSince: undefined, updatedAt: now });
         } },
-        resume: async (id, options) => { const run = await load(id); assertOwner(run, options); if (run.state === "FAILED")
+        resume: async (auth, id) => { const run = await loadOwned(auth, id); if (run.state === "FAILED")
             throw new Error("CANNOT_RESUME_FAILED_RUN"); if (run.state === "PAUSED") {
             const now = dependencies.clock.now();
             await dependencies.searchRunRepository.save({ ...run, state: "RUNNING", activeSince: now, updatedAt: now });
         } await fill(id); },
-        cancel: async (id, options) => { const run = await load(id); assertOwner(run, options); if (run.state === "CANCELLED" || run.state === "FAILED")
-            return; const unitOfWork = { kind: "CANCELLATION", id: `cancel-${id}` }; const result = await dependencies.backtestCoordinator.cancelSearchCandidates(id, unitOfWork); await dependencies.searchRunRepository.save({ ...run, state: "CANCELLED", stopReason: "USER_CANCELLED", endedAt: dependencies.clock.now(), updatedAt: dependencies.clock.now() }); await dependencies.backtestCoordinator.removePendingJobs(result.candidateIds); },
-        status: async (id, options) => { const run = await load(id); assertOwner(run, options); if (run.state === "RUNNING")
-            await fill(id); const refreshed = await load(id); assertOwner(refreshed, options); return refreshed; },
-        leaderboard: async (id, options) => { const run = await load(id); assertOwner(run, options); return dependencies.leaderboardService.rankSearchRun(id); },
+        cancel: async (auth, id) => {
+            assertAuth(auth);
+            const unitOfWork = await dependencies.beginCancellation();
+            let candidateIds = [];
+            try {
+                const run = await dependencies.searchRunRepository.getByOwnerForUpdate(auth.userId, id, unitOfWork);
+                if (!run)
+                    throw new Error("SEARCH_RUN_NOT_FOUND");
+                if (run.state === "CANCELLED" || run.state === "FAILED") {
+                    await unitOfWork.commit();
+                    return;
+                }
+                const result = await dependencies.backtestCoordinator.cancelSearchCandidates(auth, id, unitOfWork);
+                candidateIds = result.candidateIds;
+                const now = dependencies.clock.now();
+                await dependencies.searchRunRepository.save({ ...run, state: "CANCELLED", stopReason: "USER_CANCELLED", endedAt: now, activeSince: undefined, updatedAt: now }, unitOfWork);
+                await unitOfWork.commit();
+            }
+            catch (error) {
+                await unitOfWork.rollback();
+                throw error;
+            }
+            await dependencies.backtestCoordinator.removePendingJobs(candidateIds);
+        },
+        status: async (auth, id) => { const run = await loadOwned(auth, id); return project(run); },
+        leaderboard: async (auth, id) => { const run = await loadOwned(auth, id); return dependencies.leaderboardService.rankSearchRun(run.ownerUserId, id); },
         onCandidateFinished: fill,
         fillAvailableSlots: fill,
         reconcileRunningRuns: async () => {

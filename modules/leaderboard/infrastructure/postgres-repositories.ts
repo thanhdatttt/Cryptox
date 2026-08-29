@@ -1,6 +1,6 @@
 import type { BacktestLogApi } from "modules/backtesting/api";
 import { DEFAULT_SCORE_FORMULA } from "../application/service";
-import type { ExperimentResultReader, LeaderboardEntryRepository, LeaderboardModuleDependencies, LeaderboardScopeRepository } from "../application/ports";
+import type { ExperimentResultReader, LeaderboardEntryRepository, LeaderboardModuleDependencies, LeaderboardScopeRepository, SearchRunOwnerReader } from "../application/ports";
 import type { LeaderboardEntry, LeaderboardScope, ScoreFormula } from "../domain/contracts";
 
 export interface LeaderboardSqlClient { query<Row>(text: string, values: unknown[]): Promise<{ rows: Row[] }>; }
@@ -19,23 +19,24 @@ export class PostgresLeaderboardEntryRepository implements LeaderboardEntryRepos
 
 export const createBacktestingScopeRepository = (backtesting: Pick<BacktestLogApi, "readBenchmarkScope">): LeaderboardScopeRepository => ({
   insert: async () => { throw new Error("LEADERBOARD_SCOPE_CREATION_REQUIRES_BACKTESTING"); },
-  getById: async (id) => {
+  getById: async (userId, id) => {
     try {
-      const source = await backtesting.readBenchmarkScope(id);
-      return { id: source.id, name: source.name, version: source.version, datasetSnapshot: source.datasetSnapshot, sentimentDatasetSnapshot: source.sentimentDatasetSnapshot, workerRuntimeVersion: source.workerRuntimeVersion, workerRuntimeSha256: source.workerRuntimeSha256, evaluationRuntimeVersion: source.evaluationRuntimeVersion, evaluationRuntimeSha256: source.evaluationRuntimeSha256, initialCapital: source.initialCapital, feeRatePercent: source.feeRatePercent, slippageBps: source.slippageBps, scoreFormulaId: source.scoreFormulaId, createdAt: source.createdAt } satisfies LeaderboardScope;
+      const source = await backtesting.readBenchmarkScope({ userId }, id);
+      return { id: source.id, userId, name: source.name, version: source.version, datasetSnapshot: source.datasetSnapshot, sentimentDatasetSnapshot: source.sentimentDatasetSnapshot, workerRuntimeVersion: source.workerRuntimeVersion, workerRuntimeSha256: source.workerRuntimeSha256, evaluationRuntimeVersion: source.evaluationRuntimeVersion, evaluationRuntimeSha256: source.evaluationRuntimeSha256, initialCapital: source.initialCapital, feeRatePercent: source.feeRatePercent, slippageBps: source.slippageBps, scoreFormulaId: source.scoreFormulaId, createdAt: source.createdAt } satisfies LeaderboardScope;
     } catch (error) { if (error instanceof Error && error.message === "BACKTEST_SCOPE_NOT_FOUND") return undefined; throw error; }
   },
 });
 
 export const createBacktestingExperimentReader = (backtesting: Pick<BacktestLogApi, "listSearchExperimentSummaries">): ExperimentResultReader => ({
-  getBySearchRunId: async (searchRunId) => (await backtesting.listSearchExperimentSummaries(searchRunId)).map((experiment) => ({ id: experiment.id, candidateId: experiment.candidateId, searchRunId: experiment.searchRunId ?? searchRunId, leaderboardScopeId: experiment.leaderboardScopeId, scoreFormulaId: experiment.scoreFormulaId, overallScore: experiment.overallScore, rankEligible: experiment.rankEligible })),
+  getBySearchRunId: async (userId, searchRunId) => (await backtesting.listSearchExperimentSummaries({ userId }, searchRunId)).map((experiment) => ({ id: experiment.id, candidateId: experiment.candidateId, searchRunId: experiment.searchRunId ?? searchRunId, leaderboardScopeId: experiment.leaderboardScopeId, scoreFormulaId: experiment.scoreFormulaId, overallScore: experiment.overallScore, rankEligible: experiment.rankEligible })),
 });
 
-export const createPostgresLeaderboardDependencies = (pool: LeaderboardSqlClient, input: { scopeRepository: LeaderboardScopeRepository; experimentReader: ExperimentResultReader; clock: { now(): string } }): LeaderboardModuleDependencies => ({
+export const createPostgresLeaderboardDependencies = (pool: LeaderboardSqlClient, input: { scopeRepository: LeaderboardScopeRepository; experimentReader: ExperimentResultReader; searchRunReader?: SearchRunOwnerReader; clock: { now(): string } }): LeaderboardModuleDependencies => ({
   scopeRepository: input.scopeRepository,
   entryRepository: new PostgresLeaderboardEntryRepository(pool),
   formulaRepository: { getById: async (id) => id === DEFAULT_SCORE_FORMULA.id ? DEFAULT_SCORE_FORMULA : undefined, listAll: async (): Promise<ScoreFormula[]> => [DEFAULT_SCORE_FORMULA] },
   experimentReader: input.experimentReader,
+  searchRunReader: input.searchRunReader,
   clock: input.clock,
   initialFormulas: [DEFAULT_SCORE_FORMULA],
 });

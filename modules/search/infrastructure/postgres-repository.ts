@@ -2,8 +2,25 @@ import { randomUUID } from "node:crypto";
 import type { SearchModuleDependencies, SearchRunRepository } from "../application/ports";
 import { createInMemorySearchDependencies } from "../application/service";
 import type { SearchRun } from "../domain/contracts";
+import type { CancellationUnitOfWork } from "modules/backtesting/api";
 
-export interface SearchSqlClient { query<Row>(text: string, values: unknown[]): Promise<{ rows: Row[] }>; }
+export interface SearchSqlClient { query<Row>(text: string, values: unknown[]): Promise<{ rows: Row[] }>; connect?(): Promise<{ query<Row>(text: string, values: unknown[]): Promise<{ rows: Row[] }>; release(): void }>; }
+export const createPostgresCancellationUnitOfWork = async (pool: SearchSqlClient): Promise<CancellationUnitOfWork> => {
+  if (!pool.connect) return createInMemorySearchDependencies().beginCancellation();
+  const client = await pool.connect();
+  await client.query("BEGIN", []);
+  const rollbacks: Array<() => Promise<void>> = [];
+  let closed = false;
+  return {
+    kind: "CANCELLATION",
+    id: `cancellation-${randomUUID()}`,
+    query: <Row>(text: string, values: unknown[]) => client.query<Row>(text, values),
+    run: async <T>(operation: () => Promise<T>) => operation(),
+    onRollback: (operation) => { if (!closed) rollbacks.push(operation); },
+    commit: async () => { if (closed) return; await client.query("COMMIT", []); closed = true; rollbacks.length = 0; client.release(); },
+    rollback: async () => { if (closed) return; try { await client.query("ROLLBACK", []); } finally { closed = true; client.release(); for (const operation of rollbacks.reverse()) await operation(); rollbacks.length = 0; } },
+  };
+};
 interface SearchRunRow { id: string; owner_user_id: string; leaderboard_scope_id: string; generator_type: SearchRun["generatorType"]; search_space: SearchRun["searchSpace"] | string; stop_condition: SearchRun["stopCondition"] | string; max_in_flight: number; state: SearchRun["state"]; next_iteration: number; active_duration_ms: number | string; active_since: Date | string | null; best_score: number | string | null; last_improvement_at_candidates: number | null; created_at: Date | string; started_at: Date | string | null; updated_at: Date | string; ended_at: Date | string | null; stop_reason: SearchRun["stopReason"] | null; last_error: string | null; }
 const value = <T>(input: T | string): T => typeof input === "string" ? JSON.parse(input) as T : input;
 const date = (input: Date | string | null): string | undefined => input === null ? undefined : new Date(input).toISOString();
@@ -14,9 +31,11 @@ export class PostgresSearchRunRepository implements SearchRunRepository {
   constructor(private readonly pool: SearchSqlClient) {}
   private fields(): string { return "id, owner_user_id, leaderboard_scope_id, generator_type, search_space, stop_condition, max_in_flight, state, next_iteration, active_duration_ms, active_since, best_score, last_improvement_at_candidates, created_at, started_at, updated_at, ended_at, stop_reason, last_error"; }
   async get(id: string): Promise<SearchRun | undefined> { const result = await this.pool.query<SearchRunRow>(`SELECT ${this.fields()} FROM search_runs WHERE id = $1`, [id]); return result.rows[0] ? run(result.rows[0]) : undefined; }
+  async getByOwner(ownerUserId: string, id: string): Promise<SearchRun | undefined> { const result = await this.pool.query<SearchRunRow>(`SELECT ${this.fields()} FROM search_runs WHERE id = $1 AND owner_user_id = $2`, [id, ownerUserId]); return result.rows[0] ? run(result.rows[0]) : undefined; }
+  async getByOwnerForUpdate(ownerUserId: string, id: string, unitOfWork: CancellationUnitOfWork): Promise<SearchRun | undefined> { const client: SearchSqlClient = unitOfWork.query ? { query: (text, values) => unitOfWork.query!(text, values) } : this.pool; const result = await client.query<SearchRunRow>(`SELECT ${this.fields()} FROM search_runs WHERE id = $1 AND owner_user_id = $2 FOR UPDATE`, [id, ownerUserId]); return result.rows[0] ? run(result.rows[0]) : undefined; }
   async insert(input: SearchRun): Promise<SearchRun> { await this.pool.query("INSERT INTO search_runs (id, owner_user_id, leaderboard_scope_id, generator_type, search_space, stop_condition, max_in_flight, state, next_iteration, active_duration_ms, active_since, best_score, last_improvement_at_candidates, created_at, started_at, updated_at, ended_at, stop_reason, last_error) VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)", [input.searchRunId, input.ownerUserId, input.leaderboardScopeId, input.generatorType, JSON.stringify(input.searchSpace), JSON.stringify(input.stopCondition), input.maxInFlight, input.state, input.nextIteration, input.activeDurationMs, input.activeSince ?? null, input.bestScore ?? null, input.lastImprovementAtCandidates ?? null, input.createdAt, input.startedAt ?? null, input.updatedAt, input.endedAt ?? null, input.stopReason ?? null, input.lastError ?? null]); return input; }
-  async save(input: SearchRun): Promise<SearchRun> { await this.pool.query("UPDATE search_runs SET state = $2, next_iteration = $3, active_duration_ms = $4, active_since = $5, best_score = $6, last_improvement_at_candidates = $7, updated_at = $8, ended_at = $9, stop_reason = $10, last_error = $11 WHERE id = $1", [input.searchRunId, input.state, input.nextIteration, input.activeDurationMs, input.activeSince ?? null, input.bestScore ?? null, input.lastImprovementAtCandidates ?? null, input.updatedAt, input.endedAt ?? null, input.stopReason ?? null, input.lastError ?? null]); return input; }
+  async save(input: SearchRun, unitOfWork?: CancellationUnitOfWork): Promise<SearchRun> { const client: SearchSqlClient = unitOfWork?.query ? { query: (text, values) => unitOfWork.query!(text, values) } : this.pool; await client.query("UPDATE search_runs SET state = $2, next_iteration = $3, active_duration_ms = $4, active_since = $5, best_score = $6, last_improvement_at_candidates = $7, updated_at = $8, ended_at = $9, stop_reason = $10, last_error = $11 WHERE id = $1", [input.searchRunId, input.state, input.nextIteration, input.activeDurationMs, input.activeSince ?? null, input.bestScore ?? null, input.lastImprovementAtCandidates ?? null, input.updatedAt, input.endedAt ?? null, input.stopReason ?? null, input.lastError ?? null]); return input; }
   async listRunning(): Promise<SearchRun[]> { const result = await this.pool.query<SearchRunRow>(`SELECT ${this.fields()} FROM search_runs WHERE state = 'RUNNING'`, []); return result.rows.map(run); }
 }
 
-export const createPostgresSearchDependencies = (pool: SearchSqlClient, input: Omit<SearchModuleDependencies, "searchRunRepository" | "generators"> & { generators?: SearchModuleDependencies["generators"]; idGenerator?: () => string }): SearchModuleDependencies => ({ ...createInMemorySearchDependencies(), ...input, idGenerator: input.idGenerator ?? randomUUID, generators: input.generators ?? createInMemorySearchDependencies().generators, searchRunRepository: new PostgresSearchRunRepository(pool) });
+export const createPostgresSearchDependencies = (pool: SearchSqlClient, input: Omit<SearchModuleDependencies, "searchRunRepository" | "generators" | "beginCancellation"> & { generators?: SearchModuleDependencies["generators"]; idGenerator?: () => string; beginCancellation?: SearchModuleDependencies["beginCancellation"] }): SearchModuleDependencies => ({ ...createInMemorySearchDependencies(), ...input, idGenerator: input.idGenerator ?? randomUUID, generators: input.generators ?? createInMemorySearchDependencies().generators, searchRunRepository: new PostgresSearchRunRepository(pool) });
