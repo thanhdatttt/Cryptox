@@ -39,8 +39,8 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 | C-02 | DONE | E0 | YES | Manager / exactly one contract-and-schema worker `01a04d53-6ab4-70c1-a926-f68464b0fc6a` (INS-034) | `MVP_IMPLEMENTATION` / containing INS-034 closure checkpoint | Contract/schema review, 254/254 workspace tests, PostgreSQL up/constraints/down/remigrate, architecture, artifacts, scope, deferred-scope, typecheck, build, lint, and diff checks PASS; OpenSpec CLI and link/DAG automation UNVERIFIED |
 | M-03 | BLOCKED | E1 | YES | Future Market Data worker | — | Not started; amended MD-02/MD-03 evidence required |
 | S-04 | BLOCKED | E1 | YES | Future Strategy application worker | — | Not started; controlled LLM draft/approval evidence required |
-| S-05 | BLOCKED | E1 | YES | Future Strategy composite worker | — | Not started; weighted-vote evidence required |
-| S-06 | BLOCKED | E1 | YES | Future Strategy plugin worker | — | Not started; Lite SMC/Wyckoff evidence required |
+| S-05 | REVIEW | E1 | YES | INS-036 fresh S-05 worker `01a04e66-d981-7e42-b75d-1bb3b7340c73` / Manager | `MVP_IMPLEMENTATION` / containing INS-036 checkpoint | Focused 17/17 and Strategy 89/89 PASS; root scope checker BLOCKED on authorized extension paths, so not DONE |
+| S-06 | REVIEW | E1 | YES | INS-036 fresh S-06 worker `01a04e66-e691-7a50-af2f-b1eecd39053b` / Manager | `MVP_IMPLEMENTATION` / containing INS-036 checkpoint | Focused 20/20 and Strategy 89/89 PASS; root scope checker BLOCKED on authorized extension paths, so not DONE |
 | Q-02 | BLOCKED | E1 | YES | Future Search worker | — | Not started; Domain-guided/Genetic seeded evidence required |
 | B-03 | BLOCKED | E1 | YES | Future Backtesting worker | — | Not started; synthetic paper/decimal/provenance evidence required |
 | N-03 | BLOCKED | E1 | YES | Future News/Sentiment boundary worker | — | Not started; safe URL/extraction/refinement evidence required |
@@ -621,27 +621,49 @@ acceptance criteria and handoff requirements are in the linked packets in
 ### S-05 — Immutable `WEIGHTED_VOTE_V1` Composite
 
 - **Requirement IDs:** `CSL-R-ST-03`, `CSL-R-ST-06`, `CSL-R-RP-02`.
-- **State / owner / wave:** BLOCKED / Strategy composite worker / E1.
+- **State / owner / wave:** REVIEW / INS-036 fresh S-05 worker `01a04e66-d981-7e42-b75d-1bb3b7340c73` and Manager / E1.
 - **Dependencies:** `C-02`, S-01; downstream B-03/L-02/F-03/I-03.
-- **Exact write scope:** New Strategy composite implementation/adapter/test
-  directories only; no canonical contracts, migrations, shared registry, other
+- **Exact write scope:** Only new files under
+  `modules/strategy/domain/composite/**` and
+  `modules/strategy/application/composite/**`, including implementation and
+  focused tests; no canonical contracts, migrations, shared registry, other
   plugins, frontend, or Backtesting.
-- **Acceptance/validation:** Enabled +1/0/-1 weighted normalization, thresholds,
-  ties, immutable exact component versions, same-owner validation, deterministic
-  unit/contract/architecture/scope evidence.
+- **Acceptance/validation:** Enabled BUY/HOLD/SELL map to +1/0/-1; finite
+  non-negative enabled weights normalize to one; default +0.30/-0.30 inclusive
+  thresholds make all other scores, including ties, HOLD; immutable enabled
+  state, normalized weights, thresholds, and exact component versions; invalid,
+  zero-total, non-finite, and cross-owner definitions fail before execution;
+  pure deterministic behavior distinct from historical `MAJORITY_VOTE_V1`.
+- **Review/checkpoint:** Worker produced the six in-scope files without a
+  commit, registration, integration, or control-plane edit. Manager independently
+  reviewed the files and made one readonly-test cast fix in the same authorized
+  test path. Focused tests are 17/17; package Strategy tests are 89/89; package
+  typecheck/lint/build and applicable root gates pass. `scope:check` remains
+  BLOCKED because its current allowlist rejects the authorized new implementation
+  paths; the checker is outside this authorization.
 - **Full packet:** [`MVP_PLAN.md#s-05--immutable-weighted_vote_v1-composite`](MVP_PLAN.md#s-05--immutable-weighted_vote_v1-composite)
 
 ### S-06 — Deterministic `SMC_LITE_V1` and `WYCKOFF_LITE_V1` Plugins
 
 - **Requirement IDs:** `CSL-R-ST-07`, `CSL-R-RP-02`.
-- **State / owner / wave:** BLOCKED / Strategy plugin worker / E1.
+- **State / owner / wave:** REVIEW / INS-036 fresh S-06 worker `01a04e66-e691-7a50-af2f-b1eecd39053b` and Manager / E1.
 - **Dependencies:** `C-02`, S-01; downstream B-03/F-03/I-03.
-- **Exact write scope:** New `smc-lite` and `wyckoff-lite` plugin directories and
-  focused tests only; no shared registry/contracts, existing plugins, apps,
+- **Exact write scope:** Only new files under
+  `modules/strategy/domain/plugins/smc-lite/**` and
+  `modules/strategy/domain/plugins/wyckoff-lite/**`, including implementation
+  and focused tests; no shared registry/contracts, existing plugins, apps,
   migrations, or frontend.
-- **Acceptance/validation:** Confirmed pivot/BOS and fixed range-volume heuristics,
-  deterministic fixtures, insufficient-data behavior, purity, descriptors,
-  truthful Lite labeling, and Strategy/global gates.
+- **Acceptance/validation:** Confirmed pivot-window swing highs/lows and
+  close-based BOS; fixed range/volume heuristics for accumulation,
+  distribution, and breakout; explicit validation and insufficient-data
+  behavior; pure finite deterministic closed-candle execution; truthful Lite
+  descriptors and limitations; focused and Strategy/global gates.
+- **Review/checkpoint:** Worker produced the six in-scope files without a
+  commit, registration, integration, or control-plane edit. Manager independently
+  reviewed the files. Focused tests are 20/20; package Strategy tests are 89/89;
+  package typecheck/lint/build and applicable root gates pass. `scope:check`
+  remains BLOCKED because its current allowlist rejects the authorized new
+  implementation paths; the checker is outside this authorization.
 - **Full packet:** [`MVP_PLAN.md#s-06--deterministic-smc_lite_v1-and-wyckoff_lite_v1-plugins`](MVP_PLAN.md#s-06--deterministic-smc_lite_v1-and-wyckoff_lite_v1-plugins)
 
 ### Q-02 — Seeded `DOMAIN_GUIDED_V1` and `GENETIC_V1` Discovery
@@ -749,7 +771,11 @@ M-02 remains REVIEW because live-provider evidence is UNVERIFIED. Q-01 and
 F-02 are DONE at their authorized packet boundaries; F-02 is fixture/fake-client
 evidence only and real API/browser integration remains for I-01. F-AUTH, N-01,
 and N-02 remain DONE. `RB-01` is DONE as the current governance checkpoint.
-`C-02`, `M-03`, `S-04`, `S-05`, `S-06`, `Q-02`, `B-03`, `N-03`, `E-02`, `L-02`,
-`F-03`, and `I-03` are newly allocated and remain BLOCKED. AU-02 and I-01/I-02
-remain blocked; no feature packet was started by this checkpoint. No legacy DONE
-packet is treated as evidence for a DEC-007 requirement.
+`C-02` is DONE. `S-05` and `S-06` transitioned exactly
+`BLOCKED -> READY -> IN_PROGRESS -> REVIEW` under INS-036 after worker and
+Manager evidence. They remain REVIEW, not DONE, because the mandatory root
+`scope:check` rejects the four authorized implementation files and the checker
+cannot be edited under INS-036. `M-03`, `S-04`, `Q-02`, `B-03`, `N-03`, `E-02`,
+`L-02`, `F-03`, and `I-03` remain BLOCKED; no downstream packet was authorized
+or started. AU-02 and I-01/I-02 remain blocked; no legacy DONE packet is treated
+as evidence for a DEC-007 requirement.
