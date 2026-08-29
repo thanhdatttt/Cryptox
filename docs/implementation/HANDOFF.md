@@ -5,17 +5,17 @@
 - **Level 2 control plane:** Active. Read `AGENTS.md`, current
   [`INSTRUCTOR.md`](../control/INSTRUCTOR.md), [`DECISIONS.md`](../control/DECISIONS.md),
   [`TASKS.md`](TASKS.md), and this checkpoint before acting.
-- **Current instruction:** `INS-013` / `APPROVED_FOR_EXECUTION`, authorizing
-  exactly M-02 and B-02 in parallel. D-01, AU-01, M-01, and L-01 remain DONE
-  and were not reassigned or reworked.
-- **INS-013 applicability:** PASS. Instructor-reviewed HEAD was `2118a08`; the
-  only intervening commit before assignment was `3116e1f`, changing only the
-  authorized `docs/control/INSTRUCTOR.md` signal. Source, business state, and
-  task DAG were unchanged at execution start. Starting HEAD was `3116e1f` on
+- **Current instruction:** `INS-014` / `APPROVED_FOR_EXECUTION`, authorizing
+  exactly the M-02 and B-02 review-closure phases. D-01, AU-01, M-01, and L-01
+  remain DONE and are not reassigned or reworked.
+- **INS-014 applicability:** PASS. Instructor-reviewed HEAD was `158e38f`; the
+  only intervening commit before this reconciliation was `9975a59`, changing
+  only the authorized `docs/control/INSTRUCTOR.md` signal. Source, business
+  state, and task DAG were unchanged. Starting HEAD is `9975a59` on
   `MVP_IMPLEMENTATION` with a clean working tree.
-- **Delegation:** Fermat implemented M-02, Arendt implemented B-02, and Hilbert
-  supplied the bounded B-02 review fixes. Their write scopes remained disjoint;
-  the Manager changed only `TASKS.md` and this checkpoint.
+- **Reconciliation:** M-02 and B-02 were REVIEW under exhausted INS-013. They
+  are reconciled to READY solely for the bounded INS-014 review-closure phase;
+  no downstream task is unlocked for execution by this checkpoint.
 - **M-02 result:** Normalized Binance kline streaming, connection status,
   bounded reconnect/backoff/resubscribe, REST gap reconciliation before
   continuation, forming-candle exclusion, duplicate suppression, changed
@@ -42,15 +42,16 @@
   `/live=200`, `/ready=503`, `/health=404`. PostgreSQL integration suites that
   require external configuration remain skipped/UNVERIFIED. Formal OpenSpec
   CLI validation remains UNVERIFIED because the CLI is unavailable.
-- **Current task state:** M-02 and B-02 remain `REVIEW` under INS-013. No
+- **Current task state:** M-02 and B-02 are `READY` under INS-014 for bounded
+  review closure. No worker has been assigned in this checkpoint and no
   downstream task was started. AU-02, Q-01 integration, F-AUTH integration,
   I-01, I-02, and all other unfinished tasks remain blocked or unauthorized.
-- **Authorization status:** INS-013 is exhausted at this safe checkpoint.
-  Renewed Instructor review and a new Instruction ID are required before
-  resuming M-02/B-02 completion or starting any follow-on work.
+- **Authorization status:** INS-014 is active and limited to M-02/B-02 review
+  closure. The next manager checkpoint must move assigned tasks to IN_PROGRESS,
+  then REVIEW or DONE truthfully, and stop when this authorization is exhausted.
 - **Safe checkpoint commits:** `5ac68b9` contains the scoped M-02/B-02 source
-  and tests; `98f8bb5` contains the final Manager handoff/task-state checkpoint.
-  No downstream task was started.
+  and tests; `98f8bb5` and `158e38f` contain the prior INS-013 checkpoint;
+  `9975a59` contains the INS-014 authorization. No downstream task was started.
 
 ## Historical checkpoints (prior to INS-012)
 - **INS-010 applicability:** PASS at execution start. Instructor reviewed HEAD
