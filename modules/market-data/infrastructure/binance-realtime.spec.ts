@@ -13,6 +13,7 @@ interface FakeSocket {
   open(): void;
   message(data: unknown): void;
   disconnect(): void;
+  fail(): void;
 }
 
 function socketFactory(): { sockets: FakeSocket[]; factory: BinanceWebSocketFactory } {
@@ -34,6 +35,9 @@ function socketFactory(): { sockets: FakeSocket[]; factory: BinanceWebSocketFact
       },
       disconnect() {
         socket.onclose?.();
+      },
+      fail() {
+        socket.onerror?.();
       },
     };
     sockets.push(socket);
@@ -238,6 +242,40 @@ describe("Binance realtime provider", () => {
       "RECONNECTING",
       "RECONNECTING",
       "DISCONNECTED",
+    ]);
+    await provider.shutdown();
+  });
+
+  it("reconnects after a socket error even when no close event follows", async () => {
+    const sockets = socketFactory();
+    const sleeps: number[] = [];
+    const updates: Array<{ kind: string; payload: unknown }> = [];
+    const provider = createBinanceRealtimeProvider({
+      webSocket: sockets.factory,
+      sleep: async (delay) => { sleeps.push(delay); },
+      reconnectBaseDelayMs: 10,
+      reconnectMaxDelayMs: 10,
+      maxReconnectAttempts: 1,
+      fetch: async () => response([]),
+    });
+    const subscriptionPromise = provider.subscribe([{ pair: "BTCUSDT", timeframe: "5m" }], (update) => updates.push(update));
+    sockets.sockets[0]!.open();
+    await subscriptionPromise;
+
+    sockets.sockets[0]!.fail();
+    await flushAsyncWork();
+    expect(sleeps).toEqual([10]);
+    expect(updates.filter((update) => update.kind === "CONNECTION_STATUS").map((update) => (update.payload as { status: string }).status)).toEqual([
+      "CONNECTED",
+      "RECONNECTING",
+    ]);
+
+    sockets.sockets[1]!.open();
+    await flushAsyncWork();
+    expect(updates.filter((update) => update.kind === "CONNECTION_STATUS").map((update) => (update.payload as { status: string }).status)).toEqual([
+      "CONNECTED",
+      "RECONNECTING",
+      "CONNECTED",
     ]);
     await provider.shutdown();
   });

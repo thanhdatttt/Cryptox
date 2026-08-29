@@ -255,4 +255,40 @@ describe("BacktestingApplication", () => {
     expect(leaderboardCalls).toBe(0);
     expect(repositories.experiments.size).toBe(0);
   });
+
+  it("treats cancellation during final completion as too late for a Search candidate", async () => {
+    const repositories = new InMemoryBacktestingRepositories();
+    let release!: () => void;
+    const completionGate = new Promise<void>((resolve) => { release = resolve; });
+    const delayedCompletion: typeof repositories.completionUnitOfWork = {
+      commit: async (input, participants) => {
+        const result = await repositories.completionUnitOfWork.commit(input, participants);
+        await completionGate;
+        return result;
+      },
+    };
+    const { app } = makeApplication(
+      repositories,
+      async () => ({ admitted: true }),
+      undefined,
+      fixtureStrategy(),
+      undefined,
+      delayedCompletion,
+    );
+    const accepted = await app.submitSearchCandidate(contextA, {
+      ...manualCommand(),
+      searchRunId: "run-a",
+      iterationNumber: 1,
+    });
+
+    await vi.waitFor(async () => expect(repositories.experiments.size).toBe(1));
+    // The completion adapter has persisted its participants but has not yet
+    // returned to the executor. Cancellation must not create a second terminal
+    // outcome or leave a successful Experiment behind a CANCELLED Candidate.
+    await expect(app.cancelSearchCandidates(contextA, "run-a")).resolves.toEqual({ candidateIds: [] });
+    release();
+
+    await vi.waitFor(async () => expect((await app.status(contextA, accepted.candidateId)).status).toBe("SUCCEEDED"));
+    expect(repositories.experiments.size).toBe(1);
+  });
 });

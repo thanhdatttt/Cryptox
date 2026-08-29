@@ -113,8 +113,8 @@ describe("Postgres backtesting adapter", () => {
       equity_curve: [],
       ranking_configuration_id: "ranking-v1",
       code_provenance: { applicationVersion: "test" },
-      replay_guarantee: "TRACEABLE",
-      replay_limitation: "stored as traceable",
+      replay_guarantee: "EXACT_REPLAY_AVAILABLE",
+      replay_limitation: null,
       created_at: candidateRow.created_at,
       fee_rate_percent: "0.1",
       slippage_bps: 0,
@@ -147,9 +147,10 @@ describe("Postgres backtesting adapter", () => {
       provider: "binance",
       datasetId: experimentRow.market_dataset_snapshot_id,
       datasetVersion: "snapshot-v1",
-      replayGuarantee: "TRACEABLE",
+      replayGuarantee: "EXACT_REPLAY_AVAILABLE",
     });
     expect(experiment?.replay.guarantee).toBe("TRACEABLE");
+    expect(experiment?.replay.unavailableInputs).toEqual(["EXECUTABLE_CODE"]);
     await dependencies.close();
   });
 

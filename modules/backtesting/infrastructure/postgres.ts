@@ -495,14 +495,19 @@ export function createPostgresBacktestingDependencies(
 
   function experimentFromRow(row: ExperimentRow, trades: readonly Trade[], strategy: Experiment["strategy"], metrics: Experiment["metrics"]): Experiment {
     const hasReplayableDataset = Boolean(row.market_dataset_snapshot_id && row.dataset_version);
-    const exactReplay = row.replay_guarantee === "EXACT_REPLAY_AVAILABLE" && hasReplayableDataset;
+    const exactDatasetReplay = row.replay_guarantee === "EXACT_REPLAY_AVAILABLE" && hasReplayableDataset;
+    const code = typeof row.code_provenance === "object" && row.code_provenance !== null
+      ? row.code_provenance as Experiment["code"]
+      : {};
+    const hasCodeCommit = typeof code.gitCommit === "string" && code.gitCommit.trim().length > 0;
+    const exactReplay = exactDatasetReplay && hasCodeCommit;
     const provider = row.dataset_provider ?? "unknown";
     return {
       id: row.id,
       candidateId: row.candidate_id,
       ...(row.search_run_id === null ? {} : { searchRunId: row.search_run_id }),
       strategy,
-      marketData: (exactReplay
+      marketData: (exactDatasetReplay
         ? {
         provider,
         pair: row.pair,
@@ -525,12 +530,17 @@ export function createPostgresBacktestingDependencies(
       configuration: { executionProfileId: row.execution_profile_id, initialCapital: numberColumn(row.initial_capital, "initial_capital"), feeRatePercent: numberColumn(row.fee_rate_percent, "fee_rate_percent"), slippageBps: integerColumn(row.slippage_bps, "slippage_bps") },
       metrics: { ...metrics, candidateId: row.candidate_id },
       rankingConfigurationId: row.ranking_configuration_id,
-      code: row.code_provenance,
+      code,
       replay: exactReplay
         ? { guarantee: "EXACT_REPLAY_AVAILABLE", unavailableInputs: [] }
         : {
             guarantee: "TRACEABLE",
-            unavailableInputs: ["HISTORICAL_DATA", "EXECUTABLE_CODE"],
+            unavailableInputs: (exactDatasetReplay
+              ? ["EXECUTABLE_CODE"]
+              : ["HISTORICAL_DATA", "EXECUTABLE_CODE"]) as [
+                "HISTORICAL_DATA" | "EXECUTABLE_CODE",
+                ...("HISTORICAL_DATA" | "EXECUTABLE_CODE")[],
+              ],
             limitation: row.replay_limitation ?? "persisted replay guarantee is TRACEABLE",
           },
       // The frozen public Experiment contract has no equityCurve field. Keep

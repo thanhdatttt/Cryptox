@@ -86,6 +86,7 @@ describe("BoundedLocalBacktestExecutor", () => {
 
     await expect(executor.status("candidate-1")).resolves.toEqual({
       candidateId: "candidate-1",
+      startedAt: "2026-08-27T00:00:00.000Z",
       state: "RUNNING",
     });
     runner.fail("candidate-1", new Error("fake runner failed"));
@@ -93,8 +94,18 @@ describe("BoundedLocalBacktestExecutor", () => {
     await expect(submission.outcome).resolves.toMatchObject({
       state: "FAILED",
       failure: { code: "RUNNER_FAILED", message: "fake runner failed" },
+      startedAt: "2026-08-27T00:00:00.000Z",
+      completedAt: "2026-08-27T00:00:00.000Z",
+      durationMs: 0,
     });
-    await expect(executor.status("candidate-1")).resolves.toMatchObject({ state: "FAILED" });
+    await expect(executor.status("candidate-1")).resolves.toEqual({
+      candidateId: "candidate-1",
+      state: "FAILED",
+      startedAt: "2026-08-27T00:00:00.000Z",
+      completedAt: "2026-08-27T00:00:00.000Z",
+      durationMs: 0,
+      failure: { code: "RUNNER_FAILED", message: "fake runner failed" },
+    });
   });
 
   it("publishes cancellation once and retains capacity until the runner settles", async () => {

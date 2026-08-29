@@ -8,54 +8,56 @@
 - **Current instruction:** `INS-014` / `APPROVED_FOR_EXECUTION`, authorizing
   exactly the M-02 and B-02 review-closure phases. D-01, AU-01, M-01, and L-01
   remain DONE and are not reassigned or reworked.
-- **INS-014 applicability:** PASS. Instructor-reviewed HEAD was `158e38f`; the
-  only intervening commit before this reconciliation was `9975a59`, changing
-  only the authorized `docs/control/INSTRUCTOR.md` signal. Source, business
-  state, and task DAG were unchanged. Starting HEAD is `9975a59` on
-  `MVP_IMPLEMENTATION` with a clean working tree.
+- **INS-014 applicability:** PASS at execution start. Instructor-reviewed HEAD
+  was `158e38f`; `9975a59` changed only the authorized signal, and the later
+  `5b05404`/`f8c0d7d` commits changed only Manager-owned review-closure state.
+  No source or business-state drift existed before the authorized workers ran.
 - **Reconciliation:** M-02 and B-02 were REVIEW under exhausted INS-013. They
   are reconciled to READY solely for the bounded INS-014 review-closure phase;
   no downstream task is unlocked for execution by this checkpoint.
 - **Delegation:** M-02 is assigned to the bounded worker task
   `01a04b38-10bd-7d21-9be0-598f311b80c6` in `modules/market-data/**`.
-  B-02 remains READY until its separate worker is assigned; write scopes are
-  disjoint and no worker may edit the control plane.
-- **M-02 result:** Normalized Binance kline streaming, connection status,
-  bounded reconnect/backoff/resubscribe, REST gap reconciliation before
-  continuation, forming-candle exclusion, duplicate suppression, changed
-  closed-candle correction, closed-state protection, shutdown, and sanitized
-  observability are implemented under `modules/market-data/**`. Focused tests
-  pass 22/22; the required live Binance stream smoke is `UNVERIFIED` after
-  connection timeouts.
-- **B-02 result:** Trusted manual/Search ownership guards, bounded local
-  execution, B-01 simulation, Evaluation, inherited Experiment/Trades,
-  same-owner ranking admission, idempotent PostgreSQL completion, rollback
-  handling, terminal persistence, practical provenance, actual equity-curve
-  persistence, and sequence-ordered Trade pagination are implemented under
-  `modules/backtesting/**`. Focused tests pass 32/32. Real PostgreSQL/Auth
-  integration is `UNVERIFIED` because no database configuration/service was
-  available.
-- **Independent review:** Scope, frozen contracts/migrations, architecture,
-  ownership, realtime recovery, persistence, and focused evidence were reviewed.
-  The final review remains CONDITIONAL: cancellation can still race during the
-  final cross-module completion window, and atomic Experiment + Leaderboard
-  persistence requires a shared transaction-aware adapter to be proven at I-01.
-  These are not reported as PASS.
-- **Validation:** Workspace tests, build, typecheck, architecture, artifacts,
-  deferred-scope, runtime smoke, and whitespace checks PASS. Runtime smoke is
-  `/live=200`, `/ready=503`, `/health=404`. PostgreSQL integration suites that
-  require external configuration remain skipped/UNVERIFIED. Formal OpenSpec
-  CLI validation remains UNVERIFIED because the CLI is unavailable.
-- **Current task state:** M-02 is `IN_PROGRESS` and B-02 is `READY` under
-  INS-014 for bounded review closure. No downstream task was started. AU-02,
+  B-02 is assigned to the separate bounded worker task
+  `01a04b3d-5dd2-7df0-8be6-2ce393859c09` in `modules/backtesting/**`.
+  Write scopes are disjoint and no worker may edit the control plane.
+- **M-02 result:** The worker fixed socket-error recovery when no `close` event
+  follows and added regression coverage. The focused realtime suite is 9/9
+  PASS and the full Market Data suite is 23 PASS / 1 skipped; package
+  typecheck/build/lint and whitespace checks PASS. The truthful Binance stream
+  smoke is `UNVERIFIED` after provider failure and bounded reconnect exhaustion.
+- **B-02 result:** The worker closed the finalization cancellation race, retained
+  one terminal outcome, exposed executor timing/failure details, and corrected
+  persisted replay reconstruction. The full Backtesting suite is 33/33 PASS;
+  package typecheck/lint/build and whitespace checks PASS. Configured Auth
+  PostgreSQL integration is 3/3 PASS; the worker's real Backtesting adapter
+  probe verified same-owner reads and cross-user Experiment/Trade not-found with
+  cleanup. Cross-module Experiment plus Leaderboard atomicity remains
+  `UNVERIFIED` until a shared transaction-aware adapter is proven at I-01.
+- **Independent review:** The final worker diffs remain within the disjoint
+  Market Data and Backtesting scopes, preserve frozen contracts and migrations,
+  and pass architecture/scope review. The cancellation window is explicitly
+  non-cancellable once finalization begins; this does not establish cross-module
+  atomicity. No external-provider limitation is reported as PASS.
+- **Validation:** `verify:stage4a` PASS: workspace build, typecheck, tests,
+  architecture, artifacts, deferred-scope, and runtime smoke. Runtime smoke is
+  `/live=200`, `/ready=503`, `/health=404`; root integration tests retain their
+  expected skips when `DATABASE_URL` is unset. Configured Auth integration
+  passed separately. Formal OpenSpec CLI validation remains UNVERIFIED because
+  the CLI is unavailable.
+- **Current task state:** M-02 and B-02 are `REVIEW` under INS-014 after
+  bounded review closure. They are not `DONE` because live Binance evidence
+  and cross-module transaction proof remain unresolved. No downstream task was
+  started. AU-02,
   Q-01 integration, F-AUTH integration,
   I-01, I-02, and all other unfinished tasks remain blocked or unauthorized.
-- **Authorization status:** INS-014 is active and limited to M-02/B-02 review
-  closure. The next manager checkpoint must move assigned tasks to IN_PROGRESS,
-  then REVIEW or DONE truthfully, and stop when this authorization is exhausted.
+- **Authorization status:** INS-014 is exhausted after the M-02/B-02 review
+  closure attempts. Renewed Instructor review and a new Instruction ID are
+  required before any further work, including I-01 or provider integration.
 - **Safe checkpoint commits:** `5ac68b9` contains the scoped M-02/B-02 source
   and tests; `98f8bb5` and `158e38f` contain the prior INS-013 checkpoint;
-  `9975a59` contains the INS-014 authorization. No downstream task was started.
+  `9975a59` contains the INS-014 authorization. The final INS-014 integration
+  and control checkpoint commits are recorded below after commit. No downstream
+  task was started.
 
 ## Historical checkpoints (prior to INS-012)
 - **INS-010 applicability:** PASS at execution start. Instructor reviewed HEAD

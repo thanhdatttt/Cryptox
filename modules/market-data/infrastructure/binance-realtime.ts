@@ -350,7 +350,12 @@ export function createBinanceRealtimeProvider(options: BinanceRealtimeProviderOp
           report(options.observability, "PROVIDER_FAILURE", "Binance realtime payload was malformed");
         });
     };
-    socket.onerror = () => report(options.observability, "PROVIDER_FAILURE", "Binance realtime socket failed");
+    socket.onerror = () => {
+      report(options.observability, "PROVIDER_FAILURE", "Binance realtime socket failed");
+      if (session.socket !== socket) return;
+      handleClosed(session, socket);
+      socket.close();
+    };
     socket.onclose = () => handleClosed(session, socket);
   };
 

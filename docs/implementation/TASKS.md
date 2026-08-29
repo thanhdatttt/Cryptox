@@ -17,14 +17,14 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 | C-01A | DONE | 1A | YES | Manager / contract worker | `MVP_IMPLEMENTATION` / `9ca2d7c` | Independent review and all contract/global gates PASS |
 | D-01 | DONE | 2 | YES — B-02 gate | Orchestrator / Dewey + independent DB reviewer | `MVP_IMPLEMENTATION` / `f5c5562` | Live down/up/remigrate, schema/constraint/ownership/deferred-scope probes, global gates PASS; config defect fixed |
 | M-01 | DONE | 2 | Integration | Halley (Market Data worker) and Manager | `3c95063` | Focused 14/14, dedicated PostgreSQL 1/1, root gates PASS; live Binance UNVERIFIED |
-| M-02 | IN_PROGRESS | 3 | Integration | M-02 worker (INS-014) | `MVP_IMPLEMENTATION` / `5b05404` assignment checkpoint | Assigned for bounded review closure; focused 22/22 prior PASS; live Binance remains UNVERIFIED |
+| M-02 | REVIEW | 3 | Integration | M-02 review-closure worker (INS-014) | `MVP_IMPLEMENTATION` / INS-014 integration checkpoint pending | Socket-error reconnect fix and regression coverage reviewed; focused realtime 9/9 and full Market Data 23 PASS / 1 skipped; live Binance remains UNVERIFIED |
 | S-01 | DONE | 2 | YES | Manager / S-01 strategy | `MVP_IMPLEMENTATION` / containing INS-005 checkpoint commit | Strategy tests/workspace gates PASS; persistence and built-in plugin scopes untouched |
 | S-02 | DONE | 3 | Integration | Manager / reviewed Strategy worker A | `MVP_IMPLEMENTATION` / `afbd88c` | Focused 15/15, independent review, and reproducible root workspace gate PASS |
 | S-03 | DONE | 3 | Integration | Manager / reviewed Strategy worker B | `MVP_IMPLEMENTATION` / `afbd88c` | Focused 25/25, independent review, and reproducible root workspace gate PASS |
 | E-01 | DONE | 2 | YES — B-02 gate | Manager / Evaluation worker | `MVP_IMPLEMENTATION` / `a20a7c5` | Independent review and Evaluation/global gates PASS |
 | L-01 | DONE | 2 | YES — B-02 gate | Linnaeus (Leaderboard worker) and Manager | `3c95063` | Focused 16/16, adapter/initializer review, root gates PASS; persisted admission UNVERIFIED |
 | B-01 | DONE | 3 | YES | Manager / reviewed Backtesting domain worker | `MVP_IMPLEMENTATION` / `afbd88c` | Focused 9/9, Backtesting 18/18, independent review, and reproducible root workspace gate PASS |
-| B-02 | READY | 4 | YES | Orchestrator / review-closure worker (INS-014) | `MVP_IMPLEMENTATION` / `5b05404` assignment checkpoint | Reconciled from REVIEW for INS-014 review closure; awaiting bounded worker assignment; focused 32/32 prior PASS; cancellation/transaction coupling and PostgreSQL/Auth integration remain UNVERIFIED/blocking |
+| B-02 | REVIEW | 4 | YES | B-02 review-closure worker (INS-014) | `MVP_IMPLEMENTATION` / INS-014 integration checkpoint pending | Cancellation/provenance/timing fixes reviewed; full Backtesting 33/33 PASS; Auth PostgreSQL 3/3 PASS; cross-module atomicity remains UNVERIFIED |
 | AU-01 | DONE | 2 | YES | Orchestrator / Kepler / Banach + independent Auth reviewer | `MVP_IMPLEMENTATION` / `a9b026b` | PostgreSQL Auth 11/11 and backend 9/9 PASS on dedicated PostgreSQL 16.10; independent review PASS; full `verify:stage4a` PASS; OpenSpec CLI UNVERIFIED |
 | AU-02 | BLOCKED | 4 | YES | Manager / security integration worker | — | Blocked by private-resource implementations |
 | Q-01 | REVIEW | 3–4 | Integration | Herschel (Q-01 worker; INS-008) | `MVP_IMPLEMENTATION` / `d226a4a` | Pure/fake-port phase reviewed PASS; real-port integration and DONE remain unauthorized |
@@ -177,15 +177,15 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 
 - **Requirement IDs:** `CSL-R-MD-02`, `CSL-R-FE-01`, `CSL-R-OB-01`,
   `CSL-R-AR-02`, `CSL-R-DM-01`, `CSL-R-RD-01`
-- **State / owner / wave:** IN_PROGRESS / M-02 worker (INS-014) / Wave 3
+- **State / owner / wave:** REVIEW / M-02 review-closure worker (INS-014) / Wave 3
 - **Critical / parallelism:** Integration / YES
 - **Start dependencies:** M-01
 - **Integration dependencies:** F-01 and I-01
 - **Objective:** Deliver normalized market klines with bounded reconnect, gap fill,
   deduplication, and observable connection state.
 - **Write scope:** Market Data application/infrastructure and market WebSocket tests.
-- **Latest branch / commit:** `MVP_IMPLEMENTATION` / `5b05404` assignment checkpoint; implementation remains at `5ac68b9`.
-- **Validation:** IN_PROGRESS for INS-014 review closure. Prior focused 22/22 PASS; live Binance stream UNVERIFIED after timeout; no final DONE claim yet.
+- **Latest branch / commit:** `MVP_IMPLEMENTATION` / INS-014 integration checkpoint pending.
+- **Validation:** REVIEW after INS-014 closure; realtime 9/9 and full Market Data 23 PASS / 1 skipped, package gates PASS; live Binance stream remains UNVERIFIED after provider failure and reconnect exhaustion.
 - **Full packet:** [`MVP_PLAN.md#m-02--realtime-market-delivery-and-gap-recovery`](MVP_PLAN.md#m-02--realtime-market-delivery-and-gap-recovery)
 
 ### S-01 — Strategy Registry, Definitions and Composite Core
@@ -278,15 +278,15 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 
 - **Requirement IDs:** `CSL-R-BT-01`, `CSL-R-ST-04`, `CSL-R-RP-01`,
   `CSL-R-OB-01`, `CSL-R-AR-01`, `CSL-R-AR-02`, `CSL-R-OW-01`
-- **State / owner / wave:** READY / Orchestrator / review-closure worker (INS-014) / Wave 4
+- **State / owner / wave:** REVIEW / B-02 review-closure worker (INS-014) / Wave 4
 - **Critical / parallelism:** YES / Limited
 - **Start dependencies:** D-01, S-01, B-01, E-01, L-01
 - **Integration dependencies:** M-01, S-02, and S-03 before I-01/I-02
 - **Objective:** Connect owner-scoped Candidate persistence, bounded execution,
   simulation, Evaluation, inherited Experiment/Trades, and same-owner Leaderboard.
 - **Write scope:** Backtesting application/infrastructure/API implementations/tests.
-- **Latest branch / commit:** `MVP_IMPLEMENTATION` / `9975a59` authorization checkpoint; implementation remains at `5ac68b9`.
-- **Validation:** Reconciled from REVIEW to READY for INS-014 review closure. Prior focused 32/32, build/typecheck/lint PASS; cancellation/transaction coupling and PostgreSQL/Auth integration remain UNVERIFIED/blocking.
+- **Latest branch / commit:** `MVP_IMPLEMENTATION` / INS-014 integration checkpoint pending.
+- **Validation:** REVIEW after INS-014 closure; full Backtesting 33/33 PASS and package gates PASS; Auth PostgreSQL 3/3 PASS; cross-module Experiment/Leaderboard atomicity remains UNVERIFIED until a shared transaction-aware adapter is proven.
 - **Full packet:** [`MVP_PLAN.md#b-02--candidate-execution-and-experiment-orchestration`](MVP_PLAN.md#b-02--candidate-execution-and-experiment-orchestration)
 
 ### AU-02 — Per-User Ownership Security Integration
@@ -435,9 +435,9 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 ## State derivation at this checkpoint
 
 P-00, C-01, A-00, C-01A, E-01, F-01, S-01, D-01, AU-01, M-01, and L-01 are DONE.
-M-02 and B-02 are READY under INS-014 for bounded review closure after their
-INS-013 implementation and independent review. Their remaining real-provider/
-database and cancellation/transaction-coupling evidence is not PASS. Q-01 and F-AUTH remain in REVIEW for
+M-02 and B-02 are REVIEW after their bounded INS-014 review closure. M-02's
+live-provider evidence and B-02's cross-module transaction coupling remain
+UNVERIFIED and are not DONE gates. Q-01 and F-AUTH remain in REVIEW for
 their bounded fake/fixture phases; their real integration and DONE transitions
 remain gated. All other unfinished tasks remain BLOCKED. No newly unlocked task
 was started.

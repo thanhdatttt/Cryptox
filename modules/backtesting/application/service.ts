@@ -247,6 +247,7 @@ export function createBacktestingApplication(
     Experiment,
     import("../api/contracts").Trade
   >;
+  const finalizingCandidates = new Set<string>();
 
   const saveFailure = async (
     ownerUserId: AuthenticatedUserId,
@@ -291,6 +292,19 @@ export function createBacktestingApplication(
       return;
     }
     await saveFailure(ownerUserId, candidate, failureCodeFromMessage(outcome.failure.message), outcome.failure.message, outcome.completedAt);
+  };
+
+  const requestCancellation = async (
+    candidateId: string,
+  ): Promise<boolean> => {
+    // The completion window is intentionally non-cancellable once the final
+    // Experiment/Leaderboard adapter call has started. This closes the race
+    // where a completed cross-module result could otherwise be reported as
+    // CANCELLED. Cross-module rollback still requires a shared transaction-aware
+    // completion adapter; this guard only makes the in-process outcome ordering
+    // deterministic.
+    if (finalizingCandidates.has(candidateId)) return false;
+    return execution.cancel(candidateId);
   };
 
   const submit = async (
@@ -370,6 +384,9 @@ export function createBacktestingApplication(
           // There is no second durable sink in this module.  Keep the rejection
           // handled; a shared persistence/alerting boundary is outside B-02.
         }
+      })
+      .finally(() => {
+        finalizingCandidates.delete(candidate.candidateId);
       });
     return { candidateId: candidate.candidateId, status: "ACCEPTED" };
   };
@@ -407,7 +424,7 @@ export function createBacktestingApplication(
     const candidate = await dependencies.candidateRepository.getByOwnerAndId(ownerUserId, nonEmpty(candidateId, "candidateId"));
     if (!candidate) throw new BacktestingApplicationError("NOT_FOUND");
     if (["SUCCEEDED", "FAILED", "CANCELLED"].includes(candidate.status)) return;
-    await execution.cancel(candidate.candidateId);
+    await requestCancellation(candidate.candidateId);
   };
 
   const runCandidate = async (request: CandidateExecutionRequest, signal: AbortSignal): Promise<CandidateRunResult> => {
@@ -586,6 +603,7 @@ export function createBacktestingApplication(
               return dependencies.experimentRepository.insertForCandidateOwner(ownerUserId, value, trades);
             },
             submitLeaderboard: (ownerUserId, submission) => {
+              finalizingCandidates.add(candidate.candidateId);
               throwIfCancelled(signal);
               return dependencies.leaderboard.submit(
                 { authenticatedUserId: ownerUserId },
@@ -624,8 +642,9 @@ export function createBacktestingApplication(
     const candidateIds: string[] = [];
     for (const item of items) {
       if (item.status === "ACCEPTED" || item.status === "RUNNING") {
-        await execution.cancel(item.candidateId);
-        candidateIds.push(item.candidateId);
+        if (await requestCancellation(item.candidateId)) {
+          candidateIds.push(item.candidateId);
+        }
       }
     }
     return { candidateIds };

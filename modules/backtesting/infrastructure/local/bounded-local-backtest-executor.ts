@@ -16,6 +16,10 @@ interface ExecutionRecord<TResult> {
   controller: AbortController;
   outcome: Promise<BacktestTerminalOutcome<TResult>>;
   resolveOutcome: (outcome: BacktestTerminalOutcome<TResult>) => void;
+  startedAt?: string;
+  completedAt?: string;
+  durationMs?: number;
+  failure?: { code: "RUNNER_FAILED"; message: string };
   terminalDelivered: boolean;
   slotReleased: boolean;
 }
@@ -97,7 +101,16 @@ export class BoundedLocalBacktestExecutor<
 
   async status(candidateId: string): Promise<BacktestExecutionStatus | undefined> {
     const record = this.executions.get(candidateId);
-    return record ? { candidateId, state: record.state } : undefined;
+    return record
+      ? {
+          candidateId,
+          state: record.state,
+          ...(record.startedAt ? { startedAt: record.startedAt } : {}),
+          ...(record.completedAt ? { completedAt: record.completedAt } : {}),
+          ...(record.durationMs === undefined ? {} : { durationMs: record.durationMs }),
+          ...(record.failure ? { failure: { ...record.failure } } : {}),
+        }
+      : undefined;
   }
 
   async cancel(candidateId: string): Promise<boolean> {
@@ -117,6 +130,7 @@ export class BoundedLocalBacktestExecutor<
 
   private async run(record: ExecutionRecord<TResult>, request: TRequest): Promise<void> {
     record.state = "RUNNING";
+    record.startedAt = this.clock.now();
     try {
       const result = await this.runner.run(request, record.controller.signal);
       this.deliverTerminal(record, {
@@ -150,7 +164,18 @@ export class BoundedLocalBacktestExecutor<
 
     record.terminalDelivered = true;
     record.state = outcome.state;
-    record.resolveOutcome(outcome);
+    record.completedAt = outcome.completedAt;
+    if (record.startedAt) {
+      record.durationMs = Math.max(0, Date.parse(record.completedAt) - Date.parse(record.startedAt));
+    }
+    if (outcome.state === "FAILED") {
+      record.failure = { ...outcome.failure };
+    }
+    record.resolveOutcome({
+      ...outcome,
+      ...(record.startedAt ? { startedAt: record.startedAt } : {}),
+      ...(record.durationMs === undefined ? {} : { durationMs: record.durationMs }),
+    });
   }
 
   private releaseSlot(record: ExecutionRecord<TResult>): void {
