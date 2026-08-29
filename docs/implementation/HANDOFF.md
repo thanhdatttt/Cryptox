@@ -1,50 +1,34 @@
-# INS-018 Execution Checkpoint
+# INS-019 Execution Checkpoint
 
 ## Resume here
 
-- **Level 2 control plane:** INS-018 is the current Instructor signal. Its
-  authorization commit is `c97b83b`, reviewed against `95e0f3c`; applicability
-  passed because current `HEAD` was exactly `c97b83b` with a clean worktree and
-  no material source, business-state, or task-DAG drift.
-- **Authorized work:** Only Q-01 persisted SearchRun race repair/real-port
-  closure, F-02 initial authenticated frontend feature views, and an evidence-
-  only M-02 live Binance probe were executed. No M-02 source/configuration
-  changes or downstream work were started.
-- **Workers:** Q-01 sole worker Ohm
-  (`01a04bab-a02c-7221-9382-acf9a9a7d192`) wrote only
-  `modules/search/**` and committed `317ca0d`. F-02 sole worker Mendel
-  (`01a04bab-a123-7bd2-855b-c02a6ab30f1c`) wrote only frontend feature scope;
-  `apps/frontend/src/auth/**` and all global control artifacts were unchanged.
-- **Transitions:** Q-01 REVIEW→READY→IN_PROGRESS→DONE after independent
-  review and real-port validation. F-02 BLOCKED→READY→IN_PROGRESS→DONE at
-  its fixture-first packet boundary after the full feature suite and global
-  gates passed. M-02 remains REVIEW/UNVERIFIED.
-- **Q-01 evidence:** `317ca0d` serializes persisted SearchRun snapshots per
-  run and adds deterministic delayed-write regression coverage. Full Search is
-  22 passed / 1 skipped; typecheck, lint, and build pass. The real PostgreSQL
-  public Search→Backtesting→Leaderboard integration passed twice against the
-  dedicated endpoint, including persisted terminal state, owner isolation,
-  Backtesting completion, and Leaderboard admission. No credentials/tokens
-  were logged.
-- **F-02 evidence:** Reviewed paths are `apps/frontend/src/App.tsx`,
-  `apps/frontend/src/style.css`, and `apps/frontend/src/features/{types,
-  clients,fixture-client,fixture-data,state,state.spec,screens,screens.spec,
-  fixture-client.spec}.(ts|tsx)`. The feature client/state/fixture flow covers
-  descriptor-driven controls, owner-derived fixture isolation, bounded Search
-  presentation, results/metrics/provenance, overlays/trades, and News with
-  missing-Sentiment degradation. Frontend tests are 31/31 across 12 files,
-  including six packet-scoped tests; typecheck/lint/build and global gates
-  pass. Evidence is fixture/fake-client only: no browser or real API/I-01
-  completion is claimed.
-- **M-02 evidence:** Existing realtime resilience tests remain 9/9 and full
-  Market Data remains 23 passed / 1 skipped. One bounded live Binance WebSocket
-  attempt ended with reconnect-limit exhaustion; live normalized delivery and
-  recovery are `UNVERIFIED`. Fixture evidence was not promoted to PASS.
-- **Validation limits:** Formal OpenSpec CLI status/instructions remain
-  `UNVERIFIED` because the CLI is unavailable. Cross-module Experiment/
-  Leaderboard transaction atomicity remains reserved and `UNVERIFIED` for
-  I-01. Real API/browser integration for F-02 remains an I-01 concern. No
-  AU-02, I-01/I-02, M-02 rework, or other follow-on task was started.
+- **Level 2 control plane:** INS-019 authorization commit is `772bc55`,
+  reviewed against Manager checkpoint `acbde53`. Applicability passed because
+  `844e22d` and `772bc55` are governance-only commits after the reviewed clean
+  base; no source, business-state, or task-DAG drift was found.
+- **Authorized work:** AU-02 cross-module ownership security integration and
+  one evidence-only M-02 live Binance re-probe. No downstream task or M-02
+  source/configuration rework was started.
+- **Transitions:** AU-02 BLOCKED→READY after verifying AU-01, D-01, S-01,
+  L-01, B-02, Q-01 real integration, and F-AUTH DONE; then READY→IN_PROGRESS.
+  Its sole worker, `01a04bd5-8608-70c3-abae-94176723da39`, was safely
+  interrupted after the focused test process stalled during setup and produced
+  no source diff, test evidence, or commit. AU-02 is now BLOCKED.
+- **AU-02 worker scope result:** The worker worktree branch
+  `codex/au-02-ownership-security` contains only the inherited Manager TASKS
+  edit and no changes under the allowed Auth/Strategy/Search/Backtesting/
+  Leaderboard/runtime scope. The required two-user isolation matrix, 401/404
+  checks, trusted-identity spoofing checks, owner propagation, same-owner
+  ranking, shared-data, and secret-log evidence are all BLOCKED/UNVERIFIED.
+- **M-02 evidence:** One bounded live Binance WebSocket probe using the existing
+  built implementation ended in reconnect-limit exhaustion after socket
+  failures, with zero normalized candles and no live gap-recovery evidence.
+  M-02 remains REVIEW/UNVERIFIED; fixture resilience was not promoted.
+- **Validation limits:** Formal OpenSpec CLI validation remains UNVERIFIED
+  because the CLI is unavailable. No source, contracts, migrations, frontend,
+  INSTRUCTOR.md, or DECISIONS.md changes were made by the Manager. A renewed
+  Instructor signal is required before AU-02 can be retried or any downstream
+  work can start.
 
 ## Final control note
 
