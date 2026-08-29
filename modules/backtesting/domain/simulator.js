@@ -105,6 +105,9 @@ function simulateBacktest(input) {
     const slippageBps = input.slippageBps ?? 5;
     if (!Number.isFinite(slippageBps) || slippageBps < 0)
         throw new Error("INVALID_INPUT");
+    const warmupCandles = input.warmupCandles ?? 0;
+    if (!Number.isInteger(warmupCandles) || warmupCandles < 0)
+        throw new Error("INVALID_INPUT");
     const candles = [...input.candles]
         .filter((candle) => candle.isClosed)
         .sort((left, right) => left.timestamp.localeCompare(right.timestamp));
@@ -113,6 +116,8 @@ function simulateBacktest(input) {
         if (index > 0 && candles[index - 1].timestamp >= candle.timestamp)
             throw new Error("INVALID_INPUT");
     });
+    if (warmupCandles > candles.length)
+        throw new Error("SNAPSHOT_INCOMPLETE");
     const feeRate = divide(decimal(input.feeRatePercent), fromInteger(100), 20);
     const slippageRate = divide(decimal(slippageBps), fromInteger(10_000), 20);
     let equity = round(decimal(input.initialCapital), 2);
@@ -185,7 +190,7 @@ function simulateBacktest(input) {
     };
     for (let index = 0; index < candles.length; index += 1) {
         const candle = candles[index];
-        if (scheduled) {
+        if (scheduled && index >= warmupCandles) {
             const desired = side(scheduled);
             if (position && position.signal !== desired)
                 closePosition(round(decimal(candle.open), 8), candle.timestamp, "STRATEGY_CLOSE");
@@ -208,7 +213,7 @@ function simulateBacktest(input) {
                 closePosition(gap ? marketOpen : position.takeProfit, candle.timestamp, "TAKE_PROFIT");
             }
         }
-        if (index === candles.length - 1)
+        if (index < warmupCandles || index === candles.length - 1)
             continue;
         const context = {
             pair: input.pair,

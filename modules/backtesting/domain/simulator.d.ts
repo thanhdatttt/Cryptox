@@ -8,6 +8,8 @@ export interface SimulationInput {
     settlementAsset: string;
     timeframe: Timeframe;
     candles: Candle[];
+    /** Number of leading sealed candles reserved for indicator warm-up. */
+    warmupCandles?: number;
     strategy: Strategy;
     initialCapital: number;
     feeRatePercent: number;

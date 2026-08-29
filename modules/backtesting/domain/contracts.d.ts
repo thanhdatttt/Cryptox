@@ -72,6 +72,7 @@ export interface CreateLeaderboardScopeCommand {
     initialCapital: number;
     feeRatePercent: number;
     slippageBps: number;
+    warmupCapacityCandles?: number;
     scoreFormulaId: string;
     riskPolicy?: {
         stopLossPercent?: number;
@@ -111,6 +112,7 @@ export interface BenchmarkScopeSummary {
     };
     datasetSnapshotId: string;
     datasetSnapshotSha256: string;
+    warmupCapacityCandles: number;
     initialCapital: number;
     feeRatePercent: number;
     slippageBps: number;
@@ -153,6 +155,7 @@ export interface CandidateProgress {
     failureKind?: "RETRY_EXHAUSTED" | "INFRASTRUCTURE" | "COMPLETION_PROCESSING";
     failureCode?: string;
     lastError?: string;
+    warmupCandles?: number;
     createdAt: string;
     updatedAt: string;
 }
@@ -198,20 +201,52 @@ export interface ExperimentResultSummary extends ExperimentResult {
     trades: Trade[];
     createdAt: string;
 }
+export type StrategyVisualizationOverlay = {
+    id: string;
+    strategyDefinitionId: string;
+    kind: "LINE";
+    label: string;
+    points: Array<{
+        time: string;
+        value: number;
+    }>;
+} | {
+    id: string;
+    strategyDefinitionId: string;
+    kind: "ZONE";
+    label: string;
+    points: Array<{
+        time: string;
+        low: number;
+        high: number;
+    }>;
+} | {
+    id: string;
+    strategyDefinitionId: string;
+    kind: "SIGNAL";
+    label: string;
+    points: Array<{
+        time: string;
+        value: number;
+        signal: "BUY" | "SELL" | "HOLD";
+    }>;
+};
 export interface ExperimentVisualizationMarker {
     id: string;
     tradeId: string;
     sequence: number;
     kind: "ENTRY" | "STOP_LOSS" | "TAKE_PROFIT" | "EXIT";
+    side: "LONG" | "SHORT";
     time: string;
     price: number;
+    exitReason?: Trade["exitReason"];
     highlighted: boolean;
 }
 export interface ExperimentVisualization {
     experimentId: string;
     datasetSnapshot: DatasetSnapshotRef;
     candles: Candle[];
-    overlays: [];
+    overlays: StrategyVisualizationOverlay[];
     markers: ExperimentVisualizationMarker[];
     nextCursor?: string;
 }

@@ -183,8 +183,8 @@ describe("backtesting runtime", () => {
       queue,
       marketData: { readDatasetSnapshot: async () => ({ snapshot, candles }) },
       strategy: {
-        readDefinitions: async (_userId, ids) => ids.map((id) => ({ id, logicalFamilyKey: "strategy:test", strategyName: "TEST", implementationVersion: "1", implementationSha256: "a".repeat(64), version: 1, parameters: {}, createdAt: "2025-01-01T00:00:00.000Z" })),
-        readComposite: async (_userId, id) => ({ id, logicalFamilyKey: "composite:test", version: 1, method: "MAJORITY_VOTE" as const, components: [{ strategyDefinitionId: "definition-1", weight: 0 }], createdAt: "2025-01-01T00:00:00.000Z" }),
+        readDefinitions: async (userId, ids) => ids.map((id) => ({ id, userId, logicalFamilyKey: "strategy:test", strategyName: "TEST", implementationVersion: "1", implementationSha256: "a".repeat(64), version: 1, parameters: {}, createdAt: "2025-01-01T00:00:00.000Z" })),
+        readComposite: async (userId, id) => ({ id, userId, logicalFamilyKey: "composite:test", version: 1, method: "MAJORITY_VOTE" as const, components: [{ strategyDefinitionId: "definition-1", weight: 0 }], createdAt: "2025-01-01T00:00:00.000Z" }),
         resolveStrategy: async () => {
           if (transientFailures-- > 0) throw new Error("TRANSIENT_STRATEGY_ARTIFACT_FAILURE");
           return { name: "test", category: "TREND", analyze: (context) => context.candles.length === 1 ? "BUY" : "HOLD" };
@@ -195,8 +195,8 @@ describe("backtesting runtime", () => {
       clock: { now: () => "2025-01-01T00:00:00.000Z" },
       idGenerator: () => `id-${sequence++}`,
     });
-    const definition = { id: "definition-1", logicalFamilyKey: "strategy:test", strategyName: "TEST", implementationVersion: "1", implementationSha256: "a".repeat(64), version: 1, parameters: {}, createdAt: "2025-01-01T00:00:00.000Z" };
-    const composite = { id: "composite-1", logicalFamilyKey: "composite:test", version: 1, method: "MAJORITY_VOTE" as const, components: [{ strategyDefinitionId: definition.id, weight: 0 }], createdAt: "2025-01-01T00:00:00.000Z" };
+    const definition = { id: "definition-1", userId: "user-1", logicalFamilyKey: "strategy:test", strategyName: "TEST", implementationVersion: "1", implementationSha256: "a".repeat(64), version: 1, parameters: {}, createdAt: "2025-01-01T00:00:00.000Z" };
+    const composite = { id: "composite-1", userId: "user-1", logicalFamilyKey: "composite:test", version: 1, method: "MAJORITY_VOTE" as const, components: [{ strategyDefinitionId: definition.id, weight: 0 }], createdAt: "2025-01-01T00:00:00.000Z" };
     const scope = await service.createBenchmarkScope({ userId: "user-1" }, { name: "BTC fixture", datasetSnapshot: snapshot, initialCapital: 1000, feeRatePercent: 0, slippageBps: 0, scoreFormulaId: "MVP_MANUAL_V1", workerRuntimeVersion: "1", workerRuntimeSha256: "b".repeat(64), evaluationRuntimeVersion: "1", evaluationRuntimeSha256: "c".repeat(64) }, { scopeIdempotencyKey: "scope-key" });
     const accepted = await service.startManual({ userId: "user-1" }, { leaderboardScopeId: scope.id, strategyDefinitions: [definition], compositeDefinition: composite, maxAttempts: 2 }, { submissionIdempotencyKey: "submission-key" });
 

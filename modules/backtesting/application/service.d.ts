@@ -168,6 +168,7 @@ export declare class BacktestingService implements BacktestLogApi {
     private candidate;
     private ownedCandidate;
     private ownedSearchCandidates;
+    private requiredWarmupCandles;
     private validateStrategyReferences;
     private snapshot;
     private captureSnapshot;
@@ -225,6 +226,8 @@ export declare class BacktestingService implements BacktestLogApi {
         rankEligible: boolean;
     }): Promise<ExperimentResultSummary>;
     listExperimentTrades(auth: AuthContext, experimentId: string, page: TradePageRequest): Promise<TradePage>;
+    private visualizationContexts;
+    private buildExperimentOverlays;
     readExperimentVisualization(auth: AuthContext, experimentId: string, page: ExperimentVisualizationPageRequest): Promise<ExperimentVisualization>;
     private pageTrades;
     verifyReplay(auth: AuthContext, experimentId: string): Promise<ReplayVerificationResult>;

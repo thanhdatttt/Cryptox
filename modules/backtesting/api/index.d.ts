@@ -3,7 +3,7 @@ import type { BacktestQueueJob, BacktestQueueReturn, BacktestQueueTerminalSignal
 import type { AuthContext } from "modules/auth/api";
 export { simulateBacktest } from "../domain/simulator";
 export type { SimulationInput } from "../domain/simulator";
-export type { CandidateStatus, BacktestSubmissionAccepted, CancellationUnitOfWork, CompletionUnitOfWork, Trade, CompletedBacktestResult, GeneratorType, CreateLeaderboardScopeCommand, StartManualBacktestCommand, SubmitSearchCandidateCommand, BenchmarkScopeSummary, ReplayVerificationResult, CandidateProgress, BacktestAttemptProgress, BacktestAttemptAudit, ExperimentResult, ExperimentResultSummary, ExperimentVisualization, ExperimentVisualizationMarker } from "../domain/contracts";
+export type { CandidateStatus, BacktestSubmissionAccepted, CancellationUnitOfWork, CompletionUnitOfWork, Trade, CompletedBacktestResult, GeneratorType, CreateLeaderboardScopeCommand, StartManualBacktestCommand, SubmitSearchCandidateCommand, BenchmarkScopeSummary, ReplayVerificationResult, CandidateProgress, BacktestAttemptProgress, BacktestAttemptAudit, ExperimentResult, ExperimentResultSummary, ExperimentVisualization, ExperimentVisualizationMarker, StrategyVisualizationOverlay } from "../domain/contracts";
 export interface SearchCandidateSummary {
     searchRunId: string;
     active: CandidateProgress[];
@@ -26,15 +26,16 @@ export interface SearchCandidatePage {
     nextCursor?: string;
 }
 export interface TradePageRequest {
-    limit: number;
+    limit?: number;
     cursor?: string;
 }
 export interface TradePage {
     items: Trade[];
     nextCursor?: string;
+    totalCount: number;
 }
 export interface ExperimentVisualizationPageRequest {
-    limit: number;
+    limit?: number;
     cursor?: string;
     from?: string;
     to?: string;

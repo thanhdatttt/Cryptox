@@ -16,6 +16,28 @@ const invalid = (code) => { throw new Error(code); };
 const terminal = (status) => ["COMPLETED", "FAILED", "CANCELLED"].includes(status);
 const plusSeconds = (value, seconds) => new Date(Date.parse(value) + seconds * 1000).toISOString();
 const attemptProgress = (attempt) => ({ attemptId: attempt.attemptId, attemptNumber: attempt.attemptNumber, status: attempt.status, startedAt: attempt.startedAt, completedAt: attempt.completedAt, deliveryAttemptCount: attempt.deliveryAttemptCount, failureCategory: attempt.failureCategory, failureCode: attempt.failureCode, errorMessage: attempt.errorMessage });
+const TRADE_PAGE_DEFAULT = 10;
+const TRADE_PAGE_MAX = 100;
+const VISUALIZATION_CANDLE_DEFAULT = 500;
+const VISUALIZATION_CANDLE_MAX = 2000;
+const VISUALIZATION_OVERLAY_MAX = 32;
+const DEFAULT_WARMUP_CAPACITY_CANDLES = 500;
+const MAX_WARMUP_CANDLES = 10_000;
+const toStrategyCandle = (candle) => ({ timestamp: candle.timestamp, open: candle.open, high: candle.high, low: candle.low, close: candle.close, volume: candle.volume });
+const tradeKey = (trade) => ({ entryTime: trade.entryTime, sequence: trade.sequence, id: trade.id });
+const compareTradeKey = (left, right) => left.entryTime.localeCompare(right.entryTime) || left.sequence - right.sequence || left.id.localeCompare(right.id);
+const encodeTradeCursor = (ownerUserId, resource, limit, trade) => Buffer.from(JSON.stringify({ version: 1, ownerUserId, resource, limit, last: tradeKey(trade) }), "utf8").toString("base64url");
+const decodeTradeCursor = (cursor) => {
+    try {
+        const parsed = JSON.parse(Buffer.from(cursor, "base64url").toString("utf8"));
+        if (parsed.version !== 1 || typeof parsed.ownerUserId !== "string" || typeof parsed.resource !== "string" || !Number.isInteger(parsed.limit) || !parsed.last || typeof parsed.last.entryTime !== "string" || !Number.isInteger(parsed.last.sequence) || typeof parsed.last.id !== "string")
+            throw new Error("INVALID_CURSOR");
+        return parsed;
+    }
+    catch {
+        throw new Error("INVALID_CURSOR");
+    }
+};
 class InMemoryBacktestQueue {
     jobs = new Map();
     async enqueue(job) { if (!this.jobs.has(job.jobId))
@@ -226,6 +248,22 @@ class BacktestingService {
             throw new Error("BACKTEST_SEARCH_RUN_NOT_FOUND");
         return [];
     }
+    requiredWarmupCandles(definitions) {
+        const descriptors = this.deps.strategy.listStrategies?.() ?? [];
+        if (descriptors.length === 0)
+            return 0;
+        let required = 0;
+        for (const definition of definitions) {
+            const descriptor = descriptors.find((item) => item.name === definition.strategyName && item.implementationSha256 === definition.implementationSha256 && (!item.implementationVersion || item.implementationVersion === definition.implementationVersion));
+            if (!descriptor)
+                throw new Error("IMPLEMENTATION_ARTIFACT_UNAVAILABLE");
+            const minimum = descriptor.minimumHistoryCandles ?? 0;
+            if (!Number.isInteger(minimum) || minimum < 0 || minimum > MAX_WARMUP_CANDLES)
+                invalid("INVALID_STRATEGY_DESCRIPTOR");
+            required = Math.max(required, minimum);
+        }
+        return required;
+    }
     async validateStrategyReferences(ownerUserId, command) {
         const requestedIds = command.strategyDefinitions.map((definition) => definition.id);
         if (requestedIds.length === 0 || new Set(requestedIds).size !== requestedIds.length)
@@ -238,7 +276,8 @@ class BacktestingService {
         if (componentIds.length !== requestedIds.length || new Set(componentIds).size !== componentIds.length || componentIds.some((id) => !requestedIds.includes(id)))
             invalid("STRATEGY_DEFINITION_MISMATCH");
         const definitionsById = new Map(definitions.map((definition) => [definition.id, definition]));
-        return { strategyDefinitions: componentIds.map((id) => definitionsById.get(id)), compositeDefinition: clone(composite) };
+        const strategyDefinitions = componentIds.map((id) => definitionsById.get(id));
+        return { strategyDefinitions, compositeDefinition: clone(composite), warmupCandles: this.requiredWarmupCandles(strategyDefinitions) };
     }
     async snapshot(snapshotId) { const snapshot = await this.deps.repository.readInputSnapshot(snapshotId); if (!snapshot)
         throw new Error("BACKTEST_DATASET_NOT_FOUND"); return snapshot; }
@@ -247,18 +286,18 @@ class BacktestingService {
         candles.push(...page.candles);
         cursor = page.nextCursor;
     } const snapshot = await this.deps.repository.createInputSnapshot(first.snapshot, candles); return { snapshot, candles }; }
-    validateScope(command) { if (!command.name.trim() || !command.scoreFormulaId.trim() || !Number.isFinite(command.initialCapital) || command.initialCapital <= 0 || !Number.isFinite(command.feeRatePercent) || command.feeRatePercent < 0 || !Number.isInteger(command.slippageBps) || command.slippageBps < 0)
+    validateScope(command) { const warmupCapacityCandles = command.warmupCapacityCandles ?? DEFAULT_WARMUP_CAPACITY_CANDLES; if (!command.name.trim() || !command.scoreFormulaId.trim() || !Number.isFinite(command.initialCapital) || command.initialCapital <= 0 || !Number.isFinite(command.feeRatePercent) || command.feeRatePercent < 0 || !Number.isInteger(command.slippageBps) || command.slippageBps < 0 || !Number.isInteger(warmupCapacityCandles) || warmupCapacityCandles < 0 || warmupCapacityCandles > MAX_WARMUP_CANDLES)
         invalid("INVALID_BENCHMARK_SCOPE"); if (!/^[a-f0-9]{64}$/i.test(command.workerRuntimeSha256) || !/^[a-f0-9]{64}$/i.test(command.evaluationRuntimeSha256))
         invalid("INVALID_BENCHMARK_SCOPE"); }
     async createBenchmarkScope(auth, command, options) { this.assertAuth(auth); if (!options.scopeIdempotencyKey.trim())
         invalid("INVALID_BENCHMARK_SCOPE"); const existing = await this.deps.repository.findScopeByIdempotency(auth.userId, options.scopeIdempotencyKey); if (existing)
-        return existing; this.validateScope(command); const captured = await this.captureSnapshot(command.datasetSnapshot.id); const createdAt = this.now(); const scope = { id: this.id(), ownerUserId: auth.userId, name: command.name, version: 1, datasetSnapshot: captured.snapshot, sentimentDatasetSnapshot: command.sentimentDatasetSnapshot, workerRuntimeVersion: command.workerRuntimeVersion, workerRuntimeSha256: command.workerRuntimeSha256, evaluationRuntimeVersion: command.evaluationRuntimeVersion, evaluationRuntimeSha256: command.evaluationRuntimeSha256, pair: captured.snapshot.pair, timeframe: captured.snapshot.timeframe, datasetRange: captured.snapshot.range, datasetSnapshotId: captured.snapshot.id, datasetSnapshotSha256: captured.snapshot.sha256, initialCapital: command.initialCapital, feeRatePercent: command.feeRatePercent, slippageBps: command.slippageBps, riskPolicy: command.riskPolicy, decimalPolicyId: "MVP_DECIMAL_HALF_UP_V1", evaluationPolicyId: "MVP_EVALUATION_V1", scoreFormulaId: command.scoreFormulaId, createdAt }; return this.deps.repository.createScope(scope, options.scopeIdempotencyKey); }
+        return existing; this.validateScope(command); const captured = await this.captureSnapshot(command.datasetSnapshot.id); const createdAt = this.now(); const scope = { id: this.id(), ownerUserId: auth.userId, name: command.name, version: 1, datasetSnapshot: captured.snapshot, sentimentDatasetSnapshot: command.sentimentDatasetSnapshot, workerRuntimeVersion: command.workerRuntimeVersion, workerRuntimeSha256: command.workerRuntimeSha256, evaluationRuntimeVersion: command.evaluationRuntimeVersion, evaluationRuntimeSha256: command.evaluationRuntimeSha256, pair: captured.snapshot.pair, timeframe: captured.snapshot.timeframe, datasetRange: captured.snapshot.range, datasetSnapshotId: captured.snapshot.id, datasetSnapshotSha256: captured.snapshot.sha256, warmupCapacityCandles: command.warmupCapacityCandles ?? DEFAULT_WARMUP_CAPACITY_CANDLES, initialCapital: command.initialCapital, feeRatePercent: command.feeRatePercent, slippageBps: command.slippageBps, riskPolicy: command.riskPolicy, decimalPolicyId: "MVP_DECIMAL_HALF_UP_V1", evaluationPolicyId: "MVP_EVALUATION_V1", scoreFormulaId: command.scoreFormulaId, createdAt }; return this.deps.repository.createScope(scope, options.scopeIdempotencyKey); }
     async readBenchmarkScope(auth, scopeId) { return this.ownedScope(auth, scopeId); }
     async listBenchmarkScopes(auth) { this.assertAuth(auth); return this.deps.repository.listScopesByOwner(auth.userId); }
     async compositeStrategy(definitions, composite) { const byId = new Map(definitions.map((definition) => [definition.id, definition])); if (composite.components.length === 0 || composite.components.some((component) => !byId.has(component.strategyDefinitionId)))
         invalid("INVALID_COMPOSITE_STRATEGY"); const resolved = await Promise.all(definitions.map(async (definition) => [definition.id, await this.deps.strategy.resolveStrategy(definition)])); const strategies = new Map(resolved); return { name: `composite:${composite.id}`, category: "TREND", analyze: (context) => this.deps.strategy.combineSignals(composite, composite.components.map((component) => ({ strategyDefinitionId: component.strategyDefinitionId, signal: strategies.get(component.strategyDefinitionId).analyze(context) }))) }; }
     candidateRecord(input) { const createdAt = this.now(); const search = input.origin === "SEARCH" ? input.command : undefined; if (!Number.isInteger(input.command.maxAttempts) || input.command.maxAttempts < 1)
-        invalid("INVALID_BACKTEST_SUBMISSION"); const single = input.command.strategyDefinitions.length === 1 && input.command.compositeDefinition.components.length === 1 && input.command.compositeDefinition.components[0]?.strategyDefinitionId === input.command.strategyDefinitions[0]?.id && input.command.compositeDefinition.components[0]?.weight === 1; return { candidateId: input.candidateId, ownerUserId: input.ownerUserId, origin: input.origin, selectionMode: single ? "SINGLE" : "COMPOSITE", searchRunId: search?.searchRunId, iterationNumber: search?.iterationNumber, leaderboardScopeId: input.scope.id, status: "QUEUED", attempts: [], maxAttempts: input.command.maxAttempts, completionAttemptCount: 0, completionMaxAttempts: 5, executionGeneration: 0, completionGeneration: 0, strategyDefinitions: clone(input.command.strategyDefinitions), compositeDefinition: clone(input.command.compositeDefinition), queueJobId: input.candidateId, createdAt, updatedAt: createdAt }; }
+        invalid("INVALID_BACKTEST_SUBMISSION"); const single = input.command.strategyDefinitions.length === 1 && input.command.compositeDefinition.method === "WEIGHTED_SCORE" && input.command.compositeDefinition.components.length === 1 && input.command.compositeDefinition.components[0]?.strategyDefinitionId === input.command.strategyDefinitions[0]?.id && input.command.compositeDefinition.components[0]?.weight === 1; return { candidateId: input.candidateId, ownerUserId: input.ownerUserId, origin: input.origin, selectionMode: single ? "SINGLE" : "COMPOSITE", searchRunId: search?.searchRunId, iterationNumber: search?.iterationNumber, leaderboardScopeId: input.scope.id, status: "QUEUED", attempts: [], maxAttempts: input.command.maxAttempts, completionAttemptCount: 0, completionMaxAttempts: 5, executionGeneration: 0, completionGeneration: 0, warmupCandles: input.warmupCandles, strategyDefinitions: clone(input.command.strategyDefinitions), compositeDefinition: clone(input.command.compositeDefinition), queueJobId: input.candidateId, createdAt, updatedAt: createdAt }; }
     dispatchRecord(candidate, scope) { const createdAt = this.now(); return { job: { schemaVersion: 1, jobId: candidate.candidateId, candidateId: candidate.candidateId, leaderboardScopeId: scope.id, maxAttempts: candidate.maxAttempts, workerRuntimeVersion: scope.workerRuntimeVersion, workerRuntimeSha256: scope.workerRuntimeSha256, enqueuedAt: createdAt }, state: "PENDING", dispatchAttempts: 0, createdAt, updatedAt: createdAt }; }
     async dispatchOne(dispatch) { if (dispatch.state === "CANCELLED")
         return false; try {
@@ -282,7 +321,9 @@ class BacktestingService {
         if (existing)
             return { candidateId: existing.candidateId, jobId: existing.queueJobId, status: existing.status };
     } const scope = await this.deps.repository.readScope(command.leaderboardScopeId, input.ownerUserId); if (!scope)
-        throw new Error("BACKTEST_SCOPE_NOT_FOUND"); const references = await this.validateStrategyReferences(input.ownerUserId, command); const canonicalCommand = { ...command, strategyDefinitions: references.strategyDefinitions, compositeDefinition: references.compositeDefinition }; const candidate = this.candidateRecord({ ownerUserId: input.ownerUserId, scope, command: canonicalCommand, origin: input.origin, candidateId: this.id() }); const dispatch = this.dispatchRecord(candidate, scope); const saved = await this.deps.repository.createQueuedSubmission({ candidate, dispatch, submissionIdempotencyKey: input.submissionIdempotencyKey }); await this.dispatchOne(dispatch); return { candidateId: saved.candidateId, jobId: saved.queueJobId, status: saved.status }; }
+        throw new Error("BACKTEST_SCOPE_NOT_FOUND"); const references = await this.validateStrategyReferences(input.ownerUserId, command); if (references.warmupCandles > scope.warmupCapacityCandles)
+        invalid("SNAPSHOT_INCOMPLETE"); const inputSnapshot = await this.snapshot(scope.datasetSnapshotId); if (references.warmupCandles > inputSnapshot.candles.filter((candle) => candle.isClosed).length)
+        invalid("SNAPSHOT_INCOMPLETE"); const canonicalCommand = { ...command, strategyDefinitions: references.strategyDefinitions, compositeDefinition: references.compositeDefinition }; const candidate = this.candidateRecord({ ownerUserId: input.ownerUserId, scope, command: canonicalCommand, origin: input.origin, candidateId: this.id(), warmupCandles: references.warmupCandles }); const dispatch = this.dispatchRecord(candidate, scope); const saved = await this.deps.repository.createQueuedSubmission({ candidate, dispatch, submissionIdempotencyKey: input.submissionIdempotencyKey }); await this.dispatchOne(dispatch); return { candidateId: saved.candidateId, jobId: saved.queueJobId, status: saved.status }; }
     async startManual(auth, command, options) { this.assertAuth(auth); return this.submit(command, { ownerUserId: auth.userId, origin: "MANUAL", submissionIdempotencyKey: options?.submissionIdempotencyKey }); }
     async submitSearchCandidate(auth, command) { this.assertAuth(auth); return this.submit(command, { ownerUserId: auth.userId, origin: "SEARCH" }); }
     async processQueueJob(job, delivery) { if (job.schemaVersion !== 1 || job.jobId !== job.candidateId || !Number.isInteger(delivery.attemptNumber) || delivery.attemptNumber < 1 || delivery.attemptNumber > job.maxAttempts)
@@ -297,7 +338,7 @@ class BacktestingService {
             const input = await this.snapshot(scope.datasetSnapshotId);
             const strategy = await this.compositeStrategy(candidate.strategyDefinitions, candidate.compositeDefinition);
             const completedAt = this.now();
-            const result = (0, simulator_1.simulateBacktest)({ candidateId: candidate.candidateId, attemptId: attempt.attemptId, pair: scope.pair, settlementAsset: scope.datasetSnapshot.pairMetadata.settlementAsset || scope.datasetSnapshot.pairMetadata.quoteAsset || "USDT", timeframe: scope.timeframe, candles: input.candles, strategy, initialCapital: scope.initialCapital, feeRatePercent: scope.feeRatePercent, slippageBps: scope.slippageBps, stopLossPercent: scope.riskPolicy?.stopLossPercent, takeProfitPercent: scope.riskPolicy?.takeProfitPercent, workerRuntimeVersion: job.workerRuntimeVersion, workerRuntimeSha256: job.workerRuntimeSha256, startedAt: attempt.startedAt, completedAt });
+            const result = (0, simulator_1.simulateBacktest)({ candidateId: candidate.candidateId, attemptId: attempt.attemptId, pair: scope.pair, settlementAsset: scope.datasetSnapshot.pairMetadata.settlementAsset || scope.datasetSnapshot.pairMetadata.quoteAsset || "USDT", timeframe: scope.timeframe, candles: input.candles, warmupCandles: candidate.warmupCandles, strategy, initialCapital: scope.initialCapital, feeRatePercent: scope.feeRatePercent, slippageBps: scope.slippageBps, stopLossPercent: scope.riskPolicy?.stopLossPercent, takeProfitPercent: scope.riskPolicy?.takeProfitPercent, workerRuntimeVersion: job.workerRuntimeVersion, workerRuntimeSha256: job.workerRuntimeSha256, startedAt: attempt.startedAt, completedAt });
             await this.deps.repository.persistWorkerSuccess({ candidate, attempt, result, fenceToken });
             return { candidateId: candidate.candidateId, status: "COMPLETED", attemptId: attempt.attemptId, completedAt };
         }
@@ -409,7 +450,7 @@ class BacktestingService {
     } }
     async readAttempt(auth, attemptId) { this.assertAuth(auth); const attempt = await this.deps.repository.readAttempt(attemptId, auth.userId); if (!attempt)
         throw new Error("BACKTEST_ATTEMPT_NOT_FOUND"); await this.ownedCandidate(auth, attempt.candidateId); return attempt; }
-    async listAttemptTrades(auth, attemptId, page) { await this.readAttempt(auth, attemptId); return this.pageTrades(await this.deps.repository.listTrades(attemptId), page); }
+    async listAttemptTrades(auth, attemptId, page) { await this.readAttempt(auth, attemptId); return this.pageTrades(await this.deps.repository.listTrades(attemptId), page, auth.userId, `attempt:${attemptId}`); }
     async readExperimentSummary(auth, experimentId) { this.assertAuth(auth); const experiment = await this.deps.repository.readExperiment(experimentId, auth.userId); if (!experiment)
         throw new Error("EXPERIMENT_NOT_FOUND"); return experiment; }
     async listSearchExperimentSummaries(auth, searchRunId) { this.assertAuth(auth); const experiments = await this.deps.repository.listExperimentsBySearchRun(searchRunId, auth.userId); if (experiments.length > 0)
@@ -418,32 +459,100 @@ class BacktestingService {
     async scoreExperiment(auth, experimentId, input) { if (!Number.isFinite(input.overallScore))
         invalid("INVALID_SCORE"); await this.readExperimentSummary(auth, experimentId); const updated = await this.deps.repository.updateExperimentScore(experimentId, input, auth.userId); if (!updated)
         throw new Error("EXPERIMENT_NOT_FOUND"); return updated; }
-    async listExperimentTrades(auth, experimentId, page) { const experiment = await this.readExperimentSummary(auth, experimentId); return this.pageTrades(experiment.trades, page); }
+    async listExperimentTrades(auth, experimentId, page) { const experiment = await this.readExperimentSummary(auth, experimentId); return this.pageTrades(experiment.trades, page, auth.userId, `experiment:${experimentId}`); }
+    visualizationContexts(candles) {
+        return candles.map((candle, index) => ({ pair: candle.pair, timeframe: candle.timeframe, candles: candles.slice(0, index + 1).map(toStrategyCandle), currentPrice: candle.close, indicators: {} }));
+    }
+    async buildExperimentOverlays(definitions, candles, from, to) {
+        const buildVisualization = this.deps.strategy.buildVisualization;
+        if (!buildVisualization)
+            return [];
+        const contexts = this.visualizationContexts(candles);
+        const overlays = [];
+        for (const definition of definitions) {
+            try {
+                await this.deps.strategy.resolveStrategy(definition);
+            }
+            catch {
+                throw new Error("IMPLEMENTATION_ARTIFACT_UNAVAILABLE");
+            }
+            const emitted = buildVisualization(definition, contexts);
+            if (!Array.isArray(emitted))
+                invalid("INVALID_VISUALIZATION_PAGE");
+            for (const overlay of emitted) {
+                if (!overlay || !overlay.id.trim() || overlay.strategyDefinitionId !== definition.id || !overlay.label.trim() || !Array.isArray(overlay.points))
+                    invalid("INVALID_VISUALIZATION_PAGE");
+                const points = overlay.points.filter((point) => {
+                    const rawPoint = point;
+                    const pointTime = rawPoint?.time;
+                    if (typeof pointTime !== "string" || !Number.isFinite(Date.parse(pointTime)))
+                        invalid("INVALID_VISUALIZATION_PAGE");
+                    const normalizedTime = pointTime;
+                    if (overlay.kind === "LINE") {
+                        if (typeof rawPoint.value !== "number" || !Number.isFinite(rawPoint.value))
+                            invalid("INVALID_VISUALIZATION_PAGE");
+                    }
+                    else if (overlay.kind === "ZONE") {
+                        if (typeof rawPoint.low !== "number" || typeof rawPoint.high !== "number" || !Number.isFinite(rawPoint.low) || !Number.isFinite(rawPoint.high) || rawPoint.low > rawPoint.high)
+                            invalid("INVALID_VISUALIZATION_PAGE");
+                    }
+                    else if (!["BUY", "SELL", "HOLD"].includes(rawPoint.signal) || typeof rawPoint.value !== "number" || !Number.isFinite(rawPoint.value))
+                        invalid("INVALID_VISUALIZATION_PAGE");
+                    const timestamp = Date.parse(normalizedTime);
+                    return timestamp >= from && timestamp < to;
+                });
+                overlays.push({ ...clone(overlay), points });
+            }
+        }
+        if (overlays.length > VISUALIZATION_OVERLAY_MAX)
+            invalid("INVALID_VISUALIZATION_PAGE");
+        return overlays;
+    }
     async readExperimentVisualization(auth, experimentId, page) {
-        if (!Number.isInteger(page.limit) || page.limit < 1)
+        const limit = page.limit ?? VISUALIZATION_CANDLE_DEFAULT;
+        if (!Number.isInteger(limit) || limit < 1 || limit > VISUALIZATION_CANDLE_MAX)
             invalid("INVALID_VISUALIZATION_PAGE");
         const experiment = await this.readExperimentSummary(auth, experimentId);
         const input = await this.snapshot(experiment.datasetSnapshot.id);
         const from = page.from ?? input.snapshot.range.from;
         const to = page.to ?? input.snapshot.range.to;
-        if (!Number.isFinite(Date.parse(from)) || !Number.isFinite(Date.parse(to)) || Date.parse(from) < Date.parse(input.snapshot.range.from) || Date.parse(to) > Date.parse(input.snapshot.range.to) || Date.parse(from) >= Date.parse(to))
+        const fromTimestamp = Date.parse(from);
+        const toTimestamp = Date.parse(to);
+        const snapshotFrom = Date.parse(input.snapshot.range.from);
+        const snapshotTo = Date.parse(input.snapshot.range.to);
+        if (!Number.isFinite(fromTimestamp) || !Number.isFinite(toTimestamp) || fromTimestamp < snapshotFrom || toTimestamp > snapshotTo || fromTimestamp >= toTimestamp)
             invalid("INVALID_VISUALIZATION_PAGE");
         if (page.highlightTradeId && !experiment.trades.some((trade) => trade.id === page.highlightTradeId))
             invalid("TRADE_NOT_FOUND");
         const offset = page.cursor ? Number(page.cursor) : 0;
         if (!Number.isInteger(offset) || offset < 0)
             invalid("INVALID_VISUALIZATION_PAGE");
-        const allCandles = input.candles.filter((candle) => candle.isClosed && candle.timestamp >= from && candle.timestamp < to);
-        const candles = allCandles.slice(offset, offset + page.limit);
-        const marker = (trade, kind, time, price) => ({ id: `${trade.id}:${kind}`, tradeId: trade.id, sequence: trade.sequence, kind, time, price, highlighted: trade.id === page.highlightTradeId });
+        const allClosedCandles = input.candles.filter((candle) => candle.isClosed).sort((left, right) => left.timestamp.localeCompare(right.timestamp));
+        const allCandles = allClosedCandles.filter((candle) => { const timestamp = Date.parse(candle.timestamp); return timestamp >= fromTimestamp && timestamp < toTimestamp; });
+        if (offset > allCandles.length)
+            invalid("INVALID_VISUALIZATION_PAGE");
+        const candles = allCandles.slice(offset, offset + limit);
+        const marker = (trade, kind, time, price) => {
+            const base = { id: `${trade.id}:${kind}`, tradeId: trade.id, sequence: trade.sequence, kind, side: trade.signal, time, price, highlighted: trade.id === page.highlightTradeId };
+            return kind === "EXIT" ? { ...base, exitReason: trade.exitReason } : base;
+        };
         const order = { ENTRY: 0, STOP_LOSS: 1, TAKE_PROFIT: 2, EXIT: 3 };
-        const markers = experiment.trades.flatMap((trade) => [marker(trade, "ENTRY", trade.entryTime, trade.entryPrice), ...(trade.stopLoss === null ? [] : [marker(trade, "STOP_LOSS", trade.entryTime, trade.stopLoss)]), ...(trade.takeProfit === null ? [] : [marker(trade, "TAKE_PROFIT", trade.entryTime, trade.takeProfit)]), marker(trade, "EXIT", trade.exitTime, trade.exitPrice)]).filter((item) => item.time >= from && item.time < to).sort((left, right) => left.time.localeCompare(right.time) || left.sequence - right.sequence || order[left.kind] - order[right.kind] || left.id.localeCompare(right.id));
-        return { experimentId, datasetSnapshot: input.snapshot, candles, overlays: [], markers, nextCursor: offset + page.limit < allCandles.length ? String(offset + page.limit) : undefined };
+        const markers = experiment.trades.flatMap((trade) => [marker(trade, "ENTRY", trade.entryTime, trade.entryPrice), ...(trade.stopLoss === null ? [] : [marker(trade, "STOP_LOSS", trade.entryTime, trade.stopLoss)]), ...(trade.takeProfit === null ? [] : [marker(trade, "TAKE_PROFIT", trade.entryTime, trade.takeProfit)]), marker(trade, "EXIT", trade.exitTime, trade.exitPrice)]).filter((item) => { const timestamp = Date.parse(item.time); return timestamp >= fromTimestamp && timestamp < toTimestamp; }).sort((left, right) => Date.parse(left.time) - Date.parse(right.time) || left.sequence - right.sequence || order[left.kind] - order[right.kind] || left.id.localeCompare(right.id));
+        const contextCandles = allClosedCandles.filter((candle) => Date.parse(candle.timestamp) < toTimestamp);
+        const overlays = await this.buildExperimentOverlays(experiment.strategyDefinitions, contextCandles, fromTimestamp, toTimestamp);
+        return { experimentId, datasetSnapshot: input.snapshot, candles, overlays, markers, nextCursor: offset + limit < allCandles.length ? String(offset + limit) : undefined };
     }
-    pageTrades(trades, page) { if (!Number.isInteger(page.limit) || page.limit < 1)
-        invalid("INVALID_PAGE"); const offset = page.cursor ? Number(page.cursor) : 0; if (!Number.isInteger(offset) || offset < 0)
-        invalid("INVALID_PAGE"); const items = trades.slice(offset, offset + page.limit); return { items, nextCursor: offset + page.limit < trades.length ? String(offset + page.limit) : undefined }; }
-    async verifyReplay(auth, experimentId) { const experiment = await this.readExperimentSummary(auth, experimentId); const candidate = await this.ownedCandidate(auth, experiment.candidateId); const scope = await this.ownedScope(auth, experiment.leaderboardScopeId); const attempt = await this.readAttempt(auth, experiment.backtestAttemptId); const snapshot = await this.snapshot(scope.datasetSnapshotId); const strategy = await this.compositeStrategy(candidate.strategyDefinitions, candidate.compositeDefinition); const replay = (0, simulator_1.simulateBacktest)({ candidateId: candidate.candidateId, attemptId: attempt.attemptId, pair: scope.pair, settlementAsset: scope.datasetSnapshot.pairMetadata.settlementAsset || scope.datasetSnapshot.pairMetadata.quoteAsset || "USDT", timeframe: scope.timeframe, candles: snapshot.candles, strategy, initialCapital: scope.initialCapital, feeRatePercent: scope.feeRatePercent, slippageBps: scope.slippageBps, stopLossPercent: scope.riskPolicy?.stopLossPercent, takeProfitPercent: scope.riskPolicy?.takeProfitPercent, workerRuntimeVersion: attempt.workerRuntimeVersion, workerRuntimeSha256: attempt.workerRuntimeSha256, startedAt: attempt.startedAt, completedAt: attempt.completedAt ?? attempt.startedAt }); const matches = JSON.stringify(replay.trades) === JSON.stringify(experiment.trades); return { experimentId, sourceAttemptId: attempt.attemptId, status: matches ? "MATCH" : "MISMATCH", comparedTradeCount: Math.max(replay.trades.length, experiment.trades.length), mismatches: matches ? [] : [{ fieldPath: "trades", expected: JSON.stringify(experiment.trades), actual: JSON.stringify(replay.trades) }] }; }
+    pageTrades(trades, page, ownerUserId, resource) { const limit = page.limit ?? TRADE_PAGE_DEFAULT; if (!Number.isInteger(limit) || limit < 1 || limit > TRADE_PAGE_MAX)
+        invalid("INVALID_PAGE"); const ordered = [...trades].sort(compareTradeKey); let start = 0; if (page.cursor) {
+        const cursor = decodeTradeCursor(page.cursor);
+        if (cursor.ownerUserId !== ownerUserId || cursor.resource !== resource || cursor.limit !== limit || cursor.limit < 1 || cursor.limit > TRADE_PAGE_MAX)
+            invalid("INVALID_CURSOR");
+        const index = ordered.findIndex((trade) => trade.entryTime === cursor.last.entryTime && trade.sequence === cursor.last.sequence && trade.id === cursor.last.id);
+        if (index < 0)
+            invalid("INVALID_CURSOR");
+        start = index + 1;
+    } const items = ordered.slice(start, start + limit); const nextCursor = start + items.length < ordered.length && items.length > 0 ? encodeTradeCursor(ownerUserId, resource, limit, items[items.length - 1]) : undefined; return { items, totalCount: ordered.length, nextCursor }; }
+    async verifyReplay(auth, experimentId) { const experiment = await this.readExperimentSummary(auth, experimentId); const candidate = await this.ownedCandidate(auth, experiment.candidateId); const scope = await this.ownedScope(auth, experiment.leaderboardScopeId); const attempt = await this.readAttempt(auth, experiment.backtestAttemptId); const snapshot = await this.snapshot(scope.datasetSnapshotId); const strategy = await this.compositeStrategy(candidate.strategyDefinitions, candidate.compositeDefinition); const replay = (0, simulator_1.simulateBacktest)({ candidateId: candidate.candidateId, attemptId: attempt.attemptId, pair: scope.pair, settlementAsset: scope.datasetSnapshot.pairMetadata.settlementAsset || scope.datasetSnapshot.pairMetadata.quoteAsset || "USDT", timeframe: scope.timeframe, candles: snapshot.candles, warmupCandles: candidate.warmupCandles, strategy, initialCapital: scope.initialCapital, feeRatePercent: scope.feeRatePercent, slippageBps: scope.slippageBps, stopLossPercent: scope.riskPolicy?.stopLossPercent, takeProfitPercent: scope.riskPolicy?.takeProfitPercent, workerRuntimeVersion: attempt.workerRuntimeVersion, workerRuntimeSha256: attempt.workerRuntimeSha256, startedAt: attempt.startedAt, completedAt: attempt.completedAt ?? attempt.startedAt }); const matches = JSON.stringify(replay.trades) === JSON.stringify(experiment.trades); return { experimentId, sourceAttemptId: attempt.attemptId, status: matches ? "MATCH" : "MISMATCH", comparedTradeCount: Math.max(replay.trades.length, experiment.trades.length), mismatches: matches ? [] : [{ fieldPath: "trades", expected: JSON.stringify(experiment.trades), actual: JSON.stringify(replay.trades) }] }; }
 }
 exports.BacktestingService = BacktestingService;
 function createBacktestingService(dependencies = createInMemoryBacktestingDependencies()) { return new BacktestingService(dependencies); }

@@ -1,7 +1,7 @@
 import type { EvaluationMetrics, EvaluatorModulePublicApi } from "modules/evaluation/api";
 import type { Candle, DatasetSnapshotRef, MarketDataModulePublicApi } from "modules/market-data/api";
-import type { StrategyModulePublicApi } from "modules/strategy/api";
-import type { BacktestAttemptAudit, BacktestAttemptProgress, BenchmarkScopeSummary, CandidateProgress, CompletedBacktestResult, ExperimentResultSummary, Trade } from "../domain/contracts";
+import type { Strategy, StrategyContext, StrategyDefinition, CompositeStrategyDefinition } from "modules/strategy/api";
+import type { BacktestAttemptAudit, BacktestAttemptProgress, BenchmarkScopeSummary, CandidateProgress, CompletedBacktestResult, ExperimentResultSummary, StrategyVisualizationOverlay, Trade } from "../domain/contracts";
 import type { BacktestQueueJob } from "@cryptox/contracts/queue";
 import type { AuthContext } from "modules/auth/api";
 
@@ -9,8 +9,8 @@ export interface StoredBenchmarkScope extends BenchmarkScopeSummary { ownerUserI
 
 export interface StoredCandidate extends CandidateProgress {
   ownerUserId: string;
-  strategyDefinitions: import("modules/strategy/api").StrategyDefinition[];
-  compositeDefinition: import("modules/strategy/api").CompositeStrategyDefinition;
+  strategyDefinitions: StrategyDefinition[];
+  compositeDefinition: CompositeStrategyDefinition;
   queueJobId: string;
   executionGeneration?: number;
   activeFenceToken?: string;
@@ -96,9 +96,30 @@ export interface BacktestingRepository {
   updateExperimentScore(experimentId: string, input: { overallScore: number; rankEligible: boolean }, ownerUserId?: string): Promise<StoredExperiment | undefined>;
 }
 
+/**
+ * The Strategy module's canonical API is intentionally structural here. This
+ * keeps Backtesting compatible with older bootstrap facades while allowing the
+ * worker/read path to use the retained descriptor and visualization APIs.
+ */
+export interface BacktestingStrategyDescriptor {
+  name: string;
+  implementationSha256: string;
+  implementationVersion?: string;
+  minimumHistoryCandles?: number;
+}
+
+export interface BacktestingStrategyApi {
+  listStrategies?: () => BacktestingStrategyDescriptor[];
+  resolveStrategy(definition: StrategyDefinition): Promise<Strategy>;
+  combineSignals(definition: CompositeStrategyDefinition, signals: Array<{ strategyDefinitionId: string; signal: "BUY" | "SELL" | "HOLD" }>): "BUY" | "SELL" | "HOLD";
+  readDefinitions(userId: string, ids: string[]): Promise<StrategyDefinition[]>;
+  readComposite(userId: string, id: string): Promise<CompositeStrategyDefinition>;
+  buildVisualization?: (definition: StrategyDefinition, contexts: StrategyContext[]) => StrategyVisualizationOverlay[];
+}
+
 export interface BacktestingModuleDependencies {
   marketData: Pick<MarketDataModulePublicApi, "readDatasetSnapshot">;
-  strategy: Pick<StrategyModulePublicApi, "resolveStrategy" | "combineSignals" | "readDefinitions" | "readComposite">;
+  strategy: BacktestingStrategyApi;
   evaluation: Pick<EvaluatorModulePublicApi, "evaluator">;
   repository: BacktestingRepository;
   queue: BacktestQueuePort;
