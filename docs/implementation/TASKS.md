@@ -36,7 +36,7 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 | I-01 | BLOCKED | 5 | YES | Manager / integration worker | — | Not started |
 | I-02 | BLOCKED | 6 | YES | Manager plus independent reviewers | — | Not started |
 | RB-01 | DONE | E0 | YES | Manager | `MVP_IMPLEMENTATION` / containing INS-024 RB-01 checkpoint | Documentation-only DEC-007 reconciliation planning committed; no feature implementation started |
-| C-02 | BLOCKED | E0 | YES | Future contract/data-model/migration owner | — | Not started; future gate requires a separate Instructor signal |
+| C-02 | BLOCKED | E0 | YES | Manager / Pauli (`01a04c90-fb47-7772-a05f-570b2c90f8b4`, stopped) | `MVP_IMPLEMENTATION` / no worker commit | Worker stopped without a final report; partial output rejected after independent failures; no accepted C-02 evidence |
 | M-03 | BLOCKED | E1 | YES | Future Market Data worker | — | Not started; amended MD-02/MD-03 evidence required |
 | S-04 | BLOCKED | E1 | YES | Future Strategy application worker | — | Not started; controlled LLM draft/approval evidence required |
 | S-05 | BLOCKED | E1 | YES | Future Strategy composite worker | — | Not started; weighted-vote evidence required |
@@ -507,7 +507,7 @@ acceptance criteria and handoff requirements are in the linked packets in
 ### C-02 — DEC-007 Contract, Data-Model and Migration Reconciliation Gate
 
 - **Requirement IDs:** All DEC-007 extension IDs and amended `CSL-R-MD-02`.
-- **State / owner / wave:** BLOCKED / one future contract-and-schema owner / E0.
+- **State / owner / wave:** BLOCKED / Manager with exactly one worker Pauli (`01a04c90-fb47-7772-a05f-570b2c90f8b4`, stopped) / E0.
 - **Dependencies:** `RB-01`; baseline C-01A/D-01 and completed capability seams;
   `M-02 REVIEW/UNVERIFIED` is review input only and is not retried.
 - **Exact write scope:** Canonical extension contracts/ports, REST/market-WS DTOs,
@@ -516,6 +516,11 @@ acceptance criteria and handoff requirements are in the linked packets in
 - **Acceptance/validation:** Canonical ownership, provenance, ephemeral state,
   safe-content, profile, decimal, and retention representations plus contract,
   migration, architecture, scope, link, diff, and OpenSpec checks.
+- **Checkpoint evidence:** Pauli produced no final report or worker commit. The
+  partial contract-only working-tree output was independently rejected because
+  it omitted the required ports, conceptual data model, migrations, and tests,
+  failed workspace typecheck and contract tests, and triggered deferred-scope
+  findings. No implementation output is accepted.
 - **Full packet:** [`MVP_PLAN.md#c-02--dec-007-contract-data-model-and-migration-reconciliation-gate`](MVP_PLAN.md#c-02--dec-007-contract-data-model-and-migration-reconciliation-gate)
 
 ### M-03 — Amended Realtime Market Delivery and `MARKET_OBSERVABILITY_V1`
