@@ -4,7 +4,7 @@ const vitest_1 = require("vitest");
 const service_1 = require("./service");
 const auth = { userId: "owner-1" };
 const config = {
-    searchSpace: { availableStrategies: [{ id: "strategy-1" }] },
+    searchSpace: { availableStrategies: [{ id: "strategy-1", userId: auth.userId }] },
     stopCondition: { maxCandidates: 3 },
     generatorType: "RANDOM",
     leaderboardScopeId: "scope-1",

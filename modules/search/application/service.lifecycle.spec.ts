@@ -3,7 +3,7 @@ import { createInMemorySearchDependencies, createSearchModule } from "./service"
 
 const auth = { userId: "owner-1" };
 const config = {
-  searchSpace: { availableStrategies: [{ id: "strategy-1" }] as never[] },
+  searchSpace: { availableStrategies: [{ id: "strategy-1", userId: auth.userId }] as never[] },
   stopCondition: { maxCandidates: 3 },
   generatorType: "RANDOM" as const,
   leaderboardScopeId: "scope-1",

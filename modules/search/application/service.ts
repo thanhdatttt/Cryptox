@@ -1,7 +1,11 @@
 import type { CancellationUnitOfWork } from "modules/backtesting/api";
 import type { AuthContext } from "modules/auth/api";
+import type { CompositeStrategyDefinition, StrategyDefinition } from "modules/strategy/api";
 import type { SearchModuleDependencies } from "./ports";
 import type { GeneratedCandidate, LoopStatus, SearchRun, SearchRunRankingEntry, StopCondition } from "../domain/contracts";
+
+type OwnedStrategyDefinition = StrategyDefinition & { userId: string };
+type OwnedCompositeStrategyDefinition = CompositeStrategyDefinition & { userId: string };
 
 export interface SearchModuleRuntime {
   start(auth: AuthContext, config: { searchSpace: SearchRun["searchSpace"]; stopCondition: StopCondition; generatorType: SearchRun["generatorType"]; leaderboardScopeId: string; maxInFlight: number }): Promise<{ searchRunId: string }>;
@@ -21,6 +25,11 @@ const validateStopCondition = (condition: StopCondition): void => {
   if (values.length === 0 || values.some((value) => !Number.isInteger(value) || value! <= 0)) throw new Error("INVALID_STOP_CONDITION");
 };
 
+const ownerOf = (definition: StrategyDefinition): string | undefined => (definition as Partial<OwnedStrategyDefinition>).userId;
+const validateSearchSpaceOwner = (ownerUserId: string, searchSpace: SearchRun["searchSpace"]): void => {
+  if (searchSpace.availableStrategies.some((definition) => ownerOf(definition) !== ownerUserId)) throw new Error("INVALID_SEARCH_CONFIG");
+};
+
 const deterministicGenerator = (type: SearchRun["generatorType"]): import("../domain/contracts").StrategyGenerator => {
   let sequence = 0;
   return {
@@ -33,17 +42,21 @@ const deterministicGenerator = (type: SearchRun["generatorType"]): import("../do
       const start = Math.floor(sequence / maxComponents) % available.length;
       const selected = Array.from({ length: count }, (_unused, index) => available[(start + index) % available.length]!);
       const candidateNumber = sequence++;
+      const userId = ownerOf(selected[0]!);
+      if (!userId || selected.some((definition) => ownerOf(definition) !== userId)) throw new Error("INVALID_SEARCH_CONFIG");
+      const compositeDefinition: OwnedCompositeStrategyDefinition = {
+        id: `generated-${type.toLowerCase()}-${candidateNumber}-${selected.map((definition) => definition.id).join("-")}`,
+        userId,
+        logicalFamilyKey: `generated:${type.toLowerCase()}`,
+        version: 1,
+        method: "MAJORITY_VOTE",
+        components: selected.map((definition) => ({ strategyDefinitionId: definition.id, weight: 1 })),
+        createdAt: "1970-01-01T00:00:00.000Z",
+      };
       return {
         generatedBy: type,
         strategyDefinitions: selected,
-        compositeDefinition: {
-          id: `generated-${type.toLowerCase()}-${candidateNumber}-${selected.map((definition) => definition.id).join("-")}`,
-          logicalFamilyKey: `generated:${type.toLowerCase()}`,
-          version: 1,
-          method: "MAJORITY_VOTE",
-          components: selected.map((definition) => ({ strategyDefinitionId: definition.id, weight: 1 })),
-          createdAt: "1970-01-01T00:00:00.000Z",
-        },
+        compositeDefinition,
       };
     },
   };
@@ -175,7 +188,7 @@ export function createSearchModule(dependencies: SearchModuleDependencies = crea
     return current;
   };
   return {
-    start: async (auth, config) => { assertAuth(auth); validateStopCondition(config.stopCondition); if (!Number.isInteger(config.maxInFlight) || config.maxInFlight <= 0 || !config.leaderboardScopeId || config.searchSpace.availableStrategies.length === 0) throw new Error("INVALID_SEARCH_CONFIG"); await dependencies.backtestCoordinator.readBenchmarkScope(auth, config.leaderboardScopeId); const run = createRun(idGenerator(), config, auth.userId, dependencies.clock.now()); await dependencies.searchRunRepository.insert(run); await fill(run.searchRunId); return { searchRunId: run.searchRunId }; },
+    start: async (auth, config) => { assertAuth(auth); validateStopCondition(config.stopCondition); if (!Number.isInteger(config.maxInFlight) || config.maxInFlight <= 0 || !config.leaderboardScopeId || config.searchSpace.availableStrategies.length === 0) throw new Error("INVALID_SEARCH_CONFIG"); validateSearchSpaceOwner(auth.userId, config.searchSpace); await dependencies.backtestCoordinator.readBenchmarkScope(auth, config.leaderboardScopeId); const run = createRun(idGenerator(), config, auth.userId, dependencies.clock.now()); await dependencies.searchRunRepository.insert(run); await fill(run.searchRunId); return { searchRunId: run.searchRunId }; },
     pause: async (auth, id) => { const run = await loadOwned(auth, id); if (run.state === "RUNNING") { const now = dependencies.clock.now(); await dependencies.searchRunRepository.save({ ...run, state: "PAUSED", activeDurationMs: run.activeDurationMs + (run.activeSince ? Date.parse(now) - Date.parse(run.activeSince) : 0), activeSince: undefined, updatedAt: now }); } },
     resume: async (auth, id) => { const run = await loadOwned(auth, id); if (run.state === "FAILED") throw new Error("CANNOT_RESUME_FAILED_RUN"); if (run.state === "PAUSED") { const now = dependencies.clock.now(); await dependencies.searchRunRepository.save({ ...run, state: "RUNNING", activeSince: now, updatedAt: now }); } await fill(id); },
     cancel: async (auth, id) => {

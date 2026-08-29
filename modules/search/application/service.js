@@ -8,6 +8,11 @@ const validateStopCondition = (condition) => {
     if (values.length === 0 || values.some((value) => !Number.isInteger(value) || value <= 0))
         throw new Error("INVALID_STOP_CONDITION");
 };
+const ownerOf = (definition) => definition.userId;
+const validateSearchSpaceOwner = (ownerUserId, searchSpace) => {
+    if (searchSpace.availableStrategies.some((definition) => ownerOf(definition) !== ownerUserId))
+        throw new Error("INVALID_SEARCH_CONFIG");
+};
 const deterministicGenerator = (type) => {
     let sequence = 0;
     return {
@@ -21,17 +26,22 @@ const deterministicGenerator = (type) => {
             const start = Math.floor(sequence / maxComponents) % available.length;
             const selected = Array.from({ length: count }, (_unused, index) => available[(start + index) % available.length]);
             const candidateNumber = sequence++;
+            const userId = ownerOf(selected[0]);
+            if (!userId || selected.some((definition) => ownerOf(definition) !== userId))
+                throw new Error("INVALID_SEARCH_CONFIG");
+            const compositeDefinition = {
+                id: `generated-${type.toLowerCase()}-${candidateNumber}-${selected.map((definition) => definition.id).join("-")}`,
+                userId,
+                logicalFamilyKey: `generated:${type.toLowerCase()}`,
+                version: 1,
+                method: "MAJORITY_VOTE",
+                components: selected.map((definition) => ({ strategyDefinitionId: definition.id, weight: 1 })),
+                createdAt: "1970-01-01T00:00:00.000Z",
+            };
             return {
                 generatedBy: type,
                 strategyDefinitions: selected,
-                compositeDefinition: {
-                    id: `generated-${type.toLowerCase()}-${candidateNumber}-${selected.map((definition) => definition.id).join("-")}`,
-                    logicalFamilyKey: `generated:${type.toLowerCase()}`,
-                    version: 1,
-                    method: "MAJORITY_VOTE",
-                    components: selected.map((definition) => ({ strategyDefinitionId: definition.id, weight: 1 })),
-                    createdAt: "1970-01-01T00:00:00.000Z",
-                },
+                compositeDefinition,
             };
         },
     };
@@ -184,7 +194,7 @@ function createSearchModule(dependencies = createInMemorySearchDependencies()) {
     };
     return {
         start: async (auth, config) => { assertAuth(auth); validateStopCondition(config.stopCondition); if (!Number.isInteger(config.maxInFlight) || config.maxInFlight <= 0 || !config.leaderboardScopeId || config.searchSpace.availableStrategies.length === 0)
-            throw new Error("INVALID_SEARCH_CONFIG"); await dependencies.backtestCoordinator.readBenchmarkScope(auth, config.leaderboardScopeId); const run = createRun(idGenerator(), config, auth.userId, dependencies.clock.now()); await dependencies.searchRunRepository.insert(run); await fill(run.searchRunId); return { searchRunId: run.searchRunId }; },
+            throw new Error("INVALID_SEARCH_CONFIG"); validateSearchSpaceOwner(auth.userId, config.searchSpace); await dependencies.backtestCoordinator.readBenchmarkScope(auth, config.leaderboardScopeId); const run = createRun(idGenerator(), config, auth.userId, dependencies.clock.now()); await dependencies.searchRunRepository.insert(run); await fill(run.searchRunId); return { searchRunId: run.searchRunId }; },
         pause: async (auth, id) => { const run = await loadOwned(auth, id); if (run.state === "RUNNING") {
             const now = dependencies.clock.now();
             await dependencies.searchRunRepository.save({ ...run, state: "PAUSED", activeDurationMs: run.activeDurationMs + (run.activeSince ? Date.parse(now) - Date.parse(run.activeSince) : 0), activeSince: undefined, updatedAt: now });

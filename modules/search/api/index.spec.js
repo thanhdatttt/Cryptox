@@ -23,9 +23,25 @@ function dependencies(tested = 0) {
     deps.clock = { now: () => "2025-01-01T00:00:00.000Z" };
     return { deps, submissions: () => submissions, cancellations: () => cancellations };
 }
-const config = { searchSpace: { availableStrategies: [{ id: "strategy-1" }] }, stopCondition: { maxCandidates: 3 }, generatorType: "RANDOM", leaderboardScopeId: "scope", maxInFlight: 2 };
 const owner = { userId: "user-1" };
+const config = { searchSpace: { availableStrategies: [{ id: "strategy-1", userId: owner.userId }] }, stopCondition: { maxCandidates: 3 }, generatorType: "RANDOM", leaderboardScopeId: "scope", maxInFlight: 2 };
 (0, vitest_1.describe)("search runtime", () => {
+    (0, vitest_1.it)("keeps strategy definitions and generated composites within the authenticated owner", async () => {
+        const invalidFixture = dependencies();
+        const invalidRuntime = (0, index_1.createSearchModule)(invalidFixture.deps);
+        await (0, vitest_1.expect)(invalidRuntime.start(owner, { ...config, searchSpace: { availableStrategies: [{ id: "strategy-1", userId: "other-user" }] } })).rejects.toThrow("INVALID_SEARCH_CONFIG");
+        const fixture = { deps: (0, index_1.createInMemorySearchDependencies)() };
+        const runtime = (0, index_1.createSearchModule)(fixture.deps);
+        let submitted;
+        fixture.deps.backtestCoordinator = {
+            ...fixture.deps.backtestCoordinator,
+            submitSearchCandidate: async (_auth, command) => { submitted = command; return { candidateId: "candidate-owner", jobId: "job-owner", status: "QUEUED" }; },
+        };
+        const definition = { id: "owned-definition", userId: owner.userId, logicalFamilyKey: "strategy:owned", strategyName: "TEST", implementationVersion: "1", implementationSha256: "a".repeat(64), version: 1, parameters: {}, createdAt: "2025-01-01T00:00:00.000Z" };
+        await runtime.start(owner, { ...config, searchSpace: { availableStrategies: [definition] }, stopCondition: { maxCandidates: 1 }, maxInFlight: 1 });
+        (0, vitest_1.expect)(submitted?.compositeDefinition?.userId).toBe(owner.userId);
+    });
+
     (0, vitest_1.it)("fills bounded slots and completes when a poll observes the final deterministic candidate", async () => {
         const fixture = dependencies();
         const runtime = (0, index_1.createSearchModule)(fixture.deps);
@@ -58,12 +74,14 @@ const owner = { userId: "user-1" };
             { pair: "BTCUSDT", timeframe: "1h", timestamp: "2025-01-01T01:00:00.000Z", open: 102, high: 106, low: 101, close: 105, volume: 1, isClosed: true },
             { pair: "BTCUSDT", timeframe: "1h", timestamp: "2025-01-01T02:00:00.000Z", open: 106, high: 111, low: 105, close: 110, volume: 1, isClosed: true },
         ];
-        const definition = { id: "definition-1", logicalFamilyKey: "strategy:test", strategyName: "TEST", implementationVersion: "1", implementationSha256: "b".repeat(64), version: 1, parameters: {}, createdAt: snapshot.createdAt };
+        const definition = { id: "definition-1", userId: owner.userId, logicalFamilyKey: "strategy:test", strategyName: "TEST", implementationVersion: "1", implementationSha256: "b".repeat(64), version: 1, parameters: {}, createdAt: snapshot.createdAt };
+        const compositeDefinition = { id: "generated", userId: owner.userId, logicalFamilyKey: "generated", version: 1, method: "MAJORITY_VOTE", components: [{ strategyDefinitionId: definition.id, weight: 1 }], createdAt: snapshot.createdAt };
+        const strategy = { readDefinitions: async (_userId, ids) => ids.map((id) => ({ ...definition, id })), readComposite: async (_userId, id) => ({ ...compositeDefinition, id }), resolveStrategy: async () => ({ name: "test", category: "TREND", analyze: (context) => context.candles.length === 1 ? "BUY" : "HOLD" }), combineSignals: (_composite, signals) => signals[0]?.signal ?? "HOLD", buildVisualization: () => [] };
         let sequence = 0;
         const queue = new bootstrap_1.InMemoryBacktestQueue();
         let leaderboard;
         let search;
-        const backtesting = (0, api_1.createBacktestingService)({ ...(0, api_1.createInMemoryBacktestingDependencies)(), queue, marketData: { readDatasetSnapshot: async () => ({ snapshot, candles }) }, strategy: { readDefinitions: async (_userId, ids) => ids.map((id) => ({ ...definition, id })), readComposite: async (_userId, id) => ({ id, logicalFamilyKey: "generated", version: 1, method: "MAJORITY_VOTE", components: [{ strategyDefinitionId: definition.id, weight: 1 }], createdAt: snapshot.createdAt }), resolveStrategy: async () => ({ name: "test", category: "TREND", analyze: (context) => context.candles.length === 1 ? "BUY" : "HOLD" }), combineSignals: (_composite, signals) => signals[0]?.signal ?? "HOLD" }, evaluation: (0, bootstrap_2.createEvaluationModule)(), completion: { score: (scopeId, metrics) => leaderboard.score(scopeId, metrics), submit: async (experiment, unitOfWork) => { await leaderboard.submit(experiment, unitOfWork); }, notifySearchCandidateFinished: async (searchRunId) => { await search.onCandidateFinished(searchRunId); } }, clock: { now: () => "2025-01-01T03:00:00.000Z" }, idGenerator: () => `id-${sequence++}` });
+        const backtesting = (0, api_1.createBacktestingService)({ ...(0, api_1.createInMemoryBacktestingDependencies)(), queue, marketData: { readDatasetSnapshot: async () => ({ snapshot, candles }) }, strategy, evaluation: (0, bootstrap_2.createEvaluationModule)(), completion: { score: (scopeId, metrics) => leaderboard.score(scopeId, metrics), submit: async (experiment, unitOfWork) => { await leaderboard.submit(experiment, unitOfWork); }, notifySearchCandidateFinished: async (searchRunId) => { await search.onCandidateFinished(searchRunId); } }, clock: { now: () => "2025-01-01T03:00:00.000Z" }, idGenerator: () => `id-${sequence++}` });
         const scope = await backtesting.createBenchmarkScope({ userId: "user-1" }, { name: "fixture", datasetSnapshot: snapshot, initialCapital: 1000, feeRatePercent: 0, slippageBps: 0, scoreFormulaId: "MVP_MANUAL_V1", workerRuntimeVersion: "1", workerRuntimeSha256: "c".repeat(64), evaluationRuntimeVersion: "1", evaluationRuntimeSha256: "d".repeat(64) }, { scopeIdempotencyKey: "scope-key" });
         leaderboard = (0, bootstrap_3.createLeaderboardModule)({ ...(0, bootstrap_3.createInMemoryLeaderboardDependencies)(), scopeRepository: (0, bootstrap_3.createBacktestingScopeRepository)(backtesting), experimentReader: (0, bootstrap_3.createBacktestingExperimentReader)(backtesting), clock: { now: () => "2025-01-01T03:00:00.000Z" } });
         search = (0, index_1.createSearchModule)({ ...(0, index_1.createInMemorySearchDependencies)(), backtestCoordinator: backtesting, leaderboardService: leaderboard, clock: { now: () => "2025-01-01T03:00:00.000Z" }, idGenerator: () => "search-run-1" });

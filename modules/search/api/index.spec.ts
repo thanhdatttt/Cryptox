@@ -4,6 +4,7 @@ import { createBacktestingService, createInMemoryBacktestingDependencies } from 
 import { InMemoryBacktestQueue } from "modules/backtesting/api/bootstrap";
 import { createEvaluationModule } from "modules/evaluation/api/bootstrap";
 import { createBacktestingExperimentReader, createBacktestingScopeRepository, createInMemoryLeaderboardDependencies, createLeaderboardModule } from "modules/leaderboard/api/bootstrap";
+import type { CompositeStrategyDefinition, StrategyDefinition } from "modules/strategy/api";
 
 const summary = (searchRunId: string, tested = 0) => ({ searchRunId, active: [], queuedCount: 0, runningCount: 0, candidatesTested: tested, failedCandidateCount: 0, retryExhaustedCandidateCount: 0, infrastructureFailureCandidateCount: 0, completionProcessingFailureCandidateCount: 0, failedAttemptCount: 0, averageBacktestDurationMs: null });
 
@@ -24,10 +25,27 @@ function dependencies(tested = 0) {
   return { deps, submissions: () => submissions, cancellations: () => cancellations };
 }
 
-const config = { searchSpace: { availableStrategies: [{ id: "strategy-1" }] as never[] }, stopCondition: { maxCandidates: 3 }, generatorType: "RANDOM" as const, leaderboardScopeId: "scope", maxInFlight: 2 };
 const owner = { userId: "user-1" };
+const config = { searchSpace: { availableStrategies: [{ id: "strategy-1", userId: owner.userId }] as never[] }, stopCondition: { maxCandidates: 3 }, generatorType: "RANDOM" as const, leaderboardScopeId: "scope", maxInFlight: 2 };
 
 describe("search runtime", () => {
+  it("keeps strategy definitions and generated composites within the authenticated owner", async () => {
+    const invalidFixture = dependencies();
+    const invalidRuntime = createSearchModule(invalidFixture.deps);
+    await expect(invalidRuntime.start(owner, { ...config, searchSpace: { availableStrategies: [{ id: "strategy-1", userId: "other-user" }] as never[] } })).rejects.toThrow("INVALID_SEARCH_CONFIG");
+
+    const fixture = { deps: createInMemorySearchDependencies() };
+    const runtime = createSearchModule(fixture.deps);
+    let submitted: { compositeDefinition?: { userId?: string } } | undefined;
+    fixture.deps.backtestCoordinator = {
+      ...fixture.deps.backtestCoordinator,
+      submitSearchCandidate: async (_auth, command) => { submitted = command; return { candidateId: "candidate-owner", jobId: "job-owner", status: "QUEUED" as const }; },
+    };
+    const definition = { id: "owned-definition", userId: owner.userId, logicalFamilyKey: "strategy:owned", strategyName: "TEST", implementationVersion: "1", implementationSha256: "a".repeat(64), version: 1, parameters: {}, createdAt: "2025-01-01T00:00:00.000Z" };
+    await runtime.start(owner, { ...config, searchSpace: { availableStrategies: [definition] }, stopCondition: { maxCandidates: 1 }, maxInFlight: 1 });
+    expect(submitted?.compositeDefinition?.userId).toBe(owner.userId);
+  });
+
   it("fills bounded slots and completes when a poll observes the final deterministic candidate", async () => {
     const fixture = dependencies();
     const runtime = createSearchModule(fixture.deps);
@@ -65,12 +83,14 @@ describe("search runtime", () => {
       { pair: "BTCUSDT", timeframe: "1h" as const, timestamp: "2025-01-01T01:00:00.000Z", open: 102, high: 106, low: 101, close: 105, volume: 1, isClosed: true },
       { pair: "BTCUSDT", timeframe: "1h" as const, timestamp: "2025-01-01T02:00:00.000Z", open: 106, high: 111, low: 105, close: 110, volume: 1, isClosed: true },
     ];
-    const definition = { id: "definition-1", logicalFamilyKey: "strategy:test", strategyName: "TEST", implementationVersion: "1", implementationSha256: "b".repeat(64), version: 1, parameters: {}, createdAt: snapshot.createdAt };
+    const definition: StrategyDefinition & { userId: string } = { id: "definition-1", userId: owner.userId, logicalFamilyKey: "strategy:test", strategyName: "TEST", implementationVersion: "1", implementationSha256: "b".repeat(64), version: 1, parameters: {}, createdAt: snapshot.createdAt };
+    const compositeDefinition: CompositeStrategyDefinition & { userId: string } = { id: "generated", userId: owner.userId, logicalFamilyKey: "generated", version: 1, method: "MAJORITY_VOTE", components: [{ strategyDefinitionId: definition.id, weight: 1 }], createdAt: snapshot.createdAt };
+    const strategy = { readDefinitions: async (_userId: string, ids: string[]) => ids.map((id) => ({ ...definition, id })), readComposite: async (_userId: string, id: string) => ({ ...compositeDefinition, id }), resolveStrategy: async () => ({ name: "test", category: "TREND" as const, analyze: (context: import("modules/strategy/api").StrategyContext) => context.candles.length === 1 ? "BUY" as const : "HOLD" as const }), combineSignals: (_composite: CompositeStrategyDefinition, signals: Array<{ strategyDefinitionId: string; signal: "BUY" | "SELL" | "HOLD" }>) => signals[0]?.signal ?? "HOLD" as const, buildVisualization: () => [] };
     let sequence = 0;
     const queue = new InMemoryBacktestQueue();
     let leaderboard!: ReturnType<typeof createLeaderboardModule>;
     let search!: ReturnType<typeof createSearchModule>;
-    const backtesting = createBacktestingService({ ...createInMemoryBacktestingDependencies(), queue, marketData: { readDatasetSnapshot: async () => ({ snapshot, candles }) }, strategy: { readDefinitions: async (_userId, ids) => ids.map((id) => ({ ...definition, id })), readComposite: async (_userId, id) => ({ id, logicalFamilyKey: "generated", version: 1, method: "MAJORITY_VOTE" as const, components: [{ strategyDefinitionId: definition.id, weight: 1 }], createdAt: snapshot.createdAt }), resolveStrategy: async () => ({ name: "test", category: "TREND", analyze: (context) => context.candles.length === 1 ? "BUY" : "HOLD" }), combineSignals: (_composite, signals) => signals[0]?.signal ?? "HOLD" }, evaluation: createEvaluationModule(), completion: { score: (scopeId, metrics) => leaderboard.score(scopeId, metrics), submit: async (experiment, unitOfWork) => { await leaderboard.submit(experiment, unitOfWork); }, notifySearchCandidateFinished: async (searchRunId) => { await search.onCandidateFinished(searchRunId); } }, clock: { now: () => "2025-01-01T03:00:00.000Z" }, idGenerator: () => `id-${sequence++}` });
+    const backtesting = createBacktestingService({ ...createInMemoryBacktestingDependencies(), queue, marketData: { readDatasetSnapshot: async () => ({ snapshot, candles }) }, strategy, evaluation: createEvaluationModule(), completion: { score: (scopeId, metrics) => leaderboard.score(scopeId, metrics), submit: async (experiment, unitOfWork) => { await leaderboard.submit(experiment, unitOfWork); }, notifySearchCandidateFinished: async (searchRunId) => { await search.onCandidateFinished(searchRunId); } }, clock: { now: () => "2025-01-01T03:00:00.000Z" }, idGenerator: () => `id-${sequence++}` });
     const scope = await backtesting.createBenchmarkScope({ userId: "user-1" }, { name: "fixture", datasetSnapshot: snapshot, initialCapital: 1000, feeRatePercent: 0, slippageBps: 0, scoreFormulaId: "MVP_MANUAL_V1", workerRuntimeVersion: "1", workerRuntimeSha256: "c".repeat(64), evaluationRuntimeVersion: "1", evaluationRuntimeSha256: "d".repeat(64) }, { scopeIdempotencyKey: "scope-key" });
     leaderboard = createLeaderboardModule({ ...createInMemoryLeaderboardDependencies(), scopeRepository: createBacktestingScopeRepository(backtesting), experimentReader: createBacktestingExperimentReader(backtesting), clock: { now: () => "2025-01-01T03:00:00.000Z" } });
     search = createSearchModule({ ...createInMemorySearchDependencies(), backtestCoordinator: backtesting, leaderboardService: leaderboard, clock: { now: () => "2025-01-01T03:00:00.000Z" }, idGenerator: () => "search-run-1" });
