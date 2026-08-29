@@ -27,11 +27,11 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 | B-02 | DONE | 4 | YES | Manager / B-02 review-closure worker | `MVP_IMPLEMENTATION` / `a24aa00` | Packet-boundary DoD proven: Backtesting 33/33, package typecheck/lint/build, Auth PostgreSQL 3/3, owner isolation, provenance, rollback, cancellation/saturation, and one-terminal-outcome evidence PASS; cross-module Experiment/Leaderboard atomicity remains UNVERIFIED for I-01 |
 | AU-01 | DONE | 2 | YES | Orchestrator / Kepler / Banach + independent Auth reviewer | `MVP_IMPLEMENTATION` / `a9b026b` | PostgreSQL Auth 11/11 and backend 9/9 PASS on dedicated PostgreSQL 16.10; independent review PASS; full `verify:stage4a` PASS; OpenSpec CLI UNVERIFIED |
 | AU-02 | BLOCKED | 4 | YES | Manager / security integration worker | — | Blocked by private-resource implementations |
-| Q-01 | IN_PROGRESS | 3–4 | Integration | Ramanujan (`01a04b84-df4f-75e0-a24b-d7182f5c0f01`; sole INS-017 owner) | `MVP_IMPLEMENTATION` / pending | Real-port closure delegated within `modules/search/**`; duplicate retry `01a04b85-67cb-71e1-b4fc-eb4306a5ab4d` shut down before integration |
-| N-01 | IN_PROGRESS | 2 | Integration | Plato (`01a04b84-e18e-7d82-ac56-14f20939bdee`; sole INS-017 owner) | `MVP_IMPLEMENTATION` / pending | Initial News packet delegated within `modules/news/**`; C-01 and D-01 start dependencies are DONE |
-| N-02 | IN_PROGRESS | 2 | Integration | Sagan (`01a04b85-d5d2-7c81-95cd-08cb04249e04`; sole INS-017 owner) | `MVP_IMPLEMENTATION` / pending | Initial LEXICON_V1 packet delegated under `modules/sentiment/**`; C-01 and D-01 start dependencies are DONE |
+| Q-01 | REVIEW | 3–4 | Integration | Manager / Ramanujan (`01a04b84-df4f-75e0-a24b-d7182f5c0f01`) | `MVP_IMPLEMENTATION` / `04bf234` | Focused 21/21 and package gates PASS; real PostgreSQL/public pipeline reached execution but persisted `COMPLETED` status was observed as `RUNNING`; duplicate retry was shut down |
+| N-01 | DONE | 2 | Integration | Manager / Plato (`01a04b84-e18e-7d82-ac56-14f20939bdee`) | `MVP_IMPLEMENTATION` / `04bf234` | News 14/14, typecheck/lint/build, architecture and scope gates PASS; live CoinDesk and real PostgreSQL remain UNVERIFIED |
+| N-02 | DONE | 2 | Integration | Manager / Sagan (`01a04b85-d5d2-7c81-95cd-08cb04249e04`) | `MVP_IMPLEMENTATION` / `04bf234` | Sentiment 16/16, typecheck/lint/build, architecture and scope gates PASS; real PostgreSQL remains UNVERIFIED |
 | F-01 | DONE | 2 | Integration | Manager / Frontend worker | `MVP_IMPLEMENTATION` / `901065a` | Independent review, frontend/global gates, and browser interaction PASS |
-| F-AUTH | IN_PROGRESS | 3 | Integration | Descartes (`01a04b84-de45-74a2-8b9e-cab4a0d6ff48`; sole INS-017 owner) | `MVP_IMPLEMENTATION` / pending | Final browser/service closure delegated within `apps/frontend/**`; duplicate retry `01a04b85-66a9-7a12-94c2-ed3e984e04a6` shut down before integration |
+| F-AUTH | DONE | 3 | Integration | Manager / Descartes (`01a04b84-de45-74a2-8b9e-cab4a0d6ff48`) | `MVP_IMPLEMENTATION` / `04bf234` | Frontend 25/25, typecheck/build/lint, real AU-01 PostgreSQL 3/3, backend 1/1, and local browser flow PASS; deployed HTTPS/private business endpoint evidence remains UNVERIFIED |
 | F-02 | BLOCKED | 3 | Integration | Unassigned Frontend worker | — | Not started |
 | I-01 | BLOCKED | 5 | YES | Manager / integration worker | — | Not started |
 | I-02 | BLOCKED | 6 | YES | Manager plus independent reviewers | — | Not started |
@@ -309,51 +309,60 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 
 - **Requirement IDs:** `CSL-R-SE-01`, `CSL-R-SE-02`, `CSL-R-LB-01`,
   `CSL-R-OB-01`, `CSL-R-DM-01`, `CSL-R-AR-02`, `CSL-R-OW-01`
-- **State / owner / wave:** IN_PROGRESS / Ramanujan (`01a04b84-df4f-75e0-a24b-d7182f5c0f01`) / Waves 3–4
+- **State / owner / wave:** REVIEW / Manager and Ramanujan (`01a04b84-df4f-75e0-a24b-d7182f5c0f01`) / Waves 3–4
 - **Critical / parallelism:** Integration / YES for fake-port phase
 - **Start dependencies:** C-01A, S-01
 - **Integration dependencies:** D-01, L-01, B-02
 - **Objective:** Implement seeded Random generation, trusted owner propagation, and
   an owner-scoped finite SearchRun lifecycle, first against fakes and then real ports.
 - **Write scope:** `modules/search/**` except frozen contracts and migrations.
-- **Latest branch / commit:** `MVP_IMPLEMENTATION` / pending INS-017 worker result.
-- **Validation:** Pure/fake-port phase reviewed PASS. D-01, L-01, and B-02 are
-  verified DONE, so the authorized real-port closure is READY. Real persistence,
-  Backtesting/Leaderboard port evidence, and DONE remain `UNVERIFIED`; fake-only
-  evidence cannot close Q-01.
+- **Latest branch / commit:** `MVP_IMPLEMENTATION` / `04bf234`.
+- **Validation:** Pure/fake-port and Search adapter suites pass (21/21), with
+  typecheck/lint/build and global gates PASS. The real integration was attempted
+  against `postgres://cryptox@localhost:55432/cryptox` and reached the public
+  Search/Backtesting/Leaderboard pipeline, but the in-process status became
+  `COMPLETED` while the persisted SearchRun row remained `RUNNING`. Q-01 stays
+  REVIEW; fake-only evidence cannot close it and no concurrency fix was started.
 - **Full packet:** [`MVP_PLAN.md#q-01--seeded-random-search-and-searchrun-lifecycle`](MVP_PLAN.md#q-01--seeded-random-search-and-searchrun-lifecycle)
 
 ### N-01 — News Collection, Deduplication and Query
 
 - **Requirement IDs:** `CSL-R-NW-01`, `CSL-R-SN-01`, `CSL-R-OB-01`, `CSL-R-DM-01`,
   `CSL-R-RD-01`
-- **State / owner / wave:** IN_PROGRESS / Plato (`01a04b84-e18e-7d82-ac56-14f20939bdee`) / Wave 2
+- **State / owner / wave:** DONE / Manager and Plato (`01a04b84-e18e-7d82-ac56-14f20939bdee`) / Wave 2
 - **Critical / parallelism:** Integration / YES
 - **Start dependencies:** C-01, D-01
 - **Integration dependencies:** N-02 and I-01
 - **Objective:** Build fixture-first provider-neutral News with a real configured
   final/demo source and explicit provider provenance.
 - **Write scope:** `modules/news/**` except frozen contracts and migrations.
-- **Latest branch / commit:** `MVP_IMPLEMENTATION` / pending INS-017 worker result.
-- **Validation:** Initial News packet is READY with C-01/D-01 dependencies DONE;
-  live CoinDesk evidence may remain `UNVERIFIED` when unavailable.
+- **Latest branch / commit:** `MVP_IMPLEMENTATION` / `04bf234`.
+- **Validation:** News 14/14, typecheck/lint/build, architecture, artifact,
+  deferred-scope, and whitespace gates PASS. Normalization, provider-GUID
+  deduplication, deterministic queries, malformed/provider failure isolation,
+  bounded CoinDesk access, PostgreSQL adapter mapping, and Sentiment degradation
+  are covered. Live CoinDesk is `UNVERIFIED` because no API key was configured;
+  real PostgreSQL is also `UNVERIFIED` in the Manager environment.
 - **Full packet:** [`MVP_PLAN.md#n-01--news-collection-deduplication-and-query`](MVP_PLAN.md#n-01--news-collection-deduplication-and-query)
 
 ### N-02 — `LEXICON_V1` Sentiment
 
 - **Requirement IDs:** `CSL-R-SN-01`, `CSL-R-OB-01`, `CSL-R-AR-02`,
   `CSL-R-AR-03`, `CSL-R-DM-01`
-- **State / owner / wave:** IN_PROGRESS / Sagan (`01a04b85-d5d2-7c81-95cd-08cb04249e04`) / Wave 2
+- **State / owner / wave:** DONE / Manager and Sagan (`01a04b85-d5d2-7c81-95cd-08cb04249e04`) / Wave 2
 - **Critical / parallelism:** Integration / YES
 - **Start dependencies:** C-01, D-01
 - **Integration dependencies:** N-01 and I-01
 - **Objective:** Implement deterministic local lexicon/rule sentiment with normalized
   score, provenance, persistence, and failure isolation.
 - **Write scope:** `modules/sentiment/**` except frozen contracts and migrations.
-- **Latest branch / commit:** `MVP_IMPLEMENTATION` / pending INS-017 worker result.
-- **Validation:** Initial local LEXICON_V1 packet is IN_PROGRESS under the
-  delegated `modules/sentiment/**` scope; hosted services and downloaded model
-  runtimes remain forbidden.
+- **Latest branch / commit:** `MVP_IMPLEMENTATION` / `04bf234`.
+- **Validation:** Sentiment 16/16, typecheck/lint/build, architecture,
+  artifact, deferred-scope, and whitespace gates PASS. Positive/neutral/negative
+  fixtures, finite normalized deterministic scores, negation/intensifier policy,
+  provenance, invalid/exception/timeout no-write, persistence mapping, and
+  missing reads are covered. Real PostgreSQL is `UNVERIFIED` because
+  `DATABASE_URL` was not configured; no hosted/model-download runtime was used.
 - **Full packet:** [`MVP_PLAN.md#n-02--lexicon_v1-sentiment`](MVP_PLAN.md#n-02--lexicon_v1-sentiment)
 
 ### F-01 — Frontend Chart and Client Foundation
@@ -375,21 +384,22 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 ### F-AUTH — Frontend Authentication and Protected Navigation
 
 - **Requirement IDs:** `CSL-R-AU-01`, `CSL-R-OW-01`, `CSL-R-FE-01`, `CSL-R-DM-01`
-- **State / owner / wave:** IN_PROGRESS / Descartes (`01a04b84-de45-74a2-8b9e-cab4a0d6ff48`) / Wave 3
+- **State / owner / wave:** DONE / Manager and Descartes (`01a04b84-de45-74a2-8b9e-cab4a0d6ff48`) / Wave 3
 - **Critical / parallelism:** Integration / Not with an active F-01 shell writer
 - **Start dependencies:** C-01A, F-01
 - **Integration dependencies:** AU-01
 - **Objective:** Add register/login/session restoration/logout, protected navigation,
   401 recovery, and private-cache clearing using HttpOnly session cookies.
 - **Write scope:** Frontend Auth clients, screens, state, navigation guards, and tests.
-- **Latest branch / commit:** `MVP_IMPLEMENTATION` / `8abd6a8`.
-- **Validation:** The real-session frontend boundary patch is reviewed in scope;
-  23/23 frontend tests plus typecheck/build/lint PASS, and the configured AU-01
-  PostgreSQL proxy smoke covers register/login/current-user/session restore/
-  logout/revoked-session 401 with HttpOnly/SameSite=Lax/Path=/Max-Age=86400 and
-  no token in the body. Final browser/service closure is READY for INS-017;
-  interactive credential flow and deployed HTTPS cookie behavior remain
-  `UNVERIFIED` until independently re-proven.
+- **Latest branch / commit:** `MVP_IMPLEMENTATION` / `04bf234`.
+- **Validation:** Frontend tests 25/25 plus typecheck/build/lint PASS. Real
+  AU-01 PostgreSQL persistence is 3/3 and backend HTTP smoke is 1/1; the local
+  browser flow proved protected redirect, register/login, reload restoration,
+  logout, server-revocation 401 recovery, re-login, HttpOnly/SameSite=Lax/
+  Path=/24-hour host-only cookie behavior, and no token in JSON. Frontend state
+  tests prove private-cache clearing/isolation. A real private business endpoint
+  and deployed HTTPS `Secure` behavior do not exist in this phase and remain
+  `UNVERIFIED`.
 - **Full packet:** [`MVP_PLAN.md#f-auth--frontend-authentication-and-protected-navigation`](MVP_PLAN.md#f-auth--frontend-authentication-and-protected-navigation)
 
 ### F-02 — Frontend Strategy, Search, Result and Auxiliary Views

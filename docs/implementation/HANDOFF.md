@@ -3,9 +3,10 @@
 ## Resume here
 
 - **Level 2 control plane:** Active. INS-017 is the current Instructor signal;
-  the reviewed signal commit is `67419d1`. Current HEAD is `229013f`, and the
-  intervening commits change only Manager-owned `TASKS.md`/`HANDOFF.md`, with
-  no source or business-state drift relative to `ce24396`.
+  the reviewed signal commit is `67419d1`. Applicability was PASS before source
+  work: `70fdfce` changed only Manager-owned `TASKS.md`/`HANDOFF.md`, and
+  `04bf234` contains only the four authorized packet scopes. No unauthorized
+  source, contract, migration, or business-state drift was integrated.
   `INSTRUCTOR.md` and `DECISIONS.md` were not edited by the Manager.
 - **Authorization:** Execute exactly F-AUTH final real AU-01/browser closure,
   Q-01 real-port Search integration, N-01 initial News, and N-02 initial local
@@ -27,16 +28,58 @@
   down before source integration. No duplicate output is accepted. At the
   safety checkpoint the worktree was clean, so no duplicate source write was
   integrated. All workers may read but may not edit global control artifacts.
-- **Baseline carried forward:** B-02 remains DONE only at the DEC-006 packet
-  boundary; I-01 cross-module Experiment/Leaderboard atomicity is UNVERIFIED.
-  M-02 remains REVIEW with live Binance evidence UNVERIFIED. F-AUTH retains
-  source `8abd6a8`, frontend 23/23 and package gates PASS, and partial
-  PostgreSQL AU-01 evidence; full browser credential/cookie proof is pending.
-  Q-01 retains only its reviewed fake-port phase and has no real-port evidence.
-- **Next Manager action:** Review the four retained worker outputs independently,
-  run packet/global gates, integrate only authorized changes, and replace this
-  checkpoint with the final INS-017 result. Missing provider/service evidence
-  is BLOCKED or UNVERIFIED, never PASS.
+- **F-AUTH result:** Descartes completed only the allowed Auth frontend paths;
+  Manager review found the diff scope clean. Frontend tests are 25/25 with
+  typecheck/build/lint PASS. Independent AU-01 PostgreSQL and backend HTTP
+  evidence is 3/3 and 1/1 PASS. The worker's local browser evidence proves
+  protected redirect, register/login, reload restoration, logout, revoked-session
+  401 recovery, re-login, HttpOnly/SameSite=Lax/Path=/24-hour host-only cookie
+  behavior, and no token in JSON. Frontend state tests prove private-cache
+  clearing/isolation. A deployed HTTPS cookie and real private business endpoint
+  are unavailable and remain `UNVERIFIED`. F-AUTH transitions to DONE.
+- **N-01 result:** Plato completed only `modules/news/**`; News tests are 14/14
+  with typecheck/lint/build, architecture, artifact, deferred-scope, and
+  whitespace gates PASS. Normalization, provider-GUID deduplication,
+  deterministic query, malformed/provider failure isolation, bounded CoinDesk,
+  PostgreSQL adapter mapping, and Sentiment degradation are covered. Live
+  CoinDesk is `UNVERIFIED` because no API key was configured, and real News
+  PostgreSQL evidence is `UNVERIFIED`; the initial packet DoD permits those
+  limitations to be reported. N-01 transitions to DONE.
+- **N-02 result:** Sagan completed only `modules/sentiment/**`; Sentiment tests
+  are 16/16 with typecheck/lint/build, architecture, artifact, deferred-scope,
+  and whitespace gates PASS. Deterministic LEXICON_V1 scoring, normalization,
+  provenance, negation/intensifier policy, invalid/exception/timeout no-write,
+  persistence mapping, and missing reads are covered. Real PostgreSQL is
+  `UNVERIFIED` because `DATABASE_URL` was unset; no hosted/model runtime was
+  used. N-02 transitions to DONE.
+- **Q-01 result:** Ramanujan completed only `modules/search/**`; focused Search
+  tests are 21/21 and typecheck/lint/build plus global gates PASS. The real
+  integration was independently attempted against the reachable dedicated
+  PostgreSQL endpoint `localhost:55432` through the public Search,
+  Backtesting, and Leaderboard pipeline. It exposed a material lifecycle defect:
+  in-process status reached `COMPLETED` while the persisted SearchRun row was
+  still `RUNNING` (reproduced at the persisted-state assertion). Q-01 remains
+  REVIEW/UNVERIFIED; no additional concurrency fix was attempted or authorized.
+- **Final validation:** Root `verify:stage4a` PASS, including all workspace
+  builds/typechecks/tests, architecture, artifacts, deferred-scope, and runtime
+  smoke (`/live=200`, `/ready=503`, `/health=404`). The real Q-01 integration
+  test fails as described above; the default root run skips it because
+  `DATABASE_URL` is unset. Formal OpenSpec CLI validation is UNVERIFIED because
+  the CLI is unavailable. Credentials, passwords, session tokens, cookies, and
+  token digests were not logged.
+- **Authorization status:** INS-017 is exhausted. No duplicate output was
+  integrated; retry workers F-AUTH `01a04b85-66a9-7a12-94c2-ed3e984e04a6` and
+  Q-01 `01a04b85-67cb-71e1-b4fc-eb4306a5ab4d` were shut down, while the sole
+  retained owners were Descartes `01a04b84-de45-74a2-8b9e-cab4a0d6ff48`,
+  Ramanujan `01a04b84-df4f-75e0-a24b-d7182f5c0f01`, Plato
+  `01a04b84-e18e-7d82-ac56-14f20939bdee`, and Sagan
+  `01a04b85-d5d2-7c81-95cd-08cb04249e04`. Do not start Q-01 rework, M-02,
+  B-02, AU-02, F-02, I-01/I-02, or any other packet without a new Instructor
+  signal.
+- **Safe checkpoint commits:** `70fdfce` records duplicate-worker ownership
+  reconciliation; `04bf234` contains the reviewed INS-017 source and tests;
+  the final Manager control reconciliation is the next commit. `INSTRUCTOR.md`
+  and `DECISIONS.md` remain untouched.
 
 ## INS-014 Historical Checkpoint
 
