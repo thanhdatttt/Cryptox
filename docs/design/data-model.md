@@ -442,6 +442,13 @@ Version allocation is an application/repository invariant. `logical_family_key` 
 
 Rows are **immutable**: changing parameters or plugin implementation means a new row/version, never `UPDATE`. Repository roles receive `SELECT`/`INSERT` but not `UPDATE`/`DELETE`, with an append-only trigger as defense in depth. Replay resolves the exact retained plugin artifact by `implementation_sha256`; an unavailable artifact causes an explicit non-replayable response rather than silently using current code. The pinned definition and retained artifact are designed to make the version provenance of a Leaderboard row auditable without behavioral drift.
 
+`minimumHistoryCandles` is an immutable capability of that retained artifact
+descriptor rather than a column on the definition row. Backtesting resolves the
+descriptor for every selected definition, pins the maximum as `warmup_candles`
+on the Candidate, and rejects a scope whose sealed snapshot cannot provide that
+history. Visualization likewise resolves the retained artifact and derives
+generic overlays from sealed, as-of candle contexts.
+
 #### 3.2.1 Why there is no `strategy_catalog` table
 
 I considered adding a table listing the currently-registered strategy *types* (name, category, parameter schema) so the Frontend's "select strategies" step (brief §2, §46 step 2) has something to query. Decided against it: `StrategyRegistry.list()` already returns serializable `StrategyPluginDescriptor[]`, declared by each plugin at bootstrap. Duplicating it into Postgres would create a second source of truth that can drift from deployed code. `GET /strategies` returns these descriptors — never factory functions — while `strategy_definitions` stores the configured immutable instances that genuinely need durability/versioning.

@@ -136,6 +136,9 @@ export interface Strategy {
   readonly name: string;              // e.g. "MA", "RSI", "MACD"
   readonly category: StrategyCategory;
   analyze(context: StrategyContext): Signal;
+  // Optional pure projection capability consumed through the public
+  // StrategyModule API; it never participates in the trading decision.
+  buildVisualization?(contexts: readonly StrategyContext[]): StrategyVisualizationOverlayDraft[];
 }
 
 // A concrete, versioned configuration of a Strategy — what actually gets
@@ -194,6 +197,7 @@ export interface StrategyPluginDescriptor {
   category: StrategyCategory;
   implementationVersion: string;
   implementationSha256: string;
+  minimumHistoryCandles: number; // integer >= 0; immutable artifact capability
   parameters: StrategyParameterDescriptor[];
 }
 
@@ -205,6 +209,23 @@ export interface StrategyFactory {
 export interface StrategyArtifactResolver {
   resolve(strategyName: string, implementationSha256: string): Promise<StrategyFactory>;
   // throws IMPLEMENTATION_ARTIFACT_UNAVAILABLE; never substitutes another build
+}
+
+export type StrategyVisualizationOverlayDraft =
+  | { id: string; kind: "LINE"; label: string; points: Array<{ time: string; value: number }> }
+  | { id: string; kind: "ZONE"; label: string; points: Array<{ time: string; low: number; high: number }> }
+  | { id: string; kind: "SIGNAL"; label: string; points: Array<{ time: string; value: number; signal: Signal }> };
+
+export type StrategyVisualizationOverlay =
+  | (StrategyVisualizationOverlayDraft & { strategyDefinitionId: string });
+
+export interface StrategyModulePublicApi {
+  listStrategies(): StrategyPluginDescriptor[];
+  readDefinitions(userId: string, ids: string[]): Promise<StrategyDefinition[]>;
+  readComposite(userId: string, id: string): Promise<CompositeStrategyDefinition>;
+  resolveStrategy(definition: StrategyDefinition): Promise<Strategy>;
+  combineSignals(definition: CompositeStrategyDefinition, signals: Array<{ strategyDefinitionId: string; signal: Signal }>): Signal;
+  buildVisualization(definition: StrategyDefinition, contexts: StrategyContext[]): StrategyVisualizationOverlay[];
 }
 ```
 
