@@ -13,45 +13,50 @@ export type {
   ExperimentRepository,
 } from "../application/ports";
 import type { BacktestingApplicationDependencies } from "../application/ports";
+import {
+  createBacktestingApplication,
+  createBacktestRunner,
+  type BacktestingCandidate,
+  type BacktestingApplication,
+  type BacktestingApplicationOptions,
+  type CandidateExecutionRequest,
+  type CandidateRunResult,
+} from "../application/service";
 import type {
   BacktestingModulePublicApi,
-  CandidateProgress,
   Experiment,
   StartManualBacktestCommand,
   SubmitSearchCandidateCommand,
   Trade,
 } from "./contracts";
-import {
-  cancelCandidate,
-  cancelSearchCandidates,
-  listSearchCandidates,
-  listExperimentTrades,
-  listSearchExperiments,
-  readExperiment,
-  startManual,
-  status,
-  submitSearchCandidate,
-  summarizeSearchCandidates,
-} from "./index";
 export type BacktestingModuleDependencies = BacktestingApplicationDependencies<
-  CandidateProgress,
+  BacktestingCandidate,
   StartManualBacktestCommand | SubmitSearchCandidateCommand,
   Experiment,
   Trade
 >;
 export function createBacktestingModule(
-  _deps: BacktestingModuleDependencies,
+  deps: BacktestingModuleDependencies,
+  options: BacktestingApplicationOptions = {},
 ): BacktestingModulePublicApi {
-  return {
-    startManual,
-    submitSearchCandidate,
-    status,
-    summarizeSearchCandidates,
-    listSearchCandidates,
-    cancelSearchCandidates,
-    cancelCandidate,
-    readExperiment,
-    listSearchExperiments,
-    listExperimentTrades,
-  };
+  return createBacktestingApplication(deps, options);
 }
+
+export {
+  createBacktestingApplication,
+  createBacktestRunner,
+};
+export type {
+  BacktestingApplication,
+  BacktestingApplicationOptions,
+  BacktestingCandidate,
+  CandidateExecutionRequest,
+  CandidateRunResult,
+};
+export { createInMemoryBacktestingRepositories, InMemoryBacktestingRepositories } from "../application/memory";
+export { createPostgresBacktestingDependencies } from "../infrastructure/postgres";
+export type {
+  PostgresBacktestingDependencies,
+  PostgresBacktestingOptions,
+  PostgresPool,
+} from "../infrastructure/postgres";

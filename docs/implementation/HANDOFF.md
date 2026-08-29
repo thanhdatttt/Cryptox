@@ -5,47 +5,49 @@
 - **Level 2 control plane:** Active. Read `AGENTS.md`, current
   [`INSTRUCTOR.md`](../control/INSTRUCTOR.md), [`DECISIONS.md`](../control/DECISIONS.md),
   [`TASKS.md`](TASKS.md), and this checkpoint before acting.
-- **Current instruction:** `INS-012` / `APPROVED_FOR_EXECUTION`, authorizing
-  exactly M-01 and L-01 in parallel. D-01 and AU-01 remain DONE and were not
-  reassigned or reworked.
-- **INS-012 applicability:** PASS. Instructor-reviewed HEAD was `1f56c36`; the
-  only intervening commit before execution was `2872a9c`, changing only the
+- **Current instruction:** `INS-013` / `APPROVED_FOR_EXECUTION`, authorizing
+  exactly M-02 and B-02 in parallel. D-01, AU-01, M-01, and L-01 remain DONE
+  and were not reassigned or reworked.
+- **INS-013 applicability:** PASS. Instructor-reviewed HEAD was `2118a08`; the
+  only intervening commit before assignment was `3116e1f`, changing only the
   authorized `docs/control/INSTRUCTOR.md` signal. Source, business state, and
-  task DAG were unchanged at execution start. Starting HEAD was `2872a9c` on
+  task DAG were unchanged at execution start. Starting HEAD was `3116e1f` on
   `MVP_IMPLEMENTATION` with a clean working tree.
-- **INS-012 execution:** Halley implemented M-01 and Linnaeus implemented L-01
-  in disjoint module scopes. Both followed `READY -> IN_PROGRESS -> REVIEW ->
-  DONE`; the Manager reviewed and integrated only scoped changes in `3c95063`.
-- **M-01 result:** Binance historical provider normalization, bounded half-open
-  pagination, malformed/duplicate/out-of-order/gap handling, provenance,
-  PostgreSQL candle/snapshot persistence, provider substitution, shutdown, and
-  focused regressions were added under `modules/market-data/**`. Focused tests
-  passed 14/14 and dedicated PostgreSQL persistence passed 1/1.
-- **L-01 result:** `LINEAR_REQUIRED_V1` scoring and eligibility, exact formula
-  and tie validation, owner-scoped configurable Top-K scopes, idempotent
-  admission/read behavior, PostgreSQL repositories, and module-owned ranking
-  configuration initialization were added under `modules/leaderboard/**`.
-  Focused tests passed 16/16. The frozen schema has no active-entry flag, so
-  PostgreSQL eviction deletes old rows; duplicate detection after eviction or
-  restart is consequently limited and remains a documented integration risk.
-- **Independent review:** No frozen contracts, migrations, frontend/apps,
-  control-plane files outside Manager-owned updates, or unrelated modules were
-  changed. Review found and had Linnaeus fix missing PostgreSQL ranking seed and
-  non-exact runtime formula/tie validation.
-- **Validation:** Build, typecheck, workspace tests, architecture, artifact,
+- **Delegation:** Fermat implemented M-02, Arendt implemented B-02, and Hilbert
+  supplied the bounded B-02 review fixes. Their write scopes remained disjoint;
+  the Manager changed only `TASKS.md` and this checkpoint.
+- **M-02 result:** Normalized Binance kline streaming, connection status,
+  bounded reconnect/backoff/resubscribe, REST gap reconciliation before
+  continuation, forming-candle exclusion, duplicate suppression, changed
+  closed-candle correction, closed-state protection, shutdown, and sanitized
+  observability are implemented under `modules/market-data/**`. Focused tests
+  pass 22/22; the required live Binance stream smoke is `UNVERIFIED` after
+  connection timeouts.
+- **B-02 result:** Trusted manual/Search ownership guards, bounded local
+  execution, B-01 simulation, Evaluation, inherited Experiment/Trades,
+  same-owner ranking admission, idempotent PostgreSQL completion, rollback
+  handling, terminal persistence, practical provenance, actual equity-curve
+  persistence, and sequence-ordered Trade pagination are implemented under
+  `modules/backtesting/**`. Focused tests pass 32/32. Real PostgreSQL/Auth
+  integration is `UNVERIFIED` because no database configuration/service was
+  available.
+- **Independent review:** Scope, frozen contracts/migrations, architecture,
+  ownership, realtime recovery, persistence, and focused evidence were reviewed.
+  The final review remains CONDITIONAL: cancellation can still race during the
+  final cross-module completion window, and atomic Experiment + Leaderboard
+  persistence requires a shared transaction-aware adapter to be proven at I-01.
+  These are not reported as PASS.
+- **Validation:** Workspace tests, build, typecheck, architecture, artifacts,
   deferred-scope, runtime smoke, and whitespace checks PASS. Runtime smoke is
-  `/live=200`, `/ready=503`, `/health=404`. Live Binance historical smoke was
-  attempted and is `UNVERIFIED` because the provider request returned `fetch
-  failed`. Formal OpenSpec CLI validation is also `UNVERIFIED` because the CLI
-  is unavailable. Full persisted Leaderboard admission remains `UNVERIFIED`;
-  adapter initialization was verified against the dedicated PostgreSQL cluster.
-- **Current task state:** M-01 and L-01 are DONE at `3c95063`. DAG recomputation
-  makes M-02 and B-02 READY, but INS-012 does not authorize either task and no
-  newly unlocked work was started. Q-01 and F-AUTH remain REVIEW for their
-  bounded fake/fixture phases; all other unfinished tasks remain BLOCKED.
-- **Authorization status:** INS-012 is exhausted. A fresh Instructor review and
-  new Instruction ID are required before M-02, B-02, Q-01 real integration,
-  F-AUTH real integration, or any other unfinished task starts.
+  `/live=200`, `/ready=503`, `/health=404`. PostgreSQL integration suites that
+  require external configuration remain skipped/UNVERIFIED. Formal OpenSpec
+  CLI validation remains UNVERIFIED because the CLI is unavailable.
+- **Current task state:** M-02 and B-02 remain `REVIEW` under INS-013. No
+  downstream task was started. AU-02, Q-01 integration, F-AUTH integration,
+  I-01, I-02, and all other unfinished tasks remain blocked or unauthorized.
+- **Authorization status:** INS-013 is exhausted at this safe checkpoint.
+  Renewed Instructor review and a new Instruction ID are required before
+  resuming M-02/B-02 completion or starting any follow-on work.
 
 ## Historical checkpoints (prior to INS-012)
 - **INS-010 applicability:** PASS at execution start. Instructor reviewed HEAD

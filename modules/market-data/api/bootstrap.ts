@@ -26,6 +26,12 @@ export function createMarketDataModule(
 export { createMarketDataSnapshotReader } from "./snapshot-reader";
 export { createBinanceHistoricalProvider } from "../infrastructure/binance";
 export type { BinanceHistoricalProviderOptions } from "../infrastructure/binance";
+export { createBinanceRealtimeProvider } from "../infrastructure/binance-realtime";
+export type {
+  BinanceRealtimeProviderOptions,
+  BinanceSleep,
+  BinanceWebSocketFactory,
+} from "../infrastructure/binance-realtime";
 export { createPostgresMarketDataDependencies } from "../infrastructure/postgres";
 export type {
   PostgresMarketDataDependencies,

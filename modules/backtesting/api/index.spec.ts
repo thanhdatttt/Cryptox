@@ -22,6 +22,6 @@ describe("backtesting public entrypoint", () => {
     );
     await expect(
       backtestingApi.status({ authenticatedUserId: "user-1" as never }, "candidate"),
-    ).rejects.toThrow("NOT_IMPLEMENTED");
+    ).rejects.toThrow("NOT_FOUND");
   });
 });

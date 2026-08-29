@@ -11,6 +11,11 @@ import type {
   TradePageRequest,
 } from "./contracts";
 import type { AuthenticatedRequestContext } from "modules/auth/api";
+import { createEvaluationModule } from "@cryptox/evaluation/bootstrap";
+import { getLeaderboardScope, score, submit } from "@cryptox/leaderboard";
+import { createBacktestingApplication } from "../application/service";
+import { InMemoryBacktestingRepositories } from "../application/memory";
+import { BoundedLocalBacktestExecutor } from "../infrastructure/local/bounded-local-backtest-executor";
 
 export * from "./contracts";
 export type {
@@ -24,47 +29,88 @@ export type {
   BacktestTerminalOutcome,
 } from "../application/ports";
 
-const notImplemented = (): never => {
-  throw new Error("NOT_IMPLEMENTED");
-};
+const repositories = new InMemoryBacktestingRepositories();
+const defaultEvaluation = createEvaluationModule();
+const defaultExecution = new BoundedLocalBacktestExecutor({
+  capacity: 1,
+  runner: {
+    run: async () => {
+      throw new Error("backtesting module is not configured");
+    },
+  },
+});
+const defaultApplication = createBacktestingApplication({
+  execution: defaultExecution,
+  marketData: {
+    createDatasetSnapshot: async () => {
+      throw new Error("market data module is not configured");
+    },
+    readDatasetSnapshot: async () => {
+      throw new Error("market data module is not configured");
+    },
+  },
+  strategy: {
+    readStrategyDefinition: async () => {
+      throw new Error("strategy module is not configured");
+    },
+    readCompositeDefinition: async () => {
+      throw new Error("strategy module is not configured");
+    },
+    resolveStrategy: async () => {
+      throw new Error("strategy module is not configured");
+    },
+    combineSignals: () => {
+      throw new Error("strategy module is not configured");
+    },
+  },
+  evaluation: defaultEvaluation,
+  leaderboard: { getLeaderboardScope, score, submit },
+  candidateRepository: repositories.candidateRepository,
+  experimentRepository: repositories.experimentRepository,
+  unitOfWork: repositories.unitOfWork,
+  completionUnitOfWork: repositories.completionUnitOfWork,
+  clock: repositories.clock,
+});
 
-export const startManual: BacktestingModulePublicApi["startManual"] = async (
-  _context: AuthenticatedRequestContext,
-  _command: StartManualBacktestCommand,
-) => notImplemented();
-export const submitSearchCandidate: BacktestingModulePublicApi["submitSearchCandidate"] = async (
-  _context: AuthenticatedRequestContext,
-  _command: SubmitSearchCandidateCommand,
-) => notImplemented();
-export const status = async (
-  _context: AuthenticatedRequestContext,
-  _candidateId: string,
-): Promise<CandidateProgress> => notImplemented();
-export const summarizeSearchCandidates = async (
-  _context: AuthenticatedRequestContext,
-  _searchRunId: string,
-): Promise<SearchCandidateSummary> => notImplemented();
-export const listSearchCandidates = async (
-  _context: AuthenticatedRequestContext,
-  _searchRunId: string,
-  _page: CandidatePageRequest,
-): Promise<CandidatePage> => notImplemented();
-export const cancelSearchCandidates: BacktestingModulePublicApi["cancelSearchCandidates"] =
-  async (_context: AuthenticatedRequestContext, _searchRunId: string) => notImplemented();
-export const cancelCandidate: BacktestingModulePublicApi["cancelCandidate"] = async (
-  _context: AuthenticatedRequestContext,
-  _candidateId: string,
-) => notImplemented();
-export const readExperiment = async (
-  _context: AuthenticatedRequestContext,
-  _experimentId: string,
-): Promise<Experiment> => notImplemented();
-export const listSearchExperiments = async (
-  _context: AuthenticatedRequestContext,
-  _searchRunId: string,
-): Promise<readonly Experiment[]> => notImplemented();
-export const listExperimentTrades = async (
-  _context: AuthenticatedRequestContext,
-  _experimentId: string,
-  _page: TradePageRequest,
-): Promise<TradePage> => notImplemented();
+export const startManual: BacktestingModulePublicApi["startManual"] = (
+  context: AuthenticatedRequestContext,
+  command: StartManualBacktestCommand,
+) => defaultApplication.startManual(context, command);
+export const submitSearchCandidate: BacktestingModulePublicApi["submitSearchCandidate"] = (
+  context: AuthenticatedRequestContext,
+  command: SubmitSearchCandidateCommand,
+) => defaultApplication.submitSearchCandidate(context, command);
+export const status = (
+  context: AuthenticatedRequestContext,
+  candidateId: string,
+): Promise<CandidateProgress> => defaultApplication.status(context, candidateId);
+export const summarizeSearchCandidates = (
+  context: AuthenticatedRequestContext,
+  searchRunId: string,
+): Promise<SearchCandidateSummary> => defaultApplication.summarizeSearchCandidates(context, searchRunId);
+export const listSearchCandidates = (
+  context: AuthenticatedRequestContext,
+  searchRunId: string,
+  page: CandidatePageRequest,
+): Promise<CandidatePage> => defaultApplication.listSearchCandidates(context, searchRunId, page);
+export const cancelSearchCandidates: BacktestingModulePublicApi["cancelSearchCandidates"] = (
+  context: AuthenticatedRequestContext,
+  searchRunId: string,
+) => defaultApplication.cancelSearchCandidates(context, searchRunId);
+export const cancelCandidate: BacktestingModulePublicApi["cancelCandidate"] = (
+  context: AuthenticatedRequestContext,
+  candidateId: string,
+) => defaultApplication.cancelCandidate(context, candidateId);
+export const readExperiment = (
+  context: AuthenticatedRequestContext,
+  experimentId: string,
+): Promise<Experiment> => defaultApplication.readExperiment(context, experimentId);
+export const listSearchExperiments = (
+  context: AuthenticatedRequestContext,
+  searchRunId: string,
+): Promise<readonly Experiment[]> => defaultApplication.listSearchExperiments(context, searchRunId);
+export const listExperimentTrades = (
+  context: AuthenticatedRequestContext,
+  experimentId: string,
+  page: TradePageRequest,
+): Promise<TradePage> => defaultApplication.listExperimentTrades(context, experimentId, page);
