@@ -17,20 +17,25 @@
 - **B-02 boundary:** B-02 remains DONE under DEC-006. Cross-module
   Experiment/Leaderboard transaction atomicity remains `UNVERIFIED` for I-01.
 - **Current known evidence:** F-AUTH has source commit `8abd6a8`, frontend
-  23/23 plus typecheck/build/lint PASS, and backend AU-01 PostgreSQL smoke 1/1
-  PASS. Its real browser/service completion remains `UNVERIFIED`. Q-01 has a
-  reviewed fake-port phase, but real persistence/Backtesting/Leaderboard
-  integration remains `UNVERIFIED`.
-- **Delegation:** F-AUTH is assigned to worker
+  23/23 plus typecheck/build/lint PASS, and a reported PostgreSQL-backed AU-01
+  proxy smoke covering register/login/current-user/session restore/logout and
+  revoked-session 401. The cookie was reported HttpOnly/SameSite=Lax/Path=/
+  with no token in the response body. Unauthenticated browser navigation
+  redirected to login/401 messaging, but the full interactive credential flow
+  and deployed HTTPS cookie behavior remain `UNVERIFIED`. Q-01 has a reviewed
+  fake-port phase, but no real persistence/Backtesting/Leaderboard integration
+  or database/port probe was completed.
+- **Delegation and result:** F-AUTH was assigned to worker
   `01a04b76-f51c-7363-aa12-1a9836892394` (Cicero) with write scope
-  `apps/frontend/**`. Q-01 is assigned to worker
+  `apps/frontend/**` and returned no new source changes; its scoped result is
+  REVIEW/UNVERIFIED. Q-01 was assigned to worker
   `01a04b76-f65c-76a3-af5f-8ff93e33eaee` (Kant) with write scope
-  `modules/search/**`. Scopes are disjoint and workers may not edit global
+  `modules/search/**` and returned no source changes, no database/port probe,
+  and REVIEW/UNVERIFIED. Scopes were disjoint and workers did not edit global
   control artifacts.
-- **Next Manager action:** Independently review both worker outputs, run
-  focused/global gates, and replace this checkpoint with the final INS-016
-  result. Missing service/provider evidence is BLOCKED or UNVERIFIED, never
-  PASS.
+- **Final checkpoint:** F-AUTH and Q-01 remain REVIEW; no task is DONE from
+  INS-016. Missing service/provider evidence is BLOCKED or UNVERIFIED, never
+  PASS. No downstream task was started.
 
 ## INS-014 Historical Checkpoint
 
