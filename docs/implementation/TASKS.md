@@ -35,6 +35,26 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 | F-02 | DONE | 3 | Integration | Mendel (`01a04bab-a123-7bd2-855b-c02a6ab30f1c`) | `MVP_IMPLEMENTATION` / `84209b0` | Fixture-first Strategy/Search/result/auxiliary views and typed clients; frontend 31/31 across 12 files, typecheck/lint/build and global gates PASS; real API/browser integration remains I-01 |
 | I-01 | BLOCKED | 5 | YES | Manager / integration worker | — | Not started |
 | I-02 | BLOCKED | 6 | YES | Manager plus independent reviewers | — | Not started |
+| RB-01 | DONE | E0 | YES | Manager | `MVP_IMPLEMENTATION` / containing INS-024 RB-01 checkpoint | Documentation-only DEC-007 reconciliation planning committed; no feature implementation started |
+| C-02 | BLOCKED | E0 | YES | Future contract/data-model/migration owner | — | Not started; future gate requires a separate Instructor signal |
+| M-03 | BLOCKED | E1 | YES | Future Market Data worker | — | Not started; amended MD-02/MD-03 evidence required |
+| S-04 | BLOCKED | E1 | YES | Future Strategy application worker | — | Not started; controlled LLM draft/approval evidence required |
+| S-05 | BLOCKED | E1 | YES | Future Strategy composite worker | — | Not started; weighted-vote evidence required |
+| S-06 | BLOCKED | E1 | YES | Future Strategy plugin worker | — | Not started; Lite SMC/Wyckoff evidence required |
+| Q-02 | BLOCKED | E1 | YES | Future Search worker | — | Not started; Domain-guided/Genetic seeded evidence required |
+| B-03 | BLOCKED | E1 | YES | Future Backtesting worker | — | Not started; synthetic paper/decimal/provenance evidence required |
+| N-03 | BLOCKED | E1 | YES | Future News/Sentiment boundary worker | — | Not started; safe URL/extraction/refinement evidence required |
+| E-02 | BLOCKED | E2 | Integration | Future Evaluation worker | — | Not started; decimal-boundary evaluation evidence required |
+| L-02 | BLOCKED | E2 | YES | Future Leaderboard worker | — | Not started; extension-aware ranking/provenance evidence required |
+| F-03 | BLOCKED | E3 | YES | Future Frontend worker | — | Not started; DEC-007 functional-state projections required |
+| I-03 | BLOCKED | E4 | YES | Manager / future integration worker | — | Not started; final extension integration/reproducibility proof required |
+
+The `RB-01` row records the current authorization's completed governance
+checkpoint. `C-02` and every feature packet allocated by it remain `BLOCKED`; no
+new packet is READY or IN_PROGRESS. The existing legacy rows, including `M-02`
+at `REVIEW`, `AU-02` at `BLOCKED`, and `I-01`/`I-02` at `BLOCKED`, retain their
+states and evidence. DEC-007 extension requirements are not satisfied by any
+legacy `DONE` row.
 
 ## Task records
 
@@ -452,7 +472,8 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
   `CSL-R-RD-01`, `CSL-R-DL-01`, and `CSL-R-DM-01`
 - **State / owner / wave:** BLOCKED / Manager plus independent reviewers / Wave 6
 - **Critical / parallelism:** YES / Reviewer and test work only
-- **Start dependencies:** I-01
+- **Start dependencies:** I-01 and the future DEC-007 integration proof I-03;
+  live-provider smoke where required.
 - **Integration dependencies:** Live-provider smoke where required
 - **Objective:** Prove the full MVP, architecture defense, clean setup, demo,
   traceability, and final handoff.
@@ -462,6 +483,191 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 - **Validation:** Not started.
 - **Full packet:** [`MVP_PLAN.md#i-02--e2e-demo-documentation-and-final-verification`](MVP_PLAN.md#i-02--e2e-demo-documentation-and-final-verification)
 
+## DEC-007 reconciliation packet records
+
+These records are allocated by `RB-01`. Only `RB-01` was authorized by `INS-024`.
+All future extension and reconciliation packets below are `BLOCKED`; their full
+acceptance criteria and handoff requirements are in the linked packets in
+[`MVP_PLAN.md`](MVP_PLAN.md).
+
+### RB-01 — DEC-007 Documentation Reconciliation Planning
+
+- **Requirement IDs:** `CSL-R-MD-02`/`03`, `CSL-R-ST-05`–`07`, `CSL-R-SE-03`,
+  `CSL-R-BT-02`, `CSL-R-NW-02`, `CSL-R-RP-02`; `DEC-007`.
+- **State / owner / wave:** DONE / Manager / E0.
+- **Dependencies:** `INS-024` and reviewed `496d5a3`; no implementation dependency.
+- **Exact write scope:** `docs/implementation/MVP_PLAN.md`,
+  `docs/implementation/TASKS.md`, `docs/implementation/HANDOFF.md` only.
+- **Acceptance/validation:** Complete requirement-to-packet traceability,
+  C-02-first extension DAG, blocked future frontier, preserved legacy evidence,
+  changed-path proof, documentation/link checks, state/DAG consistency, and
+  `git diff --check`; formal OpenSpec is `UNVERIFIED` if unavailable.
+- **Full packet:** [`MVP_PLAN.md#rb-01--dec-007-documentation-reconciliation-planning`](MVP_PLAN.md#rb-01--dec-007-documentation-reconciliation-planning)
+
+### C-02 — DEC-007 Contract, Data-Model and Migration Reconciliation Gate
+
+- **Requirement IDs:** All DEC-007 extension IDs and amended `CSL-R-MD-02`.
+- **State / owner / wave:** BLOCKED / one future contract-and-schema owner / E0.
+- **Dependencies:** `RB-01`; baseline C-01A/D-01 and completed capability seams;
+  `M-02 REVIEW/UNVERIFIED` is review input only and is not retried.
+- **Exact write scope:** Canonical extension contracts/ports, REST/market-WS DTOs,
+  `docs/data-model.md`, and `infra/db/**` schema/migration validation only;
+  no runtime behavior.
+- **Acceptance/validation:** Canonical ownership, provenance, ephemeral state,
+  safe-content, profile, decimal, and retention representations plus contract,
+  migration, architecture, scope, link, diff, and OpenSpec checks.
+- **Full packet:** [`MVP_PLAN.md#c-02--dec-007-contract-data-model-and-migration-reconciliation-gate`](MVP_PLAN.md#c-02--dec-007-contract-data-model-and-migration-reconciliation-gate)
+
+### M-03 — Amended Realtime Market Delivery and `MARKET_OBSERVABILITY_V1`
+
+- **Requirement IDs:** `CSL-R-MD-02`, `CSL-R-MD-03`, `CSL-R-RP-02`, `CSL-R-FE-01`,
+  `CSL-R-OB-01`.
+- **State / owner / wave:** BLOCKED / Market Data worker / E1.
+- **Dependencies:** `C-02`, M-01, F-01 input; M-02 remains REVIEW/UNVERIFIED and
+  is not moved.
+- **Exact write scope:** `modules/market-data/api/**` excluding contracts,
+  application/infrastructure implementations and focused tests; no frontend,
+  transport contracts, migration, or event-bus changes.
+- **Acceptance/validation:** Re-prove amended realtime continuity, gap recovery,
+  100-tick ephemeral observability, restart loss, and honest real-Binance status
+  with focused/resilience/architecture/scope/global checks.
+- **Full packet:** [`MVP_PLAN.md#m-03--amended-realtime-market-delivery-and-market_observability_v1`](MVP_PLAN.md#m-03--amended-realtime-market-delivery-and-market_observability_v1)
+
+### S-04 — Controlled `LLM_AUTHORING_V1` Strategy Drafts
+
+- **Requirement IDs:** `CSL-R-ST-05`, `CSL-R-RP-02`, URL join `CSL-R-NW-02`.
+- **State / owner / wave:** BLOCKED / Strategy application worker / E1.
+- **Dependencies:** `C-02`, S-01; URL-origin path joins after N-03.
+- **Exact write scope:** Strategy API/application/infrastructure implementation
+  and authoring tests excluding canonical contracts; no URL fetch, News storage,
+  frontend, or pure-plugin I/O.
+- **Acceptance/validation:** One bounded request, deterministic draft validation,
+  explicit Save/Approve, immutable owner-scoped version, no-write failures/no
+  secrets, public News boundary, and Strategy/contract/owner/global checks.
+- **Full packet:** [`MVP_PLAN.md#s-04--controlled-llm_authoring_v1-strategy-drafts`](MVP_PLAN.md#s-04--controlled-llm_authoring_v1-strategy-drafts)
+
+### S-05 — Immutable `WEIGHTED_VOTE_V1` Composite
+
+- **Requirement IDs:** `CSL-R-ST-03`, `CSL-R-ST-06`, `CSL-R-RP-02`.
+- **State / owner / wave:** BLOCKED / Strategy composite worker / E1.
+- **Dependencies:** `C-02`, S-01; downstream B-03/L-02/F-03/I-03.
+- **Exact write scope:** New Strategy composite implementation/adapter/test
+  directories only; no canonical contracts, migrations, shared registry, other
+  plugins, frontend, or Backtesting.
+- **Acceptance/validation:** Enabled +1/0/-1 weighted normalization, thresholds,
+  ties, immutable exact component versions, same-owner validation, deterministic
+  unit/contract/architecture/scope evidence.
+- **Full packet:** [`MVP_PLAN.md#s-05--immutable-weighted_vote_v1-composite`](MVP_PLAN.md#s-05--immutable-weighted_vote_v1-composite)
+
+### S-06 — Deterministic `SMC_LITE_V1` and `WYCKOFF_LITE_V1` Plugins
+
+- **Requirement IDs:** `CSL-R-ST-07`, `CSL-R-RP-02`.
+- **State / owner / wave:** BLOCKED / Strategy plugin worker / E1.
+- **Dependencies:** `C-02`, S-01; downstream B-03/F-03/I-03.
+- **Exact write scope:** New `smc-lite` and `wyckoff-lite` plugin directories and
+  focused tests only; no shared registry/contracts, existing plugins, apps,
+  migrations, or frontend.
+- **Acceptance/validation:** Confirmed pivot/BOS and fixed range-volume heuristics,
+  deterministic fixtures, insufficient-data behavior, purity, descriptors,
+  truthful Lite labeling, and Strategy/global gates.
+- **Full packet:** [`MVP_PLAN.md#s-06--deterministic-smc_lite_v1-and-wyckoff_lite_v1-plugins`](MVP_PLAN.md#s-06--deterministic-smc_lite_v1-and-wyckoff_lite_v1-plugins)
+
+### Q-02 — Seeded `DOMAIN_GUIDED_V1` and `GENETIC_V1` Discovery
+
+- **Requirement IDs:** `CSL-R-SE-03`, `CSL-R-RP-02`, `CSL-R-OB-01`, `CSL-R-LB-01`.
+- **State / owner / wave:** BLOCKED / Search worker / E1.
+- **Dependencies:** `C-02`, S-01, Q-01 boundary; B-02/L-01 are integration inputs.
+- **Exact write scope:** New Search generator profiles, Search application/
+  infrastructure profile projections excluding contracts, and focused tests;
+  no simulation, scoring, or LLM.
+- **Acceptance/validation:** Seed/config/dataset/code provenance, identical
+  sequence/ranking, declared categories, Genetic defaults, 500/five-minute bound,
+  capacity/lifecycle observability, and public-boundary/reproducibility gates.
+- **Full packet:** [`MVP_PLAN.md#q-02--seeded-domain_guided_v1-and-genetic_v1-discovery`](MVP_PLAN.md#q-02--seeded-domain_guided_v1-and-genetic_v1-discovery)
+
+### B-03 — Synthetic Directional Paper Execution and Provenance
+
+- **Requirement IDs:** `CSL-R-BT-02`, `CSL-R-RP-02`, `CSL-R-BT-01`, `CSL-R-OB-01`.
+- **State / owner / wave:** BLOCKED / Backtesting worker / E1.
+- **Dependencies:** `C-02`, B-01/B-02/M-01/S-01, S-05, S-06.
+- **Exact write scope:** Backtesting domain/application/infrastructure and focused
+  tests excluding canonical contracts/migrations/frontend/orders/risk.
+- **Acceptance/validation:** Long/synthetic Short candle-only profile, dual-trigger
+  Stop-Wins, 0.08% fees, adverse 5-bps fills, eight-place decimal P&L,
+  immutable provenance, deterministic one-terminal-outcome/no-partial behavior,
+  and Backtesting/DB/architecture/global checks.
+- **Full packet:** [`MVP_PLAN.md#b-03--synthetic-directional-paper-execution-and-provenance`](MVP_PLAN.md#b-03--synthetic-directional-paper-execution-and-provenance)
+
+### N-03 — Safe URL Import and Versioned News Extraction Refinement
+
+- **Requirement IDs:** `CSL-R-NW-02`, `CSL-R-RP-02`, `CSL-R-SN-01`, `CSL-R-ST-05`,
+  `CSL-R-OB-01`.
+- **State / owner / wave:** BLOCKED / News/Sentiment boundary worker / E1.
+- **Dependencies:** `C-02`, N-01, N-02; downstream S-04/F-03/I-03.
+- **Exact write scope:** News and narrowly joined Sentiment API/application/
+  infrastructure implementations and focused tests excluding canonical contracts,
+  migrations, Strategy internals, frontend, and credentials.
+- **Acceptance/validation:** Allowlisted HTTPS/DNS/redirect/time/body safety,
+  Website/RSS/HTML adapters, dedupe, DRAFT-only versioned refinement/approval/
+  rollback, retention, refresh, neutral Sentiment isolation, and provider/global
+  checks.
+- **Full packet:** [`MVP_PLAN.md#n-03--safe-url-import-and-versioned-news-extraction-refinement`](MVP_PLAN.md#n-03--safe-url-import-and-versioned-news-extraction-refinement)
+
+### E-02 — Extension Evaluation and Decimal-Boundary Reconciliation
+
+- **Requirement IDs:** `CSL-R-BT-02`, `CSL-R-RP-02`, `CSL-R-EV-01`.
+- **State / owner / wave:** BLOCKED / Evaluation worker / E2.
+- **Dependencies:** `C-02`, B-03, E-01; downstream L-02/F-03/I-03.
+- **Exact write scope:** `modules/evaluation/**` excluding canonical contracts,
+  migrations, providers, and other module/frontend code.
+- **Acceptance/validation:** Required finite deterministic metrics over decimal
+  Long/Short results, no fill recomputation, no ranking on invalid inputs,
+  immutability/zero-trade behavior, and Evaluation/public/global checks.
+- **Full packet:** [`MVP_PLAN.md#e-02--extension-evaluation-and-decimal-boundary-reconciliation`](MVP_PLAN.md#e-02--extension-evaluation-and-decimal-boundary-reconciliation)
+
+### L-02 — Extension-Aware Ranking and Provenance Admission
+
+- **Requirement IDs:** `CSL-R-LB-01`, `CSL-R-SE-03`, `CSL-R-BT-02`,
+  `CSL-R-RP-02`, `CSL-R-OB-01`, `CSL-R-OW-01`.
+- **State / owner / wave:** BLOCKED / Leaderboard worker / E2.
+- **Dependencies:** `C-02`, Q-02, B-03, E-02, L-01; downstream F-03/I-03.
+- **Exact write scope:** `modules/leaderboard/**` excluding canonical contracts,
+  migrations, Strategy/Search generation, Backtesting simulation, and frontend.
+- **Acceptance/validation:** Same-owner finite Top-K admission, deterministic
+  ties/idempotency, discoverable Search/paper/decimal/definition/ranking
+  provenance without mutation/leakage, and Leaderboard/DB/global checks.
+- **Full packet:** [`MVP_PLAN.md#l-02--extension-aware-ranking-and-provenance-admission`](MVP_PLAN.md#l-02--extension-aware-ranking-and-provenance-admission)
+
+### F-03 — DEC-007 Functional-State Frontend Projections
+
+- **Requirement IDs:** `CSL-R-MD-03`, `CSL-R-ST-05`–`07`, `CSL-R-SE-03`,
+  `CSL-R-BT-02`, `CSL-R-NW-02`, `CSL-R-RP-02`, `CSL-R-FE-01`, `CSL-R-DM-01`.
+- **State / owner / wave:** BLOCKED / Frontend worker / E3.
+- **Dependencies:** M-03, S-04, S-05, S-06, Q-02, B-03, N-03, E-02, L-02;
+  downstream I-03 and baseline I-01.
+- **Exact write scope:** `apps/frontend/**` only; no backend/module/contract/
+  migration/provider/business-calculation changes.
+- **Acceptance/validation:** Backend-derived observability, draft approval,
+  weighted/Lite descriptors, discovery/paper/extraction/provenance state, four
+  chart independence, degraded Sentiment, and frontend/browser/global checks.
+- **Full packet:** [`MVP_PLAN.md#f-03--dec-007-functional-state-frontend-projections`](MVP_PLAN.md#f-03--dec-007-functional-state-frontend-projections)
+
+### I-03 — DEC-007 Boundary Integration and Reproducibility Proof
+
+- **Requirement IDs:** All DEC-007 IDs, amended `CSL-R-MD-02`, and integration
+  drivers `CSL-R-AU-01`, `CSL-R-OW-01`, `CSL-R-RD-01`, `CSL-R-OB-01`, `CSL-R-AR-01`–`03`.
+- **State / owner / wave:** BLOCKED / Manager or integration worker / E4.
+- **Dependencies:** C-02, all E1/E2/E3 packets, baseline I-01, and AU-02; the
+  latter two remain blocked and unauthorized by INS-024.
+- **Exact write scope:** `apps/backend/**`, thin REST/market-WS mappers, and
+  extension integration/E2E tests; no module algorithms, migrations, frontend,
+  queue, or general event bus.
+- **Acceptance/validation:** Public cross-module joins, real providers/PostgreSQL,
+  ownership, no-secret logs, market-only WS, ephemeral exclusion from backtests,
+  seeded reproducibility, paper labeling, final preflight, full global/runtime/
+  E2E checks; unavailable evidence is BLOCKED/UNVERIFIED.
+- **Full packet:** [`MVP_PLAN.md#i-03--dec-007-boundary-integration-and-reproducibility-proof`](MVP_PLAN.md#i-03--dec-007-boundary-integration-and-reproducibility-proof)
+
 ## State derivation at this checkpoint
 
 P-00, C-01, A-00, C-01A, E-01, F-01, S-01, D-01, AU-01, M-01, L-01, and B-02
@@ -470,5 +676,8 @@ Experiment/Leaderboard transaction coupling remains UNVERIFIED for I-01.
 M-02 remains REVIEW because live-provider evidence is UNVERIFIED. Q-01 and
 F-02 are DONE at their authorized packet boundaries; F-02 is fixture/fake-client
 evidence only and real API/browser integration remains for I-01. F-AUTH, N-01,
-and N-02 remain DONE. AU-02 and I-01/I-02 remain blocked; no other task is
-started by this checkpoint.
+and N-02 remain DONE. `RB-01` is DONE as the current governance checkpoint.
+`C-02`, `M-03`, `S-04`, `S-05`, `S-06`, `Q-02`, `B-03`, `N-03`, `E-02`, `L-02`,
+`F-03`, and `I-03` are newly allocated and remain BLOCKED. AU-02 and I-01/I-02
+remain blocked; no feature packet was started by this checkpoint. No legacy DONE
+packet is treated as evidence for a DEC-007 requirement.
