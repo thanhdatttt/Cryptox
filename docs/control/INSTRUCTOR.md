@@ -2,72 +2,102 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-042`
+Instruction ID: `INS-043`
 
-Status: `HOLD`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
-## INS-042 — HOLD after ENV-02/S-05/S-06 closure
+## INS-043 — Implement M-03 realtime market observability
 
-This replaceable signal supersedes `INS-041 / APPROVED_FOR_EXECUTION`. The
-authorized closure review completed successfully; this HOLD records the
-independent Instructor checkpoint before selecting the next implementation
-packet. No implementation packet is authorized by this signal.
+This replaceable signal supersedes `INS-042 / HOLD` and authorizes exactly one
+bounded E1 implementation packet: `M-03 — Amended Realtime Market Delivery and
+MARKET_OBSERVABILITY_V1`. It does not authorize any other packet or any
+contract/schema change.
 
-### Reviewed checkpoint
+### Reviewed checkpoint and preconditions
 
 - Branch: `MVP_IMPLEMENTATION`.
-- HEAD: `07eb6cd269de1eb4e1df5fcc9c68d4a1384f85ea`
-  (`checkpoint(ins-041): close strategy extension packets`).
-- Working tree: clean; `git diff --check` passes.
-- The INS-041 range changed only Manager-owned `TASKS.md` and `HANDOFF.md`;
-  no source, product behavior, dependency, migration, or runtime path drifted.
-- The fresh INS-041 closure Manager
-  (`01a04ecb-9ec8-76f1-a30d-fabe7b3480cf`) is idle after completion. No worker
-  was created for the state-only closure. The prior ENV-02 worker is closed and
-  the prior S-05/S-06 workers are idle. No active Cryptox Manager, Orchestrator,
-  or worker is running; no historical Manager or worktree was reused or
+- Authorization base HEAD: `52ef6ceb37d821e294cb4a7d9e041fa085356a9f`
+  (`docs(control): hold after strategy closure`).
+- Working tree was clean; `TASKS.md` records `ENV-01`, `C-02`, `ENV-02`, `S-05`,
+  and `S-06` as `DONE`.
+- `M-03`, `S-04`, `Q-02`, `N-03`, `B-03`, `E-02`, `L-02`, `F-03`, and `I-03`
+  remain `BLOCKED`; `M-02` remains `REVIEW/UNVERIFIED` and is not reopened.
+- `C-02`, `M-01`, and the `F-01` normalized chart input are complete and are
+  the verified M-03 start dependencies. No active Cryptox Manager, Orchestrator,
+  or worker is running; historical Managers/worktrees are not to be reused or
   removed.
 
-### Independent closure evidence
+### Authorized packet: `M-03`
 
-- The Manager reverified immutable source hashes for all S-05/S-06 files against
-  the INS-036 checkpoint and confirmed the ENV-02 implementation checkpoint
-  contains only its two checker files plus operational records.
-- `ENV-02`, `S-05`, and `S-06` were the only rows transitioned, each exactly
-  `REVIEW -> DONE`. `ENV-01` and `C-02` stayed `DONE`; all downstream rows kept
-  their prior states.
-- Revalidated `npm run test:scope-check` (`7/7 PASS`),
-  `npm run scope:check` (`PASS`), `npm run arch:check` (`PASS`),
-  `npm run artifacts:check` (`PASS`), `npm run typecheck` (`PASS`),
-  `npm run build` (`PASS`), `npm run lint` (`PASS`), and
-  `git diff --check` (`PASS`).
-- Revalidated root `npm test`: 291 executed tests passed, with 6
-  environment-gated PostgreSQL/integration/E2E tests skipped; classify the
-  overall gate as `UNVERIFIED`, not PASS.
-- OpenSpec CLI and dedicated link/DAG automation remain `UNVERIFIED` because
-  they are unavailable. Windows process-command attribution was also
-  `UNVERIFIED` due OS permission denial; Codex task topology plus Git evidence
-  established the active-task check.
+- **Requirement IDs:** `CSL-R-MD-02`, `CSL-R-MD-03`, `CSL-R-RP-02`,
+  `CSL-R-FE-01`, and `CSL-R-OB-01`.
+- **Manager pre-dispatch:** Add/reconcile the existing `M-03` task row from
+  `MVP_PLAN.md` in `TASKS.md` if needed, verify its dependencies and this
+  signal, then move only `M-03` through `BLOCKED -> READY -> IN_PROGRESS`.
+  Do not start a task merely because it is READY.
+- **Fresh Manager:** Create exactly one new Manager in the canonical
+  same-directory checkout, no worktree, with model `gpt-5.6-luna` and `max`
+  reasoning. The Manager must read `AGENTS.md` and
+  `docs/control/prompts/ORCHESTRATOR_START.md` fully and recover authority from
+  the repository before dispatch.
+- **Exactly one worker:** Delegate exactly one Market Data worker with the
+  independent write scope below. No second worker, retry, or duplicate Manager.
+- **Worker write scope:** implementation and focused tests under
+  `modules/market-data/api/**`, excluding `modules/market-data/api/contracts.ts`
+  and its contract-only test. The worker may add/modify API delivery,
+  observability, and API-focused tests within that boundary only.
+- **Manager-owned scope:** only `docs/implementation/TASKS.md` and
+  `docs/implementation/HANDOFF.md` for state, review, and checkpoint evidence.
+  Workers must not edit either file or any other governance artifact.
+- **Forbidden:** `modules/market-data/api/contracts.ts`,
+  `modules/market-data/application/**`,
+  `modules/market-data/infrastructure/**`,
+  `packages/contracts/**`, `apps/**`, migrations, dependencies, runtime
+  configuration, frontend, other modules, requirements, ADRs, OpenSpec,
+  `MVP_PLAN.md`, `DECISIONS.md`, and `INSTRUCTOR.md`.
 
-### Operational state
+### M-03 acceptance criteria
 
-- `TASKS.md` is authoritative and now records `ENV-02 = DONE`, `S-05 = DONE`,
-  and `S-06 = DONE` with their original worker/checkpoint provenance.
-- The next E1 candidates are `M-03`, `S-04`, `Q-02`, `N-03`, and `B-03`, all
-  still `BLOCKED` pending a separate Instructor signal. `M-02` remains
-  `REVIEW/UNVERIFIED`; `AU-02`, `I-01`, `I-02`, and all deferred scope remain
-  blocked as recorded.
-- No downstream work was started or unlocked automatically by this closure.
+- Re-prove same-timestamp candle updates and later-timestamp append behavior;
+  duplicate/out-of-order provider input must not create duplicate closed
+  candles.
+- Re-prove bounded disconnect/reconnect and missing-candle reconciliation using
+  the existing provider-neutral public boundaries. Connection state, provider
+  event time, received time, and non-negative last latency must be delivered
+  without raw provider payloads.
+- Expose `MARKET_OBSERVABILITY_V1` as delivery-only state with an in-memory
+  latest-100 normalized-tick ring buffer per pair. It must be explicitly
+  `EPHEMERAL_IN_MEMORY_ONLY`, empty after restart, remain on the market-only
+  WebSocket boundary, and never alter candle history, dataset snapshots,
+  backtest, or replay input.
+- Preserve independent pair/timeframe subscription state and shutdown behavior;
+  do not turn WebSocket into a general event bus or add frontend business logic.
+- Preserve truthful final/demo behavior: configured real Binance readiness must
+  be reported honestly; fixtures/fakes are for deterministic tests only and do
+  not pass final real-provider evidence.
 
-### Next decision boundary
+### Required validation and stop condition
 
-The next authorization may select exactly one safe E1 implementation packet
-whose dependencies, write scope, and acceptance evidence are reverified from
-`MVP_PLAN.md`, `TASKS.md`, `HANDOFF.md`, requirements, ADRs, architecture/data
-model, active specs, source, and tests. A fresh Manager and authorized worker(s)
-will be required for implementation. This HOLD itself authorizes nothing.
+- Focused Market Data API/realtime and market-WebSocket contract tests, existing
+  resilience/restart/gap tests, and relevant package/root tests must pass where
+  applicable.
+- Run `npm run arch:check`, `npm run artifacts:check`, `npm run scope:check`,
+  `npm run typecheck`, `npm run build`, `npm run lint`, and `git diff --check`.
+  Run real Binance smoke/readiness only if configured; unavailable provider,
+  PostgreSQL, browser, OpenSpec, or link/DAG checks are `UNVERIFIED`/`BLOCKED`,
+  never PASS.
+- Manager must review changed-path/name-only, provider boundary, ephemeral
+  isolation, test evidence, and no-scope-drift. Record exact worker/Manager
+  IDs, transitions, commit, validation results, and unavailable checks.
+- If source/business state, task DAG, checkpoint, or write-scope premise drifts,
+  stop with `NEEDS_INSTRUCTOR_REVIEW`. If required M-03 evidence fails, leave
+  M-03 at `REVIEW` or `BLOCKED` with the exact reason.
+- Stop after M-03 is reviewed, committed, and checkpointed. Do not mark any
+  downstream packet READY/DONE or start `S-04`, `Q-02`, `N-03`, `B-03`, `E-02`,
+  `L-02`, `F-03`, `I-03`, `M-02`, `AU-02`, `I-01`, `I-02`, or deferred scope.
+  A fresh Instructor review is required before the next authorization.
 
 ## Canonical references
 
