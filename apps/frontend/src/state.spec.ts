@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canAddChart, defaultMarketLayout, equalWeights, initialChartPanels, MARKET_LAYOUT_STORAGE_KEY, marketConnectionSummary, mergeCandle, nextChartId, parameterDefaults, persistMarketLayout, readMarketLayout, validateMarketLayout } from "./state";
+import { canAddChart, defaultMarketLayout, equalWeights, initialChartPanels, MARKET_LAYOUT_STORAGE_KEY, marketConnectionSummary, mergeCandle, nextChartId, parameterDefaults, persistMarketLayout, persistSearchRunId, readMarketLayout, readSearchRunId, SEARCH_RUN_STORAGE_KEY, validateMarketLayout } from "./state";
 
 describe("frontend presentation state", () => {
   it("keeps four independent initial chart selections and caps additional panels", () => {
@@ -52,5 +52,14 @@ describe("frontend presentation state", () => {
     expect(marketConnectionSummary(["ERROR"], true)).toEqual({ label: "Connection error", tone: "error" });
     expect(marketConnectionSummary(["DISCONNECTED"], true)).toEqual({ label: "Connection error", tone: "error" });
     expect(marketConnectionSummary(["CONNECTED"], false)).toEqual({ label: "Realtime paused", tone: "paused" });
+  });
+
+  it("persists a Search Run ID independently of the dashboard layout", () => {
+    const values = new Map<string, string>(); const storage = { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => { values.set(key, value); } };
+    persistSearchRunId("run-42", storage);
+    expect(values.get(SEARCH_RUN_STORAGE_KEY)).toBe("run-42");
+    expect(readSearchRunId(storage)).toBe("run-42");
+    persistSearchRunId(undefined, storage);
+    expect(readSearchRunId(storage)).toBeUndefined();
   });
 });

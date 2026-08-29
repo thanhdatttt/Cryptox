@@ -1,22 +1,76 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { ColorType, createChart, type CandlestickData, type HistogramData, type Time } from "lightweight-charts";
 import { api, marketSocket, type ApiCandle, type MarketCapabilities, type MarketTick, type Timeframe } from "./api";
 import { canAddChart, defaultMarketLayout, mergeCandle, nextChartId, type ChartPanelState, type MarketLayoutState } from "./state";
-import { chartBounds } from "./visuals";
 
 const periods: Timeframe[] = ["1m", "5m", "15m", "1h", "4h", "1d"];
 const topPeriods: Timeframe[] = ["1m", "5m", "15m", "1h", "4h"];
 
 const ErrorBox = ({ error }: { error: unknown }) => error ? <div className="market-error"><b>Unable to load market data</b><span>{error instanceof Error ? error.message : String(error)}</span></div> : null;
 
+const chartTime = (timestamp: string): Time => Math.floor(Date.parse(timestamp) / 1_000) as Time;
+
 function CandleVisual({ candles, emptyLabel }: { candles: ApiCandle[]; emptyLabel: string }) {
-  const visible = candles.slice(-80);
-  if (!visible.length) return <div className="market-empty-chart"><div className="empty-chart-grid" aria-hidden="true"><i /><i /><i /><i /></div><span className="empty-chart-icon">⌁</span><b>{emptyLabel}</b><small>The backend returned no candles for this pair/timeframe.</small></div>;
-  const bounds = chartBounds(visible);
-  const maxVolume = Math.max(...visible.map((candle) => candle.volume), 1);
-  const x = (index: number) => 26 + index * (748 / Math.max(visible.length - 1, 1));
-  const y = (value: number) => 14 + (bounds.max - value) / bounds.range * 142;
-  const last = visible[visible.length - 1]!;
-  return <div className="market-candle-visual" aria-label="Backend candlestick visualization"><svg viewBox="0 0 800 230" role="img" aria-label="Candlestick chart with volume">{[0, 1, 2, 3].map((line) => <line key={line} className="market-grid-line" x1="0" x2="800" y1={14 + line * 45} y2={14 + line * 45} />)}{visible.map((candle, index) => { const candleX = x(index); const rising = candle.close >= candle.open; const bodyTop = y(Math.max(candle.open, candle.close)); const bodyHeight = Math.max(2, Math.abs(y(candle.open) - y(candle.close))); const volumeHeight = candle.volume / maxVolume * 38; return <g key={candle.timestamp} className={rising ? "market-candle-up" : "market-candle-down"}><line x1={candleX} x2={candleX} y1={y(candle.high)} y2={y(candle.low)} /><rect x={candleX - 3.5} y={bodyTop} width="7" height={bodyHeight} /><rect className="market-volume-bar" x={candleX - 3.5} y={184 - volumeHeight} width="7" height={Math.max(2, volumeHeight)} /></g>; })}<line className="market-last-price-line" x1="0" x2="800" y1={y(last.close)} y2={y(last.close)} /><rect className="market-last-price" x="720" y={y(last.close) - 9} width="78" height="18" rx="4" /><text className="market-last-price-text" x="759" y={y(last.close) + 3}>{last.close.toLocaleString()}</text><text className="market-axis-label" x="4" y="215">Volume</text></svg><div className="market-chart-caption"><span>Historical candles: {candles.length}</span><span>Close {last.close.toLocaleString()}</span></div></div>;
+  const containerRef = useRef<HTMLDivElement>(null);
+  const candleSeriesRef = useRef<ReturnType<ReturnType<typeof createChart>["addCandlestickSeries"]>>();
+  const volumeSeriesRef = useRef<ReturnType<ReturnType<typeof createChart>["addHistogramSeries"]>>();
+  const chartRef = useRef<ReturnType<typeof createChart>>();
+  const fittedRef = useRef(false);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const chart = createChart(container, {
+      autoSize: true,
+      height: 220,
+      layout: { background: { type: ColorType.Solid, color: "#fcfdff" }, textColor: "#62728a", fontSize: 11 },
+      grid: { vertLines: { color: "#f0f3f7" }, horzLines: { color: "#edf1f5" } },
+      rightPriceScale: { borderColor: "#e6ebf2", scaleMargins: { top: 0.1, bottom: 0.26 } },
+      timeScale: { borderColor: "#e6ebf2", timeVisible: true, secondsVisible: false },
+    });
+    const candleSeries = chart.addCandlestickSeries({
+      upColor: "#159a61",
+      downColor: "#d84c61",
+      borderVisible: false,
+      wickUpColor: "#148e5b",
+      wickDownColor: "#d54860",
+      priceLineVisible: true,
+      lastValueVisible: true,
+    });
+    const volumeSeries = chart.addHistogramSeries({
+      color: "#55c994",
+      priceFormat: { type: "volume" },
+      priceScaleId: "",
+    });
+    volumeSeries.priceScale().applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } });
+    chartRef.current = chart;
+    candleSeriesRef.current = candleSeries;
+    volumeSeriesRef.current = volumeSeries;
+    return () => {
+      chart.remove();
+      chartRef.current = undefined;
+      candleSeriesRef.current = undefined;
+      volumeSeriesRef.current = undefined;
+    };
+  }, [candles.length > 0]);
+
+  useEffect(() => {
+    const candleSeries = candleSeriesRef.current;
+    const volumeSeries = volumeSeriesRef.current;
+    if (!candleSeries || !volumeSeries) return;
+    const candleData: CandlestickData<Time>[] = candles.map((candle) => ({ time: chartTime(candle.timestamp), open: candle.open, high: candle.high, low: candle.low, close: candle.close }));
+    const volumeData: HistogramData<Time>[] = candles.map((candle) => ({ time: chartTime(candle.timestamp), value: candle.volume, color: candle.close >= candle.open ? "#55c99488" : "#e58b9888" }));
+    candleSeries.setData(candleData);
+    volumeSeries.setData(volumeData);
+    if (candleData.length && !fittedRef.current) {
+      chartRef.current?.timeScale().fitContent();
+      fittedRef.current = true;
+    }
+  }, [candles]);
+
+  if (!candles.length) return <div className="market-empty-chart"><div className="empty-chart-grid" aria-hidden="true"><i /><i /><i /><i /></div><span className="empty-chart-icon">⌁</span><b>{emptyLabel}</b><small>The backend returned no candles for this pair/timeframe.</small></div>;
+  const last = candles.at(-1)!;
+  return <div className="market-candle-visual" aria-label="Backend candlestick visualization"><div ref={containerRef} className="market-lightweight-chart" role="img" aria-label="Interactive candlestick chart with volume" /><div className="market-chart-caption"><span>Historical candles: {candles.length}</span><span>Close {last.close.toLocaleString()}</span></div></div>;
 }
 
 function connectionLabel(state: string): string {
@@ -34,14 +88,25 @@ function LiveChart({ panel, primary, realtimeEnabled, availablePairs, pairsReady
   const [state, setState] = useState("CONNECTING");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<unknown>();
-  const loadHistory = async () => {
-    setLoading(true);
-    try { const page = await api.candles(pair, timeframe, 1000); setCandles(page.candles); setError(undefined); }
-    catch (reason) { setError(reason); }
-    finally { setLoading(false); }
-  };
+  const selectionRef = useRef(`${pair}|${timeframe}`);
+  const reloadHistoryRef = useRef<() => void>(() => undefined);
   useEffect(() => {
     let active = true;
+    const selection = `${pair}|${timeframe}`;
+    selectionRef.current = selection;
+    const loadHistory = async () => {
+      setLoading(true);
+      try {
+        const page = await api.candles(pair, timeframe);
+        if (!active || selectionRef.current !== selection) return;
+        setCandles(page.candles); setError(undefined);
+      } catch (reason) {
+        if (active && selectionRef.current === selection) setError(reason);
+      } finally {
+        if (active && selectionRef.current === selection) setLoading(false);
+      }
+    };
+    reloadHistoryRef.current = () => { void loadHistory(); };
     setCandles([]); setError(undefined); setLoading(true);
     const updateState = (next: string) => { if (!active) return; setState(next); onState(next); };
     if (!realtimeEnabled) { updateState("PAUSED"); void loadHistory(); return () => { active = false; }; }
@@ -55,13 +120,12 @@ function LiveChart({ panel, primary, realtimeEnabled, availablePairs, pairsReady
       if (message.type === "MARKET_TICK" && message.payload?.pair === pair) onTick(message.payload as MarketTick);
       if (message.type !== "CANDLE" || message.payload?.pair !== pair || message.payload?.timeframe !== timeframe) return;
       setCandles((current) => mergeCandle(current, message.payload as ApiCandle).slice(-1000));
-    }, updateState, [{ pair, timeframe }]);
+    }, updateState, [{ pair, timeframe }], { reconcile: loadHistory });
     void loadHistory();
     return () => { active = false; stop(); };
   }, [pair, timeframe, realtimeEnabled]);
-  const visible = candles.slice(-80);
-  const last = visible[visible.length - 1];
-  const previous = visible[visible.length - 2];
+  const last = candles.at(-1);
+  const previous = candles.at(-2);
   const change = last && previous ? ((last.close - previous.close) / previous.close) * 100 : undefined;
   const emptyBackend = error instanceof Error && /no historical candles/i.test(error.message);
   const pairOptions = availablePairs.length ? availablePairs : [pair];
@@ -80,8 +144,8 @@ function LiveChart({ panel, primary, realtimeEnabled, availablePairs, pairsReady
     </div>
     <ErrorBox error={emptyBackend ? undefined : error} />
     <div className="market-history-state">{loading ? "Loading backend history…" : last ? <><span>Historical candles: {candles.length}</span><span>{last.isClosed ? "Closed candle" : "Forming candle"}</span></> : emptyBackend ? "No backend candles are available" : "No historical candles are available"}</div>
-    <CandleVisual candles={visible} emptyLabel={`No candles for ${pair} · ${timeframe}`} />
-    <div className="market-card-footer"><button type="button" onClick={() => void loadHistory()}>↻ Load 1000 historical candles</button><span><i className={state === "CONNECTED" ? "is-connected" : ""} />Live updates: {connectionLabel(state)}</span></div>
+    <CandleVisual key={`${pair}-${timeframe}`} candles={candles} emptyLabel={`No candles for ${pair} · ${timeframe}`} />
+    <div className="market-card-footer"><button type="button" onClick={() => reloadHistoryRef.current()}>↻ Reload latest history</button><span><i className={state === "CONNECTED" ? "is-connected" : ""} />Live updates: {connectionLabel(state)}</span></div>
   </article>;
 }
 

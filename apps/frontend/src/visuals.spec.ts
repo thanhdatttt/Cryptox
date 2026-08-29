@@ -7,6 +7,10 @@ describe("frontend backend-data visual helpers", () => {
     expect(chartBounds([])).toEqual({ min: 0, max: 1, range: 1 });
   });
 
+  it("includes backend overlay values in display bounds without calculating them", () => {
+    expect(chartBounds([{ open: 100, high: 110, low: 90, close: 105, volume: 2 }], [120])).toEqual({ min: 87.6, max: 122.4, range: 34.8 });
+  });
+
   it("does not turn missing backend metrics into zeroes", () => {
     expect(percent(undefined)).toBe("Unavailable");
     expect(percent(12.345)).toBe("12.35%");

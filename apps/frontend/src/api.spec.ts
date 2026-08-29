@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { io } from "socket.io-client";
-import { api, marketSocket, session } from "./api";
+import { api, mapGenerationError, marketSocket, session } from "./api";
 
 vi.mock("socket.io-client", () => ({ io: vi.fn() }));
 
@@ -64,5 +64,44 @@ describe("frontend backend transport", () => {
     vi.stubGlobal("fetch", fetchMock);
     await expect(api.marketCapabilities()).resolves.toEqual({ provider: "BINANCE", pairs: ["BTCUSDT", "ETHUSDT"], timeframes: ["1m", "5m"] });
     expect(fetchMock).toHaveBeenCalledWith(expect.stringMatching(/\/market\/pairs$/), expect.objectContaining({ headers: expect.any(Headers) }));
+  });
+
+  it("leaves candle limit omitted so the backend default is exercised", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(response({ pair: "BTCUSDT", timeframe: "1h", candles: [], range: { from: "a", to: "b" }, complete: true, asOf: "now" }));
+    vi.stubGlobal("fetch", fetchMock);
+    await api.candles("BTCUSDT", "1h");
+    expect(fetchMock.mock.calls[0]?.[0]).toBe("http://localhost:3000/market/candles?pair=BTCUSDT&timeframe=1h");
+  });
+
+  it("maps generation source, model, schema, and validation failures distinctly", () => {
+    expect(mapGenerationError({ code: "SOURCE_LOAD_FAILED", message: "source" }).kind).toBe("SOURCE");
+    expect(mapGenerationError({ code: "MODEL_UNAVAILABLE", message: "model" }).kind).toBe("MODEL");
+    expect(mapGenerationError({ code: "MALFORMED_OUTPUT", message: "schema" }).kind).toBe("SCHEMA");
+    expect(mapGenerationError({ code: "STRATEGY_VALIDATION_FAILED", message: "validation" }).kind).toBe("VALIDATION");
+  });
+
+  it("uses one shared socket for the union of active chart subscriptions", () => {
+    const handlers = new Map<string, (value?: unknown) => void>(); const ioHandlers = new Map<string, () => void>();
+    const socket = { on: (event: string, handler: (value?: unknown) => void) => { handlers.set(event, handler); return socket; }, emit: vi.fn(), disconnect: vi.fn(), io: { on: (event: string, handler: () => void) => { ioHandlers.set(event, handler); return socket.io; } } };
+    vi.mocked(io).mockReturnValue(socket as never);
+    const first = marketSocket(() => undefined, () => undefined, [{ pair: "BTCUSDT", timeframe: "1h" }]);
+    const second = marketSocket(() => undefined, () => undefined, [{ pair: "ETHUSDT", timeframe: "5m" }]);
+    handlers.get("connect")?.();
+    expect(io).toHaveBeenCalledOnce();
+    expect(socket.emit).toHaveBeenCalledWith("market", expect.objectContaining({ action: "SUBSCRIBE", subscriptions: [{ pair: "BTCUSDT", timeframe: "1h" }, { pair: "ETHUSDT", timeframe: "5m" }] }));
+    first(); second();
+  });
+
+  it("reconciles REST history before releasing queued reconnect messages", async () => {
+    const handlers = new Map<string, (value?: unknown) => void>(); const ioHandlers = new Map<string, () => void>();
+    const socket = { on: (event: string, handler: (value?: unknown) => void) => { handlers.set(event, handler); return socket; }, emit: vi.fn(), disconnect: vi.fn(), io: { on: (event: string, handler: () => void) => { ioHandlers.set(event, handler); return socket.io; } } };
+    vi.mocked(io).mockReturnValue(socket as never);
+    const reconcile = vi.fn().mockResolvedValue(undefined); const messages: unknown[] = [];
+    const stop = marketSocket((message) => messages.push(message), () => undefined, [{ pair: "BTCUSDT", timeframe: "1h" }], { reconcile });
+    handlers.get("connect")?.(); handlers.get("disconnect")?.("transport close"); handlers.get("connect")?.();
+    handlers.get("market")?.({ type: "CANDLE", payload: { pair: "BTCUSDT" } });
+    await Promise.resolve(); await Promise.resolve();
+    expect(reconcile).toHaveBeenCalledOnce(); expect(messages).toHaveLength(1);
+    stop();
   });
 });

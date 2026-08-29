@@ -18,6 +18,7 @@ export interface ChartPanelState {
 
 export const MARKET_LAYOUT_STORAGE_KEY = "cryptox.market-layout";
 export const MARKET_LAYOUT_VERSION = 1;
+export const SEARCH_RUN_STORAGE_KEY = "cryptox.search-run-id";
 export interface MarketLayoutState {
   version: typeof MARKET_LAYOUT_VERSION;
   panels: ChartPanelState[];
@@ -46,6 +47,16 @@ export const initialChartPanels: ChartPanelState[] = [
 export const defaultMarketLayout = (): MarketLayoutState => ({ version: MARKET_LAYOUT_VERSION, panels: initialChartPanels.map((panel) => ({ ...panel })), realtimeEnabled: true, primaryPanelId: initialChartPanels[0]!.id });
 
 export interface MarketLayoutStorage { getItem(key: string): string | null; setItem(key: string, value: string): void; }
+
+export function readSearchRunId(storage: Pick<MarketLayoutStorage, "getItem"> | undefined = browserStorage()): string | undefined {
+  const value = storage?.getItem(SEARCH_RUN_STORAGE_KEY)?.trim();
+  return value || undefined;
+}
+
+export function persistSearchRunId(searchRunId: string | undefined, storage: MarketLayoutStorage | undefined = browserStorage()): void {
+  if (!storage) return;
+  try { if (searchRunId) storage.setItem(SEARCH_RUN_STORAGE_KEY, searchRunId); else storage.setItem(SEARCH_RUN_STORAGE_KEY, ""); } catch { /* localStorage can be unavailable; the mounted view remains authoritative */ }
+}
 
 const browserStorage = (): MarketLayoutStorage | undefined => typeof localStorage === "undefined" ? undefined : localStorage;
 const validPair = (value: unknown): value is string => typeof value === "string" && /^[A-Z0-9][A-Z0-9_-]*$/.test(value);

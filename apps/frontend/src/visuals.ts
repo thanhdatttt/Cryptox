@@ -2,10 +2,10 @@ export type VisualCandle = { open: number; high: number; low: number; close: num
 
 export type ChartBounds = { min: number; max: number; range: number };
 
-export function chartBounds(candles: VisualCandle[]): ChartBounds {
+export function chartBounds(candles: VisualCandle[], extraValues: number[] = []): ChartBounds {
   if (!candles.length) return { min: 0, max: 1, range: 1 };
-  const low = Math.min(...candles.map((candle) => candle.low));
-  const high = Math.max(...candles.map((candle) => candle.high));
+  const low = Math.min(...candles.map((candle) => candle.low), ...extraValues);
+  const high = Math.max(...candles.map((candle) => candle.high), ...extraValues);
   const rawRange = Math.max(high - low, Math.abs(high) * 0.001, 1);
   const padding = rawRange * 0.08;
   return { min: low - padding, max: high + padding, range: rawRange + padding * 2 };
