@@ -11,6 +11,7 @@ import {
   RestProtectedRequestClient,
   UnavailableAuthClient,
   UnavailableProtectedRequestClient,
+  browserAuthFetch,
   type ProtectedRequestClient,
 } from "./auth/clients";
 import { FixtureAuthClient, FixtureProtectedRequestClient } from "./auth/fixture-client";
@@ -75,8 +76,8 @@ interface RuntimeAuthSource {
 const fixtureAuthClient = new FixtureAuthClient();
 
 function runtimeAuthSource(): RuntimeAuthSource {
-  const requestedMode = import.meta.env.VITE_AUTH_SOURCE;
-  const fixtureAllowed = import.meta.env.DEV && (requestedMode === undefined || requestedMode === "fixture");
+  const requestedMode = import.meta.env.VITE_AUTH_SOURCE?.trim().toLowerCase();
+  const fixtureAllowed = import.meta.env.DEV && requestedMode === "fixture";
   if (fixtureAllowed) {
     return {
       client: fixtureAuthClient,
@@ -85,8 +86,8 @@ function runtimeAuthSource(): RuntimeAuthSource {
       fixture: true,
     };
   }
-  if (requestedMode !== "remote") {
-    const error = "Set VITE_AUTH_SOURCE=remote for production. Fixture Auth is development-only.";
+  if (requestedMode !== undefined && requestedMode !== "remote") {
+    const error = "Unsupported Auth source. Use VITE_AUTH_SOURCE=remote or explicitly use fixture in development.";
     return {
       client: new UnavailableAuthClient(error),
       protectedClientFactory: () => new UnavailableProtectedRequestClient(error),
@@ -95,22 +96,14 @@ function runtimeAuthSource(): RuntimeAuthSource {
       error,
     };
   }
-  const baseUrl = import.meta.env.VITE_AUTH_BASE_URL;
-  if (!baseUrl) {
-    const error = "Remote Auth mode requires VITE_AUTH_BASE_URL.";
-    return {
-      client: new UnavailableAuthClient(error),
-      protectedClientFactory: () => new UnavailableProtectedRequestClient(error),
-      label: "Configuration incomplete",
-      fixture: false,
-      error,
-    };
-  }
+  // A same-origin /api base keeps the opaque session cookie host-only and
+  // avoids requiring wildcard CORS for the separate local frontend server.
+  const baseUrl = import.meta.env.VITE_AUTH_BASE_URL?.trim() || "/api";
   return {
     client: new RestAuthClient(baseUrl),
     protectedClientFactory: (onUnauthorized) =>
-      new RestProtectedRequestClient(baseUrl, fetch, onUnauthorized),
-    label: "Configured Auth",
+      new RestProtectedRequestClient(baseUrl, browserAuthFetch, onUnauthorized),
+    label: baseUrl === "/api" ? "Backend session" : "Configured Auth",
     fixture: false,
   };
 }

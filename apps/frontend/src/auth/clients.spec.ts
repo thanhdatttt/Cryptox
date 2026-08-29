@@ -33,6 +33,19 @@ describe("RestAuthClient", () => {
     expect(result).not.toHaveProperty("opaqueToken");
   });
 
+  it("supports a same-origin API base for browser-managed cookies", async () => {
+    let request: { input: string; init?: RequestInit } | undefined;
+    const client = new RestAuthClient("/api", async (input, init) => {
+      request = { input, init };
+      return response({ schemaVersion: REST_SCHEMA_VERSION, user, expiresAt: "2026-08-29T00:00:00.000Z" });
+    });
+
+    await client.currentUser();
+
+    expect(request?.input).toBe(`/api${AUTH_ENDPOINTS.currentUser}`);
+    expect(request?.init?.credentials).toBe("include");
+  });
+
   it("surfaces a typed 401 for session restoration and treats logout 401 as idempotent", async () => {
     let currentCall = false;
     const client = new RestAuthClient("/api", async (_input, init) => {

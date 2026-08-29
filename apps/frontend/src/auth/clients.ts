@@ -14,6 +14,9 @@ export interface AuthFetchLike {
   ): Promise<Pick<Response, "ok" | "status" | "json">>;
 }
 
+/** Keep the browser's global fetch receiver intact when passed as a seam. */
+export const browserAuthFetch: AuthFetchLike = (input, init) => fetch(input, init);
+
 export class AuthClientError extends Error {
   public constructor(
     public readonly status: number,
@@ -107,7 +110,7 @@ function failureMessage(status: number, operation: "register" | "login" | "curre
 export class RestAuthClient implements AuthClient {
   public constructor(
     private readonly baseUrl: string,
-    private readonly fetcher: AuthFetchLike = fetch,
+    private readonly fetcher: AuthFetchLike = browserAuthFetch,
   ) {}
 
   public register(credentials: AuthCredentials): Promise<AuthSessionResponseDto> {
@@ -189,7 +192,7 @@ export interface ProtectedRequestClient {
 export class RestProtectedRequestClient implements ProtectedRequestClient {
   public constructor(
     private readonly baseUrl: string,
-    private readonly fetcher: AuthFetchLike = fetch,
+    private readonly fetcher: AuthFetchLike = browserAuthFetch,
     private readonly onUnauthorized: () => void = () => undefined,
   ) {}
 
