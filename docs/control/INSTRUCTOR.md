@@ -2,57 +2,112 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-029`
+Instruction ID: `INS-030`
 
-Status: `HOLD`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
-## Safety hold after the blocked `C-02` attempt
+## Authorization: `ENV-01 — Local Docker PostgreSQL Evidence and Deferred-Scope Checker Reconciliation`
 
-Reason: `The bounded C-02 attempt at 7f774ed505f45d927b650ccefcd76d9e4f8611d2 produced no accepted implementation. Its required migration evidence lacked a configured local database, and scope:check correctly blocked now-approved DEC-007 vocabulary until its canonical policy can be reconciled without weakening deferred-scope protection.`
+Reason: `The reviewed blocked C-02 checkpoint has no accepted implementation. ENV-01 is the separately approved prerequisite for Codex-operated local PostgreSQL migration evidence and a truthful DEC-007-aware deferred-scope checker; it does not retry C-02 or implement any product behavior.`
 
-`INS-028` is exhausted. `C-02` remains `BLOCKED`; it is not retried by this
-signal. No Manager, worker, subagent, worktree, retry, or extension feature work
-is authorized while this hold is current.
+This signal authorizes exactly one fresh Manager in the canonical
+`MVP_IMPLEMENTATION` checkout and requires exactly one separate
+Infrastructure-and-tooling worker. No other Manager, worker, subagent, worktree,
+retry, or downstream task is authorized. The Manager owns `TASKS.md` and
+`HANDOFF.md`; the worker must not edit either control artifact.
 
-## Reviewed checkpoint
+## Reviewed checkpoint and applicability
 
-- Reviewed branch/HEAD: `MVP_IMPLEMENTATION` /
-  `7f774ed505f45d927b650ccefcd76d9e4f8611d2`
-  (`docs(control): checkpoint blocked C-02 worker`); the working tree was clean.
-- The C-02 worker produced no accepted commit. Its partial contract output was
-  rejected and restored. Contract/type/scope checks failed; migration up/down/
-  remigrate and constraint evidence was `BLOCKED/UNVERIFIED` because
-  `DATABASE_URL` was unset.
-- `scripts/check-deferred-scope.cjs`, invoked by `npm run scope:check` from the
-  root `package.json`, is the canonical deferred-scope checker owner. It must not
-  be bypassed, disabled, broadly excluded, or made permissive.
-- Docker Desktop's local daemon was independently reachable during this review
-  (`28.5.1`). That is evidence for planning only; availability must be rechecked
-  by any environment packet and is never assumed as a PASS after a restart.
+- Reviewed governance checkpoint: `MVP_IMPLEMENTATION` /
+  `43f92b0d258a24706f51d5847263c83270a0bd85`
+  (`docs(control): plan local postgres and scope reconciliation`), following the
+  blocked C-02 checkpoint `7f774ed505f45d927b650ccefcd76d9e4f8611d2`.
+- The reviewed worktree was clean. The previous C-02 Manager and worker are no
+  longer active. Docker's local daemon was reachable during planning, but must be
+  tested again at execution.
+- `DEC-008`, `ADR-010`, and the accepted `RB-01`/`RB-02` baseline govern this
+  packet. `ENV-01` is the sole pre-`C-02` gate; `C-02` and every extension
+  feature packet remain `BLOCKED`.
 
-## Approved recovery baseline
+Before transition or assignment, the Manager MUST prove current `INS-030`,
+a clean worktree, the exact reviewed governance checkpoint plus only this
+Instructor signal as later drift, Docker/daemon status, and no other active
+Cryptox Manager/worker. If any premise cannot be proved, make no change and
+report `NEEDS_INSTRUCTOR_REVIEW`.
 
-- `DEC-008` and `ADR-010` establish Codex-operated Docker/Compose PostgreSQL
-  development and test databases, ignored local credentials, health/volume/reset
-  behavior, and real migration evidence. No manual host installation, cloud
-  database, chat-provided secret, or secret-bearing commit is allowed.
-- `ENV-01` is added to the implementation plan as the sole pre-`C-02`
-  environment/tooling reconciliation gate. It also owns the narrow DEC-007
-  reconciliation of the canonical scope checker and its positive/negative tests.
-- `C-02` and every downstream extension packet remain `BLOCKED`. `M-02` stays
-  `REVIEW/UNVERIFIED`; `AU-02`, `I-01`, and `I-02` remain blocked and
-  unauthorized.
+## Exact work and write scope
 
-## Conditions before an environment execution signal
+The Manager may first allocate `ENV-01` in `TASKS.md` and move it
+`BLOCKED → READY → IN_PROGRESS` only after applicability is proven. It then
+delegates all implementation to one worker whose write scope is only:
 
-A later standalone `ENV-01` signal must be limited to the plan's exact
-Compose/local-environment, migration-validation, checker-owner/test,
-placeholder/ignore, and control-plane scope. It must require one dedicated
-Infrastructure-and-tooling worker, forbid C-02 contracts/migrations and every
-feature behavior, report Docker/daemon/OpenSpec gaps truthfully as `BLOCKED` or
-`UNVERIFIED`, and stop for a fresh Instructor review without retrying C-02.
+- `infra/docker-compose.yml`;
+- new environment-only helpers under `infra/db/local-*`, never
+  `infra/db/migrations/**` or `infra/db/migrate.config.js`;
+- local migration-validation helper/test files;
+- `scripts/check-deferred-scope.cjs` and tightly scoped checker test/helper files;
+- root `package.json` command wiring;
+- `.gitignore`; and
+- optional `.env.example` containing placeholders only.
+
+The Manager may update only `docs/implementation/TASKS.md` and
+`docs/implementation/HANDOFF.md` for ENV-01 state, worker evidence, validation,
+blockers, and next frontier. It may make narrowly mechanical merge-conflict fixes
+inside the accepted worker diff; it must not substitute for the required worker.
+
+## Required behavior and evidence
+
+The worker must provide local-only Docker/Compose PostgreSQL development and test
+databases with separate persistent named volumes and health checks. It must expose:
+
+- `npm run db:local:prepare` to provision, wait for health, and run the real
+  migration-validation sequence;
+- `npm run db:local:validate` to prove migration up, down, remigrate, and
+  applicable constraints against the test database; and
+- `npm run db:local:reset-test` to reset test data without touching development
+  data.
+
+The commands may create an ignored local environment file and generate a local
+secret without printing it. No `DATABASE_URL`, test connection string, password,
+token, or usable credential may be committed or logged; `.env.example`, if
+needed, must contain placeholders only. Docker absence, daemon failure, or Compose
+failure is `BLOCKED` with evidence. Do not install host software, use a cloud
+database, or request secrets in chat.
+
+The canonical checker owner is `scripts/check-deferred-scope.cjs`. Reconcile it
+through narrow, tested DEC-007 profile allowances only. Positive and negative
+evidence must show approved bounded vocabulary works while enterprise identity,
+queue/distributed, live trading/generalized risk, autonomous/unconfigured LLM,
+and strict-replay scope remain rejected. The checker may not be disabled, bypassed,
+excluded from active paths, or broadly relaxed.
+
+## Explicit prohibitions
+
+- Do not change C-02 contracts, ports, DTOs, `docs/data-model.md`, business
+  migrations, or migration semantics.
+- Do not implement runtime/application/provider/frontend/Auth/exchange behavior,
+  cloud operations, dependencies, requirements, decisions, ADRs, architecture,
+  OpenSpec, or downstream feature scopes.
+- Do not start, retry, or reclassify `C-02`, `M-02`, `AU-02`, `I-01`, `I-02`,
+  `M-03`, `S-04`, `S-05`, `S-06`, `Q-02`, `B-03`, `N-03`, `E-02`, `L-02`,
+  `F-03`, or `I-03`.
+
+## Validation and stop condition
+
+The Manager independently reviews the worker output and runs Docker/Compose
+health, development/test isolation/reset, tracked-secret scan, real migration
+up/down/remigrate/constraint probes, focused checker positive/negative tests,
+root `scope:check`, architecture/artifact/scope/deferred-scope checks, link/DAG
+checks, and `git diff --check`. Strict OpenSpec validation is `UNVERIFIED` unless
+the CLI is actually available and succeeds. Any unavailable Docker/daemon/OpenSpec
+or required environment is `BLOCKED` or `UNVERIFIED`, never `PASS`.
+
+Integrate only accepted worker output, commit the coherent checkpoint, update
+`TASKS.md` and `HANDOFF.md`, and stop. This authorization is exhausted whether
+ENV-01 is integrated or truthfully blocked. The system returns to Instructor
+review in `HOLD`; C-02 is not automatically promoted, retried, or authorized.
 
 ## Canonical references
 
