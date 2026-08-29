@@ -303,3 +303,50 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [MVP plan](../implementation/MVP_PLAN.md), [Task state](../implementation/TASKS.md),
 [scope checker](../../scripts/check-deferred-scope.cjs), and
 [INS-039](./INSTRUCTOR.md).
+
+## DEC-011 — B-03 approved-profile checker boundary reconciliation
+
+Status: `APPROVED`
+
+Authority: Instructor operational decision after the independent `INS-052`
+review of the accepted B-03 source checkpoint
+`692754051f2c43bf7ab70a453adb1b9c9d3ca6d4`
+
+Decision: A distinct `ENV-03` packet is approved to reconcile the canonical
+deferred-scope checker with the already approved B-03 implementation boundary.
+It may allow `SYNTHETIC_SHORT_PAPER_V1` and `STOP_LOSS_WINS_V1` only in the
+existing canonical Backtesting contract/port/REST/migration boundaries and in
+the exact B-03 implementation directories
+`modules/backtesting/domain/`, `modules/backtesting/application/`, and
+`modules/backtesting/infrastructure/`. The directional paper vocabulary needed
+by that profile may be allowed only in those same exact Backtesting directories
+and existing canonical boundaries.
+
+The packet must add focused positive tests for each approved implementation
+boundary and negative tests for the same identifiers/vocabulary in unrelated
+paths. It must preserve rejection of deferred enterprise identity,
+distributed/queue, live-trading/generalized-risk, autonomous/unconfigured LLM,
+strict-replay, and all other unapproved scope. No path-wide exclusion, generic
+profile bypass, contract/migration change, or product behavior is authorized.
+`ENV-03` is not a retry or reopening of `ENV-01` or `ENV-02`; it does not
+promote B-03 or any downstream packet by itself.
+
+Why: B-03 is an approved DEC-007 capability and its independently reviewed
+source is now present, but `npm run scope:check` still rejects its exact
+implementation vocabulary. The mismatch is a real executable-policy boundary
+issue. Resolving it separately keeps B-03 source review bounded and preserves
+the checker as an enforceable safeguard.
+
+Affected: `ENV-03`, `scripts/check-deferred-scope.cjs`,
+`scripts/check-deferred-scope.test.cjs`, B-03 closure review, and the E1
+extension DAG. `ENV-01`, `ENV-02`, B-03 source, product contracts, migrations,
+and downstream task state are not reopened or changed by this decision.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md),
+[DEC-007](#dec-007--controlled-academic-functional-extension-profiles),
+[DEC-010](#dec-010--post-extension-deferred-scope-boundary-reconciliation),
+[ADR-010](../adr/ADR_010_local_postgres_environment_and_scope_checker.md),
+[MVP plan](../implementation/MVP_PLAN.md), [Task state](../implementation/TASKS.md),
+[scope checker](../../scripts/check-deferred-scope.cjs), and
+[INS-052](./INSTRUCTOR.md).

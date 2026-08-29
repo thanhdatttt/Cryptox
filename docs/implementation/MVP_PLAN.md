@@ -218,7 +218,9 @@ gate passes. Because the approved E1 implementation packets use extension-owned
 directories that did not exist when `ENV-01` was accepted, the distinct
 post-implementation reconciliation packet `ENV-02` closes the checker boundary
 before `S-05`/`S-06` can leave `REVIEW`; it is not a retry or reopening of
-`ENV-01`.
+`ENV-01`. B-03 then exposes a separate approved Backtesting vocabulary boundary
+that is reconciled by `ENV-03`; `ENV-03` is not a retry or reopening of
+`ENV-02`.
 
 ```text
 RB-01/RB-02 DONE
@@ -236,6 +238,10 @@ RB-01/RB-02 DONE
 {S-05 REVIEW | S-06 REVIEW} + C-02 DONE
   -> ENV-02 BLOCKED: post-extension checker-boundary reconciliation
        -> S-05/S-06 closure review; only then may their downstream joins start
+
+B-03 REVIEW + ENV-02 DONE
+  -> ENV-03 BLOCKED: B-03 approved-profile checker-boundary reconciliation
+       -> B-03 closure review; only then may E-02/L-02 consume its clean gate
 
 {C-02 | M-03 | S-04 | S-05 | S-06 | Q-02 | N-03 | B-03}
   -> E-02 BLOCKED: extension evaluation/decimal-boundary reconciliation
@@ -280,7 +286,7 @@ continuation of the legacy waves:
 |---|---|---|---|
 | E0a | `RB-01`/`RB-02` accepted; C-02 blocked checkpoint reviewed | `ENV-01` only | Local Docker PostgreSQL and DEC-007 scope-checker evidence are accepted |
 | E0 | `ENV-01` accepted and separately reviewed | `C-02` only | Contracts/data model/migrations are reconciled and validated |
-| E1 | `C-02` DONE | `M-03`, `S-04`, `S-05`, `S-06`, `Q-02`, `B-03`, `N-03` | Pure/provider-boundary extension behavior and provenance pass |
+| E1 | `C-02` DONE; `ENV-02` DONE; B-03 review available | `M-03`, `S-04`, `S-05`, `S-06`, `Q-02`, `B-03`, `N-03`, `ENV-03` | Pure/provider-boundary extension behavior, approved checker boundaries, and provenance pass |
 | E2 | E1 packet reviews | `E-02` then `L-02` | Decimal evaluation and extension-aware ranking are proven |
 | E3 | E2 plus all E1 packets | `F-03` | Functional-state frontend projections pass without business logic |
 | E4 | E3 plus baseline `I-01` and `AU-02` | `I-03` | Shared-boundary joins, real-provider readiness, and reproducibility proof pass |
@@ -1100,6 +1106,55 @@ Instructor signal can authorize one safe frontier without treating the legacy
   **Parallel:** NO. **Critical:** YES to S-05/S-06 closure. **Handoff:** Name
   the four implementation boundaries, focused positive/negative results, root
   scope result, and any unavailable checks.
+
+### ENV-03 — B-03 Approved-Profile Checker Boundary Reconciliation
+
+- **Requirement IDs / authority:** `CSL-R-RP-02`, DEC-007, DEC-011, ADR-010;
+  this is a post-B-03 validation/tooling gate and creates no product behavior,
+  contract, migration, or new profile.
+- **State / owner / wave:** BLOCKED / Manager with exactly one checker-tooling
+  worker / E1 validation gate.
+- **Start dependencies:** `ENV-02` DONE and `B-03` REVIEW with its source
+  checkpoint available. The current Instructor signal must explicitly authorize
+  this packet. `ENV-03` is not a retry or reopening of `ENV-01` or `ENV-02`.
+- **Integration dependencies:** The accepted checker gate is required before
+  B-03 can be promoted to `DONE` and before its E2 consumers rely on a clean
+  deferred-scope result. No downstream feature packet is promoted by this
+  packet.
+- **Objective:** Reconcile the canonical deferred-scope checker with the exact
+  Backtesting implementation boundaries already authorized for
+  `SYNTHETIC_SHORT_PAPER_V1` and `STOP_LOSS_WINS_V1`, while retaining rejection
+  of every deferred or unapproved boundary.
+- **Exact write scope:** `scripts/check-deferred-scope.cjs` and
+  `scripts/check-deferred-scope.test.cjs` only, plus the Manager's required
+  `docs/implementation/TASKS.md` and `docs/implementation/HANDOFF.md` state /
+  checkpoint updates. No module, package, app, migration, dependency, runtime,
+  frontend, requirement, ADR, OpenSpec, or other governance file is in the
+  implementation worker scope.
+- **Acceptance/tests:** The checker permits the two B-03 profile identifiers at
+  the existing canonical Backtesting contract/port/REST/migration boundaries
+  and only in `modules/backtesting/domain/`,
+  `modules/backtesting/application/`, and
+  `modules/backtesting/infrastructure/`. Directional paper vocabulary is
+  permitted only in those same exact boundaries. Focused tests prove positive
+  cases for each allowed boundary and negative cases for the same identifiers
+  and vocabulary in unrelated paths. No path-wide exclusion, generic profile
+  bypass, or weakening of deferred enterprise identity, distributed/queue,
+  live-trading/generalized risk, autonomous/unconfigured LLM, or strict-replay
+  rejection is allowed.
+- **Validation:** Focused checker tests (`npm run test:scope-check`), root
+  `npm run scope:check`, architecture/artifact/deferred-scope checks,
+  `git diff --check`, and applicable typecheck/build/lint evidence. OpenSpec CLI
+  and any unavailable environment check remain `UNVERIFIED`/`BLOCKED`, never
+  `PASS`.
+- **Definition of Done:** One fresh Manager reconciles the new task row through
+  `READY`, delegates exactly one disjoint worker, independently reviews the
+  scoped diff and evidence, commits an `ENV-03` checkpoint, and records exact
+  status in the operational files. B-03 remains `REVIEW` for a separate
+  Instructor closure review; no automatic downstream start occurs. **Parallel:**
+  NO. **Critical:** YES to B-03 closure and its E2 consumers. **Handoff:** Name
+  the three Backtesting implementation boundaries, focused positive/negative
+  results, root scope result, and any unavailable checks.
 
 ### Q-02 — Seeded `DOMAIN_GUIDED_V1` and `GENETIC_V1` Discovery
 
