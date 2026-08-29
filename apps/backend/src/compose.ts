@@ -87,7 +87,7 @@ export function composeAllModules(): BackendModules {
     snapshotRepository: postgres ? new PostgresSentimentSnapshotRepository(postgres) : undefined,
   });
   const news = createNewsModule({
-    providers: createConfiguredNewsProviders({ provider: process.env.NEWS_PROVIDER }),
+    providers: createConfiguredNewsProviders({ provider: process.env.NEWS_PROVIDER ?? "COINDESK_RSS" }),
     newsRepository: postgres ? new PostgresNewsRepository(postgres) : undefined,
     sentiment,
   });

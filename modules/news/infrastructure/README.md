@@ -1,6 +1,6 @@
 This layer contains replaceable normalized News providers and PostgreSQL
-persistence. The local demo provider is deterministic in content and requires
-no network credentials; unsupported configured providers fail explicitly.
+persistence. The default provider fetches CoinDesk's official RSS feed and
+unsupported configured providers fail explicitly.
 
 The crawler provider accepts one or more public HTTP(S) page URLs and a
 tool-free `HtmlNewsInterpreter`. It bounds redirects, response bytes, and

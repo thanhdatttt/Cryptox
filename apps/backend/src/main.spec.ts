@@ -42,7 +42,7 @@ describe("backend composition", () => {
     await expect(new MarketController(modules).readSnapshot("Bearer token", "snapshot-1", undefined, "10")).resolves.toEqual({ query: { snapshotId: "snapshot-1", cursor: undefined, limit: 10 } });
     await expect(new NewsController(modules).list("Bearer token")).resolves.toEqual([{ id: "news-1" }]);
     await expect(new NewsController(modules).collect("Bearer token")).resolves.toBeUndefined();
-    await expect(new SentimentController(modules).analyze("Bearer token", { newsId: "news-1", title: "Title", content: "Body", source: "LOCAL_DEMO", publishedAt: "2025-01-01T00:00:00.000Z", relatedCoins: ["BTC"] })).resolves.toHaveProperty("input");
+    await expect(new SentimentController(modules).analyze("Bearer token", { newsId: "news-1", title: "Title", content: "Body", source: "COINDESK", publishedAt: "2025-01-01T00:00:00.000Z", relatedCoins: ["BTC"] })).resolves.toHaveProperty("input");
     await expect(new SentimentController(modules).latest("Bearer token", "news-1")).resolves.toEqual({ newsId: "news-1" });
     await expect(new SentimentController(modules).createSnapshot("Bearer token", { relatedCoin: "BTC", from: "2025-01-01T00:00:00.000Z", to: "2025-01-01T01:00:00.000Z", aggregationWindowSeconds: 300, modelName: "LOCAL_LEXICON", modelVersion: "1.0.0", modelSha256: "a".repeat(64) })).resolves.toHaveProperty("input");
     await expect(new SentimentController(modules).snapshot("Bearer token", "snapshot-1")).resolves.toEqual({ snapshotId: "snapshot-1" });

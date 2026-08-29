@@ -50,7 +50,7 @@ The audit also found source-adjacent generated JavaScript/declaration files that
 
 5. **Complete durable Market Data, News, and Sentiment backend flows** *(completed in `f7fc06e`)*
    - Add PostgreSQL migrations/repositories for normalized market candles/snapshots, news, sentiment analyses, and sentiment snapshots.
-   - Make configured Binance access real without fabricating a provider success on failure; supply a concrete local/demo news provider and deterministic sentiment fallback with model/version provenance.
+   - Make configured Binance access real without fabricating a provider success on failure; supply a concrete CoinDesk RSS News provider and deterministic sentiment fallback with model/version provenance.
    - Expose the required authenticated REST commands and reads and prove collect → normalize → persist → analyze and snapshot retrieval with integration fixtures.
 
 6. **Implement durable Backtesting completion, ranking, and Search advancement** *(completed in `956b1c5`)*

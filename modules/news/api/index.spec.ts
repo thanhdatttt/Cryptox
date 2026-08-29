@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createNewsModule } from "./bootstrap";
-import { createConfiguredNewsProviders, createDemoNewsProvider } from "../infrastructure/demo-provider";
-import { createDeterministicSentimentAdapter, createSentimentModule } from "modules/sentiment/api/bootstrap";
+import { COINDESK_RSS_FEED_URL, createCoinDeskRssProvider, createConfiguredNewsProviders } from "../infrastructure/coindesk-rss-provider";
 import type { NewsItem } from "./index";
 
 const item = (id: string, minute: number): NewsItem => ({
@@ -95,7 +94,7 @@ describe("news runtime", () => {
     const failures: Array<{ providerName: string; stage: string; reason: string }> = [];
     const runtime = createNewsModule({
       providers: [
-        { name: "crawler", fetch: async () => { throw new Error("connection refused"); } },
+        createCoinDeskRssProvider({ fetch: async () => { throw new Error("connection refused"); } }),
         { name: "rss", fetch: async () => [item("rss-item", 3)] },
       ],
       newsRepository: { insert: async (value) => { rows.push(value); return value; }, readAll: async () => rows },
@@ -106,14 +105,12 @@ describe("news runtime", () => {
     await runtime.collect();
 
     expect(rows.map((row) => row.id)).toEqual(["rss-item"]);
-    expect(failures).toEqual([{ providerName: "crawler", stage: "FETCH", reason: "ERROR" }]);
+    expect(failures).toEqual([{ providerName: "COINDESK_RSS_V1", stage: "FETCH", reason: "ERROR" }]);
   });
 
-  it("collects concrete local-demo News with deterministic local Sentiment and fails unsupported configured providers explicitly", async () => {
-    const sentiment = createSentimentModule({ analysis: createDeterministicSentimentAdapter({ now: () => "2025-01-01T01:00:00.000Z" }) });
-    const runtime = createNewsModule({ providers: [createDemoNewsProvider({ now: () => "2025-01-01T01:00:00.000Z" })], sentiment });
-    await runtime.collect();
-    await expect(runtime.readNews()).resolves.toEqual(expect.arrayContaining([expect.objectContaining({ source: "LOCAL_DEMO", sentiment: expect.objectContaining({ modelName: "LOCAL_LEXICON", modelVersion: "1.0.0" }) })]));
-    await expect(createConfiguredNewsProviders({ provider: "RSS" })[0]!.fetch()).rejects.toThrow("NEWS_PROVIDER_RSS_NOT_CONFIGURED");
+  it("configures CoinDesk RSS by default and when explicitly selected", () => {
+    expect(COINDESK_RSS_FEED_URL).toBe("https://www.coindesk.com/arc/outboundfeeds/rss/");
+    expect(createConfiguredNewsProviders()[0]).toEqual(expect.objectContaining({ name: "COINDESK_RSS_V1" }));
+    expect(createConfiguredNewsProviders({ provider: "coindesk_rss" })[0]).toEqual(expect.objectContaining({ name: "COINDESK_RSS_V1" }));
   });
 });

@@ -2,8 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const vitest_1 = require("vitest");
 const bootstrap_1 = require("./bootstrap");
-const demo_provider_1 = require("../infrastructure/demo-provider");
-const bootstrap_2 = require("modules/sentiment/api/bootstrap");
+const coindesk_rss_provider_1 = require("../infrastructure/coindesk-rss-provider");
 const item = (id, minute) => ({
     id,
     title: `Headline ${id}`,
@@ -67,21 +66,41 @@ const item = (id, minute) => ({
         ]);
         (0, vitest_1.expect)(failures).toEqual(["TIMEOUT"]);
     });
-    (0, vitest_1.it)("rejects malformed provider values before they reach News persistence", async () => {
-        let persisted = false;
+    (0, vitest_1.it)("isolates malformed provider values before they reach News persistence", async () => {
+        const rows = [];
+        const failures = [];
         const runtime = (0, bootstrap_1.createNewsModule)({
-            providers: [{ name: "api", fetch: async () => [{ ...item("bad", 1), url: "not-a-url" }] }],
-            newsRepository: { insert: async (value) => { persisted = true; return value; }, readAll: async () => [] },
-            sentiment: { analyze: async () => { throw new Error("unexpected"); }, readLatestForNews: async () => undefined },
+            providers: [
+                { name: "api", fetch: async () => [{ ...item("bad", 1), url: "not-a-url" }] },
+                { name: "rss", fetch: async () => [item("good", 2)] },
+            ],
+            newsRepository: { insert: async (value) => { rows.push(value); return value; }, readAll: async () => rows },
+            sentiment: { analyze: async () => ({ newsId: "good", label: "POSITIVE", score: 0.5, modelName: "demo", modelVersion: "1", analyzedAt: "2025-01-01T01:01:00.000Z" }), readLatestForNews: async () => undefined },
+            observability: { recordProviderFailure: ({ providerName, stage }) => failures.push({ providerName, stage }) },
         });
-        await (0, vitest_1.expect)(runtime.collect()).rejects.toMatchObject({ code: "INVALID_NEWS_ITEM" });
-        (0, vitest_1.expect)(persisted).toBe(false);
+        await (0, vitest_1.expect)(runtime.collect()).resolves.toBeUndefined();
+        (0, vitest_1.expect)(rows.map((row) => row.id)).toEqual(["good"]);
+        (0, vitest_1.expect)(failures).toEqual([{ providerName: "api", stage: "VALIDATION" }]);
     });
-    (0, vitest_1.it)("collects concrete local-demo News with deterministic local Sentiment and fails unsupported configured providers explicitly", async () => {
-        const sentiment = (0, bootstrap_2.createSentimentModule)({ analysis: (0, bootstrap_2.createDeterministicSentimentAdapter)({ now: () => "2025-01-01T01:00:00.000Z" }) });
-        const runtime = (0, bootstrap_1.createNewsModule)({ providers: [(0, demo_provider_1.createDemoNewsProvider)({ now: () => "2025-01-01T01:00:00.000Z" })], sentiment });
+    (0, vitest_1.it)("continues with independent providers after a provider fetch failure", async () => {
+        const rows = [];
+        const failures = [];
+        const runtime = (0, bootstrap_1.createNewsModule)({
+            providers: [
+                (0, coindesk_rss_provider_1.createCoinDeskRssProvider)({ fetch: async () => { throw new Error("connection refused"); } }),
+                { name: "rss", fetch: async () => [item("rss-item", 3)] },
+            ],
+            newsRepository: { insert: async (value) => { rows.push(value); return value; }, readAll: async () => rows },
+            sentiment: { analyze: async () => ({ newsId: "rss-item", label: "NEUTRAL", score: 0, modelName: "demo", modelVersion: "1", analyzedAt: "2025-01-01T01:01:00.000Z" }), readLatestForNews: async () => undefined },
+            observability: { recordProviderFailure: (failure) => failures.push(failure) },
+        });
         await runtime.collect();
-        await (0, vitest_1.expect)(runtime.readNews()).resolves.toEqual(vitest_1.expect.arrayContaining([vitest_1.expect.objectContaining({ source: "LOCAL_DEMO", sentiment: vitest_1.expect.objectContaining({ modelName: "LOCAL_LEXICON", modelVersion: "1.0.0" }) })]));
-        await (0, vitest_1.expect)((0, demo_provider_1.createConfiguredNewsProviders)({ provider: "RSS" })[0].fetch()).rejects.toThrow("NEWS_PROVIDER_RSS_NOT_CONFIGURED");
+        (0, vitest_1.expect)(rows.map((row) => row.id)).toEqual(["rss-item"]);
+        (0, vitest_1.expect)(failures).toEqual([{ providerName: "COINDESK_RSS_V1", stage: "FETCH", reason: "ERROR" }]);
+    });
+    (0, vitest_1.it)("configures CoinDesk RSS by default and when explicitly selected", () => {
+        (0, vitest_1.expect)(coindesk_rss_provider_1.COINDESK_RSS_FEED_URL).toBe("https://www.coindesk.com/arc/outboundfeeds/rss/");
+        (0, vitest_1.expect)((0, coindesk_rss_provider_1.createConfiguredNewsProviders)()[0]).toEqual(vitest_1.expect.objectContaining({ name: "COINDESK_RSS_V1" }));
+        (0, vitest_1.expect)((0, coindesk_rss_provider_1.createConfiguredNewsProviders)({ provider: "coindesk_rss" })[0]).toEqual(vitest_1.expect.objectContaining({ name: "COINDESK_RSS_V1" }));
     });
 });

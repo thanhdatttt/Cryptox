@@ -6,6 +6,7 @@ import { createNewsModule as createRuntime } from "../application/service";
 export function createNewsModule(deps?: Partial<NewsModuleDependencies>): NewsModulePublicApi { return createRuntime(deps); }
 export { PostgresNewsRepository } from "../infrastructure/postgres-repository";
 export type { NewsSqlClient } from "../infrastructure/postgres-repository";
-export { createConfiguredNewsProviders, createDemoNewsProvider } from "../infrastructure/demo-provider";
+export { COINDESK_RSS_FEED_URL, createCoinDeskRssProvider, createConfiguredNewsProviders } from "../infrastructure/coindesk-rss-provider";
+export type { CoinDeskRssProviderOptions } from "../infrastructure/coindesk-rss-provider";
 export { createCrawlerNewsProvider } from "../infrastructure/crawler-provider";
 export type { CrawlerNewsProviderOptions, CrawlerLimits, FetchedNewsPage } from "../infrastructure/crawler-provider";
