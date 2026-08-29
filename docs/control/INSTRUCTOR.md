@@ -2,79 +2,102 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-033`
+Instruction ID: `INS-034`
 
 Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
-## Authorization: `RB-03 — C-02 Operational DAG Reconciliation (corrected applicability)`
+## Authorization: `C-02 — DEC-007 Contract, Data-Model and Migration Reconciliation Gate`
 
-Reason: `INS-032's Manager made no edits or commits because its delegated prompt
-incorrectly called the authorization commit the reviewed checkpoint. This signal
-corrects only that applicability wording and reauthorizes the same documentation-
-only RB-03 scope; it does not authorize C-02 or any implementation.`
+Reason: `RB-01/RB-02 planning, accepted ENV-01 local PostgreSQL evidence, and
+accepted RB-03 operational DAG reconciliation establish the first extension gate.
+C-02 reconciles representations and validation only; it does not implement any
+runtime feature behavior or unlock downstream work automatically.`
 
 This signal authorizes exactly one fresh Manager in the canonical
-`MVP_IMPLEMENTATION` checkout. The Manager must not create a worker, subagent,
-worktree, retry, or downstream task.
+`MVP_IMPLEMENTATION` checkout. The Manager must delegate all implementation to
+exactly one separate contract-and-schema worker in that same checkout. No other
+Manager, worker, subagent, worktree, retry, or downstream task is authorized.
 
-## Exact applicability record
+## Reviewed checkpoint and dependencies
 
-- The reviewed pre-authorization checkpoint is
-  `87e9fad4039e8b1133c09bffd0990938c0e4e986`
-  (`docs(control): hold for C-02 DAG reconciliation`).
-- `a7025fed645f5f1a06579d3035d637d64082ebe7` is the expected sole child and
-  `INS-032` authorization commit, not the reviewed checkpoint.
-- The prior RB-03 Manager stopped with `NEEDS_INSTRUCTOR_REVIEW` and made no
-  edits or commits. The worktree at `a7025fe` was clean; no other Cryptox Manager
-  or worker is active.
-- `ENV-01` remains `DONE`; C-02 and every feature packet remain `BLOCKED`.
+- Reviewed branch/HEAD: `MVP_IMPLEMENTATION` /
+  `58885ddd4ab8019e435c0f04a70e040c794044d5`
+  (`docs(control): reconcile C-02 operational DAG dependencies`); the worktree
+  was clean and the RB-03 Manager is idle.
+- Accepted authority: re-baseline `496d5a34b76841b9f5b142fa512225f502f5fa26`,
+  DEC-007, DEC-008, ADR-010, accepted RB-01/RB-02, and ENV-01.
+- C-02 is `BLOCKED` with recorded dependencies: `ENV-01 DONE` plus this separate
+  Instructor review; completed `C-01A`, `D-01`, `M-01`, `S-01`, `Q-01`, `B-02`,
+  `E-01`, `L-01`, `N-01`, and `N-02`; `M-02 REVIEW/UNVERIFIED` is review input
+  only, not a retry or completion dependency.
 
-Before editing, the fresh Manager must prove current `INS-033`, clean Git state,
-the reviewed pre-authorization checkpoint followed only by `a7025fe` and this
-signal, and absence of another active Cryptox Manager/worker. If any premise
+Before transition or assignment, the Manager MUST prove current `INS-034`, the
+exact reviewed checkpoint plus only this signal as later drift, clean Git state,
+all recorded C-02 dependencies, Docker/Compose availability and the accepted local
+migration command surface, and no active Cryptox Manager/worker. If any premise
 cannot be proved, make no changes and report `NEEDS_INSTRUCTOR_REVIEW`.
 
-## Exact permitted work
+## Exact work and write scope
 
-The Manager may edit and commit only:
+The Manager may first transition C-02 only as `BLOCKED -> READY -> IN_PROGRESS`
+after applicability is proven. It delegates all implementation to exactly one
+worker whose scope is limited to:
 
-- `docs/implementation/TASKS.md`; and
-- `docs/implementation/HANDOFF.md`.
+- canonical contracts in `modules/{market-data,strategy,search,backtesting,news,
+  sentiment,evaluation,leaderboard}/api/contracts.ts`;
+- corresponding existing application ports in those modules;
+- extension REST DTOs under `packages/contracts/rest/**` and market-WebSocket
+  DTOs under `packages/contracts/websocket/**`;
+- `docs/data-model.md`;
+- approved schema/migration-validation files under `infra/db/**`; and
+- tightly scoped contract serialization, boundary, schema, and migration tests.
 
-In the existing C-02 operational record, reconcile only its start-dependency/
-evidence summary to the already-approved `MVP_PLAN.md` definition: `ENV-01 DONE`
-plus separate Instructor review; completed baseline `C-01A`, `D-01`, `M-01`,
-`S-01`, `Q-01`, `B-02`, `E-01`, `L-01`, `N-01`, and `N-02`; and
-`M-02 REVIEW/UNVERIFIED` as review input only, not retry or completion dependency.
-Preserve the historical blocked C-02 attempt as evidence. Keep C-02 `BLOCKED` and
-unchanged in scope and acceptance. Do not edit `MVP_PLAN.md`, which is already
-canonical and correct.
+The worker must not edit control artifacts. The Manager may update only
+`docs/implementation/TASKS.md` and `docs/implementation/HANDOFF.md` for truthful
+C-02 state/evidence, and may make narrowly mechanical merge-conflict corrections
+inside accepted worker output.
 
-Update HANDOFF only with this precise reconciliation, validation, commit,
-preserved blocked state, and required fresh Instructor review.
+## Required contract and schema evidence
+
+Prove canonical ownership and backward compatibility; immutable weighted/Lite
+configuration; safe LLM draft/approval and URL/template-refinement state without
+secrets; seeded Search provenance; eight-place decimal synthetic-paper execution
+provenance; News extraction/template/version/retention state; neutral Sentiment
+joins; unchanged ownership semantics; and ephemeral Market observability excluded
+from persistence and historical/backtest/replay inputs.
+
+Run contract serialization/boundary tests; local PostgreSQL migration up, down,
+remigrate, and applicable constraint probes; architecture, scope, deferred-scope,
+link/DAG, and whitespace checks. OpenSpec CLI validation is `UNVERIFIED` unless it
+is actually available and succeeds. Any unavailable Docker, daemon, OpenSpec, or
+required environment is `BLOCKED` or `UNVERIFIED`, never `PASS`.
 
 ## Explicit prohibitions
 
-- Do not edit requirements, decisions, ADRs, architecture, data model, OpenSpec,
-  source, executable contracts, migrations, runtime configuration, frontend,
-  dependencies, or any packet/task other than the permitted C-02 record wording.
-- Do not create a task/packet, worker, subagent, worktree, or a second Manager.
-- Do not start, retry, reclassify, or implement C-02, ENV-01, M-02, AU-02, I-01,
-  I-02, M-03, S-04, S-05, S-06, Q-02, B-03, N-03, E-02, L-02, F-03, or I-03.
+- No runtime/application/provider/frontend/Auth/exchange behavior or feature
+  implementation; no dependencies, runtime configuration, requirements,
+  decisions, ADRs, architecture, or OpenSpec changes.
+- Do not start, retry, or reclassify `M-02`, `AU-02`, `I-01`, `I-02`, `M-03`,
+  `S-04`, `S-05`, `S-06`, `Q-02`, `B-03`, `N-03`, `E-02`, `L-02`, `F-03`, or
+  `I-03`.
+- Do not automatically promote or assign any downstream packet after C-02.
 
-## Validation and stop condition
+## Stop condition
 
-Run changed-path, link, DAG/state-consistency, historical-evidence-preservation,
-and whitespace checks. Commit only the accepted documentation correction, then
-stop. `INS-033` is exhausted after RB-03; the system returns to Instructor review
-in `HOLD`. C-02 cannot start until a later, separately reviewed and bounded
-Instructor signal authorizes it.
+The Manager independently reviews and integrates only accepted worker output,
+commits the coherent checkpoint, and stops. `INS-034` is exhausted whether C-02
+is integrated or truthfully blocked. The system returns to Instructor review in
+`HOLD`; a later signal is required for every downstream packet.
 
 ## Canonical references
 
 - [Contributor rules](../../AGENTS.md)
+- [Decision ledger](./DECISIONS.md)
+- [Requirements](../requirements.md)
+- [Architecture](../architecture.md)
+- [Data model](../data-model.md)
 - [Implementation program](../implementation/MVP_PLAN.md)
 - [Task state](../implementation/TASKS.md)
 - [Latest execution checkpoint](../implementation/HANDOFF.md)
