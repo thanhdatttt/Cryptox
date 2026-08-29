@@ -18,6 +18,6 @@ describe("leaderboard public entrypoint", () => {
         "topK",
       ].sort(),
     );
-    expect(() => leaderboardApi.score("scope", {} as never)).toThrow("NOT_IMPLEMENTED");
+    expect(() => leaderboardApi.score("scope", {} as never)).toThrow("SCOPE_NOT_FOUND");
   });
 });

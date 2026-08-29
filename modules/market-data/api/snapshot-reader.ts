@@ -1,12 +1,18 @@
 import type { MarketDataModuleDependencies } from "../application/ports";
 import type { MarketDataSnapshotReader } from "./contracts";
+import { MarketDataApplicationService } from "../application/service";
 
 export function createMarketDataSnapshotReader(
-  _deps: Pick<MarketDataModuleDependencies, "snapshotRepository" | "clock" | "observability">,
+  deps: Pick<MarketDataModuleDependencies, "snapshotRepository" | "clock" | "observability">,
 ): MarketDataSnapshotReader {
+  const service = new MarketDataApplicationService({
+    providers: [],
+    candleRepository: { upsertMany: async () => undefined, read: async () => [] },
+    snapshotRepository: deps.snapshotRepository,
+    clock: deps.clock,
+    observability: deps.observability,
+  });
   return {
-    readDatasetSnapshot: async (_query) => {
-      throw new Error("NOT_IMPLEMENTED");
-    },
+    readDatasetSnapshot: (query) => service.readDatasetSnapshot(query),
   };
 }

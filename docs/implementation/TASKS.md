@@ -136,15 +136,15 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 ### M-01 — Binance Historical Market Data
 
 - **Requirement IDs:** `CSL-R-MD-01`, `CSL-R-RP-01`, `CSL-R-AR-02`, `CSL-R-RD-01`
-- **State / owner / wave:** READY / Unassigned Market Data worker / Wave 2
+- **State / owner / wave:** REVIEW / Halley (Market Data worker) / Wave 2
 - **Critical / parallelism:** Integration / YES
 - **Start dependencies:** C-01, D-01
 - **Integration dependencies:** Live smoke before I-01
 - **Objective:** Validate, paginate, normalize, persist, and identify real Binance
   historical candles while retaining deterministic fixtures for tests/development.
 - **Write scope:** `modules/market-data/**` except frozen contracts; its repository/tests.
-- **Latest branch / commit:** —; record when work starts.
-- **Validation:** Newly READY after D-01; not authorized by INS-010 and not started.
+- **Latest branch / commit:** `MVP_IMPLEMENTATION` / pending INS-012 integration commit.
+- **Validation:** Worker and Manager review complete; focused module/DB/contract checks pass. Live Binance historical smoke is UNVERIFIED (`fetch failed`).
 - **Full packet:** [`MVP_PLAN.md#m-01--binance-historical-market-data`](MVP_PLAN.md#m-01--binance-historical-market-data)
 
 ### AU-01 — Simple Authentication and Session Runtime
@@ -249,15 +249,15 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 ### L-01 — Configurable Reproducible Leaderboard
 
 - **Requirement IDs:** `CSL-R-LB-01`, `CSL-R-RP-01`, `CSL-R-OB-01`, `CSL-R-OW-01`
-- **State / owner / wave:** READY / Unassigned Leaderboard worker / Wave 2
+- **State / owner / wave:** REVIEW / Linnaeus (Leaderboard worker) / Wave 2
 - **Critical / parallelism:** YES, gates B-02 / YES
 - **Start dependencies:** C-01A, D-01
 - **Integration dependencies:** E-01 and B-02
 - **Objective:** Implement versioned `LINEAR_REQUIRED_V1`, deterministic eligibility,
   ties, user-owned scopes, same-owner admission, and configurable Top-K.
 - **Write scope:** `modules/leaderboard/**` except frozen contracts and migrations.
-- **Latest branch / commit:** —; record when work starts.
-- **Validation:** Newly READY after D-01; not authorized by INS-010 and not started.
+- **Latest branch / commit:** `MVP_IMPLEMENTATION` / pending INS-012 integration commit.
+- **Validation:** Worker and Manager review complete; focused suite 16/16 and module build/typecheck/lint pass. Live PostgreSQL end-to-end admission remains unverified; eviction deletes rows under the frozen schema.
 - **Full packet:** [`MVP_PLAN.md#l-01--configurable-reproducible-leaderboard`](MVP_PLAN.md#l-01--configurable-reproducible-leaderboard)
 
 ### B-01 — Deterministic Historical Simulator

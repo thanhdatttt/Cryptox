@@ -9,23 +9,41 @@ import type {
   MarketDataUpdate,
   MarketSubscription,
 } from "./contracts";
+import {
+  MarketDataApplicationError,
+  MarketDataApplicationService,
+} from "../application/service";
 
 export * from "./contracts";
 
-const notImplemented = (): never => {
-  throw new Error("NOT_IMPLEMENTED");
-};
+const unconfiguredDependencies = {
+  providers: [],
+  candleRepository: {
+    upsertMany: async () => undefined,
+    read: async () => [],
+  },
+  snapshotRepository: {
+    read: async () => undefined,
+    create: async () => {
+      throw new MarketDataApplicationError("PERSISTENCE_UNAVAILABLE", "no market data persistence is configured");
+    },
+  },
+  clock: { now: () => new Date().toISOString() },
+  observability: { record: () => undefined },
+} as const;
 
-export const readCandles = async (_query: HistoricalCandleQuery): Promise<HistoricalCandlePage> =>
-  notImplemented();
+const defaultService = new MarketDataApplicationService(unconfiguredDependencies);
+
+export const readCandles = async (query: HistoricalCandleQuery): Promise<HistoricalCandlePage> =>
+  defaultService.readCandles(query);
 export const createDatasetSnapshot = async (
-  _command: DatasetSnapshotCreateCommand,
-): Promise<DatasetSnapshotRef> => notImplemented();
+  command: DatasetSnapshotCreateCommand,
+): Promise<DatasetSnapshotRef> => defaultService.createDatasetSnapshot(command);
 export const readDatasetSnapshot = async (
-  _query: DatasetSnapshotReadQuery,
-): Promise<DatasetSnapshotPage> => notImplemented();
+  query: DatasetSnapshotReadQuery,
+): Promise<DatasetSnapshotPage> => defaultService.readDatasetSnapshot(query);
 export const subscribeMarketData = async (
-  _subscriptions: readonly MarketSubscription[],
-  _sink: (update: MarketDataUpdate) => void,
-): Promise<() => Promise<void>> => notImplemented();
-export const shutdown: MarketDataModulePublicApi["shutdown"] = async () => notImplemented();
+  subscriptions: readonly MarketSubscription[],
+  sink: (update: MarketDataUpdate) => void,
+): Promise<() => Promise<void>> => defaultService.subscribeMarketData(subscriptions, sink);
+export const shutdown: MarketDataModulePublicApi["shutdown"] = async () => defaultService.shutdown();

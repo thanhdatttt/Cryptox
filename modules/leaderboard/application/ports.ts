@@ -1,4 +1,5 @@
 import type { AuthenticatedUserId } from "modules/auth/api";
+import type { RankableExperiment } from "../api/contracts";
 
 export interface LeaderboardScopeRepository<TScope, TCreateCommand> {
   insert(ownerUserId: AuthenticatedUserId, command: TCreateCommand): Promise<TScope>;
@@ -28,6 +29,28 @@ export interface LeaderboardEntryRepository<TEntry extends object> {
     entry: Omit<TEntry, "id" | "rank">,
   ): Promise<TEntry>;
   deactivateForScopeOwner(ownerUserId: AuthenticatedUserId, entryId: string): Promise<void>;
+  /** Optional lookup used to make resubmission idempotent after eviction. */
+  findByScopeOwnerAndExperiment?(
+    ownerUserId: AuthenticatedUserId,
+    scopeId: string,
+    experimentId: string,
+  ): Promise<TEntry | undefined>;
+}
+
+/**
+ * Leaderboard does not own Experiment persistence.  This read port lets the
+ * completion boundary prove owner, candidate, and successful completion before
+ * a result is admitted without importing Backtesting internals.
+ */
+export interface LeaderboardExperimentRepository {
+  getByOwnerAndId(
+    ownerUserId: AuthenticatedUserId,
+    experimentId: string,
+  ): Promise<RankableExperiment | undefined>;
+  listByOwnerAndSearchRun(
+    ownerUserId: AuthenticatedUserId,
+    searchRunId: string,
+  ): Promise<readonly RankableExperiment[]>;
 }
 
 export interface Clock {
@@ -44,4 +67,7 @@ export interface LeaderboardApplicationDependencies<
   entryRepository: LeaderboardEntryRepository<TEntry>;
   configurationRepository: RankingConfigurationRepository<TConfiguration>;
   clock: Clock;
+  experimentRepository?: LeaderboardExperimentRepository;
+  idGenerator?: () => string;
+  initialize?: () => Promise<void>;
 }

@@ -15,17 +15,21 @@ export type {
   SnapshotRepository,
 } from "../application/ports";
 import type { MarketDataModuleDependencies } from "../application/ports";
-import type { MarketDataModulePublicApi } from "./index";
-import {
-  createDatasetSnapshot,
-  readCandles,
-  readDatasetSnapshot,
-  shutdown,
-  subscribeMarketData,
-} from "./index";
+import { MarketDataApplicationService, type MarketDataApplicationOptions } from "../application/service";
+import type { MarketDataModulePublicApi } from "./contracts";
 export function createMarketDataModule(
-  _deps: MarketDataModuleDependencies,
+  deps: MarketDataModuleDependencies,
+  options?: MarketDataApplicationOptions,
 ): MarketDataModulePublicApi {
-  return { readCandles, createDatasetSnapshot, readDatasetSnapshot, subscribeMarketData, shutdown };
+  return new MarketDataApplicationService(deps, options);
 }
 export { createMarketDataSnapshotReader } from "./snapshot-reader";
+export { createBinanceHistoricalProvider } from "../infrastructure/binance";
+export type { BinanceHistoricalProviderOptions } from "../infrastructure/binance";
+export { createPostgresMarketDataDependencies } from "../infrastructure/postgres";
+export type {
+  PostgresMarketDataDependencies,
+  PostgresMarketDataOptions,
+  PostgresPool,
+  PostgresQueryResult,
+} from "../infrastructure/postgres";

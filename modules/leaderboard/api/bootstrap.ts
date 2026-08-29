@@ -7,15 +7,8 @@ import type {
   RankingConfiguration,
 } from "./contracts";
 import {
-  createLeaderboardScope,
-  getLeaderboardScope,
-  getRankingConfiguration,
-  listRankingConfigurations,
-  rankSearchRun,
-  score,
-  submit,
-  topK,
-} from "./index";
+  createLeaderboardApplication,
+} from "../application/service";
 export type LeaderboardModuleDependencies = LeaderboardApplicationDependencies<
   LeaderboardScope,
   CreateLeaderboardScopeCommand,
@@ -23,16 +16,15 @@ export type LeaderboardModuleDependencies = LeaderboardApplicationDependencies<
   RankingConfiguration
 >;
 export function createLeaderboardModule(
-  _deps: LeaderboardModuleDependencies,
+  deps: LeaderboardModuleDependencies,
 ): LeaderboardModulePublicApi {
-  return {
-    createLeaderboardScope,
-    getLeaderboardScope,
-    getRankingConfiguration,
-    listRankingConfigurations,
-    score,
-    topK,
-    rankSearchRun,
-    submit,
-  };
+  return createLeaderboardApplication(deps);
 }
+export { createPostgresLeaderboardDependencies } from "../infrastructure/postgres";
+export { DEFAULT_LINEAR_REQUIRED_RANKING_CONFIGURATION } from "../infrastructure/postgres";
+export type {
+  PostgresLeaderboardDependencies,
+  PostgresLeaderboardOptions,
+  PostgresPool,
+  PostgresQueryResult,
+} from "../infrastructure/postgres";

@@ -10,38 +10,40 @@ import type {
 } from "./contracts";
 import type { EvaluationMetrics } from "@cryptox/evaluation";
 import type { AuthenticatedRequestContext } from "modules/auth/api";
+import { createLeaderboardApplication } from "../application/service";
+import { createInMemoryLeaderboardDependencies } from "../application/memory";
 
 export * from "./contracts";
 
-const notImplemented = (): never => {
-  throw new Error("NOT_IMPLEMENTED");
-};
+const defaultLeaderboardApplication = createLeaderboardApplication(
+  createInMemoryLeaderboardDependencies(),
+);
 
 export const createLeaderboardScope = async (
-  _context: AuthenticatedRequestContext,
-  _command: CreateLeaderboardScopeCommand,
-): Promise<LeaderboardScope> => notImplemented();
+  context: AuthenticatedRequestContext,
+  command: CreateLeaderboardScopeCommand,
+): Promise<LeaderboardScope> => defaultLeaderboardApplication.createLeaderboardScope(context, command);
 export const getLeaderboardScope = async (
-  _context: AuthenticatedRequestContext,
-  _id: string,
-): Promise<LeaderboardScope> => notImplemented();
-export const getRankingConfiguration = async (_id: string): Promise<RankingConfiguration> =>
-  notImplemented();
+  context: AuthenticatedRequestContext,
+  id: string,
+): Promise<LeaderboardScope> => defaultLeaderboardApplication.getLeaderboardScope(context, id);
+export const getRankingConfiguration = async (id: string): Promise<RankingConfiguration> =>
+  defaultLeaderboardApplication.getRankingConfiguration(id);
 export const listRankingConfigurations = async (): Promise<readonly RankingConfiguration[]> =>
-  notImplemented();
+  defaultLeaderboardApplication.listRankingConfigurations();
 export const score = (
-  _leaderboardScopeId: string,
-  _metrics: EvaluationMetrics,
-): ScoredEvaluation => notImplemented();
+  leaderboardScopeId: string,
+  metrics: EvaluationMetrics,
+): ScoredEvaluation => defaultLeaderboardApplication.score(leaderboardScopeId, metrics);
 export const topK = async (
-  _context: AuthenticatedRequestContext,
-  _leaderboardScopeId: string,
-): Promise<readonly LeaderboardEntry[]> => notImplemented();
+  context: AuthenticatedRequestContext,
+  leaderboardScopeId: string,
+): Promise<readonly LeaderboardEntry[]> => defaultLeaderboardApplication.topK(context, leaderboardScopeId);
 export const rankSearchRun = async (
-  _context: AuthenticatedRequestContext,
-  _searchRunId: string,
-): Promise<readonly SearchRunRankingEntry[]> => notImplemented();
+  context: AuthenticatedRequestContext,
+  searchRunId: string,
+): Promise<readonly SearchRunRankingEntry[]> => defaultLeaderboardApplication.rankSearchRun(context, searchRunId);
 export const submit = async (
-  _context: AuthenticatedRequestContext,
-  _submission: LeaderboardSubmission,
-): Promise<LeaderboardSubmissionResult> => notImplemented();
+  context: AuthenticatedRequestContext,
+  submission: LeaderboardSubmission,
+): Promise<LeaderboardSubmissionResult> => defaultLeaderboardApplication.submit(context, submission);

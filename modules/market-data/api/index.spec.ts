@@ -20,6 +20,6 @@ describe("market-data public entrypoint", () => {
         timeframe: "1h",
         range: { from: "2026-01-01T00:00:00Z", to: "2026-01-02T00:00:00Z" },
       }),
-    ).rejects.toThrow("NOT_IMPLEMENTED");
+    ).rejects.toMatchObject({ code: "PROVIDER_UNAVAILABLE" });
   });
 });
