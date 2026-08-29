@@ -2,34 +2,41 @@
 
 ## Resume here
 
-- **Level 2 control plane:** Active. INS-015 is the current Instructor signal;
-  `INSTRUCTOR.md` and `DECISIONS.md` remain unchanged. The reviewed checkpoint
-  was `135aab7`; applicability was verified against the current
-  `MVP_IMPLEMENTATION` branch, HEAD `135aab7`, and a clean worktree before this
-  checkpoint was started.
-- **Authorization:** Execute only B-02 packet-boundary closure, F-AUTH real
-  AU-01 integration, and Q-01 real-port integration after B-02 is actually
-  DONE. No M-02 rework, AU-02, N-01/N-02, F-02, I-01/I-02, or other work is
-  authorized.
-- **B-02 transition:** `REVIEW -> DONE` at the packet boundary under DEC-006.
-  Existing INS-014 implementation and evidence were independently rechecked:
+- **Level 2 control plane:** Active. INS-015 was applicable: its reviewed
+  checkpoint `135aab7` matched the current `MVP_IMPLEMENTATION` branch and clean
+  worktree before execution. `INSTRUCTOR.md` and `DECISIONS.md` were not edited.
+- **Authorization exhausted:** Only B-02 packet-boundary closure, F-AUTH real
+  AU-01 integration, and Q-01 real-port integration after B-02 DONE were in
+  scope. No M-02 rework, AU-02, N-01/N-02, F-02, I-01/I-02, or other task was
+  started.
+- **B-02:** `REVIEW -> DONE` under DEC-006 in Manager commit `a24aa00`. The
+  existing INS-014 implementation and evidence were independently rechecked:
   Backtesting 33/33, package typecheck/lint/build, Auth PostgreSQL 3/3,
   owner isolation, provenance, rollback, cancellation/saturation, and exactly
   one terminal outcome PASS. Cross-module Experiment/Leaderboard transaction
   atomicity remains `UNVERIFIED` and belongs to I-01.
-- **F-AUTH transition:** `REVIEW -> IN_PROGRESS`, assigned to worker
-  `01a04b63-117d-7273-8ed5-db10730162eb` (Hypatia), with write scope limited
-  to `apps/frontend/**`. Workers may not edit global control artifacts.
-- **Q-01 gate:** Q-01 remains `REVIEW` and is held until the committed B-02
-  DONE transition is verified. It may then be assigned under
-  `modules/search/**` as the next ordered INS-015 phase while F-AUTH runs.
-- **Current limitations:** Formal OpenSpec CLI validation is `UNVERIFIED`
-  because the CLI is unavailable. Real frontend Auth/backend/browser evidence
-  and real Search/DB/port evidence remain pending; missing services/providers
-  must be recorded as `BLOCKED` or `UNVERIFIED`, never PASS.
-- **Next Manager action:** Commit this B-02/F-AUTH control checkpoint, verify
-  B-02 is DONE in Git, then delegate Q-01. Review both worker diffs, run the
-  applicable gates, and replace this checkpoint with the final INS-015 result.
+- **F-AUTH:** `REVIEW -> IN_PROGRESS -> REVIEW`, delegated to worker
+  `01a04b63-117d-7273-8ed5-db10730162eb` (Hypatia) in `apps/frontend/**`.
+  Reviewed source commit `8abd6a8` wires the real session boundary, same-origin
+  `/api` proxy, browser credentials, and regression coverage. Frontend 23/23
+  plus typecheck/build/lint PASS; backend AU-01 PostgreSQL smoke 1/1 PASS.
+  The bounded real browser/service probe produced no complete handoff, so
+  protected navigation, reload restore, 401 recovery, cache isolation, and
+  browser-observed HttpOnly-cookie behavior remain `UNVERIFIED`; F-AUTH is not
+  DONE.
+- **Q-01:** B-02 DONE was verified before delegation. Worker
+  `01a04b64-bd80-77b3-95e0-0916cb90c11b` (Hubble) was assigned the disjoint
+  `modules/search/**` real-port scope, but produced no reviewable handoff or
+  source commit before the bounded stop. Q-01 remains REVIEW; real persistence,
+  Backtesting/Leaderboard port integration, and DONE evidence are `UNVERIFIED`.
+- **Other evidence/limitations:** M-02 remains REVIEW with live Binance
+  evidence `UNVERIFIED` and was not reassigned. Formal OpenSpec CLI validation
+  is `UNVERIFIED` because the CLI is unavailable. Missing services/providers
+  are not counted as PASS; no credentials, passwords, cookies, or session
+  values were logged.
+- **Final checkpoint:** Source commit `8abd6a8` and Manager control checkpoint
+  commit `a24aa00` plus this final reconciliation commit form the coherent
+  INS-015 record. No downstream task was unlocked or started.
 
 ## INS-014 Historical Checkpoint
 

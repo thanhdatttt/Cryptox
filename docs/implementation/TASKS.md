@@ -24,14 +24,14 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 | E-01 | DONE | 2 | YES — B-02 gate | Manager / Evaluation worker | `MVP_IMPLEMENTATION` / `a20a7c5` | Independent review and Evaluation/global gates PASS |
 | L-01 | DONE | 2 | YES — B-02 gate | Linnaeus (Leaderboard worker) and Manager | `3c95063` | Focused 16/16, adapter/initializer review, root gates PASS; persisted admission UNVERIFIED |
 | B-01 | DONE | 3 | YES | Manager / reviewed Backtesting domain worker | `MVP_IMPLEMENTATION` / `afbd88c` | Focused 9/9, Backtesting 18/18, independent review, and reproducible root workspace gate PASS |
-| B-02 | DONE | 4 | YES | Manager / B-02 review-closure worker | `MVP_IMPLEMENTATION` / pending INS-015 checkpoint | Packet-boundary DoD proven: Backtesting 33/33, package typecheck/lint/build, Auth PostgreSQL 3/3, owner isolation, provenance, rollback, cancellation/saturation, and one-terminal-outcome evidence PASS; cross-module Experiment/Leaderboard atomicity remains UNVERIFIED for I-01 |
+| B-02 | DONE | 4 | YES | Manager / B-02 review-closure worker | `MVP_IMPLEMENTATION` / `a24aa00` | Packet-boundary DoD proven: Backtesting 33/33, package typecheck/lint/build, Auth PostgreSQL 3/3, owner isolation, provenance, rollback, cancellation/saturation, and one-terminal-outcome evidence PASS; cross-module Experiment/Leaderboard atomicity remains UNVERIFIED for I-01 |
 | AU-01 | DONE | 2 | YES | Orchestrator / Kepler / Banach + independent Auth reviewer | `MVP_IMPLEMENTATION` / `a9b026b` | PostgreSQL Auth 11/11 and backend 9/9 PASS on dedicated PostgreSQL 16.10; independent review PASS; full `verify:stage4a` PASS; OpenSpec CLI UNVERIFIED |
 | AU-02 | BLOCKED | 4 | YES | Manager / security integration worker | — | Blocked by private-resource implementations |
-| Q-01 | REVIEW | 3–4 | Integration | Herschel (Q-01 worker; INS-008) | `MVP_IMPLEMENTATION` / `d226a4a` | Pure/fake-port phase reviewed PASS; real-port integration and DONE remain unauthorized |
+| Q-01 | REVIEW | 3–4 | Integration | Hubble (Q-01 worker; INS-015) | `MVP_IMPLEMENTATION` / `a24aa00` | Fake-port phase reviewed PASS; bounded INS-015 real-port worker produced no reviewable handoff before stop; real DB/port evidence and DONE remain UNVERIFIED |
 | N-01 | BLOCKED | 2 | Integration | Unassigned News worker | — | Not started |
 | N-02 | BLOCKED | 2 | Integration | Unassigned Sentiment worker | — | Not started |
 | F-01 | DONE | 2 | Integration | Manager / Frontend worker | `MVP_IMPLEMENTATION` / `901065a` | Independent review, frontend/global gates, and browser interaction PASS |
-| F-AUTH | IN_PROGRESS | 3 | Integration | Hypatia (F-AUTH worker; INS-015) | `MVP_IMPLEMENTATION` / pending | INS-015 real AU-01 frontend integration delegated under `apps/frontend/**`; fixture-only evidence cannot close |
+| F-AUTH | REVIEW | 3 | Integration | Hypatia (F-AUTH worker; INS-015) | `MVP_IMPLEMENTATION` / `8abd6a8` | Frontend real-session boundary patch reviewed; 23/23 tests and typecheck/build/lint PASS; backend AU-01 PostgreSQL smoke 1/1 PASS; browser/service completion UNVERIFIED, so DONE is not claimed |
 | F-02 | BLOCKED | 3 | Integration | Unassigned Frontend worker | — | Not started |
 | I-01 | BLOCKED | 5 | YES | Manager / integration worker | — | Not started |
 | I-02 | BLOCKED | 6 | YES | Manager plus independent reviewers | — | Not started |
@@ -285,7 +285,7 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 - **Objective:** Connect owner-scoped Candidate persistence, bounded execution,
   simulation, Evaluation, inherited Experiment/Trades, and same-owner Leaderboard.
 - **Write scope:** Backtesting application/infrastructure/API implementations/tests.
-- **Latest branch / commit:** `MVP_IMPLEMENTATION` / pending INS-015 checkpoint.
+- **Latest branch / commit:** `MVP_IMPLEMENTATION` / `a24aa00`.
 - **Validation:** Packet-boundary DoD proven under INS-015: full Backtesting 33/33 PASS; package typecheck/lint/build PASS; Auth PostgreSQL 3/3 PASS; owner isolation, provenance, rollback, cancellation/saturation, and exactly-one-terminal-outcome evidence PASS. Cross-module Experiment/Leaderboard atomicity remains UNVERIFIED until a shared transaction-aware adapter is proven at I-01.
 - **Full packet:** [`MVP_PLAN.md#b-02--candidate-execution-and-experiment-orchestration`](MVP_PLAN.md#b-02--candidate-execution-and-experiment-orchestration)
 
@@ -309,16 +309,18 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 
 - **Requirement IDs:** `CSL-R-SE-01`, `CSL-R-SE-02`, `CSL-R-LB-01`,
   `CSL-R-OB-01`, `CSL-R-DM-01`, `CSL-R-AR-02`, `CSL-R-OW-01`
-- **State / owner / wave:** REVIEW / Herschel (Q-01 worker; INS-008) / Waves 3–4
+- **State / owner / wave:** REVIEW / Hubble (Q-01 worker; INS-015) / Waves 3–4
 - **Critical / parallelism:** Integration / YES for fake-port phase
 - **Start dependencies:** C-01A, S-01
 - **Integration dependencies:** D-01, L-01, B-02
 - **Objective:** Implement seeded Random generation, trusted owner propagation, and
   an owner-scoped finite SearchRun lifecycle, first against fakes and then real ports.
 - **Write scope:** `modules/search/**` except frozen contracts and migrations.
-- **Latest branch / commit:** `MVP_IMPLEMENTATION` / `d226a4a`.
-- **Validation:** Pure/fake-port phase reviewed PASS under INS-008; real-port/global
-  completion remains gated. Cannot be DONE after fake-only validation.
+- **Latest branch / commit:** `MVP_IMPLEMENTATION` / `a24aa00` (Manager assignment checkpoint; no Q-01 source commit).
+- **Validation:** Pure/fake-port phase reviewed PASS. The bounded INS-015 real-port
+  worker produced no reviewable handoff before the stop window; real persistence,
+  Backtesting/Leaderboard port evidence, and DONE remain `UNVERIFIED`. Cannot be
+  DONE after fake-only validation.
 - **Full packet:** [`MVP_PLAN.md#q-01--seeded-random-search-and-searchrun-lifecycle`](MVP_PLAN.md#q-01--seeded-random-search-and-searchrun-lifecycle)
 
 ### N-01 — News Collection, Deduplication and Query
@@ -370,15 +372,20 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 ### F-AUTH — Frontend Authentication and Protected Navigation
 
 - **Requirement IDs:** `CSL-R-AU-01`, `CSL-R-OW-01`, `CSL-R-FE-01`, `CSL-R-DM-01`
-- **State / owner / wave:** IN_PROGRESS / Hypatia (F-AUTH worker; INS-015) / Wave 3
+- **State / owner / wave:** REVIEW / Hypatia (F-AUTH worker; INS-015) / Wave 3
 - **Critical / parallelism:** Integration / Not with an active F-01 shell writer
 - **Start dependencies:** C-01A, F-01
 - **Integration dependencies:** AU-01
 - **Objective:** Add register/login/session restoration/logout, protected navigation,
   401 recovery, and private-cache clearing using HttpOnly session cookies.
 - **Write scope:** Frontend Auth clients, screens, state, navigation guards, and tests.
-- **Latest branch / commit:** `MVP_IMPLEMENTATION` / pending INS-015 worker result.
-- **Validation:** Fixture/remote client foundation remains reviewed; INS-015 real AU-01 integration is in progress. Register/login/session restore/logout, protected navigation, 401 recovery, cache isolation, HttpOnly-cookie behavior, and real backend/browser evidence are required before DONE.
+- **Latest branch / commit:** `MVP_IMPLEMENTATION` / `8abd6a8`.
+- **Validation:** The real-session frontend boundary patch is reviewed in scope;
+  23/23 frontend tests plus typecheck/build/lint PASS, and the configured AU-01
+  backend PostgreSQL smoke is 1/1 PASS. The worker's real browser/service probe
+  did not yield complete evidence before the bounded stop; protected navigation,
+  reload restore, 401 recovery, private-cache isolation, and browser-observed
+  HttpOnly-cookie behavior remain `UNVERIFIED`, so DONE is not claimed.
 - **Full packet:** [`MVP_PLAN.md#f-auth--frontend-authentication-and-protected-navigation`](MVP_PLAN.md#f-auth--frontend-authentication-and-protected-navigation)
 
 ### F-02 — Frontend Strategy, Search, Result and Auxiliary Views
@@ -437,7 +444,8 @@ P-00, C-01, A-00, C-01A, E-01, F-01, S-01, D-01, AU-01, M-01, L-01, and B-02
 are DONE. B-02 is closed only at its DEC-006 packet boundary; cross-module
 Experiment/Leaderboard transaction coupling remains UNVERIFIED for I-01.
 M-02 remains REVIEW because live-provider evidence is UNVERIFIED. F-AUTH is
-IN_PROGRESS for its INS-015 real integration under a dedicated frontend worker.
-Q-01 remains REVIEW and is held until B-02's DONE transition is committed;
-its real integration and DONE transition remain gated by evidence. All other
+REVIEW after the scoped INS-015 frontend patch and package gates; real
+browser/service evidence is UNVERIFIED. Q-01 remains REVIEW after its bounded
+INS-015 worker produced no reviewable real-port handoff; persistence and
+Backtesting/Leaderboard integration evidence are UNVERIFIED. All other
 unfinished tasks remain BLOCKED. No unauthorized task was started.
