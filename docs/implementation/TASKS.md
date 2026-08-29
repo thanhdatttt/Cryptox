@@ -43,7 +43,7 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 | S-06 | DONE | E1 | YES | INS-036 fresh S-06 worker `01a04e66-e691-7a50-af2f-b1eecd39053b` / Manager; INS-041 closure review | `MVP_IMPLEMENTATION` / containing INS-041 closure checkpoint | Focused 20/20 and Strategy 89/89 PASS; ENV-02 checker gate PASS; deterministic Lite-plugin evidence accepted |
 | Q-02 | BLOCKED | E1 | YES | Future Search worker | — | Not started; Domain-guided/Genetic seeded evidence required |
 | B-03 | BLOCKED | E1 | YES | Future Backtesting worker | — | Not started; synthetic paper/decimal/provenance evidence required |
-| N-03 | REVIEW | E1 | YES | INS-045 Manager `01a04f09-60b5-7113-8901-bfb50ff23ecd` + exactly one fresh News-Sentiment boundary worker Singer `01a04f0e-de55-78a2-bf64-88b2ac7eb4db` (completed) | `MVP_IMPLEMENTATION` / containing INS-045 checkpoint commit | `BLOCKED -> READY -> IN_PROGRESS -> REVIEW`; News 30/30 and Sentiment 19/19 PASS; root 309 passed/6 skipped; PostgreSQL, real News, auto-refresh scheduler, browser/runtime, OpenSpec, and link/DAG evidence UNVERIFIED or BLOCKED |
+| N-03 | REVIEW | E1 | YES | INS-045 Manager `01a04f09-60b5-7113-8901-bfb50ff23ecd` + exactly one fresh News-Sentiment boundary worker Singer `01a04f0e-de55-78a2-bf64-88b2ac7eb4db` (completed) | `MVP_IMPLEMENTATION` / N-03 source checkpoint `d4161ec458c869ff18fa89dd9732df260629c915` | `BLOCKED -> READY -> IN_PROGRESS -> REVIEW`; News 30/30 and Sentiment 19/19 PASS; root 310 passed / 6 skipped (exit success; six skips are environment-gated PostgreSQL/integration/E2E checks and are not PASS); PostgreSQL, real News, auto-refresh scheduler, browser/runtime, OpenSpec, and link/DAG evidence UNVERIFIED or BLOCKED |
 | E-02 | BLOCKED | E2 | Integration | Future Evaluation worker | — | Not started; decimal-boundary evaluation evidence required |
 | L-02 | BLOCKED | E2 | YES | Future Leaderboard worker | — | Not started; extension-aware ranking/provenance evidence required |
 | F-03 | BLOCKED | E3 | YES | Future Frontend worker | — | Not started; DEC-007 functional-state projections required |
@@ -790,8 +790,9 @@ acceptance criteria and handoff requirements are in the linked packets in
   the default HTTPS transport while retaining the hostname for TLS/SNI.
 - **Evidence:** News focused tests 30/30 PASS; Sentiment focused tests 19/19
   PASS; root typecheck, build, lint, architecture, artifacts, scope, diff, and
-  workspace tests PASS (309 passed, 6 skipped). Frozen contracts and migrations
-  were unchanged.
+  workspace tests PASS (310 passed, 6 skipped; exit success). The six skipped
+  tests are environment-gated PostgreSQL/integration/E2E checks and are not PASS
+  evidence. Frozen contracts and migrations were unchanged.
 - **Limitations:** Local PostgreSQL validation is BLOCKED because this host has
   no working Docker Compose command; real configured News, PostgreSQL runtime,
   browser/runtime, OpenSpec, and link/DAG evidence are UNVERIFIED/BLOCKED.
