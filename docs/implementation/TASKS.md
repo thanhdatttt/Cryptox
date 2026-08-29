@@ -49,7 +49,7 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 | F-03 | BLOCKED | E3 | YES | Future Frontend worker | — | Not started; DEC-007 functional-state projections required |
 | I-03 | BLOCKED | E4 | YES | Manager / future integration worker | — | Not started; final extension integration/reproducibility proof required |
 | ENV-01 | DONE | E0a | YES | Manager / Infrastructure-and-tooling worker `01a04d08-19c8-76e1-ad32-57471e75f430` | `MVP_IMPLEMENTATION` / containing INS-030 ENV-01 checkpoint commit | Independent review PASS; Docker/migration/checker/root validation PASS; OpenSpec CLI UNVERIFIED |
-| ENV-02 | REVIEW | E1 closure | YES | Manager `01a04ea7-b1bd-73c2-972a-7d67e6f551c9` / checker-tooling worker `01a04eae-367c-7fc3-8961-dccb9e760cf9` (Confucius) under `INS-039` | `MVP_IMPLEMENTATION` / `e0198bb64bbd5fd4fb77b38bbcc345f20ab04363` plus reviewed scoped changes | `BLOCKED -> READY -> IN_PROGRESS -> REVIEW`; independent changed-path review and applicable validation PASS; checkpoint commit pending |
+| ENV-02 | REVIEW | E1 closure | YES | Manager `01a04ea7-b1bd-73c2-972a-7d67e6f551c9` / checker-tooling worker `01a04eae-367c-7fc3-8961-dccb9e760cf9` (Confucius) under `INS-039` | `MVP_IMPLEMENTATION` / `d8c5bf3324cbee349e272cb177537fa6ed062df0` (`checkpoint(ins-039): reconcile checker boundaries`) | `BLOCKED -> READY -> IN_PROGRESS -> REVIEW`; independent changed-path review and applicable validation PASS; checkpoint commit recorded |
 
 The `RB-01` row records the completed governance checkpoint. `ENV-01` is the
 sole packet allocated by current `INS-030`; it is DONE at its authorized
@@ -716,10 +716,13 @@ acceptance criteria and handoff requirements are in the linked packets in
   e0198bb64bbd5fd4fb77b38bbcc345f20ab04363` after the Manager verified the
   signal, dependencies, clean canonical state, and non-material governance-only
   delta from reviewed source/business checkpoint
-  `3aa0db528d7758788067348f70b5ea02d68bdb45`. Exactly one worker,
+  `3aa0db528d7758788067348f70b5ea02d68bdb45`. The implementation checkpoint is
+  `d8c5bf3324cbee349e272cb177537fa6ed062df0` (`checkpoint(ins-039): reconcile
+  checker boundaries`). Exactly one worker,
   `01a04eae-367c-7fc3-8961-dccb9e760cf9` (Confucius), changed only the two
   checker files. Manager `01a04ea7-b1bd-73c2-972a-7d67e6f551c9` independently
-  reviewed the diff and validation; checkpoint commit is pending.
+  reviewed the diff and validation; the checkpoint commit is recorded. ENV-02
+  remains `REVIEW` under the INS-039 stop boundary.
 - **Full packet:** [`MVP_PLAN.md#env-02--post-extension-approved-profile-checker-boundary-reconciliation`](MVP_PLAN.md#env-02--post-extension-approved-profile-checker-boundary-reconciliation)
 
 ### Q-02 — Seeded `DOMAIN_GUIDED_V1` and `GENETIC_V1` Discovery

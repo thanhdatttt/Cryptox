@@ -88,8 +88,10 @@ changed for ENV-02.
 
 ## Task state and stop boundary
 
-- `ENV-02` is at `REVIEW` pending the Manager checkpoint commit. Its recorded
-  state history is `BLOCKED -> READY -> IN_PROGRESS -> REVIEW`.
+- `ENV-02` remains at `REVIEW` with implementation checkpoint commit
+  `d8c5bf3324cbee349e272cb177537fa6ed062df0` (`checkpoint(ins-039): reconcile
+  checker boundaries`) recorded. Its state history is
+  `BLOCKED -> READY -> IN_PROGRESS -> REVIEW`; it is intentionally not `DONE`.
 - `ENV-01 = DONE`, `C-02 = DONE`, `S-05 = REVIEW`, and `S-06 = REVIEW` remain
   unchanged. S-05 and S-06 are not promoted to `DONE` by this packet.
 - No downstream packet was started or promoted. In particular, `M-03`, `S-04`,
@@ -99,5 +101,6 @@ changed for ENV-02.
   exhausted after ENV-02 review/commit and a fresh Instructor review is
   required before any later packet or S-05/S-06 closure.
 
-**Checkpoint commit:** pending Manager staging and commit of the four scoped
-worker/control-plane paths.
+**Checkpoint commit:** `d8c5bf3324cbee349e272cb177537fa6ed062df0`
+(`checkpoint(ins-039): reconcile checker boundaries`), containing exactly the
+two worker paths and the two Manager-owned control-plane paths listed above.
