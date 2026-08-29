@@ -49,8 +49,9 @@
 ## Final control note
 
 - Manager-owned TASKS/HANDOFF updates record the worker IDs, scope, evidence,
-  blockers, and exact source/control commits. `INSTRUCTOR.md` and
-  `DECISIONS.md` were not edited.
+  blockers, and exact source/control commits: Q-01 source `317ca0d` and the
+  final F-02/control checkpoint `84209b0`. `INSTRUCTOR.md` and `DECISIONS.md`
+  were not edited.
 
 ## Prior checkpoint
 

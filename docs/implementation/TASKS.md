@@ -420,8 +420,7 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 - **Objective:** Build authenticated, owner-scoped Strategy/Search/Experiment/
   Leaderboard, visualization, News, and Sentiment views against typed fakes.
 - **Write scope:** Frontend features and tests only.
-- **Latest branch / commit:** `MVP_IMPLEMENTATION` / pending INS-018 Manager
-  checkpoint commit.
+- **Latest branch / commit:** `MVP_IMPLEMENTATION` / `84209b0`.
 - **Validation:** Initial fixture implementation reviewed within
   `apps/frontend/**`; Auth files are unchanged. Frontend tests are 31/31 across
   12 files, including six packet-scoped F-02 tests; typecheck/lint/build,
