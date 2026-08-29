@@ -552,8 +552,10 @@ acceptance criteria and handoff requirements are in the linked packets in
 
 - **Requirement IDs:** All DEC-007 extension IDs and amended `CSL-R-MD-02`.
 - **State / owner / wave:** BLOCKED / Manager with exactly one worker Pauli (`01a04c90-fb47-7772-a05f-570b2c90f8b4`, stopped) / E0.
-- **Dependencies:** `RB-01`; baseline C-01A/D-01 and completed capability seams;
-  `M-02 REVIEW/UNVERIFIED` is review input only and is not retried.
+- **Dependencies:** `ENV-01` DONE and separately Instructor-reviewed; baseline
+  inputs are `C-01A`, `D-01`, `M-01`, `S-01`, `Q-01`, `B-02`, `E-01`, `L-01`,
+  `N-01`, and `N-02`. `M-02` is `REVIEW/UNVERIFIED` review input only and is
+  neither retried nor a completion dependency.
 - **Exact write scope:** Canonical extension contracts/ports, REST/market-WS DTOs,
   `docs/data-model.md`, and `infra/db/**` schema/migration validation only;
   no runtime behavior.
