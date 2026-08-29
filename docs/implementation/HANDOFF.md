@@ -3,8 +3,9 @@
 ## Resume here
 
 - **Level 2 control plane:** Active. INS-017 is the current Instructor signal;
-  the reviewed signal commit `67419d1` matches current HEAD and changes only
-  `INSTRUCTOR.md` relative to the reviewed clean checkpoint `ce24396`.
+  the reviewed signal commit is `67419d1`. Current HEAD is `229013f`, and the
+  intervening commits change only Manager-owned `TASKS.md`/`HANDOFF.md`, with
+  no source or business-state drift relative to `ce24396`.
   `INSTRUCTOR.md` and `DECISIONS.md` were not edited by the Manager.
 - **Authorization:** Execute exactly F-AUTH final real AU-01/browser closure,
   Q-01 real-port Search integration, N-01 initial News, and N-02 initial local
@@ -12,20 +13,28 @@
   `modules/search/**`; N-01 to `modules/news/**`; N-02 to
   `modules/sentiment/**`, with frozen contracts/migrations excluded. No M-02,
   B-02, AU-02, F-02, I-01/I-02, D-01, AU-01, or follow-on work is authorized.
-- **Reconciliation:** Existing F-AUTH/Q-01 REVIEW records and N-01/N-02
-  BLOCKED initial records were reconciled to READY after verifying their
-  authorized start dependencies. The host worker-thread limit permits one new
-  worker at a time, so only N-02 is currently active; F-AUTH, Q-01, and N-01
-  remain READY for separate dispatch as slots release. Workers are assigned in
-  disjoint scopes and may not edit global control artifacts.
+- **Reconciliation and scheduling correction:** Existing F-AUTH/Q-01 REVIEW
+  records and N-01/N-02 BLOCKED initial records were reconciled to READY after
+  verifying their authorized start dependencies. Four sole owners are now
+  retained in disjoint scopes: F-AUTH is Descartes
+  (`01a04b84-de45-74a2-8b9e-cab4a0d6ff48`), Q-01 is Ramanujan
+  (`01a04b84-df4f-75e0-a24b-d7182f5c0f01`), N-01 is Plato
+  (`01a04b84-e18e-7d82-ac56-14f20939bdee`), and N-02 is Sagan
+  (`01a04b85-d5d2-7c81-95cd-08cb04249e04`). A retry race after the host
+  worker-thread scheduling limit created duplicate F-AUTH
+  (`01a04b85-66a9-7a12-94c2-ed3e984e04a6`) and Q-01
+  (`01a04b85-67cb-71e1-b4fc-eb4306a5ab4d`) workers; both were explicitly shut
+  down before source integration. No duplicate output is accepted. At the
+  safety checkpoint the worktree was clean, so no duplicate source write was
+  integrated. All workers may read but may not edit global control artifacts.
 - **Baseline carried forward:** B-02 remains DONE only at the DEC-006 packet
   boundary; I-01 cross-module Experiment/Leaderboard atomicity is UNVERIFIED.
   M-02 remains REVIEW with live Binance evidence UNVERIFIED. F-AUTH retains
   source `8abd6a8`, frontend 23/23 and package gates PASS, and partial
   PostgreSQL AU-01 evidence; full browser credential/cookie proof is pending.
   Q-01 retains only its reviewed fake-port phase and has no real-port evidence.
-- **Next Manager action:** Review the four worker outputs independently, run
-  packet/global gates, integrate only authorized changes, and replace this
+- **Next Manager action:** Review the four retained worker outputs independently,
+  run packet/global gates, integrate only authorized changes, and replace this
   checkpoint with the final INS-017 result. Missing provider/service evidence
   is BLOCKED or UNVERIFIED, never PASS.
 

@@ -27,11 +27,11 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 | B-02 | DONE | 4 | YES | Manager / B-02 review-closure worker | `MVP_IMPLEMENTATION` / `a24aa00` | Packet-boundary DoD proven: Backtesting 33/33, package typecheck/lint/build, Auth PostgreSQL 3/3, owner isolation, provenance, rollback, cancellation/saturation, and one-terminal-outcome evidence PASS; cross-module Experiment/Leaderboard atomicity remains UNVERIFIED for I-01 |
 | AU-01 | DONE | 2 | YES | Orchestrator / Kepler / Banach + independent Auth reviewer | `MVP_IMPLEMENTATION` / `a9b026b` | PostgreSQL Auth 11/11 and backend 9/9 PASS on dedicated PostgreSQL 16.10; independent review PASS; full `verify:stage4a` PASS; OpenSpec CLI UNVERIFIED |
 | AU-02 | BLOCKED | 4 | YES | Manager / security integration worker | — | Blocked by private-resource implementations |
-| Q-01 | READY | 3–4 | Integration | Pending INS-017 Q-01 worker | `MVP_IMPLEMENTATION` / `67419d1` | Existing fake-port phase reviewed PASS; real-port closure is authorized after verified D-01, L-01, and B-02 dependencies |
-| N-01 | READY | 2 | Integration | Pending INS-017 N-01 worker | `MVP_IMPLEMENTATION` / `67419d1` | Initial News packet is authorized; C-01 and D-01 start dependencies are DONE |
-| N-02 | IN_PROGRESS | 2 | Integration | Sagan (N-02 worker; INS-017) | `MVP_IMPLEMENTATION` / pending | Initial LEXICON_V1 packet delegated under `modules/sentiment/**`; C-01 and D-01 start dependencies are DONE |
+| Q-01 | IN_PROGRESS | 3–4 | Integration | Ramanujan (`01a04b84-df4f-75e0-a24b-d7182f5c0f01`; sole INS-017 owner) | `MVP_IMPLEMENTATION` / pending | Real-port closure delegated within `modules/search/**`; duplicate retry `01a04b85-67cb-71e1-b4fc-eb4306a5ab4d` shut down before integration |
+| N-01 | IN_PROGRESS | 2 | Integration | Plato (`01a04b84-e18e-7d82-ac56-14f20939bdee`; sole INS-017 owner) | `MVP_IMPLEMENTATION` / pending | Initial News packet delegated within `modules/news/**`; C-01 and D-01 start dependencies are DONE |
+| N-02 | IN_PROGRESS | 2 | Integration | Sagan (`01a04b85-d5d2-7c81-95cd-08cb04249e04`; sole INS-017 owner) | `MVP_IMPLEMENTATION` / pending | Initial LEXICON_V1 packet delegated under `modules/sentiment/**`; C-01 and D-01 start dependencies are DONE |
 | F-01 | DONE | 2 | Integration | Manager / Frontend worker | `MVP_IMPLEMENTATION` / `901065a` | Independent review, frontend/global gates, and browser interaction PASS |
-| F-AUTH | READY | 3 | Integration | Pending INS-017 F-AUTH worker | `MVP_IMPLEMENTATION` / `67419d1` | Existing real-session boundary patch reviewed; frontend and AU-01 PostgreSQL smoke evidence retained; final browser/service closure is authorized and remains UNVERIFIED |
+| F-AUTH | IN_PROGRESS | 3 | Integration | Descartes (`01a04b84-de45-74a2-8b9e-cab4a0d6ff48`; sole INS-017 owner) | `MVP_IMPLEMENTATION` / pending | Final browser/service closure delegated within `apps/frontend/**`; duplicate retry `01a04b85-66a9-7a12-94c2-ed3e984e04a6` shut down before integration |
 | F-02 | BLOCKED | 3 | Integration | Unassigned Frontend worker | — | Not started |
 | I-01 | BLOCKED | 5 | YES | Manager / integration worker | — | Not started |
 | I-02 | BLOCKED | 6 | YES | Manager plus independent reviewers | — | Not started |
@@ -309,14 +309,14 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 
 - **Requirement IDs:** `CSL-R-SE-01`, `CSL-R-SE-02`, `CSL-R-LB-01`,
   `CSL-R-OB-01`, `CSL-R-DM-01`, `CSL-R-AR-02`, `CSL-R-OW-01`
-- **State / owner / wave:** READY / Pending INS-017 Q-01 worker / Waves 3–4
+- **State / owner / wave:** IN_PROGRESS / Ramanujan (`01a04b84-df4f-75e0-a24b-d7182f5c0f01`) / Waves 3–4
 - **Critical / parallelism:** Integration / YES for fake-port phase
 - **Start dependencies:** C-01A, S-01
 - **Integration dependencies:** D-01, L-01, B-02
 - **Objective:** Implement seeded Random generation, trusted owner propagation, and
   an owner-scoped finite SearchRun lifecycle, first against fakes and then real ports.
 - **Write scope:** `modules/search/**` except frozen contracts and migrations.
-- **Latest branch / commit:** `MVP_IMPLEMENTATION` / `67419d1` (INS-017 authorization checkpoint; no new Q-01 source commit).
+- **Latest branch / commit:** `MVP_IMPLEMENTATION` / pending INS-017 worker result.
 - **Validation:** Pure/fake-port phase reviewed PASS. D-01, L-01, and B-02 are
   verified DONE, so the authorized real-port closure is READY. Real persistence,
   Backtesting/Leaderboard port evidence, and DONE remain `UNVERIFIED`; fake-only
@@ -327,14 +327,14 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 
 - **Requirement IDs:** `CSL-R-NW-01`, `CSL-R-SN-01`, `CSL-R-OB-01`, `CSL-R-DM-01`,
   `CSL-R-RD-01`
-- **State / owner / wave:** READY / Pending INS-017 N-01 worker / Wave 2
+- **State / owner / wave:** IN_PROGRESS / Plato (`01a04b84-e18e-7d82-ac56-14f20939bdee`) / Wave 2
 - **Critical / parallelism:** Integration / YES
 - **Start dependencies:** C-01, D-01
 - **Integration dependencies:** N-02 and I-01
 - **Objective:** Build fixture-first provider-neutral News with a real configured
   final/demo source and explicit provider provenance.
 - **Write scope:** `modules/news/**` except frozen contracts and migrations.
-- **Latest branch / commit:** `MVP_IMPLEMENTATION` / `67419d1` (INS-017 authorization checkpoint).
+- **Latest branch / commit:** `MVP_IMPLEMENTATION` / pending INS-017 worker result.
 - **Validation:** Initial News packet is READY with C-01/D-01 dependencies DONE;
   live CoinDesk evidence may remain `UNVERIFIED` when unavailable.
 - **Full packet:** [`MVP_PLAN.md#n-01--news-collection-deduplication-and-query`](MVP_PLAN.md#n-01--news-collection-deduplication-and-query)
@@ -343,7 +343,7 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 
 - **Requirement IDs:** `CSL-R-SN-01`, `CSL-R-OB-01`, `CSL-R-AR-02`,
   `CSL-R-AR-03`, `CSL-R-DM-01`
-- **State / owner / wave:** IN_PROGRESS / Sagan (N-02 worker; INS-017) / Wave 2
+- **State / owner / wave:** IN_PROGRESS / Sagan (`01a04b85-d5d2-7c81-95cd-08cb04249e04`) / Wave 2
 - **Critical / parallelism:** Integration / YES
 - **Start dependencies:** C-01, D-01
 - **Integration dependencies:** N-01 and I-01
@@ -375,7 +375,7 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 ### F-AUTH — Frontend Authentication and Protected Navigation
 
 - **Requirement IDs:** `CSL-R-AU-01`, `CSL-R-OW-01`, `CSL-R-FE-01`, `CSL-R-DM-01`
-- **State / owner / wave:** READY / Pending INS-017 F-AUTH worker / Wave 3
+- **State / owner / wave:** IN_PROGRESS / Descartes (`01a04b84-de45-74a2-8b9e-cab4a0d6ff48`) / Wave 3
 - **Critical / parallelism:** Integration / Not with an active F-01 shell writer
 - **Start dependencies:** C-01A, F-01
 - **Integration dependencies:** AU-01
