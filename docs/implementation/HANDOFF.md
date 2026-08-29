@@ -1,4 +1,37 @@
-# MVP Implementation Checkpoint
+# INS-015 Execution Checkpoint
+
+## Resume here
+
+- **Level 2 control plane:** Active. INS-015 is the current Instructor signal;
+  `INSTRUCTOR.md` and `DECISIONS.md` remain unchanged. The reviewed checkpoint
+  was `135aab7`; applicability was verified against the current
+  `MVP_IMPLEMENTATION` branch, HEAD `135aab7`, and a clean worktree before this
+  checkpoint was started.
+- **Authorization:** Execute only B-02 packet-boundary closure, F-AUTH real
+  AU-01 integration, and Q-01 real-port integration after B-02 is actually
+  DONE. No M-02 rework, AU-02, N-01/N-02, F-02, I-01/I-02, or other work is
+  authorized.
+- **B-02 transition:** `REVIEW -> DONE` at the packet boundary under DEC-006.
+  Existing INS-014 implementation and evidence were independently rechecked:
+  Backtesting 33/33, package typecheck/lint/build, Auth PostgreSQL 3/3,
+  owner isolation, provenance, rollback, cancellation/saturation, and exactly
+  one terminal outcome PASS. Cross-module Experiment/Leaderboard transaction
+  atomicity remains `UNVERIFIED` and belongs to I-01.
+- **F-AUTH transition:** `REVIEW -> IN_PROGRESS`, assigned to worker
+  `01a04b63-117d-7273-8ed5-db10730162eb` (Hypatia), with write scope limited
+  to `apps/frontend/**`. Workers may not edit global control artifacts.
+- **Q-01 gate:** Q-01 remains `REVIEW` and is held until the committed B-02
+  DONE transition is verified. It may then be assigned under
+  `modules/search/**` as the next ordered INS-015 phase while F-AUTH runs.
+- **Current limitations:** Formal OpenSpec CLI validation is `UNVERIFIED`
+  because the CLI is unavailable. Real frontend Auth/backend/browser evidence
+  and real Search/DB/port evidence remain pending; missing services/providers
+  must be recorded as `BLOCKED` or `UNVERIFIED`, never PASS.
+- **Next Manager action:** Commit this B-02/F-AUTH control checkpoint, verify
+  B-02 is DONE in Git, then delegate Q-01. Review both worker diffs, run the
+  applicable gates, and replace this checkpoint with the final INS-015 result.
+
+## INS-014 Historical Checkpoint
 
 ## Resume here
 
