@@ -48,9 +48,9 @@
 - **Authorization status:** INS-013 is exhausted at this safe checkpoint.
   Renewed Instructor review and a new Instruction ID are required before
   resuming M-02/B-02 completion or starting any follow-on work.
-- **Safe checkpoint commit:** `5ac68b9` contains the scoped M-02/B-02 source,
-  tests, and this Manager handoff/task-state checkpoint. No downstream task was
-  started.
+- **Safe checkpoint commits:** `5ac68b9` contains the scoped M-02/B-02 source
+  and tests; `98f8bb5` contains the final Manager handoff/task-state checkpoint.
+  No downstream task was started.
 
 ## Historical checkpoints (prior to INS-012)
 - **INS-010 applicability:** PASS at execution start. Instructor reviewed HEAD
