@@ -21,10 +21,16 @@
   PASS. Its real browser/service completion remains `UNVERIFIED`. Q-01 has a
   reviewed fake-port phase, but real persistence/Backtesting/Leaderboard
   integration remains `UNVERIFIED`.
-- **Next Manager action:** Delegate both READY phases, independently review
-  output, run focused/global gates, and replace this checkpoint with the final
-  INS-016 result. Missing service/provider evidence is BLOCKED or UNVERIFIED,
-  never PASS.
+- **Delegation:** F-AUTH is assigned to worker
+  `01a04b76-f51c-7363-aa12-1a9836892394` (Cicero) with write scope
+  `apps/frontend/**`. Q-01 is assigned to worker
+  `01a04b76-f65c-76a3-af5f-8ff93e33eaee` (Kant) with write scope
+  `modules/search/**`. Scopes are disjoint and workers may not edit global
+  control artifacts.
+- **Next Manager action:** Independently review both worker outputs, run
+  focused/global gates, and replace this checkpoint with the final INS-016
+  result. Missing service/provider evidence is BLOCKED or UNVERIFIED, never
+  PASS.
 
 ## INS-014 Historical Checkpoint
 
