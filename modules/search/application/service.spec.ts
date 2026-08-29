@@ -48,6 +48,7 @@ interface FakeCandidate {
 }
 
 interface HarnessOptions {
+  repository?: InMemorySearchRunRepository;
   candidateStatus?: CandidateStatus;
   score?: number;
   idPrefix?: string;
@@ -56,8 +57,39 @@ interface HarnessOptions {
   submissionDelayMs?: number;
 }
 
+class DelayedActiveWriteRepository extends InMemorySearchRunRepository {
+  public activeWritePending = false;
+
+  private activeWriteDelayed = false;
+  private activeWriteRelease?: () => void;
+
+  public override async save(ownerUserId: AuthenticatedUserId, searchRun: SearchRunStatus): Promise<SearchRunStatus> {
+    if (
+      !this.activeWriteDelayed &&
+      searchRun.state === "RUNNING" &&
+      searchRun.submittedCandidateCount === 1 &&
+      searchRun.activeCandidateIds.length === 1
+    ) {
+      this.activeWriteDelayed = true;
+      this.activeWritePending = true;
+      await new Promise<void>((resolve) => {
+        this.activeWriteRelease = resolve;
+      });
+      this.activeWritePending = false;
+    }
+    return super.save(ownerUserId, searchRun);
+  }
+
+  public releaseActiveWrite(): void {
+    if (!this.activeWriteRelease) throw new Error("active SearchRun write is not pending");
+    const release = this.activeWriteRelease;
+    this.activeWriteRelease = undefined;
+    release();
+  }
+}
+
 function makeHarness(options: HarnessOptions = {}) {
-  const repository = new InMemorySearchRunRepository();
+  const repository = options.repository ?? new InMemorySearchRunRepository();
   const candidates = new Map<string, FakeCandidate>();
   const submitted: Array<{
     ownerUserId: AuthenticatedUserId;
@@ -414,6 +446,25 @@ describe("Search application fake-port phase", () => {
     expect(status.activeCandidateIds).toEqual([]);
     expect([...harness.candidates.values()][0]?.status).toBe("CANCELLED");
     expect(harness.cancelled).toHaveLength(2);
+  });
+
+  it("does not let an in-flight RUNNING write overwrite a persisted terminal state", async () => {
+    const repository = new DelayedActiveWriteRepository();
+    const harness = makeHarness({ repository, candidateStatus: "RUNNING" });
+    const started = await harness.app.start(
+      { authenticatedUserId: ownerA },
+      command({ stopCondition: { maxCandidates: 5 } }),
+    );
+    await waitFor(() => repository.activeWritePending);
+
+    const cancellation = harness.app.cancel({ authenticatedUserId: ownerA }, started.searchRunId);
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    repository.releaseActiveWrite();
+    await cancellation;
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+    expect(repository.runs.get(started.searchRunId)?.state).toBe("CANCELLED");
+    expect(repository.runs.get(started.searchRunId)?.activeCandidateIds).toEqual([]);
   });
 
   it("rejects a cross-owner leaderboard scope before creating or saving a SearchRun", async () => {

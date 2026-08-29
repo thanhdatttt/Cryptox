@@ -62,6 +62,7 @@ interface SearchRunControl {
   pollTimer?: ReturnType<typeof setTimeout>;
   deadlineTimer?: ReturnType<typeof setTimeout>;
   deadlineAtMonotonicMs?: number;
+  persistTail: Promise<void>;
 }
 
 const DEADLINE_EXCEEDED = Symbol("DEADLINE_EXCEEDED");
@@ -258,10 +259,12 @@ export function createSearchApplication(
   };
 
   const persist = async (control: SearchRunControl): Promise<void> => {
-    await dependencies.searchRunRepository.save(
-      control.status.ownerUserId,
-      cloneStatus(control.status),
-    );
+    const snapshot = cloneStatus(control.status);
+    const write = control.persistTail.then(async () => {
+      await dependencies.searchRunRepository.save(snapshot.ownerUserId, snapshot);
+    });
+    control.persistTail = write.catch(() => undefined);
+    await write;
   };
 
   const setActiveCandidateIds = (control: SearchRunControl, ids: Iterable<string>): void => {
@@ -711,6 +714,7 @@ export function createSearchApplication(
     rankedTerminalCount: status.completedCandidateCount + status.failedCandidateCount,
     iterationsWithoutImprovement: 0,
     driving: false,
+    persistTail: Promise.resolve(),
   });
 
   const getOwnedControl = async (
