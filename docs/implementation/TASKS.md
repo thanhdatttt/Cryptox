@@ -16,15 +16,15 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 | A-00 | DONE | A | YES | Manager | `MVP_IMPLEMENTATION` / containing A-00 checkpoint commit | Documentation, authority, scope, and strict OpenSpec checks PASS |
 | C-01A | DONE | 1A | YES | Manager / contract worker | `MVP_IMPLEMENTATION` / `9ca2d7c` | Independent review and all contract/global gates PASS |
 | D-01 | DONE | 2 | YES — B-02 gate | Orchestrator / Dewey + independent DB reviewer | `MVP_IMPLEMENTATION` / `f5c5562` | Live down/up/remigrate, schema/constraint/ownership/deferred-scope probes, global gates PASS; config defect fixed |
-| M-01 | READY | 2 | Integration | Unassigned Market Data worker | — | Newly READY after D-01; not authorized by INS-010 |
-| M-02 | BLOCKED | 3 | Integration | Unassigned Market Data worker | — | Not started |
+| M-01 | DONE | 2 | Integration | Halley (Market Data worker) and Manager | `3c95063` | Focused 14/14, dedicated PostgreSQL 1/1, root gates PASS; live Binance UNVERIFIED |
+| M-02 | READY | 3 | Integration | Unassigned Market Data worker | — | Newly READY after M-01; not authorized by INS-012 |
 | S-01 | DONE | 2 | YES | Manager / S-01 strategy | `MVP_IMPLEMENTATION` / containing INS-005 checkpoint commit | Strategy tests/workspace gates PASS; persistence and built-in plugin scopes untouched |
 | S-02 | DONE | 3 | Integration | Manager / reviewed Strategy worker A | `MVP_IMPLEMENTATION` / `afbd88c` | Focused 15/15, independent review, and reproducible root workspace gate PASS |
 | S-03 | DONE | 3 | Integration | Manager / reviewed Strategy worker B | `MVP_IMPLEMENTATION` / `afbd88c` | Focused 25/25, independent review, and reproducible root workspace gate PASS |
 | E-01 | DONE | 2 | YES — B-02 gate | Manager / Evaluation worker | `MVP_IMPLEMENTATION` / `a20a7c5` | Independent review and Evaluation/global gates PASS |
-| L-01 | READY | 2 | YES — B-02 gate | Unassigned Leaderboard worker | — | Newly READY after D-01; not authorized by INS-010 |
+| L-01 | DONE | 2 | YES — B-02 gate | Linnaeus (Leaderboard worker) and Manager | `3c95063` | Focused 16/16, adapter/initializer review, root gates PASS; persisted admission UNVERIFIED |
 | B-01 | DONE | 3 | YES | Manager / reviewed Backtesting domain worker | `MVP_IMPLEMENTATION` / `afbd88c` | Focused 9/9, Backtesting 18/18, independent review, and reproducible root workspace gate PASS |
-| B-02 | BLOCKED | 4 | YES | Unassigned Backtesting application worker | — | Not started |
+| B-02 | READY | 4 | YES | Unassigned Backtesting application worker | — | Newly READY after L-01; not authorized by INS-012 |
 | AU-01 | DONE | 2 | YES | Orchestrator / Kepler / Banach + independent Auth reviewer | `MVP_IMPLEMENTATION` / `a9b026b` | PostgreSQL Auth 11/11 and backend 9/9 PASS on dedicated PostgreSQL 16.10; independent review PASS; full `verify:stage4a` PASS; OpenSpec CLI UNVERIFIED |
 | AU-02 | BLOCKED | 4 | YES | Manager / security integration worker | — | Blocked by private-resource implementations |
 | Q-01 | REVIEW | 3–4 | Integration | Herschel (Q-01 worker; INS-008) | `MVP_IMPLEMENTATION` / `d226a4a` | Pure/fake-port phase reviewed PASS; real-port integration and DONE remain unauthorized |
@@ -136,15 +136,15 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 ### M-01 — Binance Historical Market Data
 
 - **Requirement IDs:** `CSL-R-MD-01`, `CSL-R-RP-01`, `CSL-R-AR-02`, `CSL-R-RD-01`
-- **State / owner / wave:** REVIEW / Halley (Market Data worker) / Wave 2
+- **State / owner / wave:** DONE / Halley (Market Data worker) and Manager / Wave 2
 - **Critical / parallelism:** Integration / YES
 - **Start dependencies:** C-01, D-01
 - **Integration dependencies:** Live smoke before I-01
 - **Objective:** Validate, paginate, normalize, persist, and identify real Binance
   historical candles while retaining deterministic fixtures for tests/development.
 - **Write scope:** `modules/market-data/**` except frozen contracts; its repository/tests.
-- **Latest branch / commit:** `MVP_IMPLEMENTATION` / pending INS-012 integration commit.
-- **Validation:** Worker and Manager review complete; focused module/DB/contract checks pass. Live Binance historical smoke is UNVERIFIED (`fetch failed`).
+- **Latest branch / commit:** `MVP_IMPLEMENTATION` / `3c95063`.
+- **Validation:** Market Data 14/14 focused tests, dedicated PostgreSQL persistence 1/1, build/typecheck/lint, root gates, architecture, artifacts, scope, runtime smoke, and whitespace PASS. Live Binance historical smoke UNVERIFIED (`fetch failed`); OpenSpec CLI UNVERIFIED (unavailable).
 - **Full packet:** [`MVP_PLAN.md#m-01--binance-historical-market-data`](MVP_PLAN.md#m-01--binance-historical-market-data)
 
 ### AU-01 — Simple Authentication and Session Runtime
@@ -249,15 +249,15 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 ### L-01 — Configurable Reproducible Leaderboard
 
 - **Requirement IDs:** `CSL-R-LB-01`, `CSL-R-RP-01`, `CSL-R-OB-01`, `CSL-R-OW-01`
-- **State / owner / wave:** REVIEW / Linnaeus (Leaderboard worker) / Wave 2
+- **State / owner / wave:** DONE / Linnaeus (Leaderboard worker) and Manager / Wave 2
 - **Critical / parallelism:** YES, gates B-02 / YES
 - **Start dependencies:** C-01A, D-01
 - **Integration dependencies:** E-01 and B-02
 - **Objective:** Implement versioned `LINEAR_REQUIRED_V1`, deterministic eligibility,
   ties, user-owned scopes, same-owner admission, and configurable Top-K.
 - **Write scope:** `modules/leaderboard/**` except frozen contracts and migrations.
-- **Latest branch / commit:** `MVP_IMPLEMENTATION` / pending INS-012 integration commit.
-- **Validation:** Worker and Manager review complete; focused suite 16/16 and module build/typecheck/lint pass. Live PostgreSQL end-to-end admission remains unverified; eviction deletes rows under the frozen schema.
+- **Latest branch / commit:** `MVP_IMPLEMENTATION` / `3c95063`.
+- **Validation:** Leaderboard 16/16 focused tests, module build/typecheck/lint, root gates, architecture, artifacts, scope, runtime smoke, and whitespace PASS. PostgreSQL adapter and initializer were verified against the dedicated DB; full persisted admission remains UNVERIFIED. Eviction deletes rows because the frozen schema has no active-entry flag, limiting duplicate detection after eviction/restart.
 - **Full packet:** [`MVP_PLAN.md#l-01--configurable-reproducible-leaderboard`](MVP_PLAN.md#l-01--configurable-reproducible-leaderboard)
 
 ### B-01 — Deterministic Historical Simulator
@@ -434,8 +434,9 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 
 ## State derivation at this checkpoint
 
-P-00, C-01, A-00, C-01A, E-01, F-01, S-01, D-01, and AU-01 are DONE. Q-01 and F-AUTH
-are in REVIEW under `INS-008` for their bounded fake/fixture phases; their real
-integration and DONE transitions remain gated. All other unfinished tasks remain
-BLOCKED by at least one recorded unfinished start dependency. No newly unlocked
-task was started.
+P-00, C-01, A-00, C-01A, E-01, F-01, S-01, D-01, AU-01, M-01, and L-01 are DONE.
+M-02 and B-02 are newly READY after dependency recomputation, but remain unassigned
+and unstarted because INS-012 authorizes only M-01 and L-01. Q-01 and F-AUTH remain
+in REVIEW for their bounded fake/fixture phases; their real integration and DONE
+transitions remain gated. All other unfinished tasks remain BLOCKED. No newly
+unlocked task was started.

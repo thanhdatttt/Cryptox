@@ -5,14 +5,49 @@
 - **Level 2 control plane:** Active. Read `AGENTS.md`, current
   [`INSTRUCTOR.md`](../control/INSTRUCTOR.md), [`DECISIONS.md`](../control/DECISIONS.md),
   [`TASKS.md`](TASKS.md), and this checkpoint before acting.
-- **Current instruction:** `INS-011` / `HOLD`, authorizing only the AU-01
-  TASKS/HANDOFF governance reconciliation. No feature execution is authorized;
-  D-01 and AU-01 must not be reassigned, and M-01/L-01 must not start.
-- **INS-011 reconciliation checkpoint:** Instructor-reviewed HEAD was `8f04e56`.
-  Current HEAD before this governance update is `c149350`, whose only change is
-  the `INS-011` signal in `docs/control/INSTRUCTOR.md`; source, business state,
-  task dependencies, and AU-01 implementation evidence are unchanged. The
-  working tree was clean before this update.
+- **Current instruction:** `INS-012` / `APPROVED_FOR_EXECUTION`, authorizing
+  exactly M-01 and L-01 in parallel. D-01 and AU-01 remain DONE and were not
+  reassigned or reworked.
+- **INS-012 applicability:** PASS. Instructor-reviewed HEAD was `1f56c36`; the
+  only intervening commit before execution was `2872a9c`, changing only the
+  authorized `docs/control/INSTRUCTOR.md` signal. Source, business state, and
+  task DAG were unchanged at execution start. Starting HEAD was `2872a9c` on
+  `MVP_IMPLEMENTATION` with a clean working tree.
+- **INS-012 execution:** Halley implemented M-01 and Linnaeus implemented L-01
+  in disjoint module scopes. Both followed `READY -> IN_PROGRESS -> REVIEW ->
+  DONE`; the Manager reviewed and integrated only scoped changes in `3c95063`.
+- **M-01 result:** Binance historical provider normalization, bounded half-open
+  pagination, malformed/duplicate/out-of-order/gap handling, provenance,
+  PostgreSQL candle/snapshot persistence, provider substitution, shutdown, and
+  focused regressions were added under `modules/market-data/**`. Focused tests
+  passed 14/14 and dedicated PostgreSQL persistence passed 1/1.
+- **L-01 result:** `LINEAR_REQUIRED_V1` scoring and eligibility, exact formula
+  and tie validation, owner-scoped configurable Top-K scopes, idempotent
+  admission/read behavior, PostgreSQL repositories, and module-owned ranking
+  configuration initialization were added under `modules/leaderboard/**`.
+  Focused tests passed 16/16. The frozen schema has no active-entry flag, so
+  PostgreSQL eviction deletes old rows; duplicate detection after eviction or
+  restart is consequently limited and remains a documented integration risk.
+- **Independent review:** No frozen contracts, migrations, frontend/apps,
+  control-plane files outside Manager-owned updates, or unrelated modules were
+  changed. Review found and had Linnaeus fix missing PostgreSQL ranking seed and
+  non-exact runtime formula/tie validation.
+- **Validation:** Build, typecheck, workspace tests, architecture, artifact,
+  deferred-scope, runtime smoke, and whitespace checks PASS. Runtime smoke is
+  `/live=200`, `/ready=503`, `/health=404`. Live Binance historical smoke was
+  attempted and is `UNVERIFIED` because the provider request returned `fetch
+  failed`. Formal OpenSpec CLI validation is also `UNVERIFIED` because the CLI
+  is unavailable. Full persisted Leaderboard admission remains `UNVERIFIED`;
+  adapter initialization was verified against the dedicated PostgreSQL cluster.
+- **Current task state:** M-01 and L-01 are DONE at `3c95063`. DAG recomputation
+  makes M-02 and B-02 READY, but INS-012 does not authorize either task and no
+  newly unlocked work was started. Q-01 and F-AUTH remain REVIEW for their
+  bounded fake/fixture phases; all other unfinished tasks remain BLOCKED.
+- **Authorization status:** INS-012 is exhausted. A fresh Instructor review and
+  new Instruction ID are required before M-02, B-02, Q-01 real integration,
+  F-AUTH real integration, or any other unfinished task starts.
+
+## Historical checkpoints (prior to INS-012)
 - **INS-010 applicability:** PASS at execution start. Instructor reviewed HEAD
   was `bc88f36`; the then-current `7cab605` commit changed only
   `docs/control/INSTRUCTOR.md`, which was the authorized instruction signal.
