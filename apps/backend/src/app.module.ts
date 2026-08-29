@@ -3,6 +3,7 @@ import { BadRequestException, Body, ConflictException, Controller, Get, Headers,
 import { AuthException, type AuthModulePublicApi } from "modules/auth/api";
 import { BACKTEST_RUNTIME_SHA256, BACKTEST_RUNTIME_VERSION } from "modules/backtesting/api/bootstrap";
 import type { Timeframe } from "modules/market-data/api";
+import type { CompositeStrategyDefinition, StrategyDefinition } from "modules/strategy/api";
 import { composeAllModules, type BackendModules } from "./compose";
 import { MarketGateway } from "./market.gateway";
 
@@ -19,6 +20,51 @@ const authHttpError = (error: unknown): never => {
   if (error.code === "INVALID_CREDENTIALS" || error.code === "INVALID_TOKEN") throw new UnauthorizedException(error.message);
   throw new BadRequestException(error.message);
 };
+
+type OwnedStrategyDefinition = StrategyDefinition & { userId: string };
+type OwnedCompositeStrategyDefinition = CompositeStrategyDefinition & { userId: string };
+
+const projectStrategyDefinition = (userId: string, definition: StrategyDefinition): OwnedStrategyDefinition => ({
+  ...definition,
+  // The authenticated principal is authoritative even if an internal adapter
+  // already included an owner field. Request bodies never participate here.
+  userId,
+});
+
+const projectCompositeStrategyDefinition = (userId: string, definition: CompositeStrategyDefinition): OwnedCompositeStrategyDefinition => ({
+  ...definition,
+  userId,
+});
+
+const projectGenerationResult = <T extends {
+  strategyDefinition?: StrategyDefinition;
+  compositeStrategyDefinition?: CompositeStrategyDefinition;
+}>(userId: string, result: T) => ({
+  ...result,
+  ...(result.strategyDefinition ? { strategyDefinition: projectStrategyDefinition(userId, result.strategyDefinition) } : {}),
+  ...(result.compositeStrategyDefinition ? { compositeStrategyDefinition: projectCompositeStrategyDefinition(userId, result.compositeStrategyDefinition) } : {}),
+});
+
+const projectExperimentSummary = <T extends {
+  compositeDefinition: CompositeStrategyDefinition;
+  strategyDefinitions: StrategyDefinition[];
+}>(userId: string, result: T) => ({
+  ...result,
+  compositeDefinition: projectCompositeStrategyDefinition(userId, result.compositeDefinition),
+  strategyDefinitions: result.strategyDefinitions.map((definition) => projectStrategyDefinition(userId, definition)),
+});
+
+const projectVisualization = <T extends {
+  overlays?: unknown;
+  markers?: unknown;
+  candles?: unknown;
+}>(result: T) => ({
+  ...result,
+  // Keep the backend's generic overlays and trade markers intact. The
+  // transport adapter must not recalculate or reinterpret either collection.
+  overlays: Array.isArray(result.overlays) ? result.overlays : [],
+  markers: Array.isArray(result.markers) ? result.markers : [],
+});
 
 @Controller("health")
 export class HealthController {
@@ -89,9 +135,11 @@ const strategyHttpError = (error: unknown): never => {
 
 const backtestHttpError = (error: unknown): never => {
   if (!(error instanceof Error)) throw error;
+  if (["IMPLEMENTATION_ARTIFACT_UNAVAILABLE", "STRATEGY_ARTIFACT_NOT_FOUND", "MISSING_SNAPSHOT", "REPLAY_ARTIFACT_EXPIRED"].includes(error.message)) throw new UnprocessableEntityException(error.message);
   if (error.message.endsWith("_NOT_FOUND")) throw new NotFoundException(error.message);
   if (error.message === "BACKTEST_ACCESS_DENIED") throw new NotFoundException(error.message);
   if (error.message === "BACKTEST_CANDIDATE_NOT_MANUAL") throw new ConflictException(error.message);
+  if (error.message === "SNAPSHOT_INCOMPLETE" || error.message.includes("WARMUP") || error.message.startsWith("INVALID_VISUALIZATION") || error.message.startsWith("VISUALIZATION_")) throw new BadRequestException(error.message);
   if (error.message.startsWith("INVALID_") || error.message.includes("DATASET") || error.message.includes("STRATEGY")) throw new BadRequestException(error.message);
   throw error;
 };
@@ -105,6 +153,31 @@ const auxiliaryHttpError = (error: unknown): never => {
 const positiveNumber = (value: unknown): number | undefined => value === undefined ? undefined : typeof value === "number" && Number.isFinite(value) && value > 0 ? value : undefined;
 const nonNegativeNumber = (value: unknown): number | undefined => value === undefined ? undefined : typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : undefined;
 const positiveInteger = (value: unknown): number | undefined => typeof value === "number" && Number.isInteger(value) && value > 0 ? value : undefined;
+const isRecord = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === "object" && !Array.isArray(value);
+const nonEmptyString = (value: unknown): value is string => typeof value === "string" && value.trim().length > 0;
+const scalarParameters = (value: unknown): Record<string, number | string> | undefined => {
+  if (!isRecord(value)) return undefined;
+  if (Object.values(value).some((item) => typeof item !== "string" && (typeof item !== "number" || !Number.isFinite(item)))) return undefined;
+  return value as Record<string, number | string>;
+};
+const parsePageLimit = (value: string | undefined, defaultValue: number, maximum: number, message: string): number => {
+  const parsed = value === undefined ? defaultValue : Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > maximum) throw new BadRequestException(message);
+  return parsed;
+};
+const parseCompositeComponents = (value: unknown): Array<{ strategyDefinitionId: string; weight: number }> => {
+  if (!Array.isArray(value) || value.length === 0) throw new BadRequestException("components must contain at least one strategy definition.");
+  const components = value.map((item) => {
+    if (!isRecord(item) || !nonEmptyString(item.strategyDefinitionId) || typeof item.weight !== "number" || !Number.isFinite(item.weight)) throw new BadRequestException("components must contain strategyDefinitionId and finite weight values.");
+    return { strategyDefinitionId: item.strategyDefinitionId.trim(), weight: item.weight };
+  });
+  return components;
+};
+const parseThresholds = (value: unknown): { buy: number; sell: number } | undefined => {
+  if (value === undefined) return undefined;
+  if (!isRecord(value) || typeof value.buy !== "number" || !Number.isFinite(value.buy) || typeof value.sell !== "number" || !Number.isFinite(value.sell)) throw new BadRequestException("thresholds must contain finite buy and sell values.");
+  return { buy: value.buy, sell: value.sell };
+};
 const searchHttpError = (error: unknown): never => {
   if (!(error instanceof Error)) throw error;
   if (error.message.endsWith("_NOT_FOUND")) throw new NotFoundException(error.message);
@@ -126,9 +199,11 @@ export class StrategyController extends ProtectedController {
   @Post()
   async define(@Headers("authorization") authorization: string | undefined, @Body() body: { strategyName?: unknown; parameters?: unknown }) {
     const userId = await this.authenticate(authorization);
-    if (typeof body?.strategyName !== "string" || !body.parameters || typeof body.parameters !== "object" || Array.isArray(body.parameters)) throw new BadRequestException("strategyName and parameters are required.");
+    const parameters = scalarParameters(body?.parameters);
+    if (!nonEmptyString(body?.strategyName) || parameters === undefined) throw new BadRequestException("strategyName and parameters are required.");
     try {
-      return await this.modules.strategy.defineStrategy(userId, body.strategyName, body.parameters as Record<string, number | string>);
+      const definition = await this.modules.strategy.defineStrategy(userId, body.strategyName.trim(), parameters);
+      return projectStrategyDefinition(userId, definition);
     } catch (error) {
       return strategyHttpError(error);
     }
@@ -137,9 +212,12 @@ export class StrategyController extends ProtectedController {
   @Post("composites")
   async defineComposite(@Headers("authorization") authorization: string | undefined, @Body() body: { method?: unknown; components?: unknown; thresholds?: unknown }) {
     const userId = await this.authenticate(authorization);
-    if ((body?.method !== "MAJORITY_VOTE" && body?.method !== "WEIGHTED_SCORE") || !Array.isArray(body.components)) throw new BadRequestException("method and components are required.");
+    if (body?.method !== "MAJORITY_VOTE" && body?.method !== "WEIGHTED_SCORE") throw new BadRequestException("method and components are required.");
+    const components = parseCompositeComponents(body?.components);
+    const thresholds = parseThresholds(body?.thresholds);
     try {
-      return await this.modules.strategy.defineComposite(userId, { method: body.method, components: body.components as Array<{ strategyDefinitionId: string; weight: number }>, thresholds: body.thresholds as { buy: number; sell: number } | undefined });
+      const composite = await this.modules.strategy.defineComposite(userId, { method: body.method, components, thresholds });
+      return projectCompositeStrategyDefinition(userId, composite);
     } catch (error) {
       return strategyHttpError(error);
     }
@@ -149,7 +227,8 @@ export class StrategyController extends ProtectedController {
   async definitions(@Headers("authorization") authorization: string | undefined, @Query("ids") ids?: string) {
     const userId = await this.authenticate(authorization);
     try {
-      return ids ? await this.modules.strategy.readDefinitions(userId, ids.split(",").filter(Boolean)) : await this.modules.strategy.listDefinitions(userId);
+      const definitions = ids ? await this.modules.strategy.readDefinitions(userId, ids.split(",").filter(Boolean)) : await this.modules.strategy.listDefinitions(userId);
+      return definitions.map((definition) => projectStrategyDefinition(userId, definition));
     } catch (error) {
       return strategyHttpError(error);
     }
@@ -158,14 +237,14 @@ export class StrategyController extends ProtectedController {
   @Get("composites")
   async composites(@Headers("authorization") authorization: string | undefined) {
     const userId = await this.authenticate(authorization);
-    return this.modules.strategy.listComposites(userId);
+    try { return (await this.modules.strategy.listComposites(userId)).map((composite) => projectCompositeStrategyDefinition(userId, composite)); } catch (error) { return strategyHttpError(error); }
   }
 
   @Get("composites/:id")
   async composite(@Headers("authorization") authorization: string | undefined, @Param("id") id: string) {
     const userId = await this.authenticate(authorization);
     try {
-      return await this.modules.strategy.readComposite(userId, id);
+      return projectCompositeStrategyDefinition(userId, await this.modules.strategy.readComposite(userId, id));
     } catch (error) {
       return strategyHttpError(error);
     }
@@ -181,10 +260,10 @@ export class StrategyGenerationController extends ProtectedController {
   async generate(@Headers("authorization") authorization: string | undefined, @Body() body: { sourceType?: unknown; text?: unknown; url?: unknown }) {
     const userId = await this.authenticate(authorization);
     if (body?.sourceType === "TEXT" && body.url === undefined && typeof body.text === "string" && body.text.trim()) {
-      try { return await this.modules.strategy.generateStrategy(userId, { sourceType: "TEXT", text: body.text }); } catch (error) { return strategyHttpError(error); }
+      try { return projectGenerationResult(userId, await this.modules.strategy.generateStrategy(userId, { sourceType: "TEXT", text: body.text })); } catch (error) { return strategyHttpError(error); }
     }
     if (body?.sourceType === "URL" && body.text === undefined && typeof body.url === "string" && body.url.trim()) {
-      try { return await this.modules.strategy.generateStrategy(userId, { sourceType: "URL", url: body.url }); } catch (error) { return strategyHttpError(error); }
+      try { return projectGenerationResult(userId, await this.modules.strategy.generateStrategy(userId, { sourceType: "URL", url: body.url })); } catch (error) { return strategyHttpError(error); }
     }
     throw new BadRequestException("sourceType and a non-empty text or URL are required.");
   }
@@ -343,17 +422,47 @@ export class BacktestController extends ProtectedController {
   async start(
     @Headers("authorization") authorization: string | undefined,
     @Headers("idempotency-key") idempotencyKey: string | undefined,
-    @Body() body: { leaderboardScopeId?: unknown; strategyDefinitionIds?: unknown; compositeDefinitionId?: unknown; maxAttempts?: unknown },
+    @Body() body: { leaderboardScopeId?: unknown; selectionMode?: unknown; strategyDefinitionIds?: unknown; compositeDefinitionId?: unknown; maxAttempts?: unknown },
   ) {
     const userId = await this.authenticate(authorization);
-    if (typeof body?.leaderboardScopeId !== "string" || !Array.isArray(body.strategyDefinitionIds) || body.strategyDefinitionIds.length === 0 || body.strategyDefinitionIds.some((id) => typeof id !== "string") || typeof body.compositeDefinitionId !== "string") throw new BadRequestException("leaderboardScopeId, strategyDefinitionIds, and compositeDefinitionId are required.");
+    if (!nonEmptyString(body?.leaderboardScopeId) || !Array.isArray(body?.strategyDefinitionIds) || body.strategyDefinitionIds.length === 0 || body.strategyDefinitionIds.some((id) => !nonEmptyString(id))) throw new BadRequestException("leaderboardScopeId and strategyDefinitionIds are required.");
+    const strategyDefinitionIds = body.strategyDefinitionIds.map((id) => id.trim());
+    if (new Set(strategyDefinitionIds).size !== strategyDefinitionIds.length) throw new BadRequestException("strategyDefinitionIds must not contain duplicates.");
+    if (body?.selectionMode !== undefined && body.selectionMode !== "SINGLE" && body.selectionMode !== "COMPOSITE") throw new BadRequestException("selectionMode must be SINGLE or COMPOSITE.");
+    if (body?.compositeDefinitionId !== undefined && !nonEmptyString(body.compositeDefinitionId)) throw new BadRequestException("compositeDefinitionId must be a non-empty string when supplied.");
     const maxAttempts = body.maxAttempts === undefined ? 1 : typeof body.maxAttempts === "number" ? body.maxAttempts : undefined;
     if (!Number.isInteger(maxAttempts) || maxAttempts === undefined || maxAttempts < 1) throw new BadRequestException("maxAttempts must be a positive integer.");
     try {
-      const strategyDefinitions = await this.modules.strategy.readDefinitions(userId, body.strategyDefinitionIds);
-      const compositeDefinition = await this.modules.strategy.readComposite(userId, body.compositeDefinitionId);
-      return await this.modules.backtesting.startManual({ userId }, { leaderboardScopeId: body.leaderboardScopeId, strategyDefinitions, compositeDefinition, maxAttempts }, { submissionIdempotencyKey: idempotencyKey?.trim() || undefined });
+      const strategyDefinitions = await this.modules.strategy.readDefinitions(userId, strategyDefinitionIds);
+      const compositeDefinition = body.compositeDefinitionId === undefined
+        ? await this.normalizeSingleDefinition(userId, strategyDefinitionIds, body.selectionMode, strategyDefinitions)
+        : await this.modules.strategy.readComposite(userId, body.compositeDefinitionId.trim());
+      this.assertSelectionMode(body.selectionMode, strategyDefinitionIds, compositeDefinition);
+      return await this.modules.backtesting.startManual({ userId }, { leaderboardScopeId: body.leaderboardScopeId.trim(), strategyDefinitions, compositeDefinition, maxAttempts }, { submissionIdempotencyKey: idempotencyKey?.trim() || undefined });
     } catch (error) { return backtestHttpError(error); }
+  }
+
+  private async normalizeSingleDefinition(
+    userId: string,
+    strategyDefinitionIds: string[],
+    selectionMode: unknown,
+    strategyDefinitions: StrategyDefinition[],
+  ): Promise<CompositeStrategyDefinition> {
+    if (strategyDefinitionIds.length !== 1 || selectionMode === "COMPOSITE" || strategyDefinitions.length !== 1) throw new BadRequestException("a single manual backtest requires exactly one strategy definition.");
+    if (typeof this.modules.strategy.defineComposite !== "function") throw new BadRequestException("a composite definition is required for manual backtests.");
+    return this.modules.strategy.defineComposite(userId, {
+      method: "WEIGHTED_SCORE",
+      components: [{ strategyDefinitionId: strategyDefinitionIds[0]!, weight: 1 }],
+      thresholds: { buy: 0.3, sell: -0.3 },
+    });
+  }
+
+  private assertSelectionMode(selectionMode: unknown, strategyDefinitionIds: string[], compositeDefinition: CompositeStrategyDefinition): void {
+    if (selectionMode === undefined) return;
+    const components = compositeDefinition.components;
+    const isSingle = strategyDefinitionIds.length === 1 && components.length === 1 && components[0]?.strategyDefinitionId === strategyDefinitionIds[0] && components[0]?.weight === 1;
+    const isComposite = components.length >= 2;
+    if ((selectionMode === "SINGLE" && !isSingle) || (selectionMode === "COMPOSITE" && !isComposite)) throw new BadRequestException("selectionMode does not match the supplied immutable strategy selection.");
   }
 
   @Post(":candidateId/cancel")
@@ -376,18 +485,18 @@ export class BacktestAttemptController extends ProtectedController {
   @Get(":attemptId")
   async read(@Headers("authorization") authorization: string | undefined, @Param("attemptId") attemptId: string) { const userId = await this.authenticate(authorization); try { return await this.modules.backtesting.readAttempt({ userId }, attemptId); } catch (error) { return backtestHttpError(error); } }
   @Get(":attemptId/trades")
-  async trades(@Headers("authorization") authorization: string | undefined, @Param("attemptId") attemptId: string, @Query("limit") limit?: string, @Query("cursor") cursor?: string) { const userId = await this.authenticate(authorization); const parsed = limit === undefined ? 100 : Number(limit); if (!Number.isInteger(parsed) || parsed < 1) throw new BadRequestException("limit must be a positive integer."); try { return await this.modules.backtesting.listAttemptTrades({ userId }, attemptId, { limit: parsed, cursor }); } catch (error) { return backtestHttpError(error); } }
+  async trades(@Headers("authorization") authorization: string | undefined, @Param("attemptId") attemptId: string, @Query("limit") limit?: string, @Query("cursor") cursor?: string) { const userId = await this.authenticate(authorization); const parsed = parsePageLimit(limit, 10, 500, "limit must be an integer from 1 to 500."); try { return await this.modules.backtesting.listAttemptTrades({ userId }, attemptId, { limit: parsed, cursor }); } catch (error) { return backtestHttpError(error); } }
 }
 
 @Controller("experiments")
 export class ExperimentController extends ProtectedController {
   constructor(@Inject(BACKEND_MODULES) modules: BackendModules) { super(modules); }
   @Get(":experimentId")
-  async read(@Headers("authorization") authorization: string | undefined, @Param("experimentId") experimentId: string) { const userId = await this.authenticate(authorization); try { return await this.modules.backtesting.readExperimentSummary({ userId }, experimentId); } catch (error) { return backtestHttpError(error); } }
+  async read(@Headers("authorization") authorization: string | undefined, @Param("experimentId") experimentId: string) { const userId = await this.authenticate(authorization); try { return projectExperimentSummary(userId, await this.modules.backtesting.readExperimentSummary({ userId }, experimentId)); } catch (error) { return backtestHttpError(error); } }
   @Get(":experimentId/trades")
-  async trades(@Headers("authorization") authorization: string | undefined, @Param("experimentId") experimentId: string, @Query("limit") limit?: string, @Query("cursor") cursor?: string) { const userId = await this.authenticate(authorization); const parsed = limit === undefined ? 100 : Number(limit); if (!Number.isInteger(parsed) || parsed < 1) throw new BadRequestException("limit must be a positive integer."); try { return await this.modules.backtesting.listExperimentTrades({ userId }, experimentId, { limit: parsed, cursor }); } catch (error) { return backtestHttpError(error); } }
+  async trades(@Headers("authorization") authorization: string | undefined, @Param("experimentId") experimentId: string, @Query("limit") limit?: string, @Query("cursor") cursor?: string) { const userId = await this.authenticate(authorization); const parsed = parsePageLimit(limit, 10, 500, "limit must be an integer from 1 to 500."); try { return await this.modules.backtesting.listExperimentTrades({ userId }, experimentId, { limit: parsed, cursor }); } catch (error) { return backtestHttpError(error); } }
   @Get(":experimentId/visualization")
-  async visualization(@Headers("authorization") authorization: string | undefined, @Param("experimentId") experimentId: string, @Query("limit") limit?: string, @Query("cursor") cursor?: string, @Query("from") from?: string, @Query("to") to?: string, @Query("highlightTradeId") highlightTradeId?: string) { const userId = await this.authenticate(authorization); const parsed = limit === undefined ? 1000 : Number(limit); if (!Number.isInteger(parsed) || parsed < 1) throw new BadRequestException("limit must be a positive integer."); try { return await this.modules.backtesting.readExperimentVisualization({ userId }, experimentId, { limit: parsed, cursor, from, to, highlightTradeId }); } catch (error) { return backtestHttpError(error); } }
+  async visualization(@Headers("authorization") authorization: string | undefined, @Param("experimentId") experimentId: string, @Query("limit") limit?: string, @Query("cursor") cursor?: string, @Query("from") from?: string, @Query("to") to?: string, @Query("highlightTradeId") highlightTradeId?: string) { const userId = await this.authenticate(authorization); const parsed = parsePageLimit(limit, 500, 2000, "limit must be an integer from 1 to 2000."); try { return projectVisualization(await this.modules.backtesting.readExperimentVisualization({ userId }, experimentId, { limit: parsed, cursor, from, to, highlightTradeId })); } catch (error) { return backtestHttpError(error); } }
   @Post(":experimentId/replay")
   async replay(@Headers("authorization") authorization: string | undefined, @Param("experimentId") experimentId: string) { const userId = await this.authenticate(authorization); try { return await this.modules.backtesting.verifyReplay({ userId }, experimentId); } catch (error) { return backtestHttpError(error); } }
 }
@@ -424,7 +533,7 @@ export class SearchController extends ProtectedController {
   @Post(":searchRunId/cancel")
   async cancel(@Headers("authorization") authorization: string | undefined, @Param("searchRunId") searchRunId: string) { const userId = await this.authenticate(authorization); try { await this.modules.search.cancel({ userId }, searchRunId); } catch (error) { return searchHttpError(error); } }
   @Get(":searchRunId/candidates")
-  async candidates(@Headers("authorization") authorization: string | undefined, @Param("searchRunId") searchRunId: string, @Query("limit") limit?: string, @Query("cursor") cursor?: string) { const userId = await this.authenticate(authorization); const parsed = limit === undefined ? 100 : Number(limit); if (!Number.isInteger(parsed) || parsed < 1) throw new BadRequestException("limit must be a positive integer."); try { await this.modules.search.status({ userId }, searchRunId); return await this.modules.backtesting.listSearchCandidates({ userId }, searchRunId, { limit: parsed, cursor }); } catch (error) { return searchHttpError(error); } }
+  async candidates(@Headers("authorization") authorization: string | undefined, @Param("searchRunId") searchRunId: string, @Query("limit") limit?: string, @Query("cursor") cursor?: string) { const userId = await this.authenticate(authorization); const parsed = parsePageLimit(limit, 20, 500, "limit must be an integer from 1 to 500."); try { await this.modules.search.status({ userId }, searchRunId); return await this.modules.backtesting.listSearchCandidates({ userId }, searchRunId, { limit: parsed, cursor }); } catch (error) { return searchHttpError(error); } }
   @Get(":searchRunId/leaderboard")
   async leaderboard(@Headers("authorization") authorization: string | undefined, @Param("searchRunId") searchRunId: string) { const userId = await this.authenticate(authorization); try { return await this.modules.search.leaderboard({ userId }, searchRunId); } catch (error) { return searchHttpError(error); } }
 }

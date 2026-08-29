@@ -77,6 +77,85 @@ describe("backend composition", () => {
     await expect(new StrategyGenerationController(modules).generate(`Bearer ${token}`, { sourceType: "URL", url: "file:///unsafe" })).rejects.toBeInstanceOf(BadRequestException);
   });
 
+  it("projects authenticated ownership onto strategy contracts and ignores forged body owners", async () => {
+    const calls: unknown[] = [];
+    const definition = { id: "definition-1", logicalFamilyKey: "strategy:MA", strategyName: "MA", implementationVersion: "1", implementationSha256: "a".repeat(64), version: 1, parameters: { fastPeriod: 20, slowPeriod: 50 }, createdAt: "2025-01-01T00:00:00.000Z" };
+    const composite = { id: "composite-1", logicalFamilyKey: "composite:WEIGHTED_SCORE:definition-1", version: 1, method: "WEIGHTED_SCORE" as const, components: [{ strategyDefinitionId: definition.id, weight: 1 }], thresholds: { buy: 0.3, sell: -0.3 }, createdAt: definition.createdAt };
+    const modules = {
+      auth: { verify: async () => ({ userId: "user-1" }) },
+      strategy: {
+        defineStrategy: async (owner: string) => { calls.push(["define", owner]); return { ...definition, userId: "forged-user" }; },
+        defineComposite: async (owner: string) => { calls.push(["composite", owner]); return { ...composite, userId: "forged-user" }; },
+        readDefinitions: async (owner: string) => { calls.push(["definitions", owner]); return [definition]; },
+        listDefinitions: async (owner: string) => { calls.push(["list-definitions", owner]); return [definition]; },
+        listComposites: async (owner: string) => { calls.push(["list-composites", owner]); return [composite]; },
+        readComposite: async (owner: string) => { calls.push(["read-composite", owner]); return composite; },
+        generateStrategy: async (owner: string) => { calls.push(["generate", owner]); return { generationId: "generation-1", kind: "SINGLE" as const, strategyDefinition: definition, modelName: "test", modelVersion: "1", promptVersion: "1" }; },
+      },
+    } as unknown as BackendModules;
+    const controller = new StrategyController(modules);
+
+    await expect(controller.define("Bearer token", { strategyName: "MA", parameters: { fastPeriod: 20, slowPeriod: 50 }, userId: "forged-user" } as never)).resolves.toMatchObject({ id: definition.id, userId: "user-1" });
+    await expect(controller.defineComposite("Bearer token", { method: "WEIGHTED_SCORE", components: [{ strategyDefinitionId: definition.id, weight: 1 }], thresholds: composite.thresholds, userId: "forged-user" } as never)).resolves.toMatchObject({ id: composite.id, userId: "user-1" });
+    await expect(controller.definitions("Bearer token", definition.id)).resolves.toEqual([{ ...definition, userId: "user-1" }]);
+    await expect(controller.composites("Bearer token")).resolves.toEqual([{ ...composite, userId: "user-1" }]);
+    await expect(controller.composite("Bearer token", composite.id)).resolves.toEqual({ ...composite, userId: "user-1" });
+    await expect(new StrategyGenerationController(modules).generate("Bearer token", { sourceType: "TEXT", text: "Use MA" })).resolves.toMatchObject({ strategyDefinition: { id: definition.id, userId: "user-1" } });
+
+    expect(calls).toContainEqual(["define", "user-1"]);
+    expect(calls).toContainEqual(["composite", "user-1"]);
+    expect(calls).toContainEqual(["definitions", "user-1"]);
+    expect(calls).toContainEqual(["generate", "user-1"]);
+  });
+
+  it("normalizes a valid single-definition manual backtest to a weighted one-component composite", async () => {
+    const calls: unknown[] = [];
+    const definition = { id: "definition-1", logicalFamilyKey: "strategy:MA", strategyName: "MA", implementationVersion: "1", implementationSha256: "a".repeat(64), version: 1, parameters: {}, createdAt: "2025-01-01T00:00:00.000Z" };
+    const composite = { id: "composite-1", logicalFamilyKey: "composite:WEIGHTED_SCORE:definition-1", version: 1, method: "WEIGHTED_SCORE" as const, components: [{ strategyDefinitionId: definition.id, weight: 1 }], thresholds: { buy: 0.3, sell: -0.3 }, createdAt: definition.createdAt };
+    const modules = {
+      auth: { verify: async () => ({ userId: "user-1" }) },
+      strategy: {
+        readDefinitions: async (owner: string, ids: string[]) => { calls.push(["read-definitions", owner, ids]); return ids.map(() => definition); },
+        defineComposite: async (owner: string, command: unknown) => { calls.push(["define-composite", owner, command]); return composite; },
+      },
+      backtesting: {
+        startManual: async (auth: unknown, command: unknown) => { calls.push(["start-manual", auth, command]); return { candidateId: "candidate-1", jobId: "candidate-1", status: "QUEUED" }; },
+      },
+    } as unknown as BackendModules;
+    const controller = new BacktestController(modules);
+
+    await expect(controller.start("Bearer token", "submission-key", { leaderboardScopeId: "scope-1", selectionMode: "SINGLE", strategyDefinitionIds: [definition.id], maxAttempts: 2, userId: "forged-user" } as never)).resolves.toEqual({ candidateId: "candidate-1", jobId: "candidate-1", status: "QUEUED" });
+    expect(calls).toContainEqual(["define-composite", "user-1", { method: "WEIGHTED_SCORE", components: [{ strategyDefinitionId: definition.id, weight: 1 }], thresholds: { buy: 0.3, sell: -0.3 } }]);
+    expect(calls).toContainEqual(["start-manual", { userId: "user-1" }, { leaderboardScopeId: "scope-1", strategyDefinitions: [definition], compositeDefinition: composite, maxAttempts: 2 }]);
+
+    await expect(controller.start("Bearer token", undefined, { leaderboardScopeId: "scope-1", selectionMode: "COMPOSITE", strategyDefinitionIds: [definition.id] })).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it("preserves nested owners, generic visualization overlays, markers, and canonical transport error statuses", async () => {
+    const definition = { id: "definition-1", logicalFamilyKey: "strategy:MA", strategyName: "MA", implementationVersion: "1", implementationSha256: "a".repeat(64), version: 1, parameters: {}, createdAt: "2025-01-01T00:00:00.000Z" };
+    const composite = { id: "composite-1", logicalFamilyKey: "composite:MA", version: 1, method: "MAJORITY_VOTE" as const, components: [{ strategyDefinitionId: definition.id, weight: 0 }], createdAt: definition.createdAt };
+    const overlays = [{ id: "overlay-1", strategyDefinitionId: definition.id, kind: "LINE" as const, label: "MA", points: [{ time: definition.createdAt, value: 100 }] }];
+    const markers = [{ id: "trade-1:ENTRY", tradeId: "trade-1", sequence: 1, kind: "ENTRY" as const, time: definition.createdAt, price: 100, highlighted: true }];
+    const calls: unknown[] = [];
+    const modules = {
+      auth: { verify: async () => ({ userId: "user-1" }) },
+      backtesting: {
+        readExperimentSummary: async () => ({ id: "experiment-1", compositeDefinition: composite, strategyDefinitions: [definition] }),
+        readExperimentVisualization: async (auth: unknown, experimentId: string, request: unknown) => { calls.push([auth, experimentId, request]); return { experimentId, candles: [], overlays, markers, nextCursor: "next" }; },
+      },
+    } as unknown as BackendModules;
+    const controller = new ExperimentController(modules);
+
+    await expect(controller.read("Bearer token", "experiment-1")).resolves.toMatchObject({ compositeDefinition: { userId: "user-1" }, strategyDefinitions: [{ userId: "user-1" }] });
+    await expect(controller.visualization("Bearer token", "experiment-1", undefined, undefined, undefined, undefined, "trade-1")).resolves.toEqual({ experimentId: "experiment-1", candles: [], overlays, markers, nextCursor: "next" });
+    expect(calls).toContainEqual([{ userId: "user-1" }, "experiment-1", { limit: 500, cursor: undefined, from: undefined, to: undefined, highlightTradeId: "trade-1" }]);
+
+    for (const [message, expected] of [["IMPLEMENTATION_ARTIFACT_UNAVAILABLE", UnprocessableEntityException], ["STRATEGY_ARTIFACT_NOT_FOUND", UnprocessableEntityException], ["MISSING_SNAPSHOT", UnprocessableEntityException], ["SNAPSHOT_INCOMPLETE", BadRequestException], ["INVALID_VISUALIZATION_PAGE", BadRequestException]] as const) {
+      const errorController = new ExperimentController({ auth: { verify: async () => ({ userId: "user-1" }) }, backtesting: { readExperimentVisualization: async () => { throw new Error(message); } } } as unknown as BackendModules);
+      await expect(errorController.visualization("Bearer token", "experiment-1", "10")).rejects.toBeInstanceOf(expected);
+    }
+  });
+
   it("maps generation validation, unusable-source, and bounded model failures to documented HTTP statuses", async () => {
     const controller = new StrategyGenerationController({
       auth: { verify: async () => ({ userId: "user-1" }) },
@@ -97,14 +176,15 @@ describe("backend composition", () => {
     const auth = createAuthModule(createInMemoryAuthDependencies());
     await auth.register("backtest@example.com", "correct-horse-battery-staple");
     const { token } = await auth.login("backtest@example.com", "correct-horse-battery-staple");
+    const owner = await auth.verify(token);
     const snapshot = { id: "snapshot-1", pair: "BTCUSDT", pairMetadata: { pair: "BTCUSDT", baseAsset: "BTC", quoteAsset: "USDT", settlementAsset: "USDT" }, timeframe: "1h" as const, range: { from: "2025-01-01T00:00:00.000Z", to: "2025-01-01T03:00:00.000Z" }, candleCount: 3, sha256: "a".repeat(64), createdAt: "2025-01-01T00:00:00.000Z" };
     const candles = [
       { pair: "BTCUSDT", timeframe: "1h" as const, timestamp: "2025-01-01T00:00:00.000Z", open: 100, high: 102, low: 99, close: 101, volume: 1, isClosed: true },
       { pair: "BTCUSDT", timeframe: "1h" as const, timestamp: "2025-01-01T01:00:00.000Z", open: 102, high: 106, low: 101, close: 105, volume: 1, isClosed: true },
       { pair: "BTCUSDT", timeframe: "1h" as const, timestamp: "2025-01-01T02:00:00.000Z", open: 106, high: 111, low: 105, close: 110, volume: 1, isClosed: true },
     ];
-    const definition = { id: "definition-1", logicalFamilyKey: "strategy:test", strategyName: "TEST", implementationVersion: "1", implementationSha256: "b".repeat(64), version: 1, parameters: {}, createdAt: snapshot.createdAt };
-    const composite = { id: "composite-1", logicalFamilyKey: "composite:test", version: 1, method: "MAJORITY_VOTE" as const, components: [{ strategyDefinitionId: definition.id, weight: 0 }], createdAt: snapshot.createdAt };
+    const definition = { id: "definition-1", userId: owner.userId, logicalFamilyKey: "strategy:test", strategyName: "TEST", implementationVersion: "1", implementationSha256: "b".repeat(64), version: 1, parameters: {}, createdAt: snapshot.createdAt };
+    const composite = { id: "composite-1", userId: owner.userId, logicalFamilyKey: "composite:test", version: 1, method: "MAJORITY_VOTE" as const, components: [{ strategyDefinitionId: definition.id, weight: 0 }], createdAt: snapshot.createdAt };
     let id = 0;
     const backtesting = createBacktestingService({ ...createInMemoryBacktestingDependencies(), marketData: { readDatasetSnapshot: async () => ({ snapshot, candles }) }, strategy: { readDefinitions: async (_userId, ids) => ids.map((id) => ({ ...definition, id })), readComposite: async (_userId, id) => ({ ...composite, id }), resolveStrategy: async () => ({ name: "test", category: "TREND", analyze: (context) => context.candles.length === 1 ? "BUY" : "HOLD" }), combineSignals: (_composite, signals) => signals[0]?.signal ?? "HOLD" }, evaluation: createEvaluationModule(), clock: { now: () => "2025-01-01T03:00:00.000Z" }, idGenerator: () => `id-${id++}` });
     const leaderboard = createLeaderboardModule({ ...createInMemoryLeaderboardDependencies(), scopeRepository: createBacktestingScopeRepository(backtesting), experimentReader: createBacktestingExperimentReader(backtesting), clock: { now: () => "2025-01-01T03:00:00.000Z" } });
