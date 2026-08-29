@@ -13,9 +13,28 @@ const approvedProfileBoundaries = {
   "SYNTHETIC_SHORT_PAPER_V1": ["modules/backtesting/api/contracts.ts", "modules/backtesting/application/ports.ts", "packages/contracts/rest/backtesting/", "infra/db/migrations/"],
   "STOP_LOSS_WINS_V1": ["modules/backtesting/api/contracts.ts", "modules/backtesting/application/ports.ts", "packages/contracts/rest/backtesting/", "infra/db/migrations/"],
   "LLM_AUTHORING_V1": ["modules/strategy/api/contracts.ts", "modules/strategy/application/ports.ts", "packages/contracts/rest/strategy/", "infra/db/migrations/"],
-  "WEIGHTED_VOTE_V1": ["modules/strategy/api/contracts.ts", "modules/strategy/application/ports.ts", "packages/contracts/rest/strategy/", "infra/db/migrations/"],
-  "SMC_LITE_V1": ["modules/strategy/api/contracts.ts", "modules/strategy/application/ports.ts", "packages/contracts/rest/strategy/", "infra/db/migrations/"],
-  "WYCKOFF_LITE_V1": ["modules/strategy/api/contracts.ts", "modules/strategy/application/ports.ts", "packages/contracts/rest/strategy/", "infra/db/migrations/"],
+  "WEIGHTED_VOTE_V1": [
+    "modules/strategy/api/contracts.ts",
+    "modules/strategy/application/ports.ts",
+    "packages/contracts/rest/strategy/",
+    "infra/db/migrations/",
+    "modules/strategy/application/composite/",
+    "modules/strategy/domain/composite/",
+  ],
+  "SMC_LITE_V1": [
+    "modules/strategy/api/contracts.ts",
+    "modules/strategy/application/ports.ts",
+    "packages/contracts/rest/strategy/",
+    "infra/db/migrations/",
+    "modules/strategy/domain/plugins/smc-lite/",
+  ],
+  "WYCKOFF_LITE_V1": [
+    "modules/strategy/api/contracts.ts",
+    "modules/strategy/application/ports.ts",
+    "packages/contracts/rest/strategy/",
+    "infra/db/migrations/",
+    "modules/strategy/domain/plugins/wyckoff-lite/",
+  ],
   "MARKET_OBSERVABILITY_V1": ["modules/market-data/api/contracts.ts", "modules/market-data/application/ports.ts", "packages/contracts/websocket/"],
 };
 const genericForbiddenPatterns = [
@@ -64,7 +83,10 @@ function containsActiveFile(target) {
 }
 
 function isWithinBoundary(relativePath, boundaries) {
-  return boundaries.some((boundary) => relativePath === boundary || relativePath.startsWith(boundary));
+  return boundaries.some((boundary) => {
+    if (boundary.endsWith("/")) return relativePath.startsWith(boundary);
+    return relativePath === boundary;
+  });
 }
 
 function approvedRiskProhibitionRanges(relativePath, content) {

@@ -29,6 +29,32 @@ test("permits approved DEC-007 profiles only in named contract boundaries", () =
   }, (fixture) => assert.deepEqual(scanDeferredScope(fixture), []));
 });
 
+test("permits approved Strategy extension profiles in their exact implementation directories", () => {
+  withFixture({
+    "modules/strategy/application/composite/weighted-vote.ts": "export const profile = 'WEIGHTED_VOTE_V1';",
+    "modules/strategy/domain/composite/weighted-vote.ts": "export const profile = 'WEIGHTED_VOTE_V1';",
+    "modules/strategy/domain/plugins/smc-lite/index.ts": "export const profile = 'SMC_LITE_V1';",
+    "modules/strategy/domain/plugins/wyckoff-lite/index.ts": "export const profile = 'WYCKOFF_LITE_V1';",
+  }, (fixture) => assert.deepEqual(scanDeferredScope(fixture), []));
+});
+
+test("rejects approved Strategy extension profiles outside their exact implementation directories", () => {
+  withFixture({
+    "modules/strategy/api/contracts.tsx": "export const profile = 'WEIGHTED_VOTE_V1';",
+    "modules/strategy/application/composite-legacy/weighted-vote.ts": "export const profile = 'WEIGHTED_VOTE_V1';",
+    "modules/strategy/domain/composite-legacy/weighted-vote.ts": "export const profile = 'WEIGHTED_VOTE_V1';",
+    "modules/strategy/domain/plugins/smc-lite-legacy/index.ts": "export const profile = 'SMC_LITE_V1';",
+    "modules/strategy/domain/plugins/wyckoff-lite-legacy/index.ts": "export const profile = 'WYCKOFF_LITE_V1';",
+  }, (fixture) => {
+    const findings = scanDeferredScope(fixture).join("\n");
+    assert.match(findings, /modules\/strategy\/api\/contracts\.tsx: approved profile WEIGHTED_VOTE_V1 is outside its supported boundary/);
+    assert.match(findings, /modules\/strategy\/application\/composite-legacy\/weighted-vote\.ts: approved profile WEIGHTED_VOTE_V1 is outside its supported boundary/);
+    assert.match(findings, /modules\/strategy\/domain\/composite-legacy\/weighted-vote\.ts: approved profile WEIGHTED_VOTE_V1 is outside its supported boundary/);
+    assert.match(findings, /modules\/strategy\/domain\/plugins\/smc-lite-legacy\/index\.ts: approved profile SMC_LITE_V1 is outside its supported boundary/);
+    assert.match(findings, /modules\/strategy\/domain\/plugins\/wyckoff-lite-legacy\/index\.ts: approved profile WYCKOFF_LITE_V1 is outside its supported boundary/);
+  });
+});
+
 test("rejects an otherwise approved profile outside its named boundary", () => {
   withFixture({
     "modules/strategy/api/contracts.ts": "export const profile = 'DOMAIN_GUIDED_V1';",

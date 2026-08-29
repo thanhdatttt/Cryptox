@@ -1,138 +1,103 @@
-# INS-036 Execution Checkpoint
+# INS-039 Execution Checkpoint — ENV-02
 
 ## Resume here
 
-- **Authorization:** `INS-036 / APPROVED_FOR_EXECUTION`, exactly S-05 immutable
-  `WEIGHTED_VOTE_V1` and S-06 deterministic `SMC_LITE_V1`/
-  `WYCKOFF_LITE_V1`; no registration or downstream packet.
-- **Starting checkpoint:** `MVP_IMPLEMENTATION` /
-  `79eacf032d848549b7181a8192b15b704ec21403` (`docs(control): authorize INS-036
-  strategy extensions`). Before allocation, the branch and HEAD matched the
-  reviewed signal, the canonical checkout was clean, and the only diff from the
-  reviewed source checkpoint was the Instructor control signal.
-- **Pre-dispatch applicability:** PASS — `INSTRUCTOR.md` still named INS-036 and
-  `APPROVED_FOR_EXECUTION`; C-02 and S-01 were DONE; S-05 and S-06 were BLOCKED;
-  S-05/S-06 write scopes were disjoint; M-02 remained REVIEW/UNVERIFIED; and no
-  other active Cryptox Manager or worker was found.
-- **Task transition:** S-05 and S-06 each moved exactly
-  `BLOCKED -> READY -> IN_PROGRESS -> REVIEW`. Neither is DONE because the
-  mandatory deferred-scope gate is blocked by the current checker.
-- **Manager/workers:** Exactly two fresh workers ran in the canonical
-  same-directory checkout, with no worktree, branch, worker commit, duplicate,
-  retry, or control-plane edit:
-  `01a04e66-d981-7e42-b75d-1bb3b7340c73` (S-05) and
-  `01a04e66-e691-7a50-af2f-b1eecd39053b` (S-06). Both left their scoped source
-  and tests in the checkout and were waiting only at report handoff; the Manager
-  reviewed the checkout directly and did not wait for or retry a report.
+- **Authorization:** `INS-039 / APPROVED_FOR_EXECUTION`; exactly one packet,
+  `ENV-02 — Post-Extension Approved-Profile Checker Boundary Reconciliation`.
+  No S-05/S-06 closure or downstream packet was authorized by this signal.
+- **Manager:** `01a04ea7-b1bd-73c2-972a-7d67e6f551c9`, operating in the existing
+  canonical checkout `D:/agy-cli-projects/AOS/Cryptox` on
+  `MVP_IMPLEMENTATION`; no worktree or duplicate Manager was created.
+- **Worker:** exactly one fresh worker,
+  `01a04eae-367c-7fc3-8961-dccb9e760cf9` (Confucius). The worker used the
+  canonical checkout, changed only the two assigned checker files, and did not
+  stage or commit.
+- **Starting checkpoint:** branch `MVP_IMPLEMENTATION`, HEAD
+  `e0198bb64bbd5fd4fb77b38bbcc345f20ab04363`, clean before Manager control-plane
+  reconciliation. The reviewed source/business checkpoint was
+  `3aa0db528d7758788067348f70b5ea02d68bdb45`.
+- **Applicability:** PASS. The authorization-range diff from the reviewed
+  source/business checkpoint contained only governance paths
+  (`docs/control/DECISIONS.md`, `docs/control/INSTRUCTOR.md`, and
+  `docs/implementation/MVP_PLAN.md`); no module, package, app, infrastructure,
+  script, dependency, or runtime/business-state drift was found.
+- **Control-plane transitions:** `ENV-02` was inserted as `BLOCKED`, verified
+  against `INS-039`, `ENV-01 = DONE`, `C-02 = DONE`, `S-05 = REVIEW`, and
+  `S-06 = REVIEW`, then moved only through `READY -> IN_PROGRESS -> REVIEW`.
+  `ENV-01`, `C-02`, `S-05`, and `S-06` were not otherwise changed.
 
-## Current execution boundary
+## Worker result and Manager review
 
-- Dependencies for both packets are verified: `C-02 DONE` and `S-01 DONE`.
-  `M-02 REVIEW/UNVERIFIED` was not reopened or used as a completion dependency.
-- S-05 touched only new files under
-  `modules/strategy/domain/composite/**` and
-  `modules/strategy/application/composite/**`. S-06 touched only new files
-  under `modules/strategy/domain/plugins/smc-lite/**` and
-  `modules/strategy/domain/plugins/wyckoff-lite/**`. The only other changed
-  paths are the Manager-owned `TASKS.md` and this `HANDOFF.md`.
-- No canonical contracts, application ports, API index/bootstrap, existing
-  plugins, shared registry/barrels, manifests, migrations, apps, generated
-  artifacts, runtime configuration, requirements, ADRs, architecture,
-  OpenSpec, or downstream packet was changed.
-
-## Worker results and Manager review
-
-### S-05 — Immutable `WEIGHTED_VOTE_V1`
-
-- Worker implementation is pure and local to the authorized composite scopes.
-  It validates same-owner exact component definitions and versions, finite
-  non-negative enabled weights, positive enabled total, immutable provenance,
-  inclusive `+0.30`/`-0.30` thresholds, and BUY/HOLD/SELL `+1/0/-1` scoring.
-  The application adapter rejects majority/wrong profiles and resolves exact
-  owner/id/version snapshots before domain execution. Focused tests explicitly
-  distinguish weighted behavior from historical `MAJORITY_VOTE_V1`.
-- Manager inspected all six worker paths and made one narrow readonly-test cast
-  fix at `modules/strategy/application/composite/weighted-vote.spec.ts`; no
-  runtime or boundary implementation was replaced.
-- Focused result: 2 files, 17/17 tests PASS. Strategy package result: 12 files,
-  89/89 tests PASS. Package typecheck, lint, and build PASS.
-
-### S-06 — Deterministic Lite plugins
-
-- Worker implementation is pure and local to the authorized plugin scopes.
-  SMC Lite uses confirmed strict pivot windows and close-based BOS; Wyckoff Lite
-  uses fixed prior range/volume windows for accumulation, distribution, and
-  breakout. Both reject invalid/non-finite/open-candle inputs, return explicit
-  insufficient-data HOLD behavior, preserve input purity, and expose truthful
-  Lite descriptors/limitations without professional-methodology claims.
-- Manager inspected both implementations, both focused test files, and both
-  limitation READMEs. No registration, integration, or shared boundary edit was
-  introduced.
-- Focused result: 2 files, 20/20 tests PASS. Strategy package result: 12 files,
-  89/89 tests PASS. Package typecheck, lint, and build PASS.
+- `scripts/check-deferred-scope.cjs` remains the canonical checker owner and
+  retains the generic deferred-scope patterns and forbidden-path checks.
+- `WEIGHTED_VOTE_V1` retains its existing canonical contract/port/REST/migration
+  boundaries and adds only `modules/strategy/application/composite/` and
+  `modules/strategy/domain/composite/`.
+- `SMC_LITE_V1` and `WYCKOFF_LITE_V1` retain their existing canonical boundaries
+  and add only `modules/strategy/domain/plugins/smc-lite/` and
+  `modules/strategy/domain/plugins/wyckoff-lite/`, respectively.
+- Boundary matching now treats exact file boundaries as exact matches and
+  slash-delimited directory boundaries as directory scopes, preventing
+  near-match paths from being allowlisted.
+- Focused tests cover approved canonical boundaries, all four approved
+  implementation directories, same-identifier unrelated paths, market
+  observability boundary rejection, synthetic-paper risk context, and every
+  existing deferred family. No path-wide exclusion, generic profile bypass, or
+  checker skip was introduced.
+- Manager independently reviewed the complete worker diff and changed-path
+  list. No Manager-side implementation fix was needed. The only Manager-owned
+  edits are `TASKS.md` and this `HANDOFF.md`.
 
 ## Changed paths
 
-Worker/source/test paths:
+Worker paths:
 
-- `modules/strategy/application/composite/index.ts`
-- `modules/strategy/application/composite/weighted-vote.spec.ts`
-- `modules/strategy/application/composite/weighted-vote.ts`
-- `modules/strategy/domain/composite/index.ts`
-- `modules/strategy/domain/composite/weighted-vote.spec.ts`
-- `modules/strategy/domain/composite/weighted-vote.ts`
-- `modules/strategy/domain/plugins/smc-lite/README.md`
-- `modules/strategy/domain/plugins/smc-lite/index.spec.ts`
-- `modules/strategy/domain/plugins/smc-lite/index.ts`
-- `modules/strategy/domain/plugins/wyckoff-lite/README.md`
-- `modules/strategy/domain/plugins/wyckoff-lite/index.spec.ts`
-- `modules/strategy/domain/plugins/wyckoff-lite/index.ts`
+- `scripts/check-deferred-scope.cjs`
+- `scripts/check-deferred-scope.test.cjs`
 
-Manager control paths:
+Manager control-plane paths:
 
 - `docs/implementation/TASKS.md`
 - `docs/implementation/HANDOFF.md`
 
-## Validation status
+No `modules/**`, `packages/**`, `apps/**`, `infra/**`, dependency, migration,
+runtime, frontend, requirements, ADR, OpenSpec, or other governance path was
+changed for ENV-02.
 
-- Focused S-05: **PASS** — 17/17.
-- Focused S-06: **PASS** — 20/20.
-- `npm --workspace @cryptox/strategy run test`: **PASS** — 89/89.
-- `npm --workspace @cryptox/strategy run typecheck`: **PASS**.
-- `npm --workspace @cryptox/strategy run lint`: **PASS**.
-- `npm --workspace @cryptox/strategy run build`: **PASS**.
-- Root `npm run build`: **PASS**.
-- Root `npm run typecheck`: **PASS** after the focused-test typing fix.
-- Root `npm run lint`: **PASS**.
-- Root `npm run arch:check`: **PASS** — no dependency violations; the script
-  reported its expected nine forbidden-dependency fixtures.
-- Root `npm run artifacts:check`: **PASS** — no source-adjacent generated
-  artifacts.
-- Root `npm run test:scope-check`: **PASS** — 5/5 checker tests.
-- Root `git diff --check` and new-file whitespace scan: **PASS**.
-- Root `npm test`: **UNVERIFIED**, not PASS — command exited 0 and all executed
-  tests passed, but six environment-gated PostgreSQL/integration/e2e tests were
-  skipped. Those checks are not applicable to these pure Strategy packets and
-  no skipped test is claimed as PASS.
-- Root `npm run scope:check`: **BLOCKED** — exit 1. It rejects the four
-  authorized implementation files because the current checker does not
-  allowlist `WEIGHTED_VOTE_V1`, `SMC_LITE_V1`, or `WYCKOFF_LITE_V1` in these new
-  implementation boundaries. Editing the checker is outside INS-036 and was
-  explicitly not done.
-- Git staging: initially **BLOCKED** by the sandbox's inability to create
-  `.git/index.lock`; explicit tool escalation for the exact authorized `git add`
-  then succeeded. No source or scope expansion resulted.
-- OpenSpec CLI status/instructions: **UNVERIFIED** — executable unavailable.
-  Dedicated link/DAG automation: **UNVERIFIED** — no dedicated checker was
-  present. PostgreSQL/live providers/browser/migrations were not applicable to
-  this pure scope and were not claimed as PASS.
+## Validation
 
-## Blocker and stop condition
+- `npm run test:scope-check` — **PASS**, 7/7 tests.
+- `npm run scope:check` — **PASS**; no deferred enterprise-Auth,
+  queue/distributed, risk, autonomous LLM, or strict-replay leakage.
+- `npm run arch:check` — **PASS**; 75 modules and 197 dependencies checked, with
+  the expected 9 forbidden-dependency fixtures detected.
+- `npm run artifacts:check` — **PASS**; no source-adjacent generated artifacts.
+- `npm run typecheck` — **PASS**.
+- `npm run build` — **PASS**.
+- `npm run lint` — **PASS**.
+- `git diff --check` — **PASS**; no whitespace errors.
+- `npm test` — **UNVERIFIED**, not PASS: exit 0 with 291 executed tests passing,
+  but 6 environment-gated PostgreSQL/integration/E2E tests skipped.
+- OpenSpec CLI `list`, `status`, and `instructions apply` — **UNVERIFIED**;
+  the `openspec` executable is unavailable in this environment.
+- Dedicated OpenSpec link/DAG automation — **UNVERIFIED**; no available
+  dedicated checker was found.
+- PostgreSQL, live-provider, migration, browser, and runtime smoke checks were
+  not applicable to this pure checker-boundary packet and are not claimed as
+  PASS.
 
-The implementation and focused evidence are reviewable, but S-05 and S-06
-cannot be promoted to DONE while the required root `scope:check` rejects their
-authorized implementation paths. The checker reconciliation requires Instructor
-review and a separately authorized scope/checker change; this Manager did not
-edit it. No downstream task was promoted or started. This checkpoint is the
-containing INS-036 commit; after commit, verify the final HEAD and clean status,
-then return to Instructor review and stop until a new signal is issued.
+## Task state and stop boundary
+
+- `ENV-02` is at `REVIEW` pending the Manager checkpoint commit. Its recorded
+  state history is `BLOCKED -> READY -> IN_PROGRESS -> REVIEW`.
+- `ENV-01 = DONE`, `C-02 = DONE`, `S-05 = REVIEW`, and `S-06 = REVIEW` remain
+  unchanged. S-05 and S-06 are not promoted to `DONE` by this packet.
+- No downstream packet was started or promoted. In particular, `M-03`, `S-04`,
+  `Q-02`, `B-03`, `N-03`, `E-02`, `L-02`, `F-03`, `I-03`, `M-02`,
+  `AU-02`, `I-01`, and `I-02` remain at their recorded states.
+- No new work is auto-started from the passing checker. The authorization is
+  exhausted after ENV-02 review/commit and a fresh Instructor review is
+  required before any later packet or S-05/S-06 closure.
+
+**Checkpoint commit:** pending Manager staging and commit of the four scoped
+worker/control-plane paths.

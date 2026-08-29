@@ -49,6 +49,7 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 | F-03 | BLOCKED | E3 | YES | Future Frontend worker | — | Not started; DEC-007 functional-state projections required |
 | I-03 | BLOCKED | E4 | YES | Manager / future integration worker | — | Not started; final extension integration/reproducibility proof required |
 | ENV-01 | DONE | E0a | YES | Manager / Infrastructure-and-tooling worker `01a04d08-19c8-76e1-ad32-57471e75f430` | `MVP_IMPLEMENTATION` / containing INS-030 ENV-01 checkpoint commit | Independent review PASS; Docker/migration/checker/root validation PASS; OpenSpec CLI UNVERIFIED |
+| ENV-02 | REVIEW | E1 closure | YES | Manager `01a04ea7-b1bd-73c2-972a-7d67e6f551c9` / checker-tooling worker `01a04eae-367c-7fc3-8961-dccb9e760cf9` (Confucius) under `INS-039` | `MVP_IMPLEMENTATION` / `e0198bb64bbd5fd4fb77b38bbcc345f20ab04363` plus reviewed scoped changes | `BLOCKED -> READY -> IN_PROGRESS -> REVIEW`; independent changed-path review and applicable validation PASS; checkpoint commit pending |
 
 The `RB-01` row records the completed governance checkpoint. `ENV-01` is the
 sole packet allocated by current `INS-030`; it is DONE at its authorized
@@ -59,6 +60,11 @@ downstream packet was authorized or started. The existing legacy rows, including
 `M-02` at `REVIEW`, `AU-02` at `BLOCKED`, and `I-01`/`I-02` at `BLOCKED`, retain
 their states and evidence. DEC-007 feature behavior remains unimplemented in
 the separately gated downstream packets.
+
+`ENV-02` is the sole packet named by current `INS-039`; it was persisted as
+`BLOCKED`, moved to `READY` after the Manager's dependency/applicability
+recheck passed, executed by exactly one scoped worker, and is now `REVIEW` after
+independent Manager validation. No downstream packet was started.
 
 ## Task records
 
@@ -665,6 +671,56 @@ acceptance criteria and handoff requirements are in the linked packets in
   remains BLOCKED because its current allowlist rejects the authorized new
   implementation paths; the checker is outside this authorization.
 - **Full packet:** [`MVP_PLAN.md#s-06--deterministic-smc_lite_v1-and-wyckoff_lite_v1-plugins`](MVP_PLAN.md#s-06--deterministic-smc_lite_v1-and-wyckoff_lite_v1-plugins)
+
+### ENV-02 — Post-Extension Approved-Profile Checker Boundary Reconciliation
+
+- **Requirement IDs / authority:** `CSL-R-RP-02`, DEC-007, DEC-010, ADR-010;
+  this is a post-extension validation/tooling gate and creates no product
+  behavior or new profile.
+- **State / owner / wave:** REVIEW / Manager `01a04ea7-b1bd-73c2-972a-7d67e6f551c9`
+  with exactly one checker-tooling worker `01a04eae-367c-7fc3-8961-dccb9e760cf9`
+  (Confucius) under `INS-039` / E1 closure gate.
+- **Start dependencies:** `ENV-01` DONE, `C-02` DONE, and `S-05`/`S-06` at
+  `REVIEW` with their source evidence available. The current `INS-039 /
+  APPROVED_FOR_EXECUTION` signal must remain applicable. `ENV-02` is not a
+  retry of `ENV-01`.
+- **Integration dependencies:** The accepted checker gate is required before
+  `S-05`/`S-06` can be promoted to `DONE`; no downstream feature packet is
+  promoted by this packet.
+- **Objective:** Reconcile the canonical deferred-scope checker with the exact
+  extension-owned implementation boundaries already authorized for
+  `WEIGHTED_VOTE_V1`, `SMC_LITE_V1`, and `WYCKOFF_LITE_V1`, while retaining
+  rejection of every deferred or unapproved boundary.
+- **Exact write scope:** `scripts/check-deferred-scope.cjs` and
+  `scripts/check-deferred-scope.test.cjs` only for the worker; the Manager alone
+  owns the required `docs/implementation/TASKS.md` and
+  `docs/implementation/HANDOFF.md` state/checkpoint updates. No module,
+  package, app, migration, dependency, runtime, frontend, requirement, ADR,
+  OpenSpec, or other governance file is in the worker scope.
+- **Acceptance/validation:** Permit the approved profile identifiers at the
+  existing canonical contract/port/REST/migration boundaries and only these
+  implementation directories: `modules/strategy/application/composite/`,
+  `modules/strategy/domain/composite/`,
+  `modules/strategy/domain/plugins/smc-lite/`, and
+  `modules/strategy/domain/plugins/wyckoff-lite/`. Focused tests must prove
+  positive approved boundaries and negative unrelated paths. No path-wide
+  exclusion, generic profile bypass, or weakening of deferred enterprise
+  identity, distributed/queue, live-trading/generalized-risk,
+  autonomous/unconfigured LLM, or strict-replay rejection is allowed.
+  Required checks are `npm run test:scope-check`, `npm run scope:check`,
+  applicable architecture/artifact/deferred-scope/typecheck/build/lint gates,
+  and `git diff --check`; OpenSpec CLI or unavailable environments remain
+  `UNVERIFIED`/`BLOCKED`, never `PASS`.
+- **Checkpoint:** The row was inserted `BLOCKED`, moved through
+  `BLOCKED -> READY -> IN_PROGRESS -> REVIEW` at `MVP_IMPLEMENTATION /
+  e0198bb64bbd5fd4fb77b38bbcc345f20ab04363` after the Manager verified the
+  signal, dependencies, clean canonical state, and non-material governance-only
+  delta from reviewed source/business checkpoint
+  `3aa0db528d7758788067348f70b5ea02d68bdb45`. Exactly one worker,
+  `01a04eae-367c-7fc3-8961-dccb9e760cf9` (Confucius), changed only the two
+  checker files. Manager `01a04ea7-b1bd-73c2-972a-7d67e6f551c9` independently
+  reviewed the diff and validation; checkpoint commit is pending.
+- **Full packet:** [`MVP_PLAN.md#env-02--post-extension-approved-profile-checker-boundary-reconciliation`](MVP_PLAN.md#env-02--post-extension-approved-profile-checker-boundary-reconciliation)
 
 ### Q-02 — Seeded `DOMAIN_GUIDED_V1` and `GENETIC_V1` Discovery
 
