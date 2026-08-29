@@ -9,6 +9,7 @@ const service_1 = require("./service");
         const same = await runtime.defineStrategy("user-a", "MA", { slowPeriod: 50, fastPeriod: 20 });
         const changed = await runtime.defineStrategy("user-a", "MA", { fastPeriod: 10, slowPeriod: 50 });
         (0, vitest_1.expect)(same.id).toBe(first.id);
+        (0, vitest_1.expect)(first.userId).toBe("user-a");
         (0, vitest_1.expect)(changed.logicalFamilyKey).toBe(first.logicalFamilyKey);
         (0, vitest_1.expect)(changed.version).toBe(2);
         await (0, vitest_1.expect)(runtime.readDefinitions("user-b", [first.id])).rejects.toThrow("STRATEGY_DEFINITION_NOT_FOUND");
@@ -22,6 +23,7 @@ const service_1 = require("./service");
         const weighted = await runtime.defineComposite("user-a", { method: "WEIGHTED_SCORE", components: [{ strategyDefinitionId: ma.id, weight: 0.4 }, { strategyDefinitionId: rsi.id, weight: 0.6 }], thresholds: { buy: 0.2, sell: -0.2 } });
         (0, vitest_1.expect)(majority.components.map((component) => component.weight)).toEqual([0, 0]);
         (0, vitest_1.expect)(majority.thresholds).toEqual({ buy: 0.3, sell: -0.3 });
+        (0, vitest_1.expect)(majority.userId).toBe("user-a");
         (0, vitest_1.expect)(weighted.version).toBe(1);
         await (0, vitest_1.expect)(runtime.defineComposite("user-b", { method: "MAJORITY_VOTE", components: [{ strategyDefinitionId: ma.id, weight: 1 }] })).rejects.toThrow("OWNERSHIP_MISMATCH");
         await (0, vitest_1.expect)(runtime.defineComposite("user-a", { method: "WEIGHTED_SCORE", components: [{ strategyDefinitionId: ma.id, weight: 0.4 }], thresholds: { buy: 0.3, sell: -0.3 } })).rejects.toThrow("INVALID_COMPOSITE_STRATEGY");
@@ -125,5 +127,34 @@ const service_1 = require("./service");
         const timeoutRuntime = (0, service_1.createStrategyModule)({ ...timeoutDependencies, modelTimeoutMs: 1 });
         await (0, vitest_1.expect)(timeoutRuntime.generateStrategy("user-a", { sourceType: "TEXT", text: "a valid source" })).rejects.toThrow("STRATEGY_MODEL_TIMEOUT");
         (0, vitest_1.expect)(await timeoutRuntime.listDefinitions("user-a")).toHaveLength(0);
+    });
+    (0, vitest_1.it)("resolves and visualizes the exact retained artifact rather than the current built-in", async () => {
+        const dependencies = (0, service_1.createInMemoryStrategyDependencies)();
+        const calls = [];
+        const retainedFactory = {
+            descriptor: { name: "MA", displayName: "Retained MA", description: "retained", category: "TREND", implementationVersion: "0.9.0", implementationSha256: "retained-ma-sha", minimumHistoryCandles: 2, parameters: [] },
+            create: () => ({
+                name: "MA",
+                category: "TREND",
+                analyze: () => "SELL",
+                buildVisualization: (contexts) => [{ id: "retained", kind: "SIGNAL", label: "Retained", points: contexts.map((context) => ({ time: context.candles.at(-1).timestamp, value: 1, signal: "SELL" })) }],
+            }),
+        };
+        dependencies.artifactResolver = {
+            resolve: async (name, sha) => { calls.push([name, sha]); return retainedFactory; },
+        };
+        const runtime = (0, service_1.createStrategyModule)(dependencies);
+        const definition = { id: "retained-definition", userId: "user-a", logicalFamilyKey: "strategy:MA", strategyName: "MA", implementationVersion: "0.9.0", implementationSha256: "retained-ma-sha", version: 1, parameters: {}, createdAt: "2025-01-01T00:00:00.000Z" };
+        const context = { pair: "BTCUSDT", timeframe: "1h", candles: [{ timestamp: "2025-01-01T00:00:00.000Z", open: 1, high: 2, low: 0, close: 1, volume: 1 }], currentPrice: 1, indicators: {} };
+        await (0, vitest_1.expect)((await runtime.resolveStrategy(definition)).analyze(context)).toBe("SELL");
+        (0, vitest_1.expect)(runtime.buildVisualization(definition, [context])).toEqual([{ id: "retained-definition:retained", strategyDefinitionId: "retained-definition", kind: "SIGNAL", label: "Retained", points: [{ time: context.candles[0].timestamp, value: 1, signal: "SELL" }] }]);
+        (0, vitest_1.expect)(calls).toEqual([["MA", "retained-ma-sha"]]);
+    });
+    (0, vitest_1.it)("fails explicitly when the retained artifact is unavailable", async () => {
+        const dependencies = (0, service_1.createInMemoryStrategyDependencies)();
+        dependencies.artifactResolver = { resolve: async () => { throw new Error("missing retained build"); } };
+        const runtime = (0, service_1.createStrategyModule)(dependencies);
+        const definition = { id: "missing-definition", userId: "user-a", logicalFamilyKey: "strategy:MA", strategyName: "MA", implementationVersion: "0.1.0", implementationSha256: "missing-sha", version: 1, parameters: {}, createdAt: "2025-01-01T00:00:00.000Z" };
+        await (0, vitest_1.expect)(runtime.resolveStrategy(definition)).rejects.toThrow("IMPLEMENTATION_ARTIFACT_UNAVAILABLE");
     });
 });

@@ -1,6 +1,6 @@
 import type { StrategyDefinition, CompositeStrategyDefinition, Strategy, Signal, StrategyPluginDescriptor, CombinationMethod } from "../domain/contracts";
 import type { StrategyGenerationSource, StrategyGenerationResult } from "../application/service";
-export type { Signal, StrategyCategory, CombinationMethod, Strategy, StrategyDefinition, CompositeStrategyDefinition, StrategyContext, StrategyCandle, StrategyPluginDescriptor, StrategyFactory, StrategyArtifactResolver, StrategyParameterDescriptor } from "../domain/contracts";
+export type { Signal, StrategyCategory, CombinationMethod, Strategy, StrategyDefinition, CompositeStrategyDefinition, StrategyContext, StrategyCandle, StrategyPluginDescriptor, StrategyVisualizationOverlay, StrategyVisualizationOverlayDraft, StrategyFactory, StrategyArtifactResolver, StrategyParameterDescriptor } from "../domain/contracts";
 export interface StrategyModulePublicApi {
     listStrategies(): StrategyPluginDescriptor[];
     resolveStrategy(definition: StrategyDefinition): Promise<Strategy>;
@@ -8,6 +8,7 @@ export interface StrategyModulePublicApi {
         strategyDefinitionId: string;
         signal: Signal;
     }>): Signal;
+    buildVisualization(definition: StrategyDefinition, contexts: import("../domain/contracts").StrategyContext[]): import("../domain/contracts").StrategyVisualizationOverlay[];
     listDefinitions(userId: string): Promise<StrategyDefinition[]>;
     readDefinitions(userId: string, ids: string[]): Promise<StrategyDefinition[]>;
     listComposites(userId: string): Promise<CompositeStrategyDefinition[]>;
@@ -32,6 +33,7 @@ export declare const combineSignals: (definition: CompositeStrategyDefinition, s
     strategyDefinitionId: string;
     signal: Signal;
 }>) => Signal;
+export declare const buildVisualization: StrategyModulePublicApi["buildVisualization"];
 export declare const listDefinitions: StrategyModulePublicApi["listDefinitions"];
 export declare const readDefinitions: StrategyModulePublicApi["readDefinitions"];
 export declare const listComposites: StrategyModulePublicApi["listComposites"];

@@ -28,12 +28,6 @@ const validateHttpUrl = (value) => {
     return text;
 };
 const runtimeList = () => plugins_1.builtInFactories.map((factory) => factory.descriptor);
-const runtimeResolve = async (definition) => {
-    const factory = plugins_1.builtInFactories.find((candidate) => candidate.descriptor.name === definition.strategyName && candidate.descriptor.implementationSha256 === definition.implementationSha256);
-    if (!factory)
-        invalid("STRATEGY_ARTIFACT_NOT_FOUND");
-    return factory.create(definition.parameters);
-};
 const runtimeCombine = (definition, signals) => {
     const selected = definition.components.map((component) => ({ component, signal: signals.find((item) => item.strategyDefinitionId === component.strategyDefinitionId)?.signal ?? "HOLD" }));
     if (selected.length === 0)
@@ -74,11 +68,41 @@ const validateParameters = (factory, parameters) => {
         }
         normalized[descriptor.key] = value;
     }
-    if (factory.descriptor.name === "MA" && Number(normalized.fastPeriod) >= Number(normalized.slowPeriod))
+    try {
+        factory.validateParameters?.(normalized);
+    }
+    catch {
         invalid("INVALID_STRATEGY_PARAMETERS");
-    if (factory.descriptor.name === "RSI" && Number(normalized.buyThreshold) >= Number(normalized.sellThreshold))
-        invalid("INVALID_STRATEGY_PARAMETERS");
+    }
     return normalized;
+};
+const MAX_VISUALIZATION_POINTS = 5_000;
+const MAX_VISUALIZATION_OVERLAYS = 32;
+const validSignal = (value) => value === "BUY" || value === "SELL" || value === "HOLD";
+const normalizeVisualization = (definition, overlays) => {
+    if (!Array.isArray(overlays))
+        return [];
+    return overlays.slice(0, MAX_VISUALIZATION_OVERLAYS).flatMap((overlay, overlayIndex) => {
+        if (!isPlainRecord(overlay) || (overlay.kind !== "LINE" && overlay.kind !== "ZONE" && overlay.kind !== "SIGNAL"))
+            return [];
+        const label = typeof overlay.label === "string" && overlay.label.trim() ? overlay.label : `${overlay.kind} overlay`;
+        const localId = typeof overlay.id === "string" && overlay.id.trim() ? overlay.id.trim() : `overlay-${overlayIndex + 1}`;
+        const points = Array.isArray(overlay.points) ? overlay.points.slice(-MAX_VISUALIZATION_POINTS) : [];
+        if (overlay.kind === "LINE") {
+            const normalized = points.flatMap((point) => isPlainRecord(point) && typeof point.time === "string" && finite(point.value) ? [{ time: point.time, value: point.value }] : []);
+            return normalized.length > 0 ? [{ id: `${definition.id}:${localId}`, strategyDefinitionId: definition.id, kind: "LINE", label, points: normalized }] : [];
+        }
+        if (overlay.kind === "ZONE") {
+            const normalized = points.flatMap((point) => {
+                if (!isPlainRecord(point) || typeof point.time !== "string" || !finite(point.low) || !finite(point.high))
+                    return [];
+                return [{ time: point.time, low: Math.min(point.low, point.high), high: Math.max(point.low, point.high) }];
+            });
+            return normalized.length > 0 ? [{ id: `${definition.id}:${localId}`, strategyDefinitionId: definition.id, kind: "ZONE", label, points: normalized }] : [];
+        }
+        const normalized = points.flatMap((point) => isPlainRecord(point) && typeof point.time === "string" && finite(point.value) && validSignal(point.signal) ? [{ time: point.time, value: point.value, signal: point.signal }] : []);
+        return normalized.length > 0 ? [{ id: `${definition.id}:${localId}`, strategyDefinitionId: definition.id, kind: "SIGNAL", label, points: normalized }] : [];
+    });
 };
 function createInMemoryStrategyDependencies() {
     const definitions = new Map();
@@ -92,9 +116,9 @@ function createInMemoryStrategyDependencies() {
             const generationSnapshot = new Map(generations);
             try {
                 for (const definition of generatedDefinitions)
-                    definitions.set(definition.id, { ownerUserId, value: definition });
+                    definitions.set(definition.id, { ownerUserId, value: { ...definition, userId: ownerUserId } });
                 if (composite)
-                    composites.set(composite.id, { ownerUserId, value: composite });
+                    composites.set(composite.id, { ownerUserId, value: { ...composite, userId: ownerUserId } });
                 generations.set(audit.id, { ...audit });
             }
             catch (error) {
@@ -109,17 +133,20 @@ function createInMemoryStrategyDependencies() {
         },
     };
     return {
-        artifactResolver: { resolve: async (name, sha) => { const factory = factories.get(`${name}:${sha}`); if (!factory)
-                throw new Error("STRATEGY_ARTIFACT_NOT_FOUND"); return factory; } },
+        artifactResolver: {
+            resolve: async (name, sha) => { const factory = factories.get(`${name}:${sha}`); if (!factory)
+                throw new Error("IMPLEMENTATION_ARTIFACT_UNAVAILABLE"); return factory; },
+            resolveSync: (name, sha) => factories.get(`${name}:${sha}`),
+        },
         definitionRepository: {
-            insert: async (ownerUserId, definition) => { definitions.set(definition.id, { ownerUserId, value: definition }); return definition; },
+            insert: async (ownerUserId, definition) => { const value = { ...definition, userId: ownerUserId }; definitions.set(definition.id, { ownerUserId, value }); return value; },
             list: async (ownerUserId) => [...definitions.values()].filter((item) => item.ownerUserId === ownerUserId).map((item) => item.value).sort((left, right) => left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id)),
             listByIds: async (ownerUserId, ids) => ids.flatMap((id) => { const definition = definitions.get(id); return definition?.ownerUserId === ownerUserId ? [definition.value] : []; }),
             listByLogicalFamily: async (ownerUserId, logicalFamilyKey) => [...definitions.values()].filter((item) => item.ownerUserId === ownerUserId && item.value.logicalFamilyKey === logicalFamilyKey).map((item) => item.value),
             exists: async (id) => definitions.has(id),
         },
         compositeRepository: {
-            insert: async (ownerUserId, composite) => { composites.set(composite.id, { ownerUserId, value: composite }); return composite; },
+            insert: async (ownerUserId, composite) => { const value = { ...composite, userId: ownerUserId }; composites.set(composite.id, { ownerUserId, value }); return value; },
             list: async (ownerUserId) => [...composites.values()].filter((item) => item.ownerUserId === ownerUserId).map((item) => item.value).sort((left, right) => left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id)),
             get: async (ownerUserId, id) => { const composite = composites.get(id); return composite?.ownerUserId === ownerUserId ? composite.value : undefined; },
             listByLogicalFamily: async (ownerUserId, logicalFamilyKey) => [...composites.values()].filter((item) => item.ownerUserId === ownerUserId && item.value.logicalFamilyKey === logicalFamilyKey).map((item) => item.value),
@@ -150,7 +177,41 @@ function createStrategyModule(dependencies = createInMemoryStrategyDependencies(
     const promptVersion = dependencies.promptVersion ?? "1";
     const modelTimeoutMs = finite(dependencies.modelTimeoutMs) && dependencies.modelTimeoutMs > 0 ? dependencies.modelTimeoutMs : 15_000;
     const factories = new Map(plugins_1.builtInFactories.map((factory) => [factory.descriptor.name, factory]));
+    const retainedFactories = new Map();
     const nextId = (kind) => `${kind}-${(0, node_crypto_1.randomUUID)()}`;
+    const artifactKey = (definition) => `${definition.strategyName}:${definition.implementationSha256}`;
+    const exactFactory = (definition, factory) => {
+        if (!factory || factory.descriptor.name !== definition.strategyName || factory.descriptor.implementationSha256 !== definition.implementationSha256)
+            throw new Error("IMPLEMENTATION_ARTIFACT_UNAVAILABLE");
+        return factory;
+    };
+    const resolveRetainedFactory = async (definition) => {
+        const key = artifactKey(definition);
+        const cached = retainedFactories.get(key);
+        if (cached)
+            return cached;
+        let factory;
+        try {
+            factory = await dependencies.artifactResolver.resolve(definition.strategyName, definition.implementationSha256);
+        }
+        catch (error) {
+            if (error instanceof Error && error.message === "IMPLEMENTATION_ARTIFACT_UNAVAILABLE")
+                throw error;
+            throw new Error("IMPLEMENTATION_ARTIFACT_UNAVAILABLE");
+        }
+        const resolved = exactFactory(definition, factory);
+        retainedFactories.set(key, resolved);
+        return resolved;
+    };
+    const resolveRetainedFactorySync = (definition) => {
+        const key = artifactKey(definition);
+        const cached = retainedFactories.get(key);
+        if (cached)
+            return cached;
+        const resolved = exactFactory(definition, dependencies.artifactResolver.resolveSync?.(definition.strategyName, definition.implementationSha256));
+        retainedFactories.set(key, resolved);
+        return resolved;
+    };
     const getDefinition = async (userId, id) => {
         const definition = (await dependencies.definitionRepository.listByIds(userId, [id]))[0];
         if (!definition)
@@ -171,7 +232,7 @@ function createStrategyModule(dependencies = createInMemoryStrategyDependencies(
         const existing = prior.find((definition) => digest({ strategyName: definition.strategyName, implementationSha256: definition.implementationSha256, parameters: definition.parameters }) === digest(content));
         if (existing)
             return { definition: existing, isNew: false };
-        const definition = { id: nextId("strategy-definition"), logicalFamilyKey, familyName: registeredFactory.descriptor.displayName, strategyName, implementationVersion: registeredFactory.descriptor.implementationVersion, implementationSha256: registeredFactory.descriptor.implementationSha256, version: Math.max(0, ...prior.map((item) => item.version)) + 1, parameters: normalized, createdAt: new Date().toISOString() };
+        const definition = { id: nextId("strategy-definition"), userId, logicalFamilyKey, familyName: registeredFactory.descriptor.displayName, strategyName, implementationVersion: registeredFactory.descriptor.implementationVersion, implementationSha256: registeredFactory.descriptor.implementationSha256, version: Math.max(0, ...prior.map((item) => item.version)) + 1, parameters: normalized, createdAt: new Date().toISOString() };
         return { definition, isNew: true };
     };
     const defineStrategy = async (userId, strategyName, parameters) => {
@@ -217,7 +278,7 @@ function createStrategyModule(dependencies = createInMemoryStrategyDependencies(
         const existing = prior.find((composite) => digest({ method: composite.method, components: composite.components, thresholds: composite.thresholds }) === digest(content));
         if (existing)
             return { definition: existing, isNew: false };
-        return { definition: { id: nextId("composite-strategy"), logicalFamilyKey, version: Math.max(0, ...prior.map((item) => item.version)) + 1, method: command.method, components, thresholds, createdAt: new Date().toISOString() }, isNew: true };
+        return { definition: { id: nextId("composite-strategy"), userId, logicalFamilyKey, version: Math.max(0, ...prior.map((item) => item.version)) + 1, method: command.method, components, thresholds, createdAt: new Date().toISOString() }, isNew: true };
     };
     const defineComposite = async (userId, command) => {
         const prepared = await prepareComposite(userId, command);
@@ -263,11 +324,9 @@ function createStrategyModule(dependencies = createInMemoryStrategyDependencies(
     };
     return {
         listStrategies: runtimeList,
-        resolveStrategy: async (definition) => {
-            await dependencies.artifactResolver.resolve(definition.strategyName, definition.implementationSha256);
-            return runtimeResolve(definition);
-        },
+        resolveStrategy: async (definition) => (await resolveRetainedFactory(definition)).create(definition.parameters),
         combineSignals: runtimeCombine,
+        buildVisualization: (definition, contexts) => normalizeVisualization(definition, resolveRetainedFactorySync(definition).create(definition.parameters).buildVisualization?.(contexts.slice(-MAX_VISUALIZATION_POINTS))),
         listDefinitions: async (userId) => dependencies.definitionRepository.list(userId),
         readDefinitions: async (userId, ids) => Promise.all(ids.map((id) => getDefinition(userId, id))),
         listComposites: async (userId) => dependencies.compositeRepository.list(userId),

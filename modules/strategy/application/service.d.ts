@@ -1,4 +1,4 @@
-import type { CombinationMethod, CompositeStrategyDefinition, Signal, Strategy, StrategyDefinition, StrategyPluginDescriptor } from "../domain/contracts";
+import type { CombinationMethod, CompositeStrategyDefinition, Signal, Strategy, StrategyContext, StrategyDefinition, StrategyPluginDescriptor, StrategyVisualizationOverlay } from "../domain/contracts";
 import type { CompositeDefinitionRepository, StrategyDefinitionRepository, StrategyGenerationAdapter, StrategyGenerationSource, StrategyGenerationUnitOfWork, StrategySourceLoader } from "./ports";
 export interface StrategyModuleDependencies {
     artifactResolver: import("../domain/contracts").StrategyArtifactResolver;
@@ -29,6 +29,7 @@ export interface StrategyModuleRuntime {
         strategyDefinitionId: string;
         signal: Signal;
     }>): Signal;
+    buildVisualization(definition: StrategyDefinition, contexts: StrategyContext[]): StrategyVisualizationOverlay[];
     listDefinitions(userId: string): Promise<StrategyDefinition[]>;
     readDefinitions(userId: string, ids: string[]): Promise<StrategyDefinition[]>;
     listComposites(userId: string): Promise<CompositeStrategyDefinition[]>;

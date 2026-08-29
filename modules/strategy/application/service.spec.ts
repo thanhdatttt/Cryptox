@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { createInMemoryStrategyDependencies, createStrategyModule } from "./service";
 import type { GeneratedStrategyProposal } from "./ports";
+import type { StrategyContext, StrategyDefinition } from "../domain/contracts";
 
 describe("strategy definition runtime", () => {
   it("validates, versions, idempotently persists, and isolates strategy definitions", async () => {
@@ -10,6 +11,7 @@ describe("strategy definition runtime", () => {
     const changed = await runtime.defineStrategy("user-a", "MA", { fastPeriod: 10, slowPeriod: 50 });
 
     expect(same.id).toBe(first.id);
+    expect(first.userId).toBe("user-a");
     expect(changed.logicalFamilyKey).toBe(first.logicalFamilyKey);
     expect(changed.version).toBe(2);
     await expect(runtime.readDefinitions("user-b", [first.id])).rejects.toThrow("STRATEGY_DEFINITION_NOT_FOUND");
@@ -25,6 +27,7 @@ describe("strategy definition runtime", () => {
 
     expect(majority.components.map((component) => component.weight)).toEqual([0, 0]);
     expect(majority.thresholds).toEqual({ buy: 0.3, sell: -0.3 });
+    expect(majority.userId).toBe("user-a");
     expect(weighted.version).toBe(1);
     await expect(runtime.defineComposite("user-b", { method: "MAJORITY_VOTE", components: [{ strategyDefinitionId: ma.id, weight: 1 }] })).rejects.toThrow("OWNERSHIP_MISMATCH");
     await expect(runtime.defineComposite("user-a", { method: "WEIGHTED_SCORE", components: [{ strategyDefinitionId: ma.id, weight: 0.4 }], thresholds: { buy: 0.3, sell: -0.3 } })).rejects.toThrow("INVALID_COMPOSITE_STRATEGY");
@@ -145,5 +148,38 @@ describe("strategy definition runtime", () => {
     const timeoutRuntime = createStrategyModule({ ...timeoutDependencies, modelTimeoutMs: 1 });
     await expect(timeoutRuntime.generateStrategy("user-a", { sourceType: "TEXT", text: "a valid source" })).rejects.toThrow("STRATEGY_MODEL_TIMEOUT");
     expect(await timeoutRuntime.listDefinitions("user-a")).toHaveLength(0);
+  });
+
+  it("resolves and visualizes the exact retained artifact rather than the current built-in", async () => {
+    const dependencies = createInMemoryStrategyDependencies();
+    const calls: Array<[string, string]> = [];
+    const retainedFactory = {
+      descriptor: { name: "MA", displayName: "Retained MA", description: "retained", category: "TREND" as const, implementationVersion: "0.9.0", implementationSha256: "retained-ma-sha", minimumHistoryCandles: 2, parameters: [] },
+      create: () => ({
+        name: "MA" as const,
+        category: "TREND" as const,
+        analyze: () => "SELL" as const,
+        buildVisualization: (contexts: readonly StrategyContext[]) => [{ id: "retained", kind: "SIGNAL" as const, label: "Retained", points: contexts.map((context) => ({ time: context.candles.at(-1)!.timestamp, value: 1, signal: "SELL" as const })) }],
+      }),
+    };
+    dependencies.artifactResolver = {
+      resolve: async (name, sha) => { calls.push([name, sha]); return retainedFactory; },
+    };
+    const runtime = createStrategyModule(dependencies);
+    const definition: StrategyDefinition = { id: "retained-definition", userId: "user-a", logicalFamilyKey: "strategy:MA", strategyName: "MA", implementationVersion: "0.9.0", implementationSha256: "retained-ma-sha", version: 1, parameters: {}, createdAt: "2025-01-01T00:00:00.000Z" };
+    const context: StrategyContext = { pair: "BTCUSDT", timeframe: "1h", candles: [{ timestamp: "2025-01-01T00:00:00.000Z", open: 1, high: 2, low: 0, close: 1, volume: 1 }], currentPrice: 1, indicators: {} };
+
+    await expect((await runtime.resolveStrategy(definition)).analyze(context)).toBe("SELL");
+    expect(runtime.buildVisualization(definition, [context])).toEqual([{ id: "retained-definition:retained", strategyDefinitionId: "retained-definition", kind: "SIGNAL", label: "Retained", points: [{ time: context.candles[0]!.timestamp, value: 1, signal: "SELL" }] }]);
+    expect(calls).toEqual([["MA", "retained-ma-sha"]]);
+  });
+
+  it("fails explicitly when the retained artifact is unavailable", async () => {
+    const dependencies = createInMemoryStrategyDependencies();
+    dependencies.artifactResolver = { resolve: async () => { throw new Error("missing retained build"); } };
+    const runtime = createStrategyModule(dependencies);
+    const definition: StrategyDefinition = { id: "missing-definition", userId: "user-a", logicalFamilyKey: "strategy:MA", strategyName: "MA", implementationVersion: "0.1.0", implementationSha256: "missing-sha", version: 1, parameters: {}, createdAt: "2025-01-01T00:00:00.000Z" };
+
+    await expect(runtime.resolveStrategy(definition)).rejects.toThrow("IMPLEMENTATION_ARTIFACT_UNAVAILABLE");
   });
 });

@@ -20,13 +20,75 @@ export interface StrategyContext {
         averageScore: number;
     };
 }
+export type StrategyVisualizationOverlay = {
+    id: string;
+    strategyDefinitionId: string;
+    kind: "LINE";
+    label: string;
+    points: Array<{
+        time: string;
+        value: number;
+    }>;
+} | {
+    id: string;
+    strategyDefinitionId: string;
+    kind: "ZONE";
+    label: string;
+    points: Array<{
+        time: string;
+        low: number;
+        high: number;
+    }>;
+} | {
+    id: string;
+    strategyDefinitionId: string;
+    kind: "SIGNAL";
+    label: string;
+    points: Array<{
+        time: string;
+        value: number;
+        signal: Signal;
+    }>;
+};
+export type StrategyVisualizationOverlayDraft = {
+    id: string;
+    strategyDefinitionId?: string;
+    kind: "LINE";
+    label: string;
+    points: Array<{
+        time: string;
+        value: number;
+    }>;
+} | {
+    id: string;
+    strategyDefinitionId?: string;
+    kind: "ZONE";
+    label: string;
+    points: Array<{
+        time: string;
+        low: number;
+        high: number;
+    }>;
+} | {
+    id: string;
+    strategyDefinitionId?: string;
+    kind: "SIGNAL";
+    label: string;
+    points: Array<{
+        time: string;
+        value: number;
+        signal: Signal;
+    }>;
+};
 export interface Strategy {
     readonly name: string;
     readonly category: StrategyCategory;
     analyze(context: StrategyContext): Signal;
+    buildVisualization?(contexts: readonly StrategyContext[]): StrategyVisualizationOverlayDraft[];
 }
 export interface StrategyDefinition {
     id: string;
+    userId: string;
     logicalFamilyKey: string;
     familyName?: string;
     strategyName: string;
@@ -38,6 +100,7 @@ export interface StrategyDefinition {
 }
 export interface CompositeStrategyDefinition {
     id: string;
+    userId: string;
     logicalFamilyKey: string;
     version: number;
     method: CombinationMethod;
@@ -69,12 +132,15 @@ export interface StrategyPluginDescriptor {
     category: StrategyCategory;
     implementationVersion: string;
     implementationSha256: string;
-    parameters: StrategyParameterDescriptor[];
+    readonly minimumHistoryCandles: number;
+    readonly parameters: readonly StrategyParameterDescriptor[];
 }
 export interface StrategyFactory {
     descriptor: StrategyPluginDescriptor;
     create(parameters: Record<string, number | string>): Strategy;
+    validateParameters?(parameters: Record<string, number | string>): void;
 }
 export interface StrategyArtifactResolver {
     resolve(strategyName: string, implementationSha256: string): Promise<StrategyFactory>;
+    resolveSync?(strategyName: string, implementationSha256: string): StrategyFactory | undefined;
 }

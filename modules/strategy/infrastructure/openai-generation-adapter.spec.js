@@ -4,7 +4,7 @@ const vitest_1 = require("vitest");
 const openai_generation_adapter_1 = require("./openai-generation-adapter");
 const input = {
     sourceText: "Use RSI with a 14 period.",
-    strategies: [{ name: "RSI", displayName: "RSI", description: "momentum", category: "MOMENTUM", implementationVersion: "1", implementationSha256: "sha", parameters: [] }],
+    strategies: [{ name: "RSI", displayName: "RSI", description: "momentum", category: "MOMENTUM", implementationVersion: "1", implementationSha256: "sha", minimumHistoryCandles: 0, parameters: [] }],
     promptVersion: "prompt-v1",
 };
 (0, vitest_1.describe)("OpenAI strategy generation adapter", () => {

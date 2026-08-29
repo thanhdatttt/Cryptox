@@ -3,7 +3,7 @@ import { createOpenAiStrategyGenerationAdapter } from "./openai-generation-adapt
 
 const input = {
   sourceText: "Use RSI with a 14 period.",
-  strategies: [{ name: "RSI", displayName: "RSI", description: "momentum", category: "MOMENTUM" as const, implementationVersion: "1", implementationSha256: "sha", parameters: [] }],
+  strategies: [{ name: "RSI", displayName: "RSI", description: "momentum", category: "MOMENTUM" as const, implementationVersion: "1", implementationSha256: "sha", minimumHistoryCandles: 0, parameters: [] }],
   promptVersion: "prompt-v1",
 };
 
