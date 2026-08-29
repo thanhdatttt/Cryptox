@@ -16,6 +16,10 @@
 - **Reconciliation:** M-02 and B-02 were REVIEW under exhausted INS-013. They
   are reconciled to READY solely for the bounded INS-014 review-closure phase;
   no downstream task is unlocked for execution by this checkpoint.
+- **Delegation:** M-02 is assigned to the bounded worker task
+  `01a04b38-10bd-7d21-9be0-598f311b80c6` in `modules/market-data/**`.
+  B-02 remains READY until its separate worker is assigned; write scopes are
+  disjoint and no worker may edit the control plane.
 - **M-02 result:** Normalized Binance kline streaming, connection status,
   bounded reconnect/backoff/resubscribe, REST gap reconciliation before
   continuation, forming-candle exclusion, duplicate suppression, changed
@@ -42,9 +46,9 @@
   `/live=200`, `/ready=503`, `/health=404`. PostgreSQL integration suites that
   require external configuration remain skipped/UNVERIFIED. Formal OpenSpec
   CLI validation remains UNVERIFIED because the CLI is unavailable.
-- **Current task state:** M-02 and B-02 are `READY` under INS-014 for bounded
-  review closure. No worker has been assigned in this checkpoint and no
-  downstream task was started. AU-02, Q-01 integration, F-AUTH integration,
+- **Current task state:** M-02 is `IN_PROGRESS` and B-02 is `READY` under
+  INS-014 for bounded review closure. No downstream task was started. AU-02,
+  Q-01 integration, F-AUTH integration,
   I-01, I-02, and all other unfinished tasks remain blocked or unauthorized.
 - **Authorization status:** INS-014 is active and limited to M-02/B-02 review
   closure. The next manager checkpoint must move assigned tasks to IN_PROGRESS,
