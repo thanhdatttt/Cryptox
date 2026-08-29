@@ -115,6 +115,12 @@ export interface RankableExperiment {
   candidateId: string;
   searchRunId?: string;
   metrics: EvaluationMetrics;
+  /** Read-only provenance reference; ranking must not alter execution provenance. */
+  extensionProvenance?: {
+    searchProfileId?: string;
+    paperExecutionProfileId?: string;
+    newsExtractionTemplateVersion?: number;
+  };
 }
 
 export interface LeaderboardSubmissionResult {

@@ -157,6 +157,19 @@ export interface BacktestingCompletionUnitOfWork<TExperiment, TTrade> {
   }>;
 }
 
+/** Persistence shape for immutable synthetic-paper provenance; no order/exchange port is introduced. */
+export interface PaperExecutionProvenancePort {
+  readonly executionProfileId: "SYNTHETIC_SHORT_PAPER_V1";
+  readonly positionMode: "LONG" | "SYNTHETIC_SHORT";
+  readonly exitPolicyId: "STOP_LOSS_WINS_V1";
+  readonly decimalScale: 8;
+  readonly roundingMode: "HALF_UP";
+  readonly feeRatePercent: 0.08;
+  readonly adverseSlippageBps: 5;
+  readonly stopLoss?: string;
+  readonly takeProfit?: string;
+}
+
 export interface BacktestingApplicationDependencies<TCandidate, TCreateCommand, TExperiment, TTrade> {
   execution: BacktestExecutionPort;
   marketData: Pick<

@@ -26,6 +26,7 @@ describe("REST transport contracts", () => {
         "parseDefineCompositeRequest",
         "parseDefineStrategyRequest",
         "parseNewsQuery",
+        "parseSafeUrlImportRequest",
         "parseRegisterRequest",
         "parseStartManualBacktestRequest",
         "parseStartSearchRequest",
@@ -62,6 +63,19 @@ describe("REST transport contracts", () => {
     expect(() =>
       restContracts.parseNewsQuery({ ...newsQuery, relatedCoins: ["BTC", "BTC"] }),
     ).toThrow();
+  });
+
+  it("serializes safe URL extension input without weakening legacy request validation", () => {
+    expect(restContracts.parseSafeUrlImportRequest({
+      schemaVersion: 1,
+      url: "https://configured.example/article",
+      sourceId: "configured-source",
+    }).url).toBe("https://configured.example/article");
+    expect(() => restContracts.parseSafeUrlImportRequest({
+      schemaVersion: 1,
+      url: "http://configured.example/article",
+      sourceId: "configured-source",
+    })).toThrow();
   });
 
   it("round-trips and validates a bounded history request", () => {

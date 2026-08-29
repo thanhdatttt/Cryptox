@@ -5,6 +5,7 @@ export const MARKET_WS_SERVER_MESSAGE_TYPES = [
   "MARKET_TICK",
   "CANDLE",
   "CONNECTION_STATUS",
+  "MARKET_OBSERVABILITY",
   "SUBSCRIPTION_ACK",
   "ERROR",
 ] as const;
@@ -36,6 +37,16 @@ export interface MarketConnectionStatusPayload {
   provider: string;
   status: "CONNECTED" | "RECONNECTING" | "DISCONNECTED";
   lastEventAt: string;
+}
+
+/** Explicitly ephemeral delivery/health projection; it is not a market-history payload. */
+export interface MarketObservabilityPayload {
+  profileId: "MARKET_OBSERVABILITY_V1";
+  pair: string;
+  connection: MarketConnectionStatusPayload;
+  lastLatencyMs: number | null;
+  latestTicks: Array<MarketTickPayload & { providerEventAt: string; receivedAt: string; latencyMs: number }>;
+  persistence: "EPHEMERAL_IN_MEMORY_ONLY";
 }
 
 export type MarketDataErrorCode =
@@ -74,6 +85,10 @@ export type MarketWebSocketServerMessage =
   | (MarketServerMessageMetadata & {
       type: "CONNECTION_STATUS";
       payload: MarketConnectionStatusPayload;
+    })
+  | (MarketServerMessageMetadata & {
+      type: "MARKET_OBSERVABILITY";
+      payload: MarketObservabilityPayload;
     })
   | (MarketServerMessageMetadata & {
       type: "SUBSCRIPTION_ACK";
@@ -224,6 +239,56 @@ export function parseMarketWebSocketServerMessage(
           provider: stringValue(payload.provider, "payload.provider"),
           status: payload.status,
           lastEventAt: stringValue(payload.lastEventAt, "payload.lastEventAt"),
+        },
+      };
+    }
+    case "MARKET_OBSERVABILITY": {
+      if (payload.profileId !== "MARKET_OBSERVABILITY_V1" || payload.persistence !== "EPHEMERAL_IN_MEMORY_ONLY") {
+        throw new MarketWebSocketContractError("Invalid market observability profile");
+      }
+      const connection = recordValue(payload.connection, "payload.connection");
+      if (
+        connection.status !== "CONNECTED" &&
+        connection.status !== "RECONNECTING" &&
+        connection.status !== "DISCONNECTED"
+      ) {
+        throw new MarketWebSocketContractError("Invalid observability connection status");
+      }
+      if (payload.lastLatencyMs !== null && (typeof payload.lastLatencyMs !== "number" || !Number.isFinite(payload.lastLatencyMs) || payload.lastLatencyMs < 0)) {
+        throw new MarketWebSocketContractError("Invalid observability latency");
+      }
+      if (!Array.isArray(payload.latestTicks) || payload.latestTicks.length > 100) {
+        throw new MarketWebSocketContractError("Invalid observability tick buffer");
+      }
+      const pair = stringValue(payload.pair, "payload.pair");
+      return {
+        ...metadata,
+        type: "MARKET_OBSERVABILITY",
+        payload: {
+          profileId: "MARKET_OBSERVABILITY_V1",
+          pair,
+          connection: {
+            provider: stringValue(connection.provider, "payload.connection.provider"),
+            status: connection.status,
+            lastEventAt: stringValue(connection.lastEventAt, "payload.connection.lastEventAt"),
+          },
+          lastLatencyMs: payload.lastLatencyMs,
+          latestTicks: payload.latestTicks.map((value, index) => {
+            const tick = recordValue(value, `payload.latestTicks[${index}]`);
+            const tickPair = stringValue(tick.pair, `payload.latestTicks[${index}].pair`);
+            if (tickPair !== pair) throw new MarketWebSocketContractError("Observability tick pair mismatch");
+            const latencyMs = finiteNumber(tick.latencyMs, `payload.latestTicks[${index}].latencyMs`);
+            if (latencyMs < 0) throw new MarketWebSocketContractError("Invalid observability tick latency");
+            return {
+              pair: tickPair,
+              price: finiteNumber(tick.price, `payload.latestTicks[${index}].price`),
+              timestamp: stringValue(tick.timestamp, `payload.latestTicks[${index}].timestamp`),
+              providerEventAt: stringValue(tick.providerEventAt, `payload.latestTicks[${index}].providerEventAt`),
+              receivedAt: stringValue(tick.receivedAt, `payload.latestTicks[${index}].receivedAt`),
+              latencyMs,
+            };
+          }),
+          persistence: "EPHEMERAL_IN_MEMORY_ONLY",
         },
       };
     }

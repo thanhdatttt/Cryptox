@@ -8,6 +8,25 @@ import type {
 
 export const SEARCH_GENERATOR_TYPES = ["RANDOM"] as const;
 export type GeneratorType = (typeof SEARCH_GENERATOR_TYPES)[number];
+export const SEEDED_DISCOVERY_PROFILE_IDS = ["RANDOM_V1", "DOMAIN_GUIDED_V1", "GENETIC_V1"] as const;
+export type SeededDiscoveryProfileId = (typeof SEEDED_DISCOVERY_PROFILE_IDS)[number];
+
+export interface SeededDiscoveryProvenance {
+  profileId: SeededDiscoveryProfileId;
+  algorithmConfiguration: Readonly<Record<string, number | string | boolean | readonly string[]>>;
+  datasetIdentity: { datasetId?: string; datasetVersion?: string; provider?: string };
+  code: { applicationVersion?: string; gitCommit?: string };
+  seed: string;
+  defaultBudget: { maxCandidates: 500; maxDurationSeconds: 300 };
+}
+
+export const GENETIC_V1_DEFAULTS = {
+  population: 50,
+  maximumGenerations: 10,
+  elitePercent: 0.1,
+  mutationPercent: 0.2,
+  candidateBudget: 500,
+} as const;
 
 export interface GeneratedCandidate {
   candidateKey: string;
@@ -99,6 +118,8 @@ export interface SearchRunStatus {
   endedAt?: string;
   stopReason?: SearchRunStopReason;
   lastError?: string;
+  /** Additive DEC-007 provenance; absent for legacy RANDOM runs. */
+  seededDiscovery?: SeededDiscoveryProvenance;
 }
 
 export interface StartSearchCommand {

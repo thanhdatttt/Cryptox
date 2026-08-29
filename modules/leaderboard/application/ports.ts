@@ -71,3 +71,11 @@ export interface LeaderboardApplicationDependencies<
   idGenerator?: () => string;
   initialize?: () => Promise<void>;
 }
+
+export interface ExtensionProvenanceReadPort {
+  readExperimentExtensionProvenance(experimentId: string): Promise<{
+    searchProfileId?: string;
+    paperExecutionProfileId?: string;
+    newsExtractionTemplateVersion?: number;
+  } | undefined>;
+}

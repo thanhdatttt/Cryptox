@@ -39,6 +39,8 @@ export interface BacktestConfigurationDto {
   initialCapital: number;
   feeRatePercent: number;
   slippageBps: number;
+  /** Opaque transport projection; the canonical profile is owned by Backtesting. */
+  paperExecutionProvenance?: Readonly<Record<string, string | number>>;
 }
 
 export interface StartManualBacktestRequestDto {
@@ -131,7 +133,8 @@ export interface TradeDto {
   exitSignalAt?: string;
   exitTime: string;
   exitPrice: number;
-  exitReason: "STRATEGY_EXIT" | "RANGE_END";
+  positionMode?: string;
+  exitReason: "STRATEGY_EXIT" | "RANGE_END" | "STOP_LOSS" | "TAKE_PROFIT";
   quantity: number;
   notionalEntryValue: number;
   grossProfit: number;
@@ -155,6 +158,7 @@ export interface ExperimentDto {
   replay: RestReplayAvailability;
   visualization: ExperimentVisualizationDto;
   createdAt: string;
+  paperExecutionProvenance?: BacktestConfigurationDto["paperExecutionProvenance"];
 }
 
 export interface ExperimentResponseDto {
@@ -247,10 +251,11 @@ export function parseBacktestConfiguration(value: unknown): BacktestConfiguratio
   if (initialCapital <= 0 || feeRatePercent < 0 || slippageBps < 0) {
     throw new RestContractValidationError("Backtest numeric configuration is out of range");
   }
-  return {
+  const base: Omit<BacktestConfigurationDto, "paperExecution"> = {
     executionProfileId: "BACKTEST_EXECUTION_V1",
     initialCapital,
     feeRatePercent,
     slippageBps,
   };
+  return base;
 }

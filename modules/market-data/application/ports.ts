@@ -7,6 +7,17 @@ import type {
   Timeframe,
 } from "../domain/contracts";
 
+/** Separate from CandleRepository/SnapshotRepository so observability cannot become market history. */
+export interface EphemeralMarketObservabilityStore {
+  recordTick(tick: MarketTick & { providerEventAt: string; receivedAt: string; latencyMs: number }): void;
+  recordConnection(state: MarketDataConnectionStatus): void;
+  read(pair: Pair): {
+    pair: Pair;
+    latestTicks: readonly (MarketTick & { providerEventAt: string; receivedAt: string; latencyMs: number })[];
+  } | undefined;
+  clearOnRestart(): void;
+}
+
 export type DatasetSnapshotRecord = {
   id: string;
   provider: ProviderId;

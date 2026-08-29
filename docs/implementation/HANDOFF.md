@@ -14,10 +14,12 @@
   reviewed record; no other active Cryptox Manager or worker was found; Docker
   Compose/daemon are usable; and `npm run db:local:validate` passed local
   PostgreSQL up, constraints, down, and remigrate.
-- **Task transition:** C-02 moved exactly `BLOCKED -> READY -> IN_PROGRESS`.
-- **Manager/workers:** One Manager is active in the canonical checkout. Exactly
-  one contract-and-schema worker is authorized and is pending creation. No
-  worktree, retry, second worker, or downstream task is authorized.
+- **Task transition:** C-02 moved exactly `BLOCKED -> READY -> IN_PROGRESS ->
+  REVIEW -> DONE`.
+- **Manager/workers:** One Manager reviewed the canonical checkout. Exactly one
+  worker ran: `01a04d53-6ab4-70c1-a926-f68464b0fc6a`, in the same checkout with no
+  worktree and no worker commit. No retry, second worker, or downstream task was
+  authorized or started.
 
 ## Current execution boundary
 
@@ -32,6 +34,36 @@
   configuration, requirement, decision, ADR, architecture, OpenSpec, or
   downstream feature work is in scope.
 
+## Accepted closure
+
+- **Changed paths:** 32 paths, all within the authorized allowlist: the eight
+  canonical module API contract owners and corresponding ports; extension REST
+  and market-WebSocket DTOs; focused contract/export tests; `docs/data-model.md`;
+  `infra/db/migrations/003_add_dec_007_extension_contracts.js`; and the local
+  migration validation harness. No control, runtime, provider, frontend, Auth,
+  dependency, configuration, requirement, ADR, architecture, OpenSpec, or
+  downstream path changed.
+- **Independent review:** Every changed path was inspected. Canonical ownership
+  remains in module `api/contracts.ts`; transport DTOs are additive projections;
+  legacy public shapes remain compatible where not explicitly extended. The
+  Manager removed the worker's invalid REST market-observability projection,
+  preserving the approved WebSocket-only ephemeral boundary. A direct
+  rollback-only PostgreSQL probe also confirmed nested secrets, invalid weighted
+  values, missing seeded provenance, and non-finite paper accounting are
+  rejected.
+- **Validation:** Focused contract/boundary tests 27/27; full workspace tests
+  254 passed with 6 existing environment-gated skips; typecheck, build, lint,
+  architecture, artifacts, deferred-scope, `node --test
+  scripts/check-deferred-scope.test.cjs` 5/5, and `git diff --check` PASS.
+  Docker/Compose local PostgreSQL up, constraints, down, remigrate, and edge
+  probes PASS. OpenSpec CLI is **UNVERIFIED** because it is unavailable; a
+  dedicated link/DAG checker is not present and is **UNVERIFIED**.
+- **Scope outcome:** This is a contract/data-model/migration gate only. LLM
+  calls, URL fetching, template promotion/purge jobs, seeded generators, Lite
+  execution, synthetic paper simulation, and all other downstream behavior
+  remain separately blocked. INS-034 is exhausted; return to Instructor review
+  before any next authorization.
+
 ## Validation status
 
 - Applicability and control-plane checks: **PASS**.
@@ -39,6 +71,5 @@
   db:local:validate`.
 - OpenSpec CLI: **UNVERIFIED** — executable not available in the environment.
 
-This is an in-progress INS-034 checkpoint. The sole worker must return scoped
-changes and evidence for independent Manager review before final state and commit
-are recorded.
+The accepted C-02 closure is committed in the containing INS-034 checkpoint.
+No downstream work was promoted or started.

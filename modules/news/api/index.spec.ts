@@ -4,6 +4,7 @@ import * as newsApi from "./index";
 describe("news public entrypoint", () => {
   it("allowlists collection and deterministic reads", async () => {
     expect(Object.keys(newsApi).sort()).toEqual([
+      "EXTERNAL_CONTENT_SAFETY_V1",
       "NEWS_READ_ORDER_V1",
       "collect",
       "readNews",

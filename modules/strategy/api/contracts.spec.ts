@@ -5,6 +5,8 @@ import {
   STRATEGY_IDENTITY_V1,
   STRATEGY_SIGNALS,
   TECHNICAL_PROFILES_V1,
+  LLM_AUTHORING_V1,
+  WEIGHTED_VOTE_V1,
   type StrategyDefinition,
   type CompositeStrategyDefinition,
   type StrategyFactory,
@@ -80,6 +82,21 @@ describe("strategy public contracts", () => {
       tieResult: "HOLD",
     });
     expect(MAJORITY_VOTE_V1).not.toHaveProperty("thresholds");
+  });
+
+  it("adds immutable weighted-vote and safe authoring representations without changing majority V1", () => {
+    expect(WEIGHTED_VOTE_V1).toMatchObject({
+      id: "WEIGHTED_VOTE_V1",
+      signalMapping: { BUY: 1, HOLD: 0, SELL: -1 },
+      thresholds: { buy: 0.3, sell: -0.3 },
+    });
+    expect(LLM_AUTHORING_V1).toMatchObject({
+      maximumRequestsPerSubmission: 1,
+      timeoutMs: 45_000,
+      persistence: "EXPLICIT_SAVE_AND_APPROVE_ONLY",
+    });
+    expect(LLM_AUTHORING_V1.excluded).toContain("CREDENTIALS");
+    expect(LLM_AUTHORING_V1.excluded).toContain("AUTOMATIC_APPROVAL");
   });
 
   it("freezes the approved Support/Resistance rejection-bounce profile exactly", () => {

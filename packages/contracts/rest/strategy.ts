@@ -60,12 +60,18 @@ export interface StrategyDefinitionDto {
   behaviorProfileId: string;
   version: number;
   parameters: Readonly<Record<string, StrategyParameterValueDto>>;
+  authoringOrigin?:
+    | { kind: "MANUAL" }
+    | { kind: "LLM_DRAFT"; draftId: string; providerId: string; modelId: string }
+    | { kind: "APPROVED_NEWS_ITEM"; newsItemId: string; extractionTemplateVersion?: number };
   createdAt: string;
 }
 
 export interface CompositeComponentDefinitionDto {
   strategyDefinitionId: string;
   strategyDefinitionVersion: number;
+  enabled?: boolean;
+  weight?: number;
 }
 
 export interface CompositeStrategyDefinitionDto {
@@ -73,9 +79,15 @@ export interface CompositeStrategyDefinitionDto {
   ownerUserId: string;
   logicalFamilyKey: string;
   version: number;
-  method: "MAJORITY_VOTE";
-  combinationProfileId: "MAJORITY_VOTE_V1";
+  method: "MAJORITY_VOTE" | "WEIGHTED_VOTE";
+  combinationProfileId: string;
   components: readonly CompositeComponentDefinitionDto[];
+  weightedVote?: {
+    profileId: string;
+    buyThreshold: number;
+    sellThreshold: number;
+    normalization: "ENABLED_FINITE_NON_NEGATIVE_WEIGHTS_SUM_TO_ONE";
+  };
   createdAt: string;
 }
 
@@ -119,6 +131,7 @@ export interface DefineCompositeResponseDto {
   schemaVersion: typeof REST_SCHEMA_VERSION;
   definition: CompositeStrategyDefinitionDto;
 }
+
 
 export function parseDefineStrategyRequest(value: unknown): DefineStrategyRequestDto {
   const input = recordValue(value, "define strategy request");

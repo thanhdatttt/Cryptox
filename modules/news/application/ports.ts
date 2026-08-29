@@ -61,3 +61,25 @@ export interface NewsModuleDependencies {
   sentimentTimeoutMs: number;
   observability: NewsObservability;
 }
+
+/** Backend-only safe-fetch boundary. No cookies, credentials, or arbitrary URL persistence are modeled. */
+export interface SafeNewsUrlFetchPort {
+  fetch(input: { url: string; sourceId: string; timeoutMs: 20_000; maximumRedirects: 3; maximumBodyBytes: 1_048_576 }): Promise<{
+    canonicalUrl: string;
+    body: string;
+    contentType: string;
+    redirects: number;
+  }>;
+}
+
+export interface ExtractionTemplateRepository<TTemplate> {
+  insertDraft(template: TTemplate): Promise<TTemplate>;
+  approve(templateId: string): Promise<TTemplate | undefined>;
+  readActive(sourceId: string): Promise<TTemplate | undefined>;
+  purgeExpired(now: string): Promise<number>;
+}
+
+export interface NewsExtractionProvenanceRepository<TProvenance> {
+  insert(provenance: TProvenance): Promise<TProvenance>;
+  purgeExpired(now: string): Promise<number>;
+}

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   CANDIDATE_STATUSES,
   BACKTEST_EXECUTION_V1,
+  SYNTHETIC_SHORT_PAPER_V1,
   type Experiment,
   type Trade,
 } from "./contracts";
@@ -110,6 +111,16 @@ describe("backtesting public contracts", () => {
     expect(trade.entryTime).not.toBe(trade.entrySignalAt);
     expect(trade).not.toHaveProperty("stopLoss");
     expect(trade).not.toHaveProperty("takeProfit");
+  });
+
+  it("represents synthetic paper provenance with fixed eight-place semantics", () => {
+    expect(SYNTHETIC_SHORT_PAPER_V1).toMatchObject({
+      id: "SYNTHETIC_SHORT_PAPER_V1",
+      feeRatePercent: 0.08,
+      adverseSlippageBps: 5,
+      decimalScale: 8,
+    });
+    expect(SYNTHETIC_SHORT_PAPER_V1.executionClass).toBe("ACADEMIC_CANDLE_SIMULATION_ONLY");
   });
 
   it("makes exact definitions, practical replay limits, and visualization inspectable", () => {

@@ -38,6 +38,33 @@ export interface MarketDataConnectionStatus {
   lastEventAt: string;
 }
 
+/** Delivery-only state: never a historical, snapshot, backtest, or replay input. */
+export const MARKET_OBSERVABILITY_V1 = {
+  id: "MARKET_OBSERVABILITY_V1",
+  persistence: "EPHEMERAL_IN_MEMORY_ONLY",
+  tickBufferPerPair: 100,
+  excludedFrom: ["HISTORICAL_INPUT", "DATASET_SNAPSHOT", "BACKTEST", "REPLAY"],
+} as const;
+
+export interface MarketObservedTick extends MarketTick {
+  providerEventAt: string;
+  receivedAt: string;
+  latencyMs: number;
+}
+
+export interface MarketObservabilityState {
+  profileId: typeof MARKET_OBSERVABILITY_V1.id;
+  pair: Pair;
+  connection: MarketDataConnectionStatus;
+  lastLatencyMs: number | null;
+  latestTicks: readonly MarketObservedTick[];
+  persistence: typeof MARKET_OBSERVABILITY_V1.persistence;
+}
+
+export interface MarketObservabilityReader {
+  readObservability(pair: Pair): Promise<MarketObservabilityState | undefined>;
+}
+
 export interface MarketDataProvenanceIdentity {
   provider: ProviderId;
   pair: Pair;

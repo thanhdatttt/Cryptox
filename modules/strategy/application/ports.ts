@@ -95,6 +95,8 @@ export interface StrategyDefinitionRecord {
 export interface CompositeComponentRecord {
   strategyDefinitionId: string;
   strategyDefinitionVersion: number;
+  enabled?: boolean;
+  weight?: number;
 }
 
 export interface CompositeDefinitionRecord {
@@ -102,9 +104,15 @@ export interface CompositeDefinitionRecord {
   ownerUserId: AuthenticatedUserId;
   logicalFamilyKey: string;
   version: number;
-  method: "MAJORITY_VOTE";
-  combinationProfileId: "MAJORITY_VOTE_V1";
+  method: "MAJORITY_VOTE" | "WEIGHTED_VOTE";
+  combinationProfileId: "MAJORITY_VOTE_V1" | "WEIGHTED_VOTE_V1";
   components: readonly CompositeComponentRecord[];
+  weightedVote?: {
+    profileId: "WEIGHTED_VOTE_V1";
+    buyThreshold: number;
+    sellThreshold: number;
+    normalization: "ENABLED_FINITE_NON_NEGATIVE_WEIGHTS_SUM_TO_ONE";
+  };
   createdAt: string;
 }
 
@@ -178,4 +186,17 @@ export interface StrategyApplicationDependencies {
   factories: readonly StrategyFactoryPort[];
   definitionRepository: StrategyDefinitionRepository<StrategyDefinitionRecord>;
   compositeRepository: CompositeDefinitionRepository<CompositeDefinitionRecord>;
+}
+
+/** Controlled authoring is deliberately separate from pure Strategy execution. */
+export interface StrategyAuthoringProviderPort {
+  readonly id: string;
+  readonly modelId: string;
+  createStructuredDraft(input: { prompt?: string; newsItemId?: string; timeoutMs: 45_000 }): Promise<Readonly<Record<string, StrategyParameterValue>>>;
+}
+
+export interface StrategyAuthoringDraftRepository<TDraft> {
+  insert(ownerUserId: AuthenticatedUserId, draft: TDraft): Promise<TDraft>;
+  getByOwnerAndId(ownerUserId: AuthenticatedUserId, draftId: string): Promise<TDraft | undefined>;
+  save(ownerUserId: AuthenticatedUserId, draft: TDraft): Promise<TDraft>;
 }

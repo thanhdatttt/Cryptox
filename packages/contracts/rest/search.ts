@@ -81,6 +81,21 @@ export interface SearchRunStatusDto {
     | "USER_CANCELLED"
     | "ERROR";
   lastError?: string;
+  seededDiscovery?: {
+    profileId: string;
+    algorithmConfiguration: Readonly<Record<string, number | string | boolean | readonly string[]>>;
+    datasetIdentity: { datasetId?: string; datasetVersion?: string; provider?: string };
+    code: { applicationVersion?: string; gitCommit?: string };
+    seed: string;
+    defaultBudget: { maxCandidates: 500; maxDurationSeconds: 300 };
+  };
+}
+
+export interface StartSeededDiscoveryRequestDto extends Omit<StartSearchRequestDto, "generatorType"> {
+  generatorProfileId: string;
+  algorithmConfiguration: Readonly<Record<string, number | string | boolean | readonly string[]>>;
+  datasetIdentity: { datasetId?: string; datasetVersion?: string; provider?: string };
+  code: { applicationVersion?: string; gitCommit?: string };
 }
 
 export interface SearchRunStatusResponseDto {

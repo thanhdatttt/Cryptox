@@ -14,6 +14,7 @@ describe("market WebSocket transport contracts", () => {
       "MARKET_TICK",
       "CANDLE",
       "CONNECTION_STATUS",
+      "MARKET_OBSERVABILITY",
       "SUBSCRIPTION_ACK",
       "ERROR",
     ]);
@@ -71,6 +72,32 @@ describe("market WebSocket transport contracts", () => {
       },
       {
         schemaVersion: 1,
+        type: "MARKET_OBSERVABILITY",
+        sentAt: "2026-01-01T00:00:01Z",
+        payload: {
+          profileId: "MARKET_OBSERVABILITY_V1",
+          pair: "BTCUSDT",
+          connection: {
+            provider: "binance",
+            status: "CONNECTED",
+            lastEventAt: "2026-01-01T00:00:00Z",
+          },
+          lastLatencyMs: 25,
+          latestTicks: [
+            {
+              pair: "BTCUSDT",
+              price: 100,
+              timestamp: "2026-01-01T00:00:00Z",
+              providerEventAt: "2026-01-01T00:00:00Z",
+              receivedAt: "2026-01-01T00:00:00.025Z",
+              latencyMs: 25,
+            },
+          ],
+          persistence: "EPHEMERAL_IN_MEMORY_ONLY",
+        },
+      },
+      {
+        schemaVersion: 1,
         type: "SUBSCRIPTION_ACK",
         sentAt: "2026-01-01T00:00:01Z",
         requestId: "request-1",
@@ -115,6 +142,23 @@ describe("market WebSocket transport contracts", () => {
         type: "MARKET_TICK",
         sentAt: "2026-01-01T00:00:01Z",
         payload: { pair: "BTCUSDT", price: Number.NaN, timestamp: "now" },
+      }),
+    ).toThrow();
+    expect(() =>
+      parseMarketWebSocketServerMessage({
+        schemaVersion: 1,
+        type: "MARKET_OBSERVABILITY",
+        sentAt: "2026-01-01T00:00:01Z",
+        payload: {
+          profileId: "MARKET_OBSERVABILITY_V1",
+          pair: "BTCUSDT",
+          connection: { provider: "binance", status: "CONNECTED", lastEventAt: "now" },
+          lastLatencyMs: 0,
+          latestTicks: Array.from({ length: 101 }, () => ({
+            pair: "BTCUSDT", price: 1, timestamp: "now", providerEventAt: "now", receivedAt: "now", latencyMs: 0,
+          })),
+          persistence: "EPHEMERAL_IN_MEMORY_ONLY",
+        },
       }),
     ).toThrow();
   });

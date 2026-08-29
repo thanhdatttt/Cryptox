@@ -17,6 +17,9 @@ import type {
 } from "modules/auth/api";
 
 export const BACKTEST_EXECUTION_V1_ID = "BACKTEST_EXECUTION_V1" as const;
+export const SYNTHETIC_SHORT_PAPER_V1_ID = "SYNTHETIC_SHORT_PAPER_V1" as const;
+export const STOP_LOSS_WINS_V1_ID = "STOP_LOSS_WINS_V1" as const;
+export const PAPER_DECIMAL_SCALE = 8 as const;
 export const BACKTEST_EXECUTION_V1 = {
   id: BACKTEST_EXECUTION_V1_ID,
   positionPolicy: {
@@ -124,7 +127,31 @@ export interface BacktestConfiguration {
   initialCapital: number;
   feeRatePercent: number;
   slippageBps: number;
+  /** Optional to preserve the original long-only V1 request shape. */
+  paperExecution?: SyntheticPaperExecutionConfiguration;
 }
+
+export interface SyntheticPaperExecutionConfiguration {
+  executionProfileId: typeof SYNTHETIC_SHORT_PAPER_V1_ID;
+  positionMode: "LONG" | "SYNTHETIC_SHORT";
+  exitPolicyId: typeof STOP_LOSS_WINS_V1_ID;
+  feeRatePercent: 0.08;
+  adverseSlippageBps: 5;
+  decimalScale: typeof PAPER_DECIMAL_SCALE;
+  roundingMode: "HALF_UP";
+  stopLoss?: string;
+  takeProfit?: string;
+}
+
+export const SYNTHETIC_SHORT_PAPER_V1 = {
+  id: SYNTHETIC_SHORT_PAPER_V1_ID,
+  marketInput: "BINANCE_CANDLES_ONLY",
+  modes: ["LONG", "SYNTHETIC_SHORT"],
+  feeRatePercent: 0.08,
+  adverseSlippageBps: 5,
+  decimalScale: PAPER_DECIMAL_SCALE,
+  executionClass: "ACADEMIC_CANDLE_SIMULATION_ONLY",
+} as const;
 
 export interface StartManualBacktestCommand {
   leaderboardScopeId: string;
@@ -210,7 +237,8 @@ export interface Trade {
   exitSignalAt?: string;
   exitTime: string;
   exitPrice: number;
-  exitReason: "STRATEGY_EXIT" | "RANGE_END";
+  positionMode?: "LONG" | "SYNTHETIC_SHORT";
+  exitReason: "STRATEGY_EXIT" | "RANGE_END" | "STOP_LOSS" | "TAKE_PROFIT";
   quantity: number;
   notionalEntryValue: number;
   grossProfit: number;
@@ -264,6 +292,7 @@ export interface Experiment {
   replay: ReplayAvailability;
   visualization: ExperimentVisualization;
   createdAt: string;
+  paperExecutionProvenance?: SyntheticPaperExecutionConfiguration;
 }
 
 export interface SearchCandidateSummary {

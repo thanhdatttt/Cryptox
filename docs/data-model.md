@@ -10,6 +10,28 @@ were consolidated during Stage 2 and remain recoverable from Git history; they d
 not override the simple Authentication and per-user ownership model approved by the
 later instructor change on 2026-08-28.
 
+## DEC-007 reconciliation boundary
+
+Migration `003_add_dec_007_extension_contracts` is the physical representation
+gate for the approved extension state. It adds no runtime behavior and no new
+ownership root. The mapping is deliberately additive so legacy V1 records remain
+valid while future feature packets can persist their approved inputs.
+
+| Approved representation | Physical owner | Boundary rule |
+|---|---|---|
+| Safe LLM draft/validation/approval state | `strategy_authoring_drafts`, `strategy_definitions.authoring_origin` | Structured draft and validation metadata may be retained; raw prompts, completions, credentials, and arbitrary URLs may not. |
+| Immutable weighted composite configuration | `composite_strategy_definitions`, `composite_components` | Component version, enabled state, weight, and weighted thresholds are append-only definition data. |
+| Seeded discovery provenance | `search_runs` extension columns | Profile/configuration, seed, dataset identity, and code provenance are stored together; no LLM or unbounded profile is represented. |
+| Synthetic paper provenance | `candidates`, `experiments`, `trades` extension columns | Numeric trade/accounting values use `numeric(38,8)`; position mode is Long or synthetic Short only. |
+| News extraction/refinement/retention | `extraction_templates`, `news_extraction_provenance`, `news_raw_html_artifacts`, `news_items` extension columns | Templates are versioned DRAFT/APPROVED/RETIRED records; raw HTML purge deadline is exactly seven days, and normalized/extraction retention is representable without credentials. |
+| Market observability | no persistence table | It is a 100-tick in-memory/WebSocket projection, excluded from snapshots, history, backtests, and replay. |
+
+`SentimentResult` remains a shared Sentiment-owned record with an optional
+News-to-Sentiment join. Missing or degraded analysis is represented as absence or
+degradation at the boundary, not as a fabricated neutral score. The schema adds
+no `owner_user_id` to inherited children or shared News, Sentiment, dataset,
+ranking, or plugin data.
+
 ## Ownership and relationships
 
 ```text

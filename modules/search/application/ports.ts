@@ -19,6 +19,10 @@ export interface StrategyGeneratorPort<TGenerationRequest, TCandidate> {
   generate(request: TGenerationRequest): TCandidate;
 }
 
+export interface SeededDiscoveryGeneratorPort<TGenerationRequest, TCandidate> extends StrategyGeneratorPort<TGenerationRequest, TCandidate> {
+  readonly profileId: "RANDOM_V1" | "DOMAIN_GUIDED_V1" | "GENETIC_V1";
+}
+
 export interface SearchApplicationDependencies<TSearchRun, TGenerationRequest, TCandidate> {
   searchRunRepository: SearchRunRepository<TSearchRun>;
   generators: { readonly RANDOM: StrategyGeneratorPort<TGenerationRequest, TCandidate> };

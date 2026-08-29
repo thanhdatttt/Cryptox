@@ -7,6 +7,8 @@ describe("search public entrypoint", () => {
       [
         "SEARCH_CANDIDATE_IDENTITY_V1",
         "SEARCH_GENERATOR_TYPES",
+        "SEEDED_DISCOVERY_PROFILE_IDS",
+        "GENETIC_V1_DEFAULTS",
         "cancel",
         "leaderboard",
         "list",

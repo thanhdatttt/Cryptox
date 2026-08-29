@@ -14,6 +14,7 @@ export const REQUIRED_METRICS_V1 = {
 export interface TradeEvaluationInput {
   profit: number;
   result: "WIN" | "LOSS" | "BREAKEVEN";
+  decimalScale?: 8;
 }
 
 export interface EquityPoint {

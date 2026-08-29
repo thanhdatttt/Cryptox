@@ -36,7 +36,7 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 | I-01 | BLOCKED | 5 | YES | Manager / integration worker | — | Not started |
 | I-02 | BLOCKED | 6 | YES | Manager plus independent reviewers | — | Not started |
 | RB-01 | DONE | E0 | YES | Manager | `MVP_IMPLEMENTATION` / containing INS-024 RB-01 checkpoint | Documentation-only DEC-007 reconciliation planning committed; no feature implementation started |
-| C-02 | IN_PROGRESS | E0 | YES | Manager / exactly one contract-and-schema worker (INS-034; pending creation) | `MVP_IMPLEMENTATION` / start checkpoint pending | Applicability PASS; worker assignment and contract/schema evidence in progress |
+| C-02 | DONE | E0 | YES | Manager / exactly one contract-and-schema worker `01a04d53-6ab4-70c1-a926-f68464b0fc6a` (INS-034) | `MVP_IMPLEMENTATION` / containing INS-034 closure checkpoint | Contract/schema review, 254/254 workspace tests, PostgreSQL up/constraints/down/remigrate, architecture, artifacts, scope, deferred-scope, typecheck, build, lint, and diff checks PASS; OpenSpec CLI and link/DAG automation UNVERIFIED |
 | M-03 | BLOCKED | E1 | YES | Future Market Data worker | — | Not started; amended MD-02/MD-03 evidence required |
 | S-04 | BLOCKED | E1 | YES | Future Strategy application worker | — | Not started; controlled LLM draft/approval evidence required |
 | S-05 | BLOCKED | E1 | YES | Future Strategy composite worker | — | Not started; weighted-vote evidence required |
@@ -53,11 +53,12 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 The `RB-01` row records the completed governance checkpoint. `ENV-01` is the
 sole packet allocated by current `INS-030`; it is DONE at its authorized
 boundary after one worker completed and the Manager independently reviewed it.
-`C-02` and every other feature packet remain `BLOCKED`; no
-other packet is authorized or may start. The existing legacy rows, including
+`C-02` is now DONE at its authorized contract/schema gate after one worker and
+Manager review. Every other extension feature packet remains `BLOCKED`; no
+downstream packet was authorized or started. The existing legacy rows, including
 `M-02` at `REVIEW`, `AU-02` at `BLOCKED`, and `I-01`/`I-02` at `BLOCKED`, retain
-their states and evidence. DEC-007 extension requirements are not satisfied by
-any legacy `DONE` row.
+their states and evidence. DEC-007 feature behavior remains unimplemented in
+the separately gated downstream packets.
 
 ## Task records
 
@@ -551,7 +552,8 @@ acceptance criteria and handoff requirements are in the linked packets in
 ### C-02 — DEC-007 Contract, Data-Model and Migration Reconciliation Gate
 
 - **Requirement IDs:** All DEC-007 extension IDs and amended `CSL-R-MD-02`.
-- **State / owner / wave:** IN_PROGRESS / Manager with exactly one contract-and-schema worker under INS-034 (pending creation) / E0.
+- **State / owner / wave:** DONE / Manager with exactly one contract-and-schema
+  worker `01a04d53-6ab4-70c1-a926-f68464b0fc6a` under INS-034 / E0.
 - **Dependencies:** `ENV-01` DONE and separately Instructor-reviewed; baseline
   inputs are `C-01A`, `D-01`, `M-01`, `S-01`, `Q-01`, `B-02`, `E-01`, `L-01`,
   `N-01`, and `N-02`. `M-02` is `REVIEW/UNVERIFIED` review input only and is
@@ -562,16 +564,30 @@ acceptance criteria and handoff requirements are in the linked packets in
 - **Acceptance/validation:** Canonical ownership, provenance, ephemeral state,
   safe-content, profile, decimal, and retention representations plus contract,
   migration, architecture, scope, link, diff, and OpenSpec checks.
-- **Checkpoint evidence:** Pauli produced no final report or worker commit. The
-  partial contract-only working-tree output was independently rejected because
-  it omitted the required ports, conceptual data model, migrations, and tests,
-  failed workspace typecheck and contract tests, and triggered deferred-scope
-  findings. No implementation output is accepted.
+- **Checkpoint evidence:** The historical Pauli partial attempt remains
+  rejected and was not retried. Under INS-034, the sole worker returned 32
+  in-scope contract/schema/model/migration/test paths without a worker commit.
+  Manager review covered every changed path, removed the invalid REST market
+  observability projection so that observability remains WebSocket-only, and
+  corrected the migration-harness profile probe after the deferred-scope
+  checker identified a false-positive literal. Canonical ownership, additive
+  compatibility, immutable weighted/Lite representation, safe LLM and
+  URL/template state, seeded provenance, eight-place paper provenance, News
+  extraction/retention, neutral Sentiment, unchanged ownership, and ephemeral
+  market observability boundaries are recorded and validated.
+- **Validation evidence:** Focused contract/boundary tests 27/27; full
+  workspace tests 254 passed with 6 existing environment-gated skips;
+  typecheck, build, lint, architecture, artifacts, deferred-scope, and
+  whitespace checks PASS. Local Docker PostgreSQL migration up, applicable
+  constraints, down, remigrate, and rollback-only edge probes PASS, including
+  nested-secret, weighted NaN, missing Search provenance, and paper-accounting
+  rejection. OpenSpec CLI and dedicated link/DAG automation are UNVERIFIED.
 - **Current execution:** Applicability was independently proven at `3b1766e`
-  against reviewed checkpoint `58885dd`; C-02 transitioned `BLOCKED -> READY ->
-  IN_PROGRESS`. Exactly one fresh contract-and-schema worker remains to be
-  created in this canonical checkout. No downstream task is authorized or
-  started.
+  against reviewed checkpoint `58885dd`; C-02 transitioned exactly
+  `BLOCKED -> READY -> IN_PROGRESS -> REVIEW -> DONE`. The coherent closure is
+  committed in the containing INS-034 checkpoint. No downstream task was
+  authorized or started; INS-034 is exhausted pending the next Instructor
+  review signal.
 - **Full packet:** [`MVP_PLAN.md#c-02--dec-007-contract-data-model-and-migration-reconciliation-gate`](MVP_PLAN.md#c-02--dec-007-contract-data-model-and-migration-reconciliation-gate)
 
 ### M-03 — Amended Realtime Market Delivery and `MARKET_OBSERVABILITY_V1`

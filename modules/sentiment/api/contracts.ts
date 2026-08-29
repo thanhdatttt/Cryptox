@@ -31,6 +31,11 @@ export interface SentimentResult {
   analyzedAt: string;
 }
 
+export type SentimentAvailability =
+  | { state: "AVAILABLE"; result: SentimentResult }
+  | { state: "MISSING" }
+  | { state: "DEGRADED"; reason: "TIMEOUT" | "INFERENCE_ERROR" | "INVALID_RESULT" };
+
 export interface SentimentAnalysisService {
   analyze(input: SentimentInput): Promise<SentimentResult>;
 }

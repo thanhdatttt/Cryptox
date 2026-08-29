@@ -16,8 +16,13 @@ export type BuiltInStrategyName = (typeof BUILT_IN_STRATEGY_NAMES)[number];
 
 export const TECHNICAL_PROFILES_V1_ID = "TECHNICAL_PROFILES_V1" as const;
 export const MAJORITY_VOTE_V1_ID = "MAJORITY_VOTE_V1" as const;
+export const WEIGHTED_VOTE_V1_ID = "WEIGHTED_VOTE_V1" as const;
+export const LLM_AUTHORING_V1_ID = "LLM_AUTHORING_V1" as const;
+export const SMC_LITE_V1_ID = "SMC_LITE_V1" as const;
+export const WYCKOFF_LITE_V1_ID = "WYCKOFF_LITE_V1" as const;
 export const STRATEGY_IDENTITY_V1_ID = "STRATEGY_IDENTITY_V1" as const;
 export type MajorityVoteProfileId = typeof MAJORITY_VOTE_V1_ID;
+export type CombinationProfileId = MajorityVoteProfileId | typeof WEIGHTED_VOTE_V1_ID;
 
 export type StrategyCategory =
   | "TREND"
@@ -25,7 +30,7 @@ export type StrategyCategory =
   | "VOLATILITY"
   | "STRUCTURE"
   | "INFORMATION";
-export type CombinationMethod = "MAJORITY_VOTE";
+export type CombinationMethod = "MAJORITY_VOTE" | "WEIGHTED_VOTE";
 export type StrategyParameterValue = number | string;
 
 export interface StrategyCandle {
@@ -87,12 +92,16 @@ export interface StrategyDefinition {
   behaviorProfileId: string;
   version: number;
   parameters: Readonly<Record<string, StrategyParameterValue>>;
+  /** Safe provenance only; prompts, completions, credentials, and arbitrary URLs are excluded. */
+  authoringOrigin?: StrategyAuthoringOrigin;
   createdAt: string;
 }
 
 export interface CompositeComponentDefinition {
   strategyDefinitionId: string;
   strategyDefinitionVersion: number;
+  enabled?: boolean;
+  weight?: number;
 }
 
 export interface CompositeStrategyDefinition {
@@ -101,8 +110,9 @@ export interface CompositeStrategyDefinition {
   logicalFamilyKey: string;
   version: number;
   method: CombinationMethod;
-  combinationProfileId: typeof MAJORITY_VOTE_V1_ID;
+  combinationProfileId: CombinationProfileId;
   components: readonly CompositeComponentDefinition[];
+  weightedVote?: WeightedVoteConfiguration;
   createdAt: string;
 }
 
@@ -137,6 +147,7 @@ export interface StrategyPluginDescriptor {
   category: StrategyCategory;
   implementationVersion: string;
   behaviorProfileId: string;
+  extensionProfileId?: typeof SMC_LITE_V1_ID | typeof WYCKOFF_LITE_V1_ID;
   parameters: readonly StrategyParameterDescriptor[];
   visualization: readonly StrategyVisualizationDescriptor[];
 }
@@ -156,6 +167,75 @@ export interface DefineCompositeCommand {
   logicalFamilyKey: string;
   combinationProfileId: typeof MAJORITY_VOTE_V1_ID;
   strategyDefinitionIds: readonly string[];
+}
+
+export interface WeightedVoteComponentInput {
+  strategyDefinitionId: string;
+  enabled: boolean;
+  weight: number;
+}
+
+export interface DefineWeightedVoteCompositeCommand {
+  logicalFamilyKey: string;
+  combinationProfileId: typeof WEIGHTED_VOTE_V1_ID;
+  components: readonly WeightedVoteComponentInput[];
+  thresholds?: { buy: number; sell: number };
+}
+
+export interface WeightedVoteConfiguration {
+  profileId: typeof WEIGHTED_VOTE_V1_ID;
+  buyThreshold: number;
+  sellThreshold: number;
+  normalization: "ENABLED_FINITE_NON_NEGATIVE_WEIGHTS_SUM_TO_ONE";
+}
+
+export const WEIGHTED_VOTE_V1 = {
+  id: WEIGHTED_VOTE_V1_ID,
+  method: "WEIGHTED_VOTE",
+  signalMapping: { BUY: 1, HOLD: 0, SELL: -1 },
+  thresholds: { buy: 0.3, sell: -0.3 },
+  normalization: "ENABLED_FINITE_NON_NEGATIVE_WEIGHTS_SUM_TO_ONE",
+  immutableFields: ["COMPONENT_VERSION", "ENABLED", "WEIGHT", "THRESHOLDS"],
+} as const;
+
+export const LITE_STRATEGY_PROFILES_V1 = {
+  profiles: [SMC_LITE_V1_ID, WYCKOFF_LITE_V1_ID],
+  claim: "DETERMINISTIC_LITE_ONLY_NOT_PROFESSIONAL_OR_DISCRETIONARY",
+} as const;
+
+export type StrategyAuthoringOrigin =
+  | { kind: "MANUAL" }
+  | { kind: "LLM_DRAFT"; draftId: string; providerId: string; modelId: string }
+  | { kind: "APPROVED_NEWS_ITEM"; newsItemId: string; extractionTemplateVersion?: number };
+
+export type StrategyAuthoringDraftStatus = "DRAFT" | "VALIDATED" | "REJECTED" | "APPROVED";
+
+export interface StrategyAuthoringDraft {
+  id: string;
+  ownerUserId: AuthenticatedUserId;
+  profileId: typeof LLM_AUTHORING_V1_ID;
+  source: { kind: "PROMPT" } | { kind: "APPROVED_NEWS_ITEM"; newsItemId: string };
+  provider: { id: string; modelId: string; configured: boolean };
+  status: StrategyAuthoringDraftStatus;
+  structuredDraft?: Readonly<Record<string, StrategyParameterValue>>;
+  validation?: { valid: boolean; reasons: readonly string[]; validatedAt: string };
+  approvedDefinitionId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const LLM_AUTHORING_V1 = {
+  id: LLM_AUTHORING_V1_ID,
+  maximumRequestsPerSubmission: 1,
+  timeoutMs: 45_000,
+  persistence: "EXPLICIT_SAVE_AND_APPROVE_ONLY",
+  excluded: ["CREDENTIALS", "RAW_PROMPT", "RAW_COMPLETION", "AUTOMATIC_APPROVAL"],
+} as const;
+
+export interface StrategyAuthoringPort {
+  createDraft(command: { source: StrategyAuthoringDraft["source"]; prompt?: string }): Promise<StrategyAuthoringDraft>;
+  validateDraft(draft: StrategyAuthoringDraft): Promise<StrategyAuthoringDraft>;
+  approveDraft(draftId: string): Promise<StrategyDefinition>;
 }
 
 export interface StrategyDefinitionPageRequest {

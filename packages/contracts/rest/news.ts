@@ -24,6 +24,24 @@ export interface NewsItemDto {
   relatedCoins: readonly string[];
   url: string;
   sentiment: SentimentResultDto | null;
+  sentimentAvailability?:
+    | { state: "AVAILABLE" }
+    | { state: "MISSING" }
+    | { state: "DEGRADED"; reason: "TIMEOUT" | "INFERENCE_ERROR" | "INVALID_RESULT" };
+  extraction?: {
+    sourceKind: "CONFIGURED_WEBSITE" | "RSS" | "HTML" | "ALLOWLISTED_URL_IMPORT";
+    canonicalUrl: string;
+    normalizedContentHash: string;
+    template?: { id: string; sourceId: string; version: number; status: "DRAFT" | "APPROVED" | "RETIRED" };
+    extractedAt: string;
+    normalizedRetainUntil: string;
+  };
+}
+
+export interface SafeUrlImportRequestDto {
+  schemaVersion: typeof REST_SCHEMA_VERSION;
+  url: string;
+  sourceId: string;
 }
 
 export interface NewsQueryDto {
@@ -86,4 +104,16 @@ export function parseNewsQuery(value: unknown): NewsQueryDto {
     ...(input.cursor === undefined ? {} : { cursor: stringValue(input.cursor, "cursor") }),
     order: "PUBLISHED_AT_DESC_PROVIDER_ID_ASC_PROVIDER_ITEM_ID_ASC",
   };
+}
+
+export function parseSafeUrlImportRequest(value: unknown): SafeUrlImportRequestDto {
+  const input = recordValue(value, "safe URL import request");
+  if (input.schemaVersion !== REST_SCHEMA_VERSION) {
+    throw new RestContractValidationError("Unsupported REST schema version");
+  }
+  const url = stringValue(input.url, "url");
+  if (!url.startsWith("https://")) {
+    throw new RestContractValidationError("URL import requires HTTPS");
+  }
+  return { schemaVersion: REST_SCHEMA_VERSION, url, sourceId: stringValue(input.sourceId, "sourceId") };
 }

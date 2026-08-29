@@ -6,6 +6,7 @@ describe("market-data public entrypoint", () => {
     expect(Object.keys(marketDataApi).sort()).toEqual(
       [
         "MARKET_DEMO_DEFAULTS_V1",
+        "MARKET_OBSERVABILITY_V1",
         "MARKET_TIMEFRAMES",
         "createDatasetSnapshot",
         "readCandles",

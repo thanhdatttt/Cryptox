@@ -56,3 +56,12 @@ export interface SentimentModuleDependencies {
   clock: Clock;
   observability: SentimentObservability;
 }
+
+/** News consumers can represent absence/degradation without fabricating a neutral score. */
+export interface SentimentAvailabilityPort {
+  readAvailability(newsId: string): Promise<
+    | { state: "AVAILABLE"; result: SentimentStoredResult }
+    | { state: "MISSING" }
+    | { state: "DEGRADED"; reason: "TIMEOUT" | "INFERENCE_ERROR" | "INVALID_RESULT" }
+  >;
+}
