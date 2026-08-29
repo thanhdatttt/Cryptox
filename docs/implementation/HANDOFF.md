@@ -1,42 +1,30 @@
-# INS-015 Execution Checkpoint
+# INS-016 Execution Checkpoint
 
 ## Resume here
 
-- **Level 2 control plane:** Active. INS-015 was applicable: its reviewed
-  checkpoint `135aab7` matched the current `MVP_IMPLEMENTATION` branch and clean
-  worktree before execution. `INSTRUCTOR.md` and `DECISIONS.md` were not edited.
-- **Authorization exhausted:** Only B-02 packet-boundary closure, F-AUTH real
-  AU-01 integration, and Q-01 real-port integration after B-02 DONE were in
-  scope. No M-02 rework, AU-02, N-01/N-02, F-02, I-01/I-02, or other task was
-  started.
-- **B-02:** `REVIEW -> DONE` under DEC-006 in Manager commit `a24aa00`. The
-  existing INS-014 implementation and evidence were independently rechecked:
-  Backtesting 33/33, package typecheck/lint/build, Auth PostgreSQL 3/3,
-  owner isolation, provenance, rollback, cancellation/saturation, and exactly
-  one terminal outcome PASS. Cross-module Experiment/Leaderboard transaction
-  atomicity remains `UNVERIFIED` and belongs to I-01.
-- **F-AUTH:** `REVIEW -> IN_PROGRESS -> REVIEW`, delegated to worker
-  `01a04b63-117d-7273-8ed5-db10730162eb` (Hypatia) in `apps/frontend/**`.
-  Reviewed source commit `8abd6a8` wires the real session boundary, same-origin
-  `/api` proxy, browser credentials, and regression coverage. Frontend 23/23
-  plus typecheck/build/lint PASS; backend AU-01 PostgreSQL smoke 1/1 PASS.
-  The bounded real browser/service probe produced no complete handoff, so
-  protected navigation, reload restore, 401 recovery, cache isolation, and
-  browser-observed HttpOnly-cookie behavior remain `UNVERIFIED`; F-AUTH is not
-  DONE.
-- **Q-01:** B-02 DONE was verified before delegation. Worker
-  `01a04b64-bd80-77b3-95e0-0916cb90c11b` (Hubble) was assigned the disjoint
-  `modules/search/**` real-port scope, but produced no reviewable handoff or
-  source commit before the bounded stop. Q-01 remains REVIEW; real persistence,
-  Backtesting/Leaderboard port integration, and DONE evidence are `UNVERIFIED`.
-- **Other evidence/limitations:** M-02 remains REVIEW with live Binance
-  evidence `UNVERIFIED` and was not reassigned. Formal OpenSpec CLI validation
-  is `UNVERIFIED` because the CLI is unavailable. Missing services/providers
-  are not counted as PASS; no credentials, passwords, cookies, or session
-  values were logged.
-- **Final checkpoint:** Source commit `8abd6a8` and Manager control checkpoint
-  commit `a24aa00` plus this final reconciliation commit form the coherent
-  INS-015 record. No downstream task was unlocked or started.
+- **Level 2 control plane:** Active. INS-016 is the current Instructor signal;
+  its reviewed checkpoint `4e00c42` matches the current `MVP_IMPLEMENTATION`
+  branch and clean worktree. `INSTRUCTOR.md` and `DECISIONS.md` were not edited.
+- **Authorization:** Execute exactly the independent F-AUTH real AU-01 and
+  Q-01 real-port review-closure phases. F-AUTH is limited to
+  `apps/frontend/**`; Q-01 is limited to `modules/search/**` excluding frozen
+  contracts/migrations. No M-02, B-02, AU-02, N-01/N-02, F-02, I-01/I-02, or
+  other task is authorized.
+- **Reconciliation:** Existing F-AUTH and Q-01 REVIEW records were reconciled
+  to READY because C-01A/F-01/AU-01 and C-01A/S-01/D-01/L-01/B-02 dependencies
+  are DONE. Each phase is delegated to a separate worker with disjoint scope;
+  workers may not edit global control artifacts.
+- **B-02 boundary:** B-02 remains DONE under DEC-006. Cross-module
+  Experiment/Leaderboard transaction atomicity remains `UNVERIFIED` for I-01.
+- **Current known evidence:** F-AUTH has source commit `8abd6a8`, frontend
+  23/23 plus typecheck/build/lint PASS, and backend AU-01 PostgreSQL smoke 1/1
+  PASS. Its real browser/service completion remains `UNVERIFIED`. Q-01 has a
+  reviewed fake-port phase, but real persistence/Backtesting/Leaderboard
+  integration remains `UNVERIFIED`.
+- **Next Manager action:** Delegate both READY phases, independently review
+  output, run focused/global gates, and replace this checkpoint with the final
+  INS-016 result. Missing service/provider evidence is BLOCKED or UNVERIFIED,
+  never PASS.
 
 ## INS-014 Historical Checkpoint
 
