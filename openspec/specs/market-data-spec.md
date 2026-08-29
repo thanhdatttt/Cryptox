@@ -92,7 +92,7 @@ Raw Binance payloads stop at the infrastructure adapter. No raw provider
 object, provider-specific enum, provider error, stream name, or exchange
 timestamp field may cross the public Market Data boundary.
 
-## 2. Requirement classification
+## 2. Requirements
 
 The PDF contains both requirements and teaching examples. The classifications
 below prevent examples from becoming accidental hard-coded contracts.
@@ -115,7 +115,7 @@ below prevent examples from becoming accidental hard-coded contracts.
 | `MarketPriceUpdated`, `CandleClosed`, `LEADERBOARD_UPDATED`, or similar names | ILLUSTRATIVE | No domain events are introduced. WebSocket transport messages are scoped to market delivery and are not an Event Bus. |
 | MA, RSI, Bollinger, Support/Resistance, and chart overlays | Out of scope for Market Data | Market Data supplies candles/ticks only; Strategy and Frontend own their respective behavior. |
 
-## 3. Terminology
+### Terminology
 
 ### Pair
 
@@ -234,7 +234,7 @@ for one pair, timeframe, and half-open range. Its `sha256` is computed from a
 canonical serialization of the normalized identity and ordered OHLCV values.
 Backtesting references a snapshot ID/hash, never a mutable date-range query.
 
-## 4. Functional requirements
+### Functional requirements
 
 ### Provider abstraction and normalization
 
@@ -643,7 +643,7 @@ Backtesting, Evaluation, Search, or Leaderboard contracts. If a future product
 requirement needs per-request provider selection, that selection MUST be added
 as an explicit versioned API field; it MUST NOT be inferred from pair syntax.
 
-## 5. Use cases and flows
+## 3. Behavior
 
 ### UC-MD-001 - Initial historical chart load
 
@@ -762,7 +762,7 @@ subscriptions.
 4. Existing Frontend, Strategy, Backtesting, Evaluation, and Leaderboard
    contracts remain unchanged.
 
-## 6. Contracts
+## 4. Contracts
 
 ### 6.1 Canonical public domain contracts
 
@@ -1258,7 +1258,7 @@ is not a visible snapshot.
   revisions. Identity, closure state, correction policy, and snapshot hash are
   the source of reproducibility.
 
-## 7. State and invariants
+## 5. Constraints
 
 ### 7.1 Provider connection state
 
@@ -1325,7 +1325,7 @@ snapshots and the status prelude described in §6.2. It does not guarantee:
 Consumers use timestamps, candle identity, `isClosed`, completeness metadata,
 and connection status rather than transport arrival order.
 
-## 8. Non-functional requirements
+### Non-functional requirements
 
 ### NFR-MD-001 - Reliability
 
@@ -1394,7 +1394,7 @@ Provider credentials and authenticated exchange-client details MUST remain in
 infrastructure configuration and MUST never cross REST/WebSocket/public API
 boundaries or appear in normal logs.
 
-## 9. Failure and edge-case matrix
+### Failure and edge-case matrix
 
 | ID | Failure or edge case | Required behavior | Retryable? |
 |---|---|---|---|
@@ -1419,7 +1419,7 @@ boundaries or appear in normal logs.
 | FE-MD-019 | Provider rate limited | Return `PROVIDER_RATE_LIMITED`, use adapter retry/backoff policy, preserve known history, and avoid a thundering herd. | Yes. |
 | FE-MD-020 | Controlled shutdown during reconnect | Idempotent `shutdown()` cancels timers and provider connection, stops new subscriptions, flushes validated writes, and requires a new module instance before restart. | No after shutdown. |
 
-## 10. Acceptance criteria
+## 6. Acceptance Criteria
 
 The following scenarios are implementation-testable. Test doubles MUST inject
 clock, provider adapter, backoff policy, repository, cache, and sink so that
@@ -1641,7 +1641,7 @@ the behavior can be verified deterministically without Binance network access.
       timestamp order. An explicit smaller limit, an explicit range, and
       snapshot reads retain their existing semantics.
 
-## 11. Traceability matrix
+### Traceability matrix
 
 | PDF source | Classified requirement | Spec coverage | Acceptance coverage |
 |---|---|---|---|
@@ -1659,7 +1659,7 @@ the behavior can be verified deterministically without Binance network access.
 | Brief sections 45-46 deliverables/demo | MUST for project delivery, not Market Data runtime behavior | This spec supplies the Market Data portion of architecture/demo/test evidence | AC 5, 9, 12, 20, 21, 28 |
 | PDF sample `BTCUSDT`, exact four chart values, named events, exact exchange routes | ILLUSTRATIVE | Section 2 prevents hard-coding them as universal requirements | AC 3, 20, 22 |
 
-## 12. Decisions, assumptions, and open issues
+### Decisions, assumptions, and open issues
 
 ### Decisions
 

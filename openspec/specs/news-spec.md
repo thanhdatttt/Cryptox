@@ -372,7 +372,7 @@ export interface NewsRepository {
 }
 
 export interface NewsObservability {
-  recordProviderFailure(input: {
+  recordProviderFailure?(input: {
     providerName: string;
     stage: "FETCH" | "MODEL" | "SCHEMA" | "VALIDATION" | "PERSISTENCE";
     reason: "TIMEOUT" | "ERROR" | "INVALID_OUTPUT";

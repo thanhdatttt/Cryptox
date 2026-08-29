@@ -48,5 +48,5 @@
 
 ## 8. Validation
 
-- [ ] 8.1 Run strict OpenSpec validation and verify every canonical spec follows Overview → Requirements → Behavior → Contracts → Constraints → Acceptance Criteria.
-- [ ] 8.2 Run authentication/ownership integration tests and regression suites for Search lifecycle, ranking, Backtesting completion, Market Data reads/WebSocket reconnect, News/Sentiment failure isolation, and existing evaluation edge cases.
+- [x] 8.1 Run strict OpenSpec validation and verify every canonical spec follows Overview → Requirements → Behavior → Contracts → Constraints → Acceptance Criteria.
+- [x] 8.2 Run authentication/ownership integration tests and regression suites for Search lifecycle, ranking, Backtesting completion, Market Data reads/WebSocket reconnect, News/Sentiment failure isolation, and existing evaluation edge cases.
