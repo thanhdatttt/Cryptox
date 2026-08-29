@@ -8,6 +8,12 @@ const rules_1 = require("../domain/rules");
 const key = (candle) => `${candle.pair}|${candle.timeframe}|${candle.timestamp}`;
 // Binance timestamps can lead the application clock by a small amount; keep validation bounded.
 const MAX_TICK_FUTURE_SKEW_MS = 5_000;
+const CACHE_SCHEMA_VERSION = 1;
+const LATEST_CANDLE_CACHE_WINDOW = 1_000;
+const candleCacheKey = (pair, timeframe) => `candles:latest:${pair}:${timeframe}`;
+const tickCacheKey = (pair) => `ticks:latest:${pair}`;
+const statusCacheKey = (provider) => `connection:status:${provider}`;
+const sameCandle = (left, right) => left.pair === right.pair && left.timeframe === right.timeframe && left.timestamp === right.timestamp && left.open === right.open && left.high === right.high && left.low === right.low && left.close === right.close && left.volume === right.volume && left.isClosed === right.isClosed;
 class MemoryCandleRepository {
     rows = new Map();
     async read(query) { return [...this.rows.values()].filter((candle) => candle.pair === query.pair && candle.timeframe === query.timeframe).sort((a, b) => a.timestamp.localeCompare(b.timestamp)); }
@@ -56,14 +62,107 @@ class MarketDataService {
         return { provider: provider.id, pairs: [...capabilities.pairs], timeframes: [...capabilities.timeframes] };
     }
     async readRows(pair, timeframe) { return (await this.candles.read({ pair, timeframe, includeForming: true })).map((candle) => (0, rules_1.validateCandle)(candle, this.now(), true)).sort((a, b) => a.timestamp.localeCompare(b.timestamp)); }
+    record(event) { this.deps.observability?.record(event); }
+    cache() { return this.deps.latestValueCache; }
+    async invalidateCandleCache(pair, timeframe) {
+        const cache = this.cache();
+        if (!cache?.delete)
+            return;
+        try {
+            await cache.delete(candleCacheKey(pair, timeframe));
+        }
+        catch {
+            this.record("market_data.cache_unavailable");
+        }
+    }
+    async refreshCandleCache(pair, timeframe) {
+        const cache = this.cache();
+        if (!cache?.set)
+            return;
+        try {
+            const rows = await this.readRows(pair, timeframe);
+            const closed = rows.filter((candle) => candle.isClosed).sort((left, right) => left.timestamp.localeCompare(right.timestamp));
+            const forming = rows.filter((candle) => !candle.isClosed).slice(-1);
+            const latestClosed = closed.slice(-LATEST_CANDLE_CACHE_WINDOW);
+            const interval = rules_1.TIMEFRAME_SECONDS[timeframe] * 1000;
+            const timestamps = new Set(closed.map((candle) => Date.parse(candle.timestamp)));
+            let completeThrough = Math.floor(Date.parse(this.now()) / interval) * interval;
+            if (latestClosed.length > 0) {
+                completeThrough = Date.parse(latestClosed[0].timestamp) + interval;
+                while (timestamps.has(completeThrough))
+                    completeThrough += interval;
+            }
+            const payload = { schemaVersion: CACHE_SCHEMA_VERSION, asOf: this.now(), completeThrough: new Date(completeThrough).toISOString(), candles: [...latestClosed, ...forming].sort((left, right) => left.timestamp.localeCompare(right.timestamp)) };
+            await cache.set(candleCacheKey(pair, timeframe), payload);
+        }
+        catch {
+            this.record("market_data.cache_write_error");
+        }
+    }
+    async readCachedCandleWindow(pair, timeframe, range, includeForming, now) {
+        const cache = this.cache();
+        if (!cache?.get || !range)
+            return undefined;
+        let raw;
+        try {
+            raw = await cache.get(candleCacheKey(pair, timeframe));
+        }
+        catch {
+            this.record("market_data.cache_unavailable");
+            return undefined;
+        }
+        if (raw === undefined || raw === null) {
+            this.record("market_data.cache_miss");
+            return undefined;
+        }
+        try {
+            const payload = (typeof raw === "string" ? JSON.parse(raw) : raw);
+            if (payload.schemaVersion !== CACHE_SCHEMA_VERSION || typeof payload.asOf !== "string" || typeof payload.completeThrough !== "string" || !Array.isArray(payload.candles) || payload.candles.length > LATEST_CANDLE_CACHE_WINDOW + 1)
+                throw new Error("invalid candle cache envelope");
+            const asOf = Date.parse(payload.asOf);
+            if (!Number.isFinite(asOf) || asOf > Date.parse(now) + MAX_TICK_FUTURE_SKEW_MS || Date.parse(now) - asOf > rules_1.TIMEFRAME_SECONDS[timeframe] * 2 * 1000)
+                throw new Error("stale candle cache");
+            const completeThrough = (0, rules_1.parseTimestamp)(payload.completeThrough, timeframe, now, true);
+            if (Date.parse(completeThrough) > Date.parse(now) + MAX_TICK_FUTURE_SKEW_MS)
+                throw new Error("future candle cache boundary");
+            const candles = payload.candles.map((candle) => (0, rules_1.validateCandle)(candle, now, true));
+            if (new Set(candles.map((candle) => candle.timestamp)).size !== candles.length || candles.some((candle) => candle.pair !== pair || candle.timeframe !== timeframe))
+                throw new Error("invalid candle cache rows");
+            const closed = candles.filter((candle) => candle.isClosed && candle.timestamp >= range.from && candle.timestamp < range.to);
+            if (candles.filter((candle) => candle.isClosed).length === 0 || Date.parse(range.from) < Date.parse(candles.find((candle) => candle.isClosed)?.timestamp ?? range.from) || Date.parse(range.to) > Date.parse(completeThrough) || (0, rules_1.missingRanges)(closed, range, timeframe).length > 0)
+                throw new Error("candle cache does not cover range");
+            if (includeForming && !candles.some((candle) => !candle.isClosed && candle.timestamp >= range.from && candle.timestamp < range.to))
+                throw new Error("forming candle cache is incomplete");
+            this.record("market_data.cache_hit");
+            return candles;
+        }
+        catch {
+            this.record("market_data.cache_invalid");
+            return undefined;
+        }
+    }
     async persist(observation) {
         const provider = await this.resolveProvider();
         const source = observation.source.includes(":") ? observation.source : `${provider?.id ?? "UNKNOWN"}:${observation.source}`;
         const candle = (0, rules_1.validateCandle)({ ...observation.candle, source }, this.now());
         const existing = (await this.candles.read({ pair: candle.pair, timeframe: candle.timeframe, includeForming: true })).find((item) => item.timestamp === candle.timestamp);
-        if (existing?.isClosed && !candle.isClosed)
+        if (existing?.isClosed && !candle.isClosed) {
+            this.record("market_data.out_of_order_candle");
             return undefined;
+        }
+        if (existing && sameCandle(existing, candle))
+            return undefined;
+        const historical = observation.source.endsWith("HISTORICAL_SYNC");
+        if (existing?.isClosed && !historical) {
+            this.record("market_data.realtime_closed_correction_ignored");
+            return undefined;
+        }
+        if (existing?.isClosed && historical) {
+            this.record("market_data.correction_detected");
+            await this.invalidateCandleCache(candle.pair, candle.timeframe);
+        }
         await this.candles.upsert(candle);
+        await this.refreshCandleCache(candle.pair, candle.timeframe);
         return candle;
     }
     latestClosedRange(now, timeframe, limit) {
@@ -93,7 +192,34 @@ class MarketDataService {
             this.historySyncs.delete(syncKey);
         }
     }
-    fingerprint(query) { return JSON.stringify({ pair: query.pair, timeframe: query.timeframe, range: query.range, limit: query.limit ?? rules_1.DEFAULT_PAGE_LIMIT, includeForming: query.includeForming ?? false, completeness: query.completeness ?? "ALLOW_PARTIAL" }); }
+    async reconcileProviderSubscriptions(provider, subscriptions) {
+        if (!provider.getClosedThrough) {
+            this.record("market_data.reconciliation_skipped");
+            return;
+        }
+        for (const subscription of subscriptions) {
+            const now = this.now();
+            const closedThrough = (0, rules_1.parseTimestamp)(await provider.getClosedThrough(subscription), subscription.timeframe, now, true);
+            if (Date.parse(closedThrough) > Date.parse(now) + MAX_TICK_FUTURE_SKEW_MS)
+                throw new errors_1.MarketDataException("HISTORY_INCOMPLETE", "Provider reconciliation boundary is in the future.", true);
+            const rows = await this.readRows(subscription.pair, subscription.timeframe);
+            const closed = rows.filter((candle) => candle.isClosed).sort((left, right) => left.timestamp.localeCompare(right.timestamp));
+            const interval = rules_1.TIMEFRAME_SECONDS[subscription.timeframe] * 1000;
+            const from = closed.at(-1)?.timestamp ?? new Date(Date.parse(closedThrough) - interval).toISOString();
+            if (Date.parse(from) >= Date.parse(closedThrough))
+                continue;
+            const range = { from, to: closedThrough };
+            const observations = await provider.fetchHistorical({ pair: subscription.pair, timeframe: subscription.timeframe, range });
+            for (const observation of observations)
+                await this.persist({ candle: observation.candle, orderKey: observation.orderKey, source: "HISTORICAL_SYNC" });
+            const reconciled = await this.readRows(subscription.pair, subscription.timeframe);
+            const missing = (0, rules_1.missingRanges)(reconciled.filter((candle) => candle.timestamp >= range.from && candle.timestamp < range.to), range, subscription.timeframe);
+            if (missing.length > 0)
+                throw new errors_1.MarketDataException("HISTORY_INCOMPLETE", "Provider reconciliation contains missing candles.", true, { missingRanges: missing });
+            await this.refreshCandleCache(subscription.pair, subscription.timeframe);
+        }
+    }
+    fingerprint(query) { return JSON.stringify({ pair: query.pair, timeframe: query.timeframe, range: query.range, limit: query.limit ?? rules_1.DEFAULT_HISTORICAL_CANDLE_LIMIT, includeForming: query.includeForming ?? false, completeness: query.completeness ?? "ALLOW_PARTIAL" }); }
     encodeCursor(query, offset) { return Buffer.from(JSON.stringify({ fingerprint: this.fingerprint(query), offset }), "utf8").toString("base64url"); }
     decodeCursor(query, cursor) {
         if (!cursor)
@@ -124,10 +250,11 @@ class MarketDataService {
         const normalizedQuery = { ...query, pair, timeframe, range };
         this.decodeCursor(normalizedQuery, query.cursor);
         const provider = await this.validateProvider(pair, timeframe);
-        let rows = await this.readRows(pair, timeframe);
         const requestedRange = range ?? (provider ? this.latestClosedRange(now, timeframe, limit) : undefined);
+        const cachedRows = await this.readCachedCandleWindow(pair, timeframe, requestedRange, query.includeForming ?? false, now);
+        let rows = cachedRows ?? await this.readRows(pair, timeframe);
         let providerFailure;
-        if (provider && requestedRange) {
+        if (!cachedRows && provider && requestedRange) {
             try {
                 await this.syncMissing(provider, pair, timeframe, requestedRange);
                 rows = await this.readRows(pair, timeframe);
@@ -138,6 +265,8 @@ class MarketDataService {
                     throw new errors_1.MarketDataException("HISTORY_UNAVAILABLE", "Historical market data is unavailable.", true, { cause: error instanceof Error ? error.message : "provider failure" });
             }
         }
+        if (!cachedRows && requestedRange)
+            await this.refreshCandleCache(pair, timeframe);
         const closed = rows.filter((candle) => candle.isClosed && (!requestedRange || (candle.timestamp >= requestedRange.from && candle.timestamp < requestedRange.to)));
         const forming = query.includeForming ? rows.filter((candle) => !candle.isClosed && (!requestedRange || (range ? (candle.timestamp >= range.from && candle.timestamp < range.to) : (candle.timestamp >= requestedRange.from && candle.timestamp <= requestedRange.to)))) : [];
         const page = [...closed, ...forming].sort((a, b) => a.timestamp.localeCompare(b.timestamp));
@@ -231,9 +360,10 @@ class MarketDataService {
                 this.subscriptionProvider = provider;
                 this.subscriptionManager = new subscription_manager_1.MarketDataSubscriptionManager({
                     provider,
-                    onTick: (observation) => this.handleTick(observation.tick),
+                    onTick: (observation) => { void this.handleTick(observation.tick); },
                     onCandle: (observation) => { void this.handleCandle(observation); },
                     onStatus: (status, failure) => this.setStatus({ provider: provider.id, status, ...(failure ? { errorCode: failure.code } : {}) }),
+                    onConnected: (activeSubscriptions) => this.reconcileProviderSubscriptions(provider, activeSubscriptions),
                 });
             }
             await this.subscriptionManager.setSubscriptions(subscriptions);
@@ -243,7 +373,19 @@ class MarketDataService {
     }
     setStatus(next) {
         this.status = { ...next, lastEventAt: this.now() };
+        void this.writeStatusCache(this.status);
         this.broadcast({ kind: "CONNECTION_STATUS", payload: this.status });
+    }
+    async writeStatusCache(status) {
+        const cache = this.cache();
+        if (!cache?.set)
+            return;
+        try {
+            await cache.set(statusCacheKey(status.provider), { schemaVersion: CACHE_SCHEMA_VERSION, asOf: status.lastEventAt, status });
+        }
+        catch {
+            this.record("market_data.cache_write_error");
+        }
     }
     deliver(sink, update) { try {
         sink(update);
@@ -253,7 +395,7 @@ class MarketDataService {
     } }
     broadcast(update) { for (const subscriber of this.subscribers.values())
         this.deliver(subscriber.sink, update); }
-    handleTick(tick) { try {
+    async handleTick(tick) { try {
         const pair = (0, rules_1.validatePair)(tick.pair);
         const timestamp = Date.parse(tick.timestamp);
         if (typeof tick.timestamp !== "string" || !tick.timestamp.endsWith("Z") || !Number.isFinite(timestamp) || timestamp > Date.parse(this.now()) + MAX_TICK_FUTURE_SKEW_MS)
@@ -264,10 +406,20 @@ class MarketDataService {
             throw new Error("invalid tick quantity");
         if (tick.side !== "BUY" && tick.side !== "SELL")
             throw new Error("invalid tick side");
-        this.broadcast({ kind: "TICK", payload: { ...tick, pair, timestamp: new Date(timestamp).toISOString() } });
+        const normalized = { ...tick, pair, timestamp: new Date(timestamp).toISOString() };
+        const cache = this.cache();
+        if (cache?.set) {
+            try {
+                await cache.set(tickCacheKey(pair), { schemaVersion: CACHE_SCHEMA_VERSION, asOf: this.now(), tick: normalized });
+            }
+            catch {
+                this.record("market_data.cache_write_error");
+            }
+        }
+        this.broadcast({ kind: "TICK", payload: normalized });
     }
     catch {
-        this.deps.observability?.record("market_data.invalid_tick");
+        this.record("market_data.invalid_tick");
     } }
     async handleCandle(observation) { try {
         const candle = await this.persist(observation);
@@ -278,6 +430,6 @@ class MarketDataService {
         this.deps.observability?.record("market_data.invalid_candle");
     } }
     async shutdown() { if (this.stopped)
-        return; this.stopped = true; await this.subscriptionManager?.stop(); this.subscriptionManager = undefined; this.subscriptionProvider = undefined; this.subscribers.clear(); }
+        return; this.stopped = true; await this.subscriptionManager?.stop(); this.subscriptionManager = undefined; this.subscriptionProvider = undefined; this.subscribers.clear(); await this.cache()?.close?.(); }
 }
 function createMarketDataService(deps = {}) { return new MarketDataService(deps); }

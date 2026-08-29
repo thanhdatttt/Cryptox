@@ -117,4 +117,22 @@ describe("live Binance market-data service behavior", () => {
     const provider = providerFor(async () => { throw new Error("network blocked"); });
     await expect(createMarketDataService(deps(provider, [])).readCandles({ pair: "BTCUSDT", timeframe: "1h", limit: 3 })).rejects.toMatchObject({ code: "HISTORY_UNAVAILABLE", retryable: true });
   });
+
+  it("reconciles from the durable closed boundary before reporting CONNECTED", async () => {
+    const rows = [candle("2025-01-01T23:00:00.000Z", 100)];
+    const calls: Array<{ from: string; to: string }> = [];
+    const provider: MarketDataProviderAdapter = {
+      ...providerFor(async ({ range }) => { calls.push(range); return [historical("2025-01-01T23:00:00.000Z", 105)]; }),
+      getClosedThrough: async () => "2025-01-02T00:00:00.000Z",
+    };
+    const updates: MarketDataUpdate[] = [];
+    const service = createMarketDataService(deps(provider, rows));
+
+    const stop = await service.subscribeMarketData([{ pair: "BTCUSDT", timeframe: "1h" }], (update) => updates.push(update));
+
+    expect(calls).toEqual([{ from: "2025-01-01T23:00:00.000Z", to: "2025-01-02T00:00:00.000Z" }]);
+    expect(rows[0]).toMatchObject({ close: 105, isClosed: true });
+    expect(updates.at(-1)).toMatchObject({ kind: "CONNECTION_STATUS", payload: { status: "CONNECTED" } });
+    await stop();
+  });
 });

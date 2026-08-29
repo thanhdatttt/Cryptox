@@ -3,6 +3,7 @@ import type { MarketDataProviderAdapter, NormalizedProviderCandleObservation, No
 import type { MarketSubscription } from "../api";
 
 const intervals: Record<Timeframe, string> = { "1m": "1m", "5m": "5m", "15m": "15m", "1h": "1h", "4h": "4h", "1d": "1d" };
+const intervalMilliseconds: Record<Timeframe, number> = { "1m": 60_000, "5m": 300_000, "15m": 900_000, "1h": 3_600_000, "4h": 14_400_000, "1d": 86_400_000 };
 const supportedPairs: Pair[] = ["BTCUSDT", "ETHUSDT", "BNBUSDT", "SOLUSDT", "XRPUSDT", "ADAUSDT", "DOGEUSDT"];
 const supportedTimeframes = Object.keys(intervals) as Timeframe[];
 
@@ -68,6 +69,7 @@ export function createBinanceMarketDataAdapter(options: BinanceAdapterOptions = 
     id: "BINANCE",
     capabilities: async () => ({ pairs: [...supportedPairs], timeframes: [...supportedTimeframes] }),
     readPairMetadata: async (pair) => metadata(pair),
+    getClosedThrough: async ({ timeframe }) => new Date(Math.floor(now() / intervalMilliseconds[timeframe]) * intervalMilliseconds[timeframe]).toISOString(),
     fetchHistorical: async ({ pair, timeframe, range }) => {
       const results: NormalizedProviderCandleObservation[] = [];
       const endTime = Date.parse(range.to);

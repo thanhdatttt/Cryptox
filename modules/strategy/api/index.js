@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.defineComposite = exports.defineStrategy = exports.readComposite = exports.listComposites = exports.readDefinitions = exports.listDefinitions = exports.combineSignals = exports.resolveStrategy = exports.listStrategies = void 0;
+exports.generateStrategy = exports.defineComposite = exports.defineStrategy = exports.readComposite = exports.listComposites = exports.readDefinitions = exports.listDefinitions = exports.combineSignals = exports.resolveStrategy = exports.listStrategies = void 0;
 const plugins_1 = require("../domain/plugins");
 const service_1 = require("../application/service");
 const factories = new Map(plugins_1.builtInFactories.map((factory) => [factory.descriptor.name, factory]));
@@ -48,3 +48,5 @@ const defineStrategy = (userId, strategyName, parameters) => defaultRuntime.defi
 exports.defineStrategy = defineStrategy;
 const defineComposite = (userId, command) => defaultRuntime.defineComposite(userId, command);
 exports.defineComposite = defineComposite;
+const generateStrategy = (userId, source) => defaultRuntime.generateStrategy(userId, source);
+exports.generateStrategy = generateStrategy;

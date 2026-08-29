@@ -11,7 +11,7 @@ import { createEvaluationModule } from "modules/evaluation/api/bootstrap";
 import type { EvaluatorModulePublicApi } from "modules/evaluation/api";
 import type { LeaderboardModulePublicApi } from "modules/leaderboard/api";
 import { createBacktestingExperimentReader, createBacktestingScopeRepository, createInMemoryLeaderboardDependencies, createLeaderboardModule, createPostgresLeaderboardDependencies } from "modules/leaderboard/api/bootstrap";
-import { createBinanceMarketDataAdapter, createMarketDataModule, PostgresCandleRepository, PostgresSnapshotRepository } from "modules/market-data/api/bootstrap";
+import { createBinanceMarketDataAdapter, createMarketDataModule, createRedisLatestValueCache, PostgresCandleRepository, PostgresSnapshotRepository } from "modules/market-data/api/bootstrap";
 import { createConfiguredNewsProviders, createNewsModule, PostgresNewsRepository } from "modules/news/api/bootstrap";
 import type { SearchModulePublicApi, SearchModuleRuntime } from "modules/search/api";
 import { createInMemorySearchDependencies, createPostgresSearchDependencies, createSearchModule } from "modules/search/api/bootstrap";
@@ -38,9 +38,11 @@ export function composeAllModules(): BackendModules {
   if (marketDataProvider !== "BINANCE" && marketDataProvider !== "DEMO") throw new Error(`Unsupported MARKET_DATA_PROVIDER: ${marketDataProvider}`);
   const inMemoryBacktesting = createInMemoryBacktestingDependencies();
   const queue = process.env.REDIS_URL ? new BullMqBacktestQueue(process.env.REDIS_URL) : inMemoryBacktesting.queue;
+  const latestValueCache = process.env.REDIS_URL ? createRedisLatestValueCache(process.env.REDIS_URL) : undefined;
   const marketData = createMarketDataModule({
     candleRepository: postgres ? new PostgresCandleRepository(postgres) : undefined,
     snapshotRepository: postgres ? new PostgresSnapshotRepository(postgres) : undefined,
+    latestValueCache,
     providerRegistry: { defaultProviderId: marketDataProvider, ...(marketDataProvider === "BINANCE" ? { defaultProvider: createBinanceMarketDataAdapter() } : {}) },
   });
   const strategy = postgres
@@ -107,7 +109,7 @@ export function composeAllModules(): BackendModules {
         recoveryTimer.unref();
       }
     } },
-    stopRuntime: { enumerable: false, value: async () => { if (recoveryTimer) clearInterval(recoveryTimer); recoveryTimer = undefined; await completionListener?.close(); } },
+    stopRuntime: { enumerable: false, value: async () => { if (recoveryTimer) clearInterval(recoveryTimer); recoveryTimer = undefined; await marketData.shutdown(); await completionListener?.close(); } },
   });
   console.log("backend modules composed", Object.keys(modules).join(","));
   return modules;

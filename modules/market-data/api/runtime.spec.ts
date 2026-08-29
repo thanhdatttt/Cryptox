@@ -42,4 +42,21 @@ describe("market-data service", () => {
     expect(first.sha256).toMatch(/^[a-f0-9]{64}$/);
     expect(first.candleCount).toBe(2);
   });
+
+  it("uses a fresh Redis latest-value window and falls back to PostgreSQL on a miss", async () => {
+    const rows = [candle("2025-01-01T00:00:00.000Z"), candle("2025-01-01T01:00:00.000Z", 101)];
+    const repository = { read: vi.fn(async () => rows), upsert: vi.fn(async () => undefined) };
+    const values = new Map<string, unknown>();
+    const cache = { get: vi.fn(async (key: string) => values.get(key)), set: vi.fn(async (key: string, value: unknown) => { values.set(key, value); }), delete: vi.fn(async (key: string) => { values.delete(key); }) };
+    const service = createMarketDataService({ ...deps(rows), candleRepository: repository, latestValueCache: cache });
+    const query = { pair: "BTCUSDT" as const, timeframe: "1h" as const, range: { from: "2025-01-01T00:00:00.000Z", to: "2025-01-01T02:00:00.000Z" } };
+
+    await service.readCandles(query);
+    const readsAfterPostgresFallback = repository.read.mock.calls.length;
+    const cached = await service.readCandles(query);
+
+    expect(cached.candles.map((item) => item.close)).toEqual([100, 101]);
+    expect(repository.read).toHaveBeenCalledTimes(readsAfterPostgresFallback);
+    expect(cache.get).toHaveBeenCalledTimes(2);
+  });
 });

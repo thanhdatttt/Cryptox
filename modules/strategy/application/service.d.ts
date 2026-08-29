@@ -1,9 +1,26 @@
 import type { CombinationMethod, CompositeStrategyDefinition, Signal, Strategy, StrategyDefinition, StrategyPluginDescriptor } from "../domain/contracts";
-import type { CompositeDefinitionRepository, StrategyDefinitionRepository } from "./ports";
+import type { CompositeDefinitionRepository, StrategyDefinitionRepository, StrategyGenerationAdapter, StrategyGenerationSource, StrategyGenerationUnitOfWork, StrategySourceLoader } from "./ports";
 export interface StrategyModuleDependencies {
     artifactResolver: import("../domain/contracts").StrategyArtifactResolver;
     definitionRepository: StrategyDefinitionRepository;
     compositeRepository: CompositeDefinitionRepository;
+    generationAdapter?: StrategyGenerationAdapter;
+    sourceLoader?: StrategySourceLoader;
+    generationUnitOfWork?: StrategyGenerationUnitOfWork;
+    modelName?: string;
+    modelVersion?: string;
+    promptVersion?: string;
+    modelTimeoutMs?: number;
+}
+export type { GeneratedStrategyProposal, StrategyGenerationAdapter, StrategyGenerationSource, StrategySourceLoader } from "./ports";
+export interface StrategyGenerationResult {
+    generationId: string;
+    kind: "SINGLE" | "COMPOSITE";
+    strategyDefinition?: StrategyDefinition;
+    compositeStrategyDefinition?: CompositeStrategyDefinition;
+    modelName: string;
+    modelVersion: string;
+    promptVersion: string;
 }
 export interface StrategyModuleRuntime {
     listStrategies(): StrategyPluginDescriptor[];
@@ -28,7 +45,7 @@ export interface StrategyModuleRuntime {
             sell: number;
         };
     }): Promise<CompositeStrategyDefinition>;
-    buildVisualization(definition: StrategyDefinition): [];
+    generateStrategy(userId: string, source: StrategyGenerationSource): Promise<StrategyGenerationResult>;
 }
 export declare function createInMemoryStrategyDependencies(): StrategyModuleDependencies;
 export declare function createStrategyModule(dependencies?: StrategyModuleDependencies): StrategyModuleRuntime;

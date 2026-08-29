@@ -1,4 +1,5 @@
 import type { StrategyDefinition, CompositeStrategyDefinition, Strategy, Signal, StrategyPluginDescriptor, CombinationMethod } from "../domain/contracts";
+import type { StrategyGenerationSource, StrategyGenerationResult } from "../application/service";
 export type { Signal, StrategyCategory, CombinationMethod, Strategy, StrategyDefinition, CompositeStrategyDefinition, StrategyContext, StrategyCandle, StrategyPluginDescriptor, StrategyFactory, StrategyArtifactResolver, StrategyParameterDescriptor } from "../domain/contracts";
 export interface StrategyModulePublicApi {
     listStrategies(): StrategyPluginDescriptor[];
@@ -23,6 +24,7 @@ export interface StrategyModulePublicApi {
             sell: number;
         };
     }): Promise<CompositeStrategyDefinition>;
+    generateStrategy(userId: string, source: StrategyGenerationSource): Promise<StrategyGenerationResult>;
 }
 export declare const listStrategies: () => StrategyPluginDescriptor[];
 export declare const resolveStrategy: (definition: StrategyDefinition) => Promise<Strategy>;
@@ -36,3 +38,4 @@ export declare const listComposites: StrategyModulePublicApi["listComposites"];
 export declare const readComposite: StrategyModulePublicApi["readComposite"];
 export declare const defineStrategy: StrategyModulePublicApi["defineStrategy"];
 export declare const defineComposite: StrategyModulePublicApi["defineComposite"];
+export declare const generateStrategy: StrategyModulePublicApi["generateStrategy"];

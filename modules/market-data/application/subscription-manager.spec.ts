@@ -55,4 +55,25 @@ describe("market-data subscription manager", () => {
     expect(statuses).toEqual(["RECONNECTING", "DISCONNECTED"]);
     await manager.stop();
   });
+
+  it("reconciles before announcing that a connection is ready", async () => {
+    const statuses: string[] = [];
+    let release!: () => void;
+    const reconciliation = new Promise<void>((resolve) => { release = resolve; });
+    const provider: MarketDataProviderAdapter = {
+      id: "BINANCE",
+      capabilities: async () => ({ pairs: ["BTCUSDT"], timeframes: ["1m"] }),
+      fetchHistorical: async () => [],
+      connectRealtime: async () => ({ close: async () => undefined }),
+    };
+    const manager = new MarketDataSubscriptionManager({ provider, onTick: () => undefined, onCandle: () => undefined, onStatus: (status) => statuses.push(status), onConnected: async () => reconciliation });
+
+    const connecting = manager.setSubscriptions([subscription("1m")]);
+    await Promise.resolve();
+    expect(statuses).toEqual(["RECONNECTING"]);
+    release();
+    await connecting;
+    expect(statuses).toEqual(["RECONNECTING", "CONNECTED"]);
+    await manager.stop();
+  });
 });

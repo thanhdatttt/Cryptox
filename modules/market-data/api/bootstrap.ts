@@ -7,3 +7,5 @@ export { createBinanceMarketDataAdapter } from "../infrastructure/binance-adapte
 export type { BinanceAdapterOptions } from "../infrastructure/binance-adapter";
 export { PostgresCandleRepository, PostgresSnapshotRepository } from "../infrastructure/postgres-repositories";
 export type { MarketDataSqlClient } from "../infrastructure/postgres-repositories";
+export { createRedisLatestValueCache, RedisLatestValueCache } from "../infrastructure/redis-latest-value-cache";
+export type { RedisLatestValueClient } from "../infrastructure/redis-latest-value-cache";

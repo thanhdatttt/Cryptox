@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.MAX_PAGE_LIMIT = exports.DEFAULT_PAGE_LIMIT = exports.TIMEFRAME_SECONDS = void 0;
+exports.MAX_PAGE_LIMIT = exports.DEFAULT_PAGE_LIMIT = exports.DEFAULT_HISTORICAL_CANDLE_LIMIT = exports.TIMEFRAME_SECONDS = void 0;
 exports.isTimeframe = isTimeframe;
 exports.validateTimeframe = validateTimeframe;
 exports.validatePair = validatePair;
@@ -13,7 +13,8 @@ exports.canonicalNumber = canonicalNumber;
 exports.snapshotSerialization = snapshotSerialization;
 const errors_1 = require("./errors");
 exports.TIMEFRAME_SECONDS = { "1m": 60, "5m": 300, "15m": 900, "1h": 3600, "4h": 14400, "1d": 86400 };
-exports.DEFAULT_PAGE_LIMIT = 1000;
+exports.DEFAULT_HISTORICAL_CANDLE_LIMIT = 1000;
+exports.DEFAULT_PAGE_LIMIT = exports.DEFAULT_HISTORICAL_CANDLE_LIMIT;
 exports.MAX_PAGE_LIMIT = 10_000;
 function isTimeframe(value) { return typeof value === "string" && Object.prototype.hasOwnProperty.call(exports.TIMEFRAME_SECONDS, value); }
 function validateTimeframe(value) { if (typeof value !== "string")

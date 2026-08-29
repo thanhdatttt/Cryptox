@@ -33,6 +33,10 @@ export interface MarketDataProviderAdapter {
             to: string;
         };
     }): Promise<NormalizedProviderCandleObservation[]>;
+    getClosedThrough?(command: {
+        pair: Pair;
+        timeframe: Timeframe;
+    }): Promise<string>;
     connectRealtime(input: {
         subscriptions: MarketSubscription[];
         onTick(observation: NormalizedProviderTickObservation): void;
@@ -72,6 +76,7 @@ export interface LatestValueCache {
     get?(key: string): Promise<unknown>;
     set?(key: string, value: unknown): Promise<void>;
     delete?(key: string): Promise<void>;
+    close?(): Promise<void>;
 }
 export interface Clock {
     now(): string;

@@ -1,5 +1,6 @@
 import type { Candle, Pair, Timeframe } from "./contracts";
 export declare const TIMEFRAME_SECONDS: Record<Timeframe, number>;
+export declare const DEFAULT_HISTORICAL_CANDLE_LIMIT = 1000;
 export declare const DEFAULT_PAGE_LIMIT = 1000;
 export declare const MAX_PAGE_LIMIT = 10000;
 export declare function isTimeframe(value: unknown): value is Timeframe;

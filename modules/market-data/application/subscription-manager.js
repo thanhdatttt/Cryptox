@@ -16,12 +16,14 @@ class MarketDataSubscriptionManager {
     cancel;
     base;
     maximum;
+    maximumAttempts;
     constructor(options) {
         this.options = options;
         this.schedule = options.schedule ?? ((callback, delayMs) => setTimeout(callback, delayMs));
         this.cancel = options.cancel ?? ((handle) => clearTimeout(handle));
         this.base = options.reconnectBaseMs ?? 500;
         this.maximum = options.reconnectMaxMs ?? 30_000;
+        this.maximumAttempts = options.reconnectMaxAttempts ?? 8;
     }
     async setSubscriptions(subscriptions) {
         if (this.stopped)
@@ -65,13 +67,11 @@ class MarketDataSubscriptionManager {
         if (generation !== this.generation || this.stopped || this.desired.length === 0)
             return;
         this.options.onStatus("RECONNECTING");
-        let connected = false;
+        let readiness;
         const markConnected = () => {
-            if (connected || generation !== this.generation || this.stopped)
+            if (readiness || generation !== this.generation || this.stopped)
                 return;
-            connected = true;
-            this.reconnectAttempt = 0;
-            this.options.onStatus("CONNECTED");
+            readiness = this.finishConnection(generation);
         };
         try {
             const connection = await this.options.provider.connectRealtime({
@@ -86,31 +86,56 @@ class MarketDataSubscriptionManager {
                 return;
             }
             this.connection = connection;
-            if (!connected && connection.ready) {
-                void connection.ready.then(markConnected).catch(() => this.handleDisconnect(generation, { code: "UNAVAILABLE", retryable: true, safeMessage: "The market-data provider is unavailable." }));
-            }
-            else if (!connected) {
-                // A fake/provider adapter without an open event uses a successful connect call as readiness.
+            if (!readiness && connection.ready)
+                await connection.ready.then(markConnected);
+            if (!readiness)
                 markConnected();
-            }
+            await readiness;
         }
-        catch {
+        catch (error) {
             this.connection = undefined;
-            this.options.onStatus("DISCONNECTED", { code: "UNAVAILABLE", retryable: true, safeMessage: "The market-data provider is unavailable." });
+            if (generation !== this.generation || this.stopped || this.desired.length === 0)
+                return;
+            this.options.onStatus("DISCONNECTED", { code: "UNAVAILABLE", retryable: true, safeMessage: error instanceof Error ? error.message : "The market-data provider is unavailable." });
+            this.scheduleReconnect(generation);
+        }
+    }
+    async finishConnection(generation) {
+        if (generation !== this.generation || this.stopped || this.desired.length === 0)
+            return;
+        try {
+            await this.options.onConnected?.([...this.desired]);
+            if (generation !== this.generation || this.stopped || this.desired.length === 0)
+                return;
+            this.reconnectAttempt = 0;
+            this.options.onStatus("CONNECTED");
+        }
+        catch (error) {
+            if (generation !== this.generation || this.stopped || this.desired.length === 0)
+                return;
+            const failure = { code: "UNAVAILABLE", retryable: true, safeMessage: error instanceof Error ? error.message : "The market-data provider is unavailable." };
+            this.options.onStatus("RECONNECTING", failure);
             this.scheduleReconnect(generation);
         }
     }
     handleDisconnect(generation, failure) {
         if (generation !== this.generation || this.stopped || this.desired.length === 0)
             return;
+        const reconnectGeneration = ++this.generation;
         this.connection = undefined;
         this.options.onStatus("RECONNECTING", failure);
-        this.scheduleReconnect(generation);
+        this.scheduleReconnect(reconnectGeneration);
     }
     scheduleReconnect(generation) {
         if (this.reconnectTimer !== undefined || generation !== this.generation || this.stopped || this.desired.length === 0)
             return;
-        const delay = Math.min(this.maximum, this.base * (2 ** Math.min(this.reconnectAttempt, 10)));
+        if (this.reconnectAttempt >= this.maximumAttempts) {
+            this.options.onStatus("DISCONNECTED", { code: "UNAVAILABLE", retryable: false, safeMessage: "The market-data provider did not recover after bounded retries." });
+            return;
+        }
+        const attempt = this.reconnectAttempt + 1;
+        const baseDelay = Math.min(this.maximum, this.base * (2 ** Math.min(this.reconnectAttempt, 10)));
+        const delay = Math.max(0, Math.min(this.maximum, this.options.reconnectJitterMs?.(baseDelay, attempt) ?? baseDelay));
         this.reconnectAttempt += 1;
         this.reconnectTimer = this.schedule(() => { this.reconnectTimer = undefined; void this.connect(generation); }, delay);
     }

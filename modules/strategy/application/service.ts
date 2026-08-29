@@ -1,11 +1,31 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { CombinationMethod, CompositeStrategyDefinition, Signal, Strategy, StrategyDefinition, StrategyFactory, StrategyPluginDescriptor } from "../domain/contracts";
 import { builtInFactories } from "../domain/plugins";
-import type { CompositeDefinitionRepository, StrategyDefinitionRepository } from "./ports";
+import { createPublicStrategySourceLoader } from "../infrastructure/public-source-loader";
+import type { CompositeDefinitionRepository, GeneratedStrategyProposal, StrategyDefinitionRepository, StrategyGenerationAdapter, StrategyGenerationRequest, StrategyGenerationSource, StrategyGenerationUnitOfWork, StrategySourceLoader } from "./ports";
 
-export interface StrategyModuleDependencies { artifactResolver: import("../domain/contracts").StrategyArtifactResolver; definitionRepository: StrategyDefinitionRepository; compositeRepository: CompositeDefinitionRepository; }
-export type StrategyGenerationSource = { sourceType: "TEXT"; text: string } | { sourceType: "URL"; url: string };
-export interface StrategyGenerationResult { generationId: string; kind: "SINGLE"; strategyDefinition: StrategyDefinition; modelName: "LOCAL_DETERMINISTIC"; modelVersion: "1.0.0"; promptVersion: "1"; }
+export interface StrategyModuleDependencies {
+  artifactResolver: import("../domain/contracts").StrategyArtifactResolver;
+  definitionRepository: StrategyDefinitionRepository;
+  compositeRepository: CompositeDefinitionRepository;
+  generationAdapter?: StrategyGenerationAdapter;
+  sourceLoader?: StrategySourceLoader;
+  generationUnitOfWork?: StrategyGenerationUnitOfWork;
+  modelName?: string;
+  modelVersion?: string;
+  promptVersion?: string;
+  modelTimeoutMs?: number;
+}
+export type { GeneratedStrategyProposal, StrategyGenerationAdapter, StrategyGenerationSource, StrategySourceLoader } from "./ports";
+export interface StrategyGenerationResult {
+  generationId: string;
+  kind: "SINGLE" | "COMPOSITE";
+  strategyDefinition?: StrategyDefinition;
+  compositeStrategyDefinition?: CompositeStrategyDefinition;
+  modelName: string;
+  modelVersion: string;
+  promptVersion: string;
+}
 
 export interface StrategyModuleRuntime {
   listStrategies(): StrategyPluginDescriptor[];
@@ -18,13 +38,23 @@ export interface StrategyModuleRuntime {
   defineStrategy(userId: string, strategyName: string, parameters: Record<string, number | string>): Promise<StrategyDefinition>;
   defineComposite(userId: string, command: { method: CombinationMethod; components: Array<{ strategyDefinitionId: string; weight: number }>; thresholds?: { buy: number; sell: number } }): Promise<CompositeStrategyDefinition>;
   generateStrategy(userId: string, source: StrategyGenerationSource): Promise<StrategyGenerationResult>;
-  buildVisualization(definition: StrategyDefinition): [];
 }
 
 const stable = (value: unknown): string => JSON.stringify(value, (_key, item) => item && typeof item === "object" && !Array.isArray(item) ? Object.fromEntries(Object.entries(item).sort(([left], [right]) => left.localeCompare(right))) : item);
 const digest = (value: unknown): string => createHash("sha256").update(stable(value)).digest("hex");
 const isPlainRecord = (value: unknown): value is Record<string, unknown> => Boolean(value) && typeof value === "object" && !Array.isArray(value);
 const invalid = (code: string): never => { throw new Error(code); };
+const keysAre = (value: Record<string, unknown>, required: readonly string[], optional: readonly string[] = []): boolean => required.every((key) => Object.prototype.hasOwnProperty.call(value, key)) && Object.keys(value).every((key) => required.includes(key) || optional.includes(key));
+const finite = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
+const parameterRecord = (value: unknown): value is Record<string, number | string> => isPlainRecord(value) && Object.values(value).every((item) => typeof item === "string" || finite(item));
+const validateHttpUrl = (value: unknown): string => {
+  if (typeof value !== "string" || !value.trim()) throw new Error("VALIDATION_ERROR");
+  const text = value.trim();
+  let url: URL;
+  try { url = new URL(text); } catch { throw new Error("VALIDATION_ERROR"); }
+  if (url.protocol !== "http:" && url.protocol !== "https:") invalid("VALIDATION_ERROR");
+  return text;
+};
 
 const runtimeList = (): StrategyPluginDescriptor[] => builtInFactories.map((factory) => factory.descriptor);
 const runtimeResolve = async (definition: StrategyDefinition): Promise<Strategy> => {
@@ -46,13 +76,13 @@ const runtimeCombine = (definition: CompositeStrategyDefinition, signals: Array<
   return score > thresholds.buy ? "BUY" : score < thresholds.sell ? "SELL" : "HOLD";
 };
 
-const validateParameters = (factory: StrategyFactory, parameters: Record<string, number | string>): Record<string, number | string> => {
-  if (!isPlainRecord(parameters)) invalid("INVALID_STRATEGY_PARAMETERS");
+const validateParameters = (factory: StrategyFactory, parameters: unknown): Record<string, number | string> => {
+  const values = parameterRecord(parameters) ? parameters : invalid("INVALID_STRATEGY_PARAMETERS") as Record<string, number | string>;
   const declared = new Map(factory.descriptor.parameters.map((descriptor) => [descriptor.key, descriptor]));
-  if (Object.keys(parameters).some((key) => !declared.has(key))) invalid("INVALID_STRATEGY_PARAMETERS");
+  if (Object.keys(values).some((key) => !declared.has(key))) invalid("INVALID_STRATEGY_PARAMETERS");
   const normalized: Record<string, number | string> = {};
   for (const descriptor of factory.descriptor.parameters) {
-    const value = parameters[descriptor.key] ?? descriptor.defaultValue;
+    const value = values[descriptor.key] ?? descriptor.defaultValue;
     if (value === undefined && descriptor.required) invalid("INVALID_STRATEGY_PARAMETERS");
     if (descriptor.type === "ENUM") {
       if (typeof value !== "string" || !descriptor.options?.includes(value)) invalid("INVALID_STRATEGY_PARAMETERS");
@@ -72,7 +102,28 @@ const validateParameters = (factory: StrategyFactory, parameters: Record<string,
 export function createInMemoryStrategyDependencies(): StrategyModuleDependencies {
   const definitions = new Map<string, { ownerUserId: string; value: StrategyDefinition }>();
   const composites = new Map<string, { ownerUserId: string; value: CompositeStrategyDefinition }>();
+  const generations = new Map<string, StrategyGenerationRequest>();
   const factories = new Map(builtInFactories.map((factory) => [`${factory.descriptor.name}:${factory.descriptor.implementationSha256}`, factory]));
+  const generationUnitOfWork: StrategyGenerationUnitOfWork = {
+    commit: async ({ ownerUserId, definitions: generatedDefinitions, composite, audit }) => {
+      const definitionSnapshot = new Map(definitions);
+      const compositeSnapshot = new Map(composites);
+      const generationSnapshot = new Map(generations);
+      try {
+        for (const definition of generatedDefinitions) definitions.set(definition.id, { ownerUserId, value: definition });
+        if (composite) composites.set(composite.id, { ownerUserId, value: composite });
+        generations.set(audit.id, { ...audit });
+      } catch (error) {
+        definitions.clear();
+        definitionSnapshot.forEach((value, key) => definitions.set(key, value));
+        composites.clear();
+        compositeSnapshot.forEach((value, key) => composites.set(key, value));
+        generations.clear();
+        generationSnapshot.forEach((value, key) => generations.set(key, value));
+        throw error;
+      }
+    },
+  };
   return {
     artifactResolver: { resolve: async (name, sha) => { const factory = factories.get(`${name}:${sha}`); if (!factory) throw new Error("STRATEGY_ARTIFACT_NOT_FOUND"); return factory; } },
     definitionRepository: {
@@ -80,6 +131,7 @@ export function createInMemoryStrategyDependencies(): StrategyModuleDependencies
       list: async (ownerUserId) => [...definitions.values()].filter((item) => item.ownerUserId === ownerUserId).map((item) => item.value).sort((left, right) => left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id)),
       listByIds: async (ownerUserId, ids) => ids.flatMap((id) => { const definition = definitions.get(id); return definition?.ownerUserId === ownerUserId ? [definition.value] : []; }),
       listByLogicalFamily: async (ownerUserId, logicalFamilyKey) => [...definitions.values()].filter((item) => item.ownerUserId === ownerUserId && item.value.logicalFamilyKey === logicalFamilyKey).map((item) => item.value),
+      exists: async (id) => definitions.has(id),
     },
     compositeRepository: {
       insert: async (ownerUserId, composite) => { composites.set(composite.id, { ownerUserId, value: composite }); return composite; },
@@ -87,10 +139,32 @@ export function createInMemoryStrategyDependencies(): StrategyModuleDependencies
       get: async (ownerUserId, id) => { const composite = composites.get(id); return composite?.ownerUserId === ownerUserId ? composite.value : undefined; },
       listByLogicalFamily: async (ownerUserId, logicalFamilyKey) => [...composites.values()].filter((item) => item.ownerUserId === ownerUserId && item.value.logicalFamilyKey === logicalFamilyKey).map((item) => item.value),
     },
+    generationAdapter: {
+      modelName: "UNCONFIGURED",
+      modelVersion: "0",
+      generate: async () => { throw new Error("STRATEGY_MODEL_UNAVAILABLE"); },
+    },
+    sourceLoader: createPublicStrategySourceLoader(),
+    generationUnitOfWork,
+    modelName: "UNCONFIGURED",
+    modelVersion: "0",
+    promptVersion: "1",
   };
 }
 
 export function createStrategyModule(dependencies: StrategyModuleDependencies = createInMemoryStrategyDependencies()): StrategyModuleRuntime {
+  const defaults = createInMemoryStrategyDependencies();
+  const generationAdapter = dependencies.generationAdapter ?? defaults.generationAdapter!;
+  const sourceLoader = dependencies.sourceLoader ?? defaults.sourceLoader!;
+  const generationUnitOfWork = dependencies.generationUnitOfWork ?? {
+    commit: async (): Promise<void> => { throw new Error("STRATEGY_GENERATION_PERSISTENCE_UNAVAILABLE"); },
+  } satisfies StrategyGenerationUnitOfWork;
+  const configuredModelName = dependencies.modelName?.trim();
+  const configuredModelVersion = dependencies.modelVersion?.trim();
+  const modelName = generationAdapter.modelName ?? (configuredModelName && configuredModelName !== "UNCONFIGURED" ? configuredModelName : "configured-model");
+  const modelVersion = generationAdapter.modelVersion ?? (configuredModelVersion && configuredModelVersion !== "0" ? configuredModelVersion : "1");
+  const promptVersion = dependencies.promptVersion ?? "1";
+  const modelTimeoutMs = finite(dependencies.modelTimeoutMs) && dependencies.modelTimeoutMs > 0 ? dependencies.modelTimeoutMs : 15_000;
   const factories = new Map(builtInFactories.map((factory) => [factory.descriptor.name, factory]));
   const nextId = (kind: string): string => `${kind}-${randomUUID()}`;
   const getDefinition = async (userId: string, id: string): Promise<StrategyDefinition> => {
@@ -98,7 +172,7 @@ export function createStrategyModule(dependencies: StrategyModuleDependencies = 
     if (!definition) invalid("STRATEGY_DEFINITION_NOT_FOUND");
     return definition;
   };
-  const defineStrategy = async (userId: string, strategyName: string, parameters: Record<string, number | string>): Promise<StrategyDefinition> => {
+  const prepareStrategy = async (userId: string, strategyName: string, parameters: Record<string, number | string>): Promise<{ definition: StrategyDefinition; isNew: boolean }> => {
     if (!userId.trim()) invalid("INVALID_USER");
     const factory = factories.get(strategyName);
     if (!factory) invalid("STRATEGY_NOT_REGISTERED");
@@ -108,9 +182,79 @@ export function createStrategyModule(dependencies: StrategyModuleDependencies = 
     const content = { strategyName, implementationSha256: registeredFactory.descriptor.implementationSha256, parameters: normalized };
     const prior = await dependencies.definitionRepository.listByLogicalFamily(userId, logicalFamilyKey);
     const existing = prior.find((definition) => digest({ strategyName: definition.strategyName, implementationSha256: definition.implementationSha256, parameters: definition.parameters }) === digest(content));
-    if (existing) return existing;
+    if (existing) return { definition: existing, isNew: false };
     const definition: StrategyDefinition = { id: nextId("strategy-definition"), logicalFamilyKey, familyName: registeredFactory.descriptor.displayName, strategyName, implementationVersion: registeredFactory.descriptor.implementationVersion, implementationSha256: registeredFactory.descriptor.implementationSha256, version: Math.max(0, ...prior.map((item) => item.version)) + 1, parameters: normalized, createdAt: new Date().toISOString() };
-    return dependencies.definitionRepository.insert(userId, definition);
+    return { definition, isNew: true };
+  };
+  const defineStrategy = async (userId: string, strategyName: string, parameters: Record<string, number | string>): Promise<StrategyDefinition> => {
+    const prepared = await prepareStrategy(userId, strategyName, parameters);
+    return prepared.isNew ? dependencies.definitionRepository.insert(userId, prepared.definition) : prepared.definition;
+  };
+
+  const requireOwnedDefinition = async (userId: string, id: string, knownDefinitions?: Map<string, StrategyDefinition>): Promise<void> => {
+    if (knownDefinitions?.has(id)) return;
+    const owned = await dependencies.definitionRepository.listByIds(userId, [id]);
+    if (owned.length > 0) return;
+    if (await dependencies.definitionRepository.exists?.(id)) invalid("OWNERSHIP_MISMATCH");
+    invalid("UNKNOWN_STRATEGY_DEFINITION");
+  };
+
+  const prepareComposite = async (userId: string, command: { method: CombinationMethod; components: Array<{ strategyDefinitionId: string; weight: number }>; thresholds?: { buy: number; sell: number } }, knownDefinitions?: Map<string, StrategyDefinition>): Promise<{ definition: CompositeStrategyDefinition; isNew: boolean }> => {
+    if (!userId.trim() || !command || !["MAJORITY_VOTE", "WEIGHTED_SCORE"].includes(command.method) || !Array.isArray(command.components) || command.components.length === 0) invalid("INVALID_COMPOSITE_STRATEGY");
+    const components = command.components.map((component) => ({ strategyDefinitionId: component.strategyDefinitionId, weight: component.weight }));
+    if (components.some((component) => typeof component.strategyDefinitionId !== "string" || !component.strategyDefinitionId.trim() || !finite(component.weight))) invalid("INVALID_COMPOSITE_STRATEGY");
+    if (components.some((component) => component.weight < 0)) invalid("INVALID_COMPOSITE_STRATEGY");
+    await Promise.all(components.map((component) => requireOwnedDefinition(userId, component.strategyDefinitionId, knownDefinitions)));
+    let thresholds: { buy: number; sell: number };
+    if (command.method === "MAJORITY_VOTE") {
+      for (const component of components) component.weight = 0;
+      thresholds = { buy: 0.3, sell: -0.3 };
+    } else {
+      const totalWeight = components.reduce((sum, component) => sum + component.weight, 0);
+      if (components.some((component) => component.weight < 0) || Math.abs(totalWeight - 1) > 1e-9) invalid("INVALID_COMPOSITE_STRATEGY");
+      thresholds = command.thresholds ?? { buy: 0.3, sell: -0.3 };
+      if (!finite(thresholds.buy) || !finite(thresholds.sell) || thresholds.buy <= thresholds.sell) invalid("INVALID_COMPOSITE_STRATEGY");
+    }
+    const logicalFamilyKey = `composite:${command.method}:${components.map((component) => component.strategyDefinitionId).sort().join(",")}`;
+    const content = { method: command.method, components, thresholds };
+    const prior = await dependencies.compositeRepository.listByLogicalFamily(userId, logicalFamilyKey);
+    const existing = prior.find((composite) => digest({ method: composite.method, components: composite.components, thresholds: composite.thresholds }) === digest(content));
+    if (existing) return { definition: existing, isNew: false };
+    return { definition: { id: nextId("composite-strategy"), logicalFamilyKey, version: Math.max(0, ...prior.map((item) => item.version)) + 1, method: command.method, components, thresholds, createdAt: new Date().toISOString() }, isNew: true };
+  };
+
+  const defineComposite = async (userId: string, command: { method: CombinationMethod; components: Array<{ strategyDefinitionId: string; weight: number }>; thresholds?: { buy: number; sell: number } }): Promise<CompositeStrategyDefinition> => {
+    const prepared = await prepareComposite(userId, command);
+    return prepared.isNew ? dependencies.compositeRepository.insert(userId, prepared.definition) : prepared.definition;
+  };
+
+  const withTimeout = async <T>(work: Promise<T>, timeoutMs: number, errorCode: string): Promise<T> => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      return await Promise.race([work, new Promise<T>((_, reject) => { timer = setTimeout(() => reject(new Error(errorCode)), timeoutMs); })]);
+    } finally { if (timer) clearTimeout(timer); }
+  };
+
+  const proposal = (value: unknown): GeneratedStrategyProposal => {
+    if (!isPlainRecord(value)) invalid("STRATEGY_MODEL_SCHEMA_INVALID");
+    const record = value as Record<string, unknown>;
+    if (record.kind !== "SINGLE" && record.kind !== "COMPOSITE") invalid("STRATEGY_MODEL_SCHEMA_INVALID");
+    if (record.kind === "SINGLE" && !keysAre(record, ["kind", "strategyName", "parameters"])) invalid("STRATEGY_MODEL_SCHEMA_INVALID");
+    if (record.kind === "COMPOSITE" && !keysAre(record, ["kind", "components", "method"], ["thresholds"])) invalid("STRATEGY_MODEL_SCHEMA_INVALID");
+    if (record.kind === "SINGLE") {
+      const parameters = parameterRecord(record.parameters) ? record.parameters : invalid("STRATEGY_MODEL_SCHEMA_INVALID") as Record<string, number | string>;
+      if (typeof record.strategyName !== "string") invalid("STRATEGY_MODEL_SCHEMA_INVALID");
+      return { kind: "SINGLE", strategyName: record.strategyName as string, parameters };
+    }
+    const thresholds = isPlainRecord(record.thresholds) ? record.thresholds : invalid("STRATEGY_MODEL_SCHEMA_INVALID") as Record<string, unknown>;
+    if (!Array.isArray(record.components) || record.components.length === 0 || !["MAJORITY_VOTE", "WEIGHTED_SCORE"].includes(record.method as string) || !keysAre(thresholds, ["buy", "sell"]) || !finite(thresholds.buy) || !finite(thresholds.sell)) invalid("STRATEGY_MODEL_SCHEMA_INVALID");
+    const components = (record.components as unknown[]).map((component: unknown) => {
+      if (!isPlainRecord(component) || !keysAre(component, ["strategyName", "parameters", "weight"]) || typeof component.strategyName !== "string" || !parameterRecord(component.parameters) || !finite(component.weight)) invalid("STRATEGY_MODEL_SCHEMA_INVALID");
+      const item = component as Record<string, unknown>;
+      const parameters = parameterRecord(item.parameters) ? item.parameters : invalid("STRATEGY_MODEL_SCHEMA_INVALID") as Record<string, number | string>;
+      return { strategyName: item.strategyName as string, parameters, weight: item.weight as number };
+    });
+    return { kind: "COMPOSITE", components, method: record.method as CombinationMethod, thresholds: { buy: thresholds.buy as number, sell: thresholds.sell as number } };
   };
 
   return {
@@ -129,44 +273,59 @@ export function createStrategyModule(dependencies: StrategyModuleDependencies = 
       return composite!;
     },
     defineStrategy,
-    defineComposite: async (userId, command) => {
-      if (!userId.trim() || !command || !["MAJORITY_VOTE", "WEIGHTED_SCORE"].includes(command.method) || command.components.length === 0) invalid("INVALID_COMPOSITE_STRATEGY");
-      const components = command.components.map((component) => ({ strategyDefinitionId: component.strategyDefinitionId, weight: component.weight }));
-      await Promise.all(components.map((component) => getDefinition(userId, component.strategyDefinitionId)));
-      let thresholds: { buy: number; sell: number };
-      if (command.method === "MAJORITY_VOTE") {
-        for (const component of components) component.weight = 0;
-        thresholds = { buy: 0.3, sell: -0.3 };
-      } else {
-        const totalWeight = components.reduce((sum, component) => sum + component.weight, 0);
-        if (components.some((component) => !Number.isFinite(component.weight)) || Math.abs(totalWeight - 1) > 1e-9) invalid("INVALID_COMPOSITE_STRATEGY");
-        thresholds = command.thresholds ?? { buy: 0.3, sell: -0.3 };
-        if (![thresholds.buy, thresholds.sell].every(Number.isFinite) || thresholds.buy <= thresholds.sell) invalid("INVALID_COMPOSITE_STRATEGY");
-      }
-      const logicalFamilyKey = `composite:${command.method}:${components.map((component) => component.strategyDefinitionId).sort().join(",")}`;
-      const content = { method: command.method, components, thresholds };
-      const prior = await dependencies.compositeRepository.listByLogicalFamily(userId, logicalFamilyKey);
-      const existing = prior.find((composite) => digest({ method: composite.method, components: composite.components, thresholds: composite.thresholds }) === digest(content));
-      if (existing) return existing;
-      const composite: CompositeStrategyDefinition = { id: nextId("composite-strategy"), logicalFamilyKey, version: Math.max(0, ...prior.map((item) => item.version)) + 1, method: command.method, components, thresholds, createdAt: new Date().toISOString() };
-      return dependencies.compositeRepository.insert(userId, composite);
-    },
+    defineComposite,
     generateStrategy: async (userId, source) => {
-      if (!userId.trim() || !source || (source.sourceType !== "TEXT" && source.sourceType !== "URL")) invalid("VALIDATION_ERROR");
-      const value = source.sourceType === "TEXT" ? source.text : source.url;
+      if (!userId.trim() || !isPlainRecord(source) || (source.sourceType !== "TEXT" && source.sourceType !== "URL")) invalid("VALIDATION_ERROR");
+      const sourceType = source.sourceType;
+      const allowedSourceKeys = sourceType === "TEXT" ? ["sourceType", "text"] : ["sourceType", "url"];
+      if (!keysAre(source, allowedSourceKeys)) invalid("VALIDATION_ERROR");
+      const value = sourceType === "TEXT" ? source.text : source.url;
       if (typeof value !== "string" || !value.trim()) invalid("VALIDATION_ERROR");
-      if (source.sourceType === "URL") {
-        let parsed: URL | undefined;
-        try { parsed = new URL(value); } catch { invalid("VALIDATION_ERROR"); }
-        if (!parsed || (parsed.protocol !== "http:" && parsed.protocol !== "https:")) invalid("VALIDATION_ERROR");
+      let sourceText: string;
+      if (sourceType === "TEXT") {
+        sourceText = value.trim();
+      } else {
+        let loaded: { sourceText: string; canonicalUrl: string };
+        const validatedUrl = validateHttpUrl(value);
+        try {
+          loaded = await sourceLoader.load(validatedUrl);
+        } catch (error) {
+          if (error instanceof Error && error.message.startsWith("STRATEGY_SOURCE_")) throw error;
+          throw new Error("STRATEGY_SOURCE_UNAVAILABLE");
+        }
+        if (typeof loaded?.sourceText !== "string") invalid("STRATEGY_SOURCE_UNUSABLE");
+        sourceText = loaded.sourceText.trim();
       }
-      const normalized = value.toLowerCase();
-      const strategyName = normalized.includes("rsi") ? "RSI" : normalized.includes("bollinger") || normalized.includes("band") ? "BOLLINGER" : normalized.includes("support") || normalized.includes("resistance") ? "SUPPORT_RESISTANCE" : "MA";
-      const descriptor = runtimeList().find(item => item.name === strategyName)!;
-      const parameters = Object.fromEntries(descriptor.parameters.map(item => [item.key, item.defaultValue])) as Record<string, number | string>;
-      const strategyDefinition = await defineStrategy(userId, strategyName, parameters);
-      return { generationId: nextId("strategy-generation"), kind: "SINGLE", strategyDefinition, modelName: "LOCAL_DETERMINISTIC", modelVersion: "1.0.0", promptVersion: "1" };
+      if (!sourceText) invalid("STRATEGY_SOURCE_UNUSABLE");
+      let generated: GeneratedStrategyProposal;
+      try {
+        generated = proposal(await withTimeout(generationAdapter.generate({ sourceText, strategies: runtimeList(), promptVersion }), modelTimeoutMs, "STRATEGY_MODEL_TIMEOUT"));
+      } catch (error) {
+        if (error instanceof Error && ["STRATEGY_MODEL_TIMEOUT", "STRATEGY_MODEL_UNAVAILABLE", "STRATEGY_MODEL_SCHEMA_INVALID"].includes(error.message)) throw error;
+        throw new Error("STRATEGY_MODEL_UNAVAILABLE");
+      }
+      const generatedDefinitions: StrategyDefinition[] = [];
+      let strategyDefinition: StrategyDefinition | undefined;
+      let compositeStrategyDefinition: CompositeStrategyDefinition | undefined;
+      if (generated.kind === "SINGLE") {
+        const prepared = await prepareStrategy(userId, generated.strategyName, generated.parameters);
+        strategyDefinition = prepared.definition;
+        if (prepared.isNew) generatedDefinitions.push(prepared.definition);
+      } else {
+        const componentDefinitions = [] as Array<{ strategyDefinitionId: string; weight: number }>;
+        for (const component of generated.components) {
+          const prepared = await prepareStrategy(userId, component.strategyName, component.parameters);
+          if (prepared.isNew) generatedDefinitions.push(prepared.definition);
+          componentDefinitions.push({ strategyDefinitionId: prepared.definition.id, weight: component.weight });
+        }
+        const knownDefinitions = new Map(generatedDefinitions.map((definition) => [definition.id, definition]));
+        const preparedComposite = await prepareComposite(userId, { method: generated.method, components: componentDefinitions, thresholds: generated.thresholds }, knownDefinitions);
+        compositeStrategyDefinition = preparedComposite.definition;
+      }
+      const generationId = nextId("strategy-generation");
+      const audit: StrategyGenerationRequest = { id: generationId, ownerUserId: userId, sourceType, ...(sourceType === "TEXT" ? { sourceText: value.trim() } : { sourceUrl: value.trim() }), modelName, modelVersion, promptVersion, outputKind: generated.kind, ...(strategyDefinition ? { strategyDefinitionId: strategyDefinition.id } : { compositeDefinitionId: compositeStrategyDefinition!.id }), createdAt: new Date().toISOString() };
+      await generationUnitOfWork.commit({ ownerUserId: userId, definitions: generatedDefinitions, composite: compositeStrategyDefinition, audit });
+      return { generationId, kind: generated.kind, ...(strategyDefinition ? { strategyDefinition } : { compositeStrategyDefinition }), modelName, modelVersion, promptVersion };
     },
-    buildVisualization: () => [],
   };
 }

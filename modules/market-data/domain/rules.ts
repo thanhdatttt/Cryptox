@@ -2,7 +2,8 @@ import type { Candle, Pair, Timeframe } from "./contracts";
 import { MarketDataException } from "./errors";
 
 export const TIMEFRAME_SECONDS: Record<Timeframe, number> = { "1m": 60, "5m": 300, "15m": 900, "1h": 3600, "4h": 14400, "1d": 86400 };
-export const DEFAULT_PAGE_LIMIT = 1000;
+export const DEFAULT_HISTORICAL_CANDLE_LIMIT = 1000;
+export const DEFAULT_PAGE_LIMIT = DEFAULT_HISTORICAL_CANDLE_LIMIT;
 export const MAX_PAGE_LIMIT = 10_000;
 export function isTimeframe(value: unknown): value is Timeframe { return typeof value === "string" && Object.prototype.hasOwnProperty.call(TIMEFRAME_SECONDS, value); }
 export function validateTimeframe(value: unknown): Timeframe { if (typeof value !== "string") throw new MarketDataException("INVALID_TIMEFRAME", "Timeframe must be a string."); if (!isTimeframe(value)) throw new MarketDataException("UNSUPPORTED_TIMEFRAME", "Timeframe is not supported."); return value; }

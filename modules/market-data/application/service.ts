@@ -1,15 +1,23 @@
 import { createHash, randomUUID } from "node:crypto";
-import type { MarketDataModuleDependencies, MarketDataProviderAdapter, NormalizedProviderCandleObservation } from "./ports";
+import type { LatestValueCache, MarketDataModuleDependencies, MarketDataProviderAdapter, NormalizedProviderCandleObservation } from "./ports";
 import { MarketDataSubscriptionManager } from "./subscription-manager";
 import type { Candle, DatasetSnapshotRef, MarketDataConnectionStatus, MarketPairMetadata, MarketTick, Timeframe } from "../domain/contracts";
 import { MarketDataException } from "../domain/errors";
-import { DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT, TIMEFRAME_SECONDS, missingRanges, parseTimestamp, snapshotSerialization, validateCandle, validateLimit, validatePair, validateRange, validateTimeframe } from "../domain/rules";
+import { DEFAULT_HISTORICAL_CANDLE_LIMIT, DEFAULT_PAGE_LIMIT, MAX_PAGE_LIMIT, TIMEFRAME_SECONDS, missingRanges, parseTimestamp, snapshotSerialization, validateCandle, validateLimit, validatePair, validateRange, validateTimeframe } from "../domain/rules";
 import type { DatasetSnapshotCreateCommand, DatasetSnapshotPage, DatasetSnapshotReadQuery, HistoricalCandlePage, HistoricalCandleQuery, MarketCapabilities, MarketDataModulePublicApi, MarketDataUpdate, MarketSubscription } from "../api";
 
 type InternalDeps = Partial<MarketDataModuleDependencies>;
 const key = (candle: Pick<Candle, "pair" | "timeframe" | "timestamp">) => `${candle.pair}|${candle.timeframe}|${candle.timestamp}`;
 // Binance timestamps can lead the application clock by a small amount; keep validation bounded.
 const MAX_TICK_FUTURE_SKEW_MS = 5_000;
+const CACHE_SCHEMA_VERSION = 1;
+const LATEST_CANDLE_CACHE_WINDOW = 1_000;
+type CachedCandleWindow = { schemaVersion: number; asOf: string; completeThrough: string; candles: Candle[] };
+type CachedTick = { schemaVersion: number; asOf: string; tick: MarketTick };
+const candleCacheKey = (pair: string, timeframe: Timeframe): string => `candles:latest:${pair}:${timeframe}`;
+const tickCacheKey = (pair: string): string => `ticks:latest:${pair}`;
+const statusCacheKey = (provider: string): string => `connection:status:${provider}`;
+const sameCandle = (left: Candle, right: Candle): boolean => left.pair === right.pair && left.timeframe === right.timeframe && left.timestamp === right.timestamp && left.open === right.open && left.high === right.high && left.low === right.low && left.close === right.close && left.volume === right.volume && left.isClosed === right.isClosed;
 
 class MemoryCandleRepository {
   private readonly rows = new Map<string, Candle>();
@@ -53,13 +61,71 @@ class MarketDataService implements MarketDataModulePublicApi {
     return { provider: provider.id, pairs: [...capabilities.pairs], timeframes: [...capabilities.timeframes] };
   }
   private async readRows(pair: string, timeframe: Timeframe): Promise<Candle[]> { return (await this.candles.read({ pair, timeframe, includeForming: true })).map((candle) => validateCandle(candle, this.now(), true)).sort((a, b) => a.timestamp.localeCompare(b.timestamp)); }
+  private record(event: string): void { this.deps.observability?.record(event); }
+  private cache(): LatestValueCache | undefined { return this.deps.latestValueCache; }
+  private async invalidateCandleCache(pair: string, timeframe: Timeframe): Promise<void> {
+    const cache = this.cache();
+    if (!cache?.delete) return;
+    try { await cache.delete(candleCacheKey(pair, timeframe)); }
+    catch { this.record("market_data.cache_unavailable"); }
+  }
+  private async refreshCandleCache(pair: string, timeframe: Timeframe): Promise<void> {
+    const cache = this.cache();
+    if (!cache?.set) return;
+    try {
+      const rows = await this.readRows(pair, timeframe);
+      const closed = rows.filter((candle) => candle.isClosed).sort((left, right) => left.timestamp.localeCompare(right.timestamp));
+      const forming = rows.filter((candle) => !candle.isClosed).slice(-1);
+      const latestClosed = closed.slice(-LATEST_CANDLE_CACHE_WINDOW);
+      const interval = TIMEFRAME_SECONDS[timeframe] * 1000;
+      const timestamps = new Set(closed.map((candle) => Date.parse(candle.timestamp)));
+      let completeThrough = Math.floor(Date.parse(this.now()) / interval) * interval;
+      if (latestClosed.length > 0) {
+        completeThrough = Date.parse(latestClosed[0].timestamp) + interval;
+        while (timestamps.has(completeThrough)) completeThrough += interval;
+      }
+      const payload: CachedCandleWindow = { schemaVersion: CACHE_SCHEMA_VERSION, asOf: this.now(), completeThrough: new Date(completeThrough).toISOString(), candles: [...latestClosed, ...forming].sort((left, right) => left.timestamp.localeCompare(right.timestamp)) };
+      await cache.set(candleCacheKey(pair, timeframe), payload);
+    } catch { this.record("market_data.cache_write_error"); }
+  }
+  private async readCachedCandleWindow(pair: string, timeframe: Timeframe, range: { from: string; to: string } | undefined, includeForming: boolean, now: string): Promise<Candle[] | undefined> {
+    const cache = this.cache();
+    if (!cache?.get || !range) return undefined;
+    let raw: unknown;
+    try { raw = await cache.get(candleCacheKey(pair, timeframe)); }
+    catch { this.record("market_data.cache_unavailable"); return undefined; }
+    if (raw === undefined || raw === null) { this.record("market_data.cache_miss"); return undefined; }
+    try {
+      const payload = (typeof raw === "string" ? JSON.parse(raw) : raw) as Partial<CachedCandleWindow>;
+      if (payload.schemaVersion !== CACHE_SCHEMA_VERSION || typeof payload.asOf !== "string" || typeof payload.completeThrough !== "string" || !Array.isArray(payload.candles) || payload.candles.length > LATEST_CANDLE_CACHE_WINDOW + 1) throw new Error("invalid candle cache envelope");
+      const asOf = Date.parse(payload.asOf);
+      if (!Number.isFinite(asOf) || asOf > Date.parse(now) + MAX_TICK_FUTURE_SKEW_MS || Date.parse(now) - asOf > TIMEFRAME_SECONDS[timeframe] * 2 * 1000) throw new Error("stale candle cache");
+      const completeThrough = parseTimestamp(payload.completeThrough, timeframe, now, true);
+      if (Date.parse(completeThrough) > Date.parse(now) + MAX_TICK_FUTURE_SKEW_MS) throw new Error("future candle cache boundary");
+      const candles = payload.candles.map((candle) => validateCandle(candle, now, true));
+      if (new Set(candles.map((candle) => candle.timestamp)).size !== candles.length || candles.some((candle) => candle.pair !== pair || candle.timeframe !== timeframe)) throw new Error("invalid candle cache rows");
+      const closed = candles.filter((candle) => candle.isClosed && candle.timestamp >= range.from && candle.timestamp < range.to);
+      if (candles.filter((candle) => candle.isClosed).length === 0 || Date.parse(range.from) < Date.parse(candles.find((candle) => candle.isClosed)?.timestamp ?? range.from) || Date.parse(range.to) > Date.parse(completeThrough) || missingRanges(closed, range, timeframe).length > 0) throw new Error("candle cache does not cover range");
+      if (includeForming && !candles.some((candle) => !candle.isClosed && candle.timestamp >= range.from && candle.timestamp < range.to)) throw new Error("forming candle cache is incomplete");
+      this.record("market_data.cache_hit");
+      return candles;
+    } catch { this.record("market_data.cache_invalid"); return undefined; }
+  }
   private async persist(observation: NormalizedProviderCandleObservation): Promise<Candle | undefined> {
     const provider = await this.resolveProvider();
     const source = observation.source.includes(":") ? observation.source : `${provider?.id ?? "UNKNOWN"}:${observation.source}`;
     const candle = validateCandle({ ...observation.candle, source }, this.now());
     const existing = (await this.candles.read({ pair: candle.pair, timeframe: candle.timeframe, includeForming: true })).find((item) => item.timestamp === candle.timestamp);
-    if (existing?.isClosed && !candle.isClosed) return undefined;
+    if (existing?.isClosed && !candle.isClosed) { this.record("market_data.out_of_order_candle"); return undefined; }
+    if (existing && sameCandle(existing, candle)) return undefined;
+    const historical = observation.source.endsWith("HISTORICAL_SYNC");
+    if (existing?.isClosed && !historical) { this.record("market_data.realtime_closed_correction_ignored"); return undefined; }
+    if (existing?.isClosed && historical) {
+      this.record("market_data.correction_detected");
+      await this.invalidateCandleCache(candle.pair, candle.timeframe);
+    }
     await this.candles.upsert(candle);
+    await this.refreshCandleCache(candle.pair, candle.timeframe);
     return candle;
   }
   private latestClosedRange(now: string, timeframe: Timeframe, limit: number): { from: string; to: string } {
@@ -82,7 +148,27 @@ class MarketDataService implements MarketDataModulePublicApi {
     this.historySyncs.set(syncKey, operation);
     try { await operation; } finally { this.historySyncs.delete(syncKey); }
   }
-  private fingerprint(query: HistoricalCandleQuery): string { return JSON.stringify({ pair: query.pair, timeframe: query.timeframe, range: query.range, limit: query.limit ?? DEFAULT_PAGE_LIMIT, includeForming: query.includeForming ?? false, completeness: query.completeness ?? "ALLOW_PARTIAL" }); }
+  private async reconcileProviderSubscriptions(provider: MarketDataProviderAdapter, subscriptions: MarketSubscription[]): Promise<void> {
+    if (!provider.getClosedThrough) { this.record("market_data.reconciliation_skipped"); return; }
+    for (const subscription of subscriptions) {
+      const now = this.now();
+      const closedThrough = parseTimestamp(await provider.getClosedThrough(subscription), subscription.timeframe, now, true);
+      if (Date.parse(closedThrough) > Date.parse(now) + MAX_TICK_FUTURE_SKEW_MS) throw new MarketDataException("HISTORY_INCOMPLETE", "Provider reconciliation boundary is in the future.", true);
+      const rows = await this.readRows(subscription.pair, subscription.timeframe);
+      const closed = rows.filter((candle) => candle.isClosed).sort((left, right) => left.timestamp.localeCompare(right.timestamp));
+      const interval = TIMEFRAME_SECONDS[subscription.timeframe] * 1000;
+      const from = closed.at(-1)?.timestamp ?? new Date(Date.parse(closedThrough) - interval).toISOString();
+      if (Date.parse(from) >= Date.parse(closedThrough)) continue;
+      const range = { from, to: closedThrough };
+      const observations = await provider.fetchHistorical({ pair: subscription.pair, timeframe: subscription.timeframe, range });
+      for (const observation of observations) await this.persist({ candle: observation.candle, orderKey: observation.orderKey, source: "HISTORICAL_SYNC" });
+      const reconciled = await this.readRows(subscription.pair, subscription.timeframe);
+      const missing = missingRanges(reconciled.filter((candle) => candle.timestamp >= range.from && candle.timestamp < range.to), range, subscription.timeframe);
+      if (missing.length > 0) throw new MarketDataException("HISTORY_INCOMPLETE", "Provider reconciliation contains missing candles.", true, { missingRanges: missing });
+      await this.refreshCandleCache(subscription.pair, subscription.timeframe);
+    }
+  }
+  private fingerprint(query: HistoricalCandleQuery): string { return JSON.stringify({ pair: query.pair, timeframe: query.timeframe, range: query.range, limit: query.limit ?? DEFAULT_HISTORICAL_CANDLE_LIMIT, includeForming: query.includeForming ?? false, completeness: query.completeness ?? "ALLOW_PARTIAL" }); }
   private encodeCursor(query: HistoricalCandleQuery, offset: number): string { return Buffer.from(JSON.stringify({ fingerprint: this.fingerprint(query), offset }), "utf8").toString("base64url"); }
   private decodeCursor(query: HistoricalCandleQuery, cursor?: string): number {
     if (!cursor) return 0;
@@ -100,13 +186,16 @@ class MarketDataService implements MarketDataModulePublicApi {
     const pair = validatePair(query.pair); const timeframe = validateTimeframe(query.timeframe); const now = this.now();
     const range = query.range ? validateRange(query.range, timeframe, now) : undefined; const limit = validateLimit(query.limit);
     const normalizedQuery = { ...query, pair, timeframe, range }; this.decodeCursor(normalizedQuery, query.cursor);
-    const provider = await this.validateProvider(pair, timeframe); let rows = await this.readRows(pair, timeframe);
+    const provider = await this.validateProvider(pair, timeframe);
     const requestedRange = range ?? (provider ? this.latestClosedRange(now, timeframe, limit) : undefined);
+    const cachedRows = await this.readCachedCandleWindow(pair, timeframe, requestedRange, query.includeForming ?? false, now);
+    let rows = cachedRows ?? await this.readRows(pair, timeframe);
     let providerFailure: unknown;
-    if (provider && requestedRange) {
+    if (!cachedRows && provider && requestedRange) {
       try { await this.syncMissing(provider, pair, timeframe, requestedRange); rows = await this.readRows(pair, timeframe); }
       catch (error) { providerFailure = error; if (query.completeness === "REQUIRE_COMPLETE") throw new MarketDataException("HISTORY_UNAVAILABLE", "Historical market data is unavailable.", true, { cause: error instanceof Error ? error.message : "provider failure" }); }
     }
+    if (!cachedRows && requestedRange) await this.refreshCandleCache(pair, timeframe);
     const closed = rows.filter((candle) => candle.isClosed && (!requestedRange || (candle.timestamp >= requestedRange.from && candle.timestamp < requestedRange.to)));
     const forming = query.includeForming ? rows.filter((candle) => !candle.isClosed && (!requestedRange || (range ? (candle.timestamp >= range.from && candle.timestamp < range.to) : (candle.timestamp >= requestedRange.from && candle.timestamp <= requestedRange.to)))) : [];
     const page = [...closed, ...forming].sort((a, b) => a.timestamp.localeCompare(b.timestamp));
@@ -177,9 +266,10 @@ class MarketDataService implements MarketDataModulePublicApi {
         this.subscriptionProvider = provider;
         this.subscriptionManager = new MarketDataSubscriptionManager({
           provider,
-          onTick: (observation) => this.handleTick(observation.tick),
+          onTick: (observation) => { void this.handleTick(observation.tick); },
           onCandle: (observation) => { void this.handleCandle(observation); },
           onStatus: (status, failure) => this.setStatus({ provider: provider.id, status, ...(failure ? { errorCode: failure.code } : {}) }),
+          onConnected: (activeSubscriptions) => this.reconcileProviderSubscriptions(provider, activeSubscriptions),
         });
       }
       await this.subscriptionManager.setSubscriptions(subscriptions);
@@ -189,13 +279,20 @@ class MarketDataService implements MarketDataModulePublicApi {
   }
   private setStatus(next: Pick<MarketDataConnectionStatus, "provider" | "status"> & { errorCode?: string }): void {
     this.status = { ...next, lastEventAt: this.now() };
+    void this.writeStatusCache(this.status);
     this.broadcast({ kind: "CONNECTION_STATUS", payload: this.status });
+  }
+  private async writeStatusCache(status: MarketDataConnectionStatus): Promise<void> {
+    const cache = this.cache();
+    if (!cache?.set) return;
+    try { await cache.set(statusCacheKey(status.provider), { schemaVersion: CACHE_SCHEMA_VERSION, asOf: status.lastEventAt, status }); }
+    catch { this.record("market_data.cache_write_error"); }
   }
   private deliver(sink: (update: MarketDataUpdate) => void, update: MarketDataUpdate): void { try { sink(update); } catch { this.deps.observability?.record("market_data.sink_error"); } }
   private broadcast(update: MarketDataUpdate): void { for (const subscriber of this.subscribers.values()) this.deliver(subscriber.sink, update); }
-  private handleTick(tick: MarketTick): void { try { const pair = validatePair(tick.pair); const timestamp = Date.parse(tick.timestamp); if (typeof tick.timestamp !== "string" || !tick.timestamp.endsWith("Z") || !Number.isFinite(timestamp) || timestamp > Date.parse(this.now()) + MAX_TICK_FUTURE_SKEW_MS) throw new Error("invalid future tick"); if (!Number.isFinite(tick.price) || tick.price <= 0) throw new Error("invalid tick price"); if (!Number.isFinite(tick.quantity) || tick.quantity <= 0) throw new Error("invalid tick quantity"); if (tick.side !== "BUY" && tick.side !== "SELL") throw new Error("invalid tick side"); this.broadcast({ kind: "TICK", payload: { ...tick, pair, timestamp: new Date(timestamp).toISOString() } }); } catch { this.deps.observability?.record("market_data.invalid_tick"); } }
+  private async handleTick(tick: MarketTick): Promise<void> { try { const pair = validatePair(tick.pair); const timestamp = Date.parse(tick.timestamp); if (typeof tick.timestamp !== "string" || !tick.timestamp.endsWith("Z") || !Number.isFinite(timestamp) || timestamp > Date.parse(this.now()) + MAX_TICK_FUTURE_SKEW_MS) throw new Error("invalid future tick"); if (!Number.isFinite(tick.price) || tick.price <= 0) throw new Error("invalid tick price"); if (!Number.isFinite(tick.quantity) || tick.quantity <= 0) throw new Error("invalid tick quantity"); if (tick.side !== "BUY" && tick.side !== "SELL") throw new Error("invalid tick side"); const normalized = { ...tick, pair, timestamp: new Date(timestamp).toISOString() }; const cache = this.cache(); if (cache?.set) { try { await cache.set(tickCacheKey(pair), { schemaVersion: CACHE_SCHEMA_VERSION, asOf: this.now(), tick: normalized } satisfies CachedTick); } catch { this.record("market_data.cache_write_error"); } } this.broadcast({ kind: "TICK", payload: normalized }); } catch { this.record("market_data.invalid_tick"); } }
   private async handleCandle(observation: NormalizedProviderCandleObservation): Promise<void> { try { const candle = await this.persist(observation); if (candle) this.broadcast({ kind: "CANDLE", payload: candle }); } catch { this.deps.observability?.record("market_data.invalid_candle"); } }
-  async shutdown(): Promise<void> { if (this.stopped) return; this.stopped = true; await this.subscriptionManager?.stop(); this.subscriptionManager = undefined; this.subscriptionProvider = undefined; this.subscribers.clear(); }
+  async shutdown(): Promise<void> { if (this.stopped) return; this.stopped = true; await this.subscriptionManager?.stop(); this.subscriptionManager = undefined; this.subscriptionProvider = undefined; this.subscribers.clear(); await this.cache()?.close?.(); }
 }
 
 export function createMarketDataService(deps: InternalDeps = {}): MarketDataModulePublicApi { return new MarketDataService(deps); }
