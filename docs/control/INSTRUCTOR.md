@@ -74,6 +74,11 @@ No M-02 retry or downstream task is authorized.
   cross-user private lookups, client identity cannot bypass request context, no
   secret logging, reproducible setup diagnostics, an early packet-scoped
   matrix diff, and applicable global gates.
+- Implementation-first constraint: begin with a short setup check, then create
+  and run the available deterministic/in-memory matrix through public APIs. If
+  `DATABASE_URL` is unavailable, record PostgreSQL/Auth and Search real
+  integration as `UNVERIFIED`; do not spend this bounded retry waiting for that
+  environment.
 - Forbidden: pure Strategy/simulator/Evaluation algorithms, Market Data/News
   ownership, unrelated refactors, deferred enterprise identity, migrations,
   contract changes, and automatic I-01/I-02 work. Any source fix must remain
