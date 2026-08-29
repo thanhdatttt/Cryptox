@@ -2,157 +2,85 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-036`
+Instruction ID: `INS-037`
 
-Status: `APPROVED_FOR_EXECUTION`
+Status: `HOLD`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
-## INS-036 — E1 pure Strategy extensions: `S-05` and `S-06`
+## INS-037 — Instructor review after INS-036
 
-This signal supersedes `INS-035 / HOLD` only for the two explicitly named
-packets below. It does not promote any downstream task or authorize any other
-packet.
+This is a replaceable review checkpoint. It supersedes `INS-036 /
+APPROVED_FOR_EXECUTION` and authorizes no implementation packet.
 
-### Instructor review and starting checkpoint
+### Reviewed checkpoint
 
-- Reviewed branch/HEAD: `MVP_IMPLEMENTATION` /
-  `c0e255f59557f70b682f07c0062f3564920130c2`
-  (`docs(control): clarify amendment authority precedence`).
-- The accepted C-02 source/business checkpoint remains
-  `ed761e36c5ab2293d08c0a3aef5889ab675e772a`.
-- The intervening `157a31f5baacb73597b7e237eb32df7b443aa076` commit adds only
-  the README and five amendment screenshots under
-  `docs/assignment/amendment-2026-08-29/`; all five recorded SHA-256 values
-  match the README. `c0e255f` adds only the governance clarification `DEC-009`.
-  Review of `ed761e3..c0e255f` found no runtime source, package, migration,
-  infrastructure, or business-state drift.
-- The canonical checkout was clean before this signal edit. `git diff --check`
-  passed. The task list and execution checkpoint remain consistent with
-  `C-02 = DONE`, while `S-05` and `S-06` are still `BLOCKED` and therefore are
-  not being treated as READY without this signal.
-- No active Cryptox Manager, Orchestrator, or worker was found. Historical
-  tasks/threads and preserved worktrees are not reused or deleted.
-- `DEC-007` and `DEC-009` authorize and clarify the amendment profiles; the
-  requirements, accepted ADR amendments, architecture, data model, and active
-  OpenSpec specifications remain the detailed executable authority.
+- Branch: `MVP_IMPLEMENTATION`.
+- HEAD: `3aa0db528d7758788067348f70b5ea02d68bdb45`
+  (`checkpoint(ins-036): review strategy extensions`).
+- Working tree: clean; `git diff --check` passes.
+- The commit contains only the Manager-owned `TASKS.md` and `HANDOFF.md`, plus
+  the 12 INS-036 S-05/S-06 implementation, focused-test, and limitation-README
+  paths. No canonical contract, shared registry, app, migration, dependency,
+  generated artifact, or downstream-module path changed.
+- The INS-036 Manager
+  (`01a04db6-6c00-7841-a5f2-443c8f05dad7`) and its only two workers
+  (`01a04e66-d981-7e42-b75d-1bb3b7340c73` for S-05 and
+  `01a04e66-e691-7a50-af2f-b1eecd39053b` for S-06) are idle. No other active
+  Cryptox Manager, Orchestrator, or worker was found; historical threads and
+  worktrees were not reused or removed.
 
-### Authorized packets and dependencies
+### Independent evidence
 
-The Manager may execute exactly `S-05` and `S-06`, in parallel only because
-their implementation write scopes are disjoint. Both packets depend on completed
-`C-02` and `S-01`, which were verified as `DONE`. The Manager may move only
-these two task rows through `BLOCKED -> READY -> IN_PROGRESS -> REVIEW -> DONE`
-when the evidence supports each transition. `M-02` remains `REVIEW` with live
-provider evidence `UNVERIFIED`; it is not to be reopened or repaired here.
+- S-05 `WEIGHTED_VOTE_V1`: focused tests `17/17 PASS`; Strategy workspace
+  `89/89 PASS`.
+- S-06 `SMC_LITE_V1`/`WYCKOFF_LITE_V1`: focused tests `20/20 PASS`; Strategy
+  workspace `89/89 PASS`.
+- Root `npm test`: all 291 executed tests passed; 6 environment-gated
+  PostgreSQL/integration/E2E tests were skipped, so the full gate is
+  `UNVERIFIED`, not PASS.
+- Root `build`, `typecheck`, `lint`, `arch:check`, `artifacts:check`, and
+  `test:scope-check` (`5/5`) are `PASS`.
+- Root `scope:check` is `BLOCKED` (exit 1) on exactly:
+  `modules/strategy/application/composite/weighted-vote.ts`,
+  `modules/strategy/domain/composite/weighted-vote.ts`,
+  `modules/strategy/domain/plugins/smc-lite/index.ts`, and
+  `modules/strategy/domain/plugins/wyckoff-lite/index.ts`. The checker
+  currently allowlists these profile identifiers only in canonical contract,
+  port, REST, or migration boundaries, while the approved S-05/S-06 task
+  scopes are extension-owned implementation boundaries.
+- OpenSpec CLI and dedicated link/DAG automation remain `UNVERIFIED` because
+  the executables/checker are unavailable. No unavailable check is claimed as
+  PASS.
 
-#### `S-05` — Immutable `WEIGHTED_VOTE_V1` composite
+### Task state and blocker
 
-- Requirement IDs: `CSL-R-ST-03`, `CSL-R-ST-06`, `CSL-R-RP-02`.
-- Objective: implement the immutable weighted composite policy over exact
-  same-owner component versions without identity-branching.
-- Exact implementation and test scope: new files only under
-  `modules/strategy/domain/composite/**` and
-  `modules/strategy/application/composite/**`.
-- Acceptance: enabled BUY/HOLD/SELL signals map to `+1/0/-1`; weights are
-  finite and non-negative and normalize to one; thresholds `+0.30` and
-  `-0.30` produce BUY and SELL, with all other scores—including ties—producing
-  HOLD; enabled state, weights, thresholds, and exact component versions are
-  immutable provenance; invalid, zero-total, non-finite, or cross-owner
-  definitions fail before execution; results are deterministic and pure; tests
-  explicitly distinguish this policy from historical `MAJORITY_VOTE_V1`.
+- `TASKS.md` remains authoritative and unchanged by the Instructor:
+  `S-05 = REVIEW`, `S-06 = REVIEW`; neither is `DONE` because the required
+  root deferred-scope gate is blocked. `C-02 = DONE`, `S-01 = DONE`, and all
+  downstream packets remain in their recorded states.
+- This is a control-plane/tooling reconciliation issue, not permission to
+  bypass the checker. The accepted `ENV-01` packet is already `DONE`, and the
+  current task board has no separate `READY` packet authorizing a follow-up
+  edit to `scripts/check-deferred-scope.cjs` and its focused tests. Reopening
+  ENV-01, adding a task, or changing checker allowlists requires an explicit
+  reconciled plan/DAG decision before execution.
 
-#### `S-06` — Deterministic `SMC_LITE_V1` and `WYCKOFF_LITE_V1` plugins
+### HOLD boundary
 
-- Requirement IDs: `CSL-R-ST-07`, `CSL-R-RP-02`.
-- Objective: add two bounded, documented, deterministic Strategy plugins with
-  no claim of full discretionary or professional SMC/Wyckoff behavior.
-- Exact implementation and test scope: new files only under
-  `modules/strategy/domain/plugins/smc-lite/**` and
-  `modules/strategy/domain/plugins/wyckoff-lite/**`.
-- Acceptance: SMC Lite uses confirmed pivot-window swing highs/lows and
-  close-based Break of Structure; Wyckoff Lite uses fixed range/volume
-  heuristics for accumulation, distribution, and breakout; validation and
-  insufficient-data behavior are explicit; execution is pure, finite, and
-  deterministic for closed-candle input; descriptors truthfully use the Lite
-  labels and state the bounded limitations; focused tests provide determinism,
-  purity, validation, descriptor, and insufficient-data evidence.
-
-### Prohibitions and boundary conditions
-
-- Do not edit canonical contracts or shared boundaries, including
-  `modules/strategy/api/contracts.ts`, `modules/strategy/application/ports.ts`,
-  `modules/strategy/domain/contracts.ts`, REST/WebSocket packages,
-  `modules/strategy/api/index.ts`, or `modules/strategy/api/bootstrap.ts`.
-- Do not edit existing Strategy plugins, shared registry/barrel files, package
-  manifests, migrations, apps, frontend, or any module outside the two exact
-  scopes. Do not edit Backtesting, Evaluation, Leaderboard, Search, Market
-  Data, News, Sentiment, Auth, infrastructure, runtime configuration, or
-  generated artifacts.
-- Registration/integration is a later join and is not authorized here. Do not
-  start `M-03`, `S-04`, `Q-02`, `N-03`, `B-03`, `E-02`, `L-02`, `F-03`, `I-03`,
-  `M-02`, `AU-02`, `I-01`, `I-02`, or any deferred packet. Do not change
-  requirements, ADRs, architecture, data model, OpenSpec, `DECISIONS.md`, or
-  this file.
-- No live trading, generalized risk, autonomous/unconfigured LLM behavior,
-  unrestricted external fetch, general event bus, professional SMC/Wyckoff
-  claim, or persistence/ownership expansion may enter the diff.
-
-### Manager topology and worker rules
-
-- Create exactly one fresh Manager/Orchestrator after rechecking this signal,
-  the current checkpoint, task dependencies, write-scope isolation, Git
-  cleanliness, and active-task list. Use the canonical saved project and
-  same-directory checkout at `D:\agy-cli-projects\AOS\Cryptox` on
-  `MVP_IMPLEMENTATION`; do not create or use a worktree or a new branch.
-- The Manager must use model `gpt-5.6-luna` with reasoning `max`, read
-  `AGENTS.md` and `docs/control/prompts/ORCHESTRATOR_START.md` completely, and
-  use the full authorization in this signal as its only implementation scope.
-- The Manager must create exactly one fresh worker for `S-05` and exactly one
-  fresh worker for `S-06`, with disjoint write scopes above. No duplicate,
-  retry, historical Manager/worker reuse, or additional subagent is allowed.
-  Workers may not edit any control-plane file. The Manager alone may update
-  `docs/implementation/TASKS.md` and `docs/implementation/HANDOFF.md` for
-  these packets and may perform only narrow review/integration work within the
-  authorized implementation result.
-- The Manager must stop after both packets are accepted or after a genuine
-  scope/dependency/validation blocker is recorded. It must not auto-start
-  downstream work.
-
-### Validation gates
-
-- Run and record focused pure Strategy tests for both packets, then the
-  `@cryptox/strategy` package `test`, `typecheck`, `lint`, and `build` gates.
-- Run applicable root `build`, `typecheck`, `lint`, `test`, `arch:check`,
-  `artifacts:check`, `scope:check`, `test:scope-check`, and `git diff --check`
-  gates. Prove that the final changed paths remain inside this signal plus the
-  Manager-owned task/checkpoint files.
-- Verify dependency direction, no canonical-contract/shared-registry edits,
-  deterministic fixtures, truthful provenance/descriptor behavior, and the
-  distinction from S-01 majority evidence. PostgreSQL, live provider, browser,
-  and migration evidence are not made applicable by this pure extension scope;
-  if any required environment or tool is nevertheless needed and unavailable,
-  record `BLOCKED` or `UNVERIFIED`, never `PASS`.
-- OpenSpec CLI and dedicated link/DAG automation remain `UNVERIFIED` unless
-  actually available and run. A skipped test is not a passing gate.
-
-### Stop condition
-
-When the two authorized packets have been independently reviewed with truthful
-evidence, the Manager must update only their task/checkpoint records, commit a
-coherent checkpoint, report it, and stop. The Instructor will then review Git,
-diff, tests, task state, and checkpoint independently and replace this signal
-with `HOLD` before any later authorization. If the signal/checkpoint is stale,
-the task state or dependency evidence mismatches, a shared/canonical scope is
-needed, or a required acceptance test would require a forbidden edit, stop with
-`NEEDS_INSTRUCTOR_REVIEW` and make no silent repair or downstream start.
+- No Manager or worker may be created under this signal.
+- Do not mark S-05/S-06 `DONE`, start M-03, S-04, Q-02, N-03, B-03, E-02,
+  L-02, F-03, I-03, M-02, AU-02, I-01, I-02, or any deferred packet.
+- Before any next authorization, reconcile the checker follow-up as an
+  explicit executable packet or obtain the required human decision, then
+  re-verify branch/HEAD, clean Git, task DAG, checkpoint applicability, and
+  absence of active Cryptox Manager/worker threads.
 
 ## Canonical references
 
 - [Contributor rules](../../AGENTS.md)
 - [Decision ledger](./DECISIONS.md)
 - [Requirements](../requirements.md)
-- [Amendment evidence](../assignment/amendment-2026-08-29/README.md)
 - [Architecture](../architecture.md)
 - [Data model](../data-model.md)
 - [Implementation program](../implementation/MVP_PLAN.md)
