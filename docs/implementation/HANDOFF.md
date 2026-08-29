@@ -33,6 +33,11 @@
   `modules/search/**` and returned no source changes, no database/port probe,
   and REVIEW/UNVERIFIED. Scopes were disjoint and workers did not edit global
   control artifacts.
+- **Validation:** `npm run verify:stage4a` PASS: workspace build, typecheck,
+  tests, architecture, artifacts, deferred-scope, and runtime smoke. Focused
+  frontend is 23/23 and Search is 18/18. The global Auth E2E remains an
+  expected skip without `DATABASE_URL`; the explicit PostgreSQL-backed AU-01
+  E2E passed 1/1. No passwords, cookies, tokens, or token digests were logged.
 - **Final checkpoint:** F-AUTH and Q-01 remain REVIEW; no task is DONE from
   INS-016. Missing service/provider evidence is BLOCKED or UNVERIFIED, never
   PASS. No downstream task was started.
