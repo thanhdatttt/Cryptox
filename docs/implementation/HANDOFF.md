@@ -1,44 +1,43 @@
-# INS-020 Execution Checkpoint
+# INS-021 Execution Checkpoint
 
 ## Resume here
 
-- **Level 2 control plane:** INS-020 authorization commit is `ca889dc`,
-  reviewed against Manager checkpoint `0939175`. Applicability passed because
-  `ca889dc` is the Instructor-only authorization after the reviewed clean
-  checkpoint; no source, business-state, or task-DAG drift was found.
-- **Authorized work:** Exactly one bounded AU-02 retry. INS-020 did not
+- **Level 2 control plane:** INS-021 is the current authorization signal at
+  `f1c40b2`, with authorization commit `4b4226f`, reviewed against Manager
+  checkpoint `deb0472`. Applicability passed because the commits after the
+  reviewed checkpoint are Instructor-only governance changes; no source,
+  business-state, or task-DAG drift was found.
+- **Authorized work:** Exactly one final bounded AU-02 retry. INS-021 did not
   authorize an M-02 probe, source rework, downstream task, or another retry.
 - **Transitions:** AU-02 BLOCKED→READY after verifying AU-01, D-01, S-01,
   L-01, B-02, Q-01 real integration, and F-AUTH DONE; then READY→IN_PROGRESS.
-  Its sole worker, `01a04be0-cc57-7c10-be30-5a845615eb88`, completed the
-  requested checkpoint and safely stopped after producing no matrix source,
-  tests, accepted evidence, or commit. AU-02 is now BLOCKED/UNVERIFIED.
-- **AU-02 worker scope result:** The worker worktree remained at `ca889dc`
-  with only the inherited Manager TASKS edit and no changes under the allowed
-  Auth/Strategy/Search/Backtesting/Leaderboard/runtime scope. Node `v22.21.0`
-  and npm `10.9.4` were available; the missing Vitest binary was restored by a
-  lockfile-pinned dependency install completed in 10 seconds. The focused
-  baseline then passed 14 tests in 2 files, with 2 files and 4 tests skipped.
-  PostgreSQL/Auth and Search real integration were skipped because
-  `DATABASE_URL` was unset. The required two-user isolation matrix, 401/404
-  checks, trusted-identity spoofing checks, owner propagation, same-owner
-  ranking, shared-data, and secret-log evidence remain BLOCKED/UNVERIFIED.
-- **M-02 evidence:** M-02 was not run under INS-020. Its prior bounded live
+  Its sole worker, `01a04bf2-c013-7e73-a2b7-0b7781ac0a52` (Gibbs), was safely
+  stopped after the bounded implementation-first window without producing an
+  early matrix source/test diff, accepted evidence, or commit. AU-02 is now
+  BLOCKED/UNVERIFIED and the authorization requires `NEEDS_HUMAN_DECISION`.
+- **AU-02 worker scope result:** No changes were produced under the allowed
+  Auth/Strategy/Search/Backtesting/Leaderboard/runtime scope. The worker
+  observed Node/npm and the existing lockfile/dependency state, but its
+  package-local test attempts terminated without an accepted matrix result.
+  `DATABASE_URL` was absent, so PostgreSQL/Auth/Search real integration is
+  UNVERIFIED. The required two-user isolation matrix, 401/404 checks,
+  trusted-identity spoofing checks, owner propagation, same-owner ranking,
+  shared-data, and secret-log evidence remain BLOCKED/UNVERIFIED.
+- **M-02 evidence:** M-02 was not run under INS-021. Its prior bounded live
   Binance WebSocket probe ended in reconnect-limit exhaustion after socket
   failures, with zero normalized candles and no live gap-recovery evidence.
   M-02 remains REVIEW/UNVERIFIED; fixture resilience was not promoted.
 - **Validation limits:** Formal OpenSpec CLI validation remains UNVERIFIED
   because the CLI is unavailable. No source, contracts, migrations, frontend,
   INSTRUCTOR.md, or DECISIONS.md changes were made by the Manager. A renewed
-  Instructor signal is required before AU-02 can be retried or any downstream
-  work can start.
+  Instructor decision/signal is required before AU-02 can be retried or any
+  downstream work can start.
 
 ## Final control note
 
-- Manager-owned TASKS/HANDOFF updates record the worker IDs, scope, evidence,
-  blockers, and exact source/control commits: Q-01 source `317ca0d`, F-02
-  source plus initial control checkpoint `84209b0`, and final control reference
-  correction `5d39296`. `INSTRUCTOR.md` and `DECISIONS.md` were not edited.
+- Manager-owned TASKS/HANDOFF updates record the INS-021 worker ID, bounded
+  scope, missing evidence, blocker, and final control checkpoint. No AU-02
+  source commit was created; `INSTRUCTOR.md` and `DECISIONS.md` were not edited.
 
 ## Prior checkpoint
 
