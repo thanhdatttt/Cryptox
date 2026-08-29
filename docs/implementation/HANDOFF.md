@@ -1,73 +1,123 @@
-# INS-043 Execution Checkpoint — M-03 Worker Interruption
+# INS-045 Execution Checkpoint — N-03 Review
 
 ## Resume here
 
-- **Authorization:** `INS-043 / APPROVED_FOR_EXECUTION`; exactly one bounded
-  implementation packet was authorized: `M-03 — Amended Realtime Market
-  Delivery and MARKET_OBSERVABILITY_V1`. No other packet was authorized.
-- **Manager:** `01a04edf-9bda-7ba1-b60e-8a7a8ddac926`, operating in the canonical
-  checkout `D:/agy-cli-projects/AOS/Cryptox` on `MVP_IMPLEMENTATION`.
+- **Authorization:** `INS-045 / APPROVED_FOR_EXECUTION`; exactly one bounded
+  implementation packet was authorized: `N-03 — Safe URL Import and Versioned
+  News Extraction Refinement`. No other packet was authorized.
+- **Manager:** `01a04f09-60b5-7113-8901-bfb50ff23ecd`, operating in the canonical
+  same-directory checkout `D:/agy-cli-projects/AOS/Cryptox` on
+  `MVP_IMPLEMENTATION`.
 - **Parent task:** `01a04d93-13a4-7d91-b010-f2b800f696df`.
-- **Authorization commit:**
-  `393d3dfa06386787076af80f319361a82def73d9`.
-- **Reviewed base:**
-  `52ef6ceb37d821e294cb4a7d9e041fa085356a9f`.
-- **Stop reason:** `BLOCKED / NEEDS_INSTRUCTOR_REVIEW`. The single worker was
-  interrupted before implementation began, so M-03 has no reviewable source or
-  acceptance evidence. M-03 remains `IN_PROGRESS`; it is not `REVIEW` or `DONE`.
+- **Authorization commit:** `06c705e30cbafc81f4c76e4a031688563ed64d2a`.
+- **Reviewed base:** `d602fde` (`INS-044 / HOLD`). The authorization delta
+  contained only the current Instructor signal; no source, business-state,
+  task-DAG, contract, or competing-manager drift was found.
+- **Current state:** `REVIEW`; retention-order/template-FK correction and
+  regression evidence are complete. N-03 is not promoted to `DONE` because
+  real-provider, PostgreSQL runtime, browser/runtime, link/DAG, OpenSpec, and
+  auto-refresh scheduler evidence remain unavailable or partial.
 
 ## Applicability and preconditions
 
-- Applicability was re-proven before dispatch. The diff from the reviewed base
-  to authorization HEAD contained only `docs/control/INSTRUCTOR.md`; no source,
-  business-state, task-DAG, requirements, architecture, ADR, OpenSpec, or
-  dependency drift was found.
-- Start dependencies were verified from `TASKS.md`: `C-02 = DONE`,
-  `M-01 = DONE`, and the `F-01` normalized chart input is `DONE`.
-- `M-02` remains `REVIEW/UNVERIFIED` and was not reopened or moved.
+- `C-02`, `N-01`, and `N-02` were independently verified as `DONE` before the
+  N-03 transition. `M-03` remains `IN_PROGRESS` after its interrupted worker;
+  its source and state were not reopened or changed.
 - Historical Cryptox worktrees were inspected and not reused or removed. No
-  competing active Cryptox Manager/worker was found beyond the expected parent
-  and this Manager task.
+  competing active Cryptox Manager or worker was found beyond the expected
+  parent, this Manager, and the single authorized N-03 worker.
+- N-03 transitioned exactly `BLOCKED -> READY -> IN_PROGRESS -> REVIEW`.
+  No downstream packet was promoted or started.
 
 ## Authorized dispatch and worker result
 
-- **Task transition:** `M-03 BLOCKED -> READY -> IN_PROGRESS`.
-- **Worker:** exactly one worker was created with
-  `multi_agent_v1__spawn_agent`:
-  `01a04ef0-4cc6-78d3-af30-a393155b1953` (Anscombe).
-- No `create_thread` retry, replacement worker, resume, duplicate, or second
-  Manager was created.
-- **Worker scope:** implementation/tests only under
-  `modules/market-data/api/**`, excluding `contracts.ts` and
-  `contracts.spec.ts`; all control-plane and other source paths were forbidden.
-- **Worker checkpoint:** status `interrupted`; no implementation started; no
-  files changed; no source commit created; no focused tests were run. The
-  worker's final checkpoint explicitly reported those facts.
-- **Manager review/integration:** there is no worker diff to review or integrate.
-  No source path under `modules/market-data/api/**` changed. M-03 therefore
-  remains `IN_PROGRESS` under the interruption rule.
+- Exactly one fresh worker was created with `multi_agent_v1__spawn_agent`:
+  `01a04f0e-de55-78a2-bf64-88b2ac7eb4db` (Singer).
+- The worker used the canonical same-directory checkout and was instructed not
+  to create threads/workers, branches, worktrees, commits, or control-plane
+  edits. No retry, replacement, resume, duplicate, or second Manager was used.
+- The worker scope was limited to News API implementation/tests excluding frozen
+  News contracts and contract-only tests; News application/infrastructure; and
+  the neutral Sentiment News-to-Sentiment provenance join excluding frozen
+  Sentiment contracts and contract-only tests. Forbidden paths were untouched.
+- Singer completed with no source commit and reported no blocker. The Manager
+  independently reviewed and integrated the working-tree result; Manager-owned
+  control artifacts are the only governance changes.
+
+## Implementation and review evidence
+
+- Safe backend HTTPS fetching validates the configured source allowlist, rejects
+  unsafe/private/link-local destinations, revalidates every redirect, caps
+  redirects/body/total time, omits credentials/cookies, and records only safe
+  canonical provenance. The default Node HTTPS transport pins the validated DNS
+  address through its lookup callback while retaining the original hostname for
+  TLS/SNI. The injected transport remains a deterministic test seam and is not
+  treated as production runtime evidence.
+- Website/RSS/HTML extraction, canonical/provider/content-hash deduplication,
+  DRAFT-only template refinement with explicit approval/rollback, raw/normalized
+  retention, and neutral Sentiment failure isolation are implemented within the
+  authorized boundary. URL import preserves an approved template reference and
+  uses opaque imported identity rather than persisting a supplied URL as an
+  arbitrary identity field.
+- A material FK retention defect was found and fixed: raw HTML is purged first,
+  extraction provenance next, templates next, and News last. PostgreSQL template
+  purge skips templates referenced by any provenance or superseding template;
+  the in-memory adapter protects live provenance references. News PostgreSQL
+  purge also conservatively skips rows still referenced by restricted Sentiment
+  results or Strategy authoring drafts. Regression tests cover purge order,
+  live-provenance template retention, and PostgreSQL purge guards.
+- Frozen files were not changed: `modules/news/api/contracts.ts`,
+  `modules/news/api/contracts.spec.ts`, `modules/sentiment/api/contracts.ts`,
+  `modules/sentiment/api/contracts.spec.ts`, and all migrations remain unchanged.
+
+## Changed paths
+
+Implementation and focused tests are limited to:
+
+- `modules/news/api/bootstrap.ts`;
+- `modules/news/application/{memory,normalization,ports,service,service.spec}.ts`;
+- `modules/news/infrastructure/{configured,configured.spec,extraction-postgres,postgres,postgres.spec,safe-fetch,safe-fetch.spec}.ts`;
+- `modules/sentiment/api/bootstrap.ts`;
+- `modules/sentiment/application/{news-provenance.spec,ports,service}.ts`.
+
+The Manager changed `docs/implementation/TASKS.md` and this replaceable
+`HANDOFF.md` only. No frontend, Strategy, credentials/cookies, dependencies,
+migrations, runtime configuration, generated artifacts, requirements, ADRs,
+OpenSpec artifacts, or other module source was changed.
 
 ## Validation and evidence
 
-- **Source/scope inspection:** PASS for the checkpoint — the worker produced no
-  source delta and no forbidden-path delta.
-- **M-03 focused/realtime/resilience tests:** `UNVERIFIED`; no worker tests or
-  acceptance evidence exist.
-- **Root typecheck/build/lint/architecture/artifact/scope/package tests:**
-  `UNVERIFIED`; not run after the worker stopped before implementation.
-- **OpenSpec CLI:** `UNVERIFIED`; the `openspec` executable is unavailable.
-- **Real Binance, PostgreSQL, browser/runtime smoke, and link/DAG checks:**
-  `UNVERIFIED/BLOCKED`; no final-provider or runtime evidence was produced.
-- No implementation, generated artifact, dependency, contract, migration,
-  frontend, or runtime change was made.
+- **Focused News:** PASS — 8 files, 30 tests.
+- **Focused Sentiment:** PASS — 7 files, 19 tests.
+- **Root workspace tests:** PASS — 309 tests passed; 6 existing
+  environment-gated integration/E2E tests skipped.
+- **Root checks:** PASS — `npm run arch:check`, `npm run artifacts:check`,
+  `npm run scope:check`, `npm run typecheck`, `npm run build`, `npm run lint`,
+  and `git diff --check`. The architecture checker reported its expected nine
+  forbidden dependency fixtures while exiting successfully; diff check emitted
+  only normal LF/CRLF normalization warnings.
+- **PostgreSQL migration/runtime:** BLOCKED — `npm run db:local:validate`
+  could not run because this host's Docker does not provide a working
+  `docker compose` command. PostgreSQL behavior is therefore not claimed from
+  runtime evidence; SQL guards and deterministic fake-pool tests are the only
+  available evidence.
+- **Real configured News source:** UNVERIFIED — no configured live-provider
+  smoke evidence was available in this packet; deterministic fakes are reported
+  only as test evidence.
+- **Auto-refresh:** PARTIAL / UNVERIFIED — the provider validates 1–5 minutes
+  with a five-minute default and exposes that setting, but no scheduler is
+  implemented in the authorized packet.
+- **Browser/runtime smoke, OpenSpec CLI, and link/DAG automation:**
+  UNVERIFIED/BLOCKED; no PASS is claimed.
 
 ## State and stop boundary
 
-- Only M-03 was transitioned. All other task rows remain unchanged; no
-  downstream packet was started or promoted.
-- `TASKS.md` records the worker interruption, absence of source change, and
-  absence of validation evidence. This file is the matching Manager checkpoint.
-- The authorization is exhausted at this safe checkpoint. A fresh Instructor
-  review is required before any later M-03 attempt or any downstream work.
+- `TASKS.md` records N-03 as `REVIEW` and preserves `M-03 = IN_PROGRESS`; all
+  other task states remain unchanged. No downstream work was auto-started.
+- The authorization is exhausted at this Manager-owned review checkpoint.
+  Further runtime/provider/scheduler evidence requires an explicitly authorized
+  integration/runtime step or a later Instructor signal; this Manager does not
+  broaden N-03.
 - **Checkpoint commit:** the Manager-owned commit containing this `TASKS.md` /
-  `HANDOFF.md` checkpoint; its exact hash is reported at the stop boundary.
+  `HANDOFF.md` checkpoint and the reviewed N-03 source; its exact hash is
+  reported at the stop boundary.

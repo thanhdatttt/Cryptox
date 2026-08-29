@@ -67,7 +67,7 @@ describe("PostgreSQL News repository (CSL-R-NW-01, CSL-R-DM-01)", () => {
     await expect(dependencies.newsRepository.upsertByProviderIdentity(item)).resolves.toMatchObject({ inserted: true });
     await expect(dependencies.newsRepository.upsertByProviderIdentity(item)).resolves.toMatchObject({ inserted: false });
     expect(calls.filter((text) => text.includes("INSERT INTO news_items"))).toHaveLength(2);
-    expect(calls.some((text) => text.includes("ON CONFLICT (provider_id, provider_item_id) DO NOTHING"))).toBe(true);
+    expect(calls.some((text) => text.includes("ON CONFLICT DO NOTHING"))).toBe(true);
     await dependencies.close();
     await dependencies.close();
   });
@@ -93,6 +93,34 @@ describe("PostgreSQL News repository (CSL-R-NW-01, CSL-R-DM-01)", () => {
       cursor: page.nextCursor,
       order: "PUBLISHED_AT_DESC_PROVIDER_ID_ASC_PROVIDER_ITEM_ID_ASC",
     });
+    await dependencies.close();
+  });
+
+  it("protects referenced extraction templates in the retention purge query", async () => {
+    let purgeSql = "";
+    const fake = fakePool((text) => {
+      if (text.includes("DELETE FROM extraction_templates")) purgeSql = text;
+      return [];
+    });
+    const dependencies = createPostgresNewsDependencies({ connectionString: "", pool: fake.pool });
+
+    await expect(dependencies.extractionTemplateRepository.purgeExpired("2026-04-02T00:00:00.000Z")).resolves.toBe(0);
+    expect(purgeSql).toContain("news_extraction_provenance");
+    expect(purgeSql).toContain("supersedes_template_id");
+    await dependencies.close();
+  });
+
+  it("protects News rows referenced by restricted downstream records", async () => {
+    let purgeSql = "";
+    const fake = fakePool((text) => {
+      if (text.includes("DELETE FROM news_items")) purgeSql = text;
+      return [];
+    });
+    const dependencies = createPostgresNewsDependencies({ connectionString: "", pool: fake.pool });
+
+    await expect(dependencies.newsRepository.purgeExpired("2026-04-02T00:00:00.000Z")).resolves.toBe(0);
+    expect(purgeSql).toContain("sentiment_results");
+    expect(purgeSql).toContain("strategy_authoring_drafts");
     await dependencies.close();
   });
 });

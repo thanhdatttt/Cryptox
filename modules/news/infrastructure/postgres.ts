@@ -1,10 +1,14 @@
 import type {
+  ExtractionTemplateRecord,
   NewsReadRecordQuery,
   NewsRecordPage,
   NewsRepository,
   NormalizedNewsItemRecord,
+  StoredNewsExtractionProvenance,
 } from "../application/ports";
-import { normalizeNewsItem } from "../application/normalization";
+import { normalizeExtractionProvenance, normalizeNewsItem } from "../application/normalization";
+import { createPostgresNewsMetadataDependencies } from "./extraction-postgres";
+import type { PostgresNewsMetadataDependencies } from "./extraction-postgres";
 
 export interface PostgresQueryResult<Row extends Record<string, unknown> = Record<string, unknown>> {
   readonly rows: Row[];
@@ -25,7 +29,7 @@ export interface PostgresNewsOptions {
   readonly maxConnections?: number;
 }
 
-export interface PostgresNewsDependencies {
+export interface PostgresNewsDependencies extends PostgresNewsMetadataDependencies {
   readonly pool: PostgresPool;
   readonly newsRepository: NewsRepository;
   close(): Promise<void>;
@@ -42,6 +46,18 @@ interface NewsRow extends Record<string, unknown> {
   crawled_at: string;
   related_coins: unknown;
   url: string;
+  canonical_url?: unknown;
+  normalized_content_hash?: unknown;
+  normalized_retain_until?: unknown;
+  extraction_source_kind?: unknown;
+  extraction_canonical_url?: unknown;
+  extraction_normalized_content_hash?: unknown;
+  extraction_template_id?: unknown;
+  extraction_template_source_id?: unknown;
+  extraction_template_version?: unknown;
+  extraction_template_status?: unknown;
+  extraction_extracted_at?: unknown;
+  extraction_normalized_retain_until?: unknown;
 }
 
 interface NewsCursor {
@@ -85,6 +101,43 @@ function relatedCoins(value: unknown): string[] {
 }
 
 function itemFromRow(row: NewsRow): NormalizedNewsItemRecord {
+  const canonicalUrl = typeof row.canonical_url === "string" && row.canonical_url.trim() ? row.canonical_url : row.url;
+  const normalizedContentHash = typeof row.normalized_content_hash === "string" && row.normalized_content_hash.trim()
+    ? row.normalized_content_hash
+    : undefined;
+  const extractionSourceKind = row.extraction_source_kind;
+  const hasExtraction = extractionSourceKind === "CONFIGURED_WEBSITE"
+    || extractionSourceKind === "RSS"
+    || extractionSourceKind === "HTML"
+    || extractionSourceKind === "ALLOWLISTED_URL_IMPORT";
+  const extraction = hasExtraction
+    ? normalizeExtractionProvenance({
+      sourceKind: extractionSourceKind,
+      canonicalUrl: typeof row.extraction_canonical_url === "string" ? row.extraction_canonical_url : canonicalUrl,
+      normalizedContentHash: typeof row.extraction_normalized_content_hash === "string"
+        ? row.extraction_normalized_content_hash
+        : normalizedContentHash,
+      ...(typeof row.extraction_template_id === "string" && typeof row.extraction_template_source_id === "string"
+        && Number.isSafeInteger(Number(row.extraction_template_version)) && typeof row.extraction_template_status === "string"
+        ? {
+          template: {
+            id: row.extraction_template_id,
+            sourceId: row.extraction_template_source_id,
+            version: Number(row.extraction_template_version),
+            status: row.extraction_template_status,
+          },
+        }
+        : {}),
+      extractedAt: typeof row.extraction_extracted_at === "string" ? row.extraction_extracted_at : row.crawled_at,
+      normalizedRetainUntil: typeof row.extraction_normalized_retain_until === "string"
+        ? row.extraction_normalized_retain_until
+        : undefined,
+    }, {
+      canonicalUrl,
+      normalizedContentHash: normalizedContentHash ?? "",
+      extractedAt: row.crawled_at,
+    })
+    : undefined;
   return normalizeNewsItem({
     id: row.id,
     providerId: row.provider_id,
@@ -95,7 +148,10 @@ function itemFromRow(row: NewsRow): NormalizedNewsItemRecord {
     publishedAt: row.published_at,
     crawledAt: row.crawled_at,
     relatedCoins: relatedCoins(row.related_coins),
-    url: row.url,
+    url: canonicalUrl,
+    ...(normalizedContentHash === undefined ? {} : { normalizedContentHash }),
+    ...(typeof row.normalized_retain_until === "string" ? { normalizedRetainUntil: row.normalized_retain_until } : {}),
+    ...(extraction === undefined ? {} : { extraction }),
   }, row.provider_id);
 }
 
@@ -117,27 +173,34 @@ export function createPostgresNewsDependencies(options: PostgresNewsOptions): Po
   let closed = false;
   const newsRepository: NewsRepository = {
     async upsertByProviderIdentity(item): Promise<{ item: NormalizedNewsItemRecord; inserted: boolean }> {
+      const normalizedItem = normalizeNewsItem(item, item.providerId);
       const values = [
-        item.id,
-        item.providerId,
-        item.providerItemId,
-        item.title,
-        item.content,
-        item.source,
-        item.publishedAt,
-        item.crawledAt,
-        JSON.stringify(item.relatedCoins),
-        item.url,
+        normalizedItem.id,
+        normalizedItem.providerId,
+        normalizedItem.providerItemId,
+        normalizedItem.title,
+        normalizedItem.content,
+        normalizedItem.source,
+        normalizedItem.publishedAt,
+        normalizedItem.crawledAt,
+        JSON.stringify(normalizedItem.relatedCoins),
+        normalizedItem.url,
+        normalizedItem.canonicalUrl ?? normalizedItem.url,
+        normalizedItem.normalizedContentHash,
+        normalizedItem.normalizedRetainUntil ?? new Date(Date.parse(normalizedItem.crawledAt) + 90 * 24 * 60 * 60 * 1_000).toISOString(),
       ];
       const insert = await pool.query<NewsRow>(
         `
           INSERT INTO news_items
             (id, provider_id, provider_item_id, title, content, source,
-             published_at, crawled_at, related_coins, url)
-          VALUES ($1::uuid, $2, $3, $4, $5, $6, $7::timestamptz, $8::timestamptz, $9::jsonb, $10)
-          ON CONFLICT (provider_id, provider_item_id) DO NOTHING
+             published_at, crawled_at, related_coins, url, canonical_url,
+             normalized_content_hash, normalized_retain_until)
+          VALUES ($1::uuid, $2, $3, $4, $5, $6, $7::timestamptz, $8::timestamptz,
+             $9::jsonb, $10, $11, $12, $13::timestamptz)
+          ON CONFLICT DO NOTHING
           RETURNING id::text, provider_id, provider_item_id, title, content, source,
-            published_at::text, crawled_at::text, related_coins, url
+            published_at::text, crawled_at::text, related_coins, url,
+            canonical_url, normalized_content_hash, normalized_retain_until::text
         `,
         values,
       );
@@ -145,12 +208,16 @@ export function createPostgresNewsDependencies(options: PostgresNewsOptions): Po
       const existing = await pool.query<NewsRow>(
         `
           SELECT id::text, provider_id, provider_item_id, title, content, source,
-            published_at::text, crawled_at::text, related_coins, url
+            published_at::text, crawled_at::text, related_coins, url,
+            canonical_url, normalized_content_hash, normalized_retain_until::text
           FROM news_items
           WHERE provider_id = $1 AND provider_item_id = $2
+             OR canonical_url = $3
+             OR normalized_content_hash = $4
+          ORDER BY CASE WHEN provider_id = $1 AND provider_item_id = $2 THEN 0 ELSE 1 END
           LIMIT 1
         `,
-        [item.providerId, item.providerItemId],
+        [normalizedItem.providerId, normalizedItem.providerItemId, normalizedItem.canonicalUrl ?? normalizedItem.url, normalizedItem.normalizedContentHash],
       );
       const row = existing.rows[0];
       if (!row) throw new Error("News deduplication lookup returned no row");
@@ -186,8 +253,20 @@ export function createPostgresNewsDependencies(options: PostgresNewsOptions): Po
       const result = await pool.query<NewsRow>(
         `
           SELECT id::text, provider_id, provider_item_id, title, content, source,
-            published_at::text, crawled_at::text, related_coins, url
+            published_at::text, crawled_at::text, related_coins, url,
+            canonical_url, normalized_content_hash, normalized_retain_until::text,
+            extraction.source_kind AS extraction_source_kind,
+            extraction.canonical_url AS extraction_canonical_url,
+            extraction.normalized_content_hash AS extraction_normalized_content_hash,
+            extraction.template_id AS extraction_template_id,
+            template.source_id AS extraction_template_source_id,
+            template.version AS extraction_template_version,
+            template.status AS extraction_template_status,
+            extraction.extracted_at::text AS extraction_extracted_at,
+            extraction.retain_until::text AS extraction_normalized_retain_until
           FROM news_items
+          LEFT JOIN news_extraction_provenance extraction ON extraction.news_id = news_items.id
+          LEFT JOIN extraction_templates template ON template.id = extraction.template_id
           ${where.length > 0 ? `WHERE ${where.join("\n            AND ")}` : ""}
           ORDER BY published_at DESC, provider_id ASC, provider_item_id ASC
           LIMIT ${limit}
@@ -202,10 +281,33 @@ export function createPostgresNewsDependencies(options: PostgresNewsOptions): Po
         ...(hasMore && items.length > 0 ? { nextCursor: cursor(items.at(-1)!) } : {}),
       };
     },
+    async purgeExpired(now: string): Promise<number> {
+      const result = await pool.query(
+        `
+          DELETE FROM news_items AS candidate
+          WHERE candidate.normalized_retain_until IS NOT NULL
+            AND candidate.normalized_retain_until <= $1::timestamptz
+            AND NOT EXISTS (
+              SELECT 1
+              FROM sentiment_results sentiment
+              WHERE sentiment.news_id = candidate.id
+            )
+            AND NOT EXISTS (
+              SELECT 1
+              FROM strategy_authoring_drafts draft
+              WHERE draft.source_news_item_id = candidate.id
+            )
+        `,
+        [now],
+      );
+      return result.rowCount ?? 0;
+    },
   };
+  const metadata = createPostgresNewsMetadataDependencies(pool);
   return {
     pool,
     newsRepository,
+    ...metadata,
     close: async () => {
       if (closed) return;
       closed = true;

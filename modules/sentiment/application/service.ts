@@ -4,6 +4,8 @@ import type {
   SentimentLabel,
   SentimentModuleDependencies,
   SentimentStoredResult,
+  NewsExtractionProvenanceInput,
+  SentimentNewsProvenanceJoin,
 } from "./ports";
 
 const LABELS = new Set<SentimentLabel>(["POSITIVE", "NEUTRAL", "NEGATIVE"]);
@@ -105,6 +107,60 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+function validNewsExtractionProvenance(value: unknown): NewsExtractionProvenanceInput | undefined {
+  if (value === undefined) return undefined;
+  if (!value || typeof value !== "object") throw new SentimentApplicationError("INVALID_PROVENANCE");
+  const input = value as Record<string, unknown>;
+  if (input.sourceKind !== "CONFIGURED_WEBSITE"
+    && input.sourceKind !== "RSS"
+    && input.sourceKind !== "HTML"
+    && input.sourceKind !== "ALLOWLISTED_URL_IMPORT") {
+    throw new SentimentApplicationError("INVALID_PROVENANCE");
+  }
+  const canonicalUrl = nonEmptyString(input.canonicalUrl, "canonicalUrl");
+  let parsedUrl: URL;
+  try {
+    parsedUrl = new URL(canonicalUrl);
+  } catch {
+    throw new SentimentApplicationError("INVALID_PROVENANCE");
+  }
+  if (parsedUrl.protocol !== "https:" || parsedUrl.username || parsedUrl.password) {
+    throw new SentimentApplicationError("INVALID_PROVENANCE");
+  }
+  const normalizedContentHash = nonEmptyString(input.normalizedContentHash, "normalizedContentHash").toLowerCase();
+  if (!/^[0-9a-f]{64}$/u.test(normalizedContentHash)) throw new SentimentApplicationError("INVALID_PROVENANCE");
+  const extractedAt = validTimestamp(input.extractedAt, "extractedAt");
+  const templateVersion = input.templateVersion;
+  if (templateVersion !== undefined && (!Number.isSafeInteger(templateVersion) || (templateVersion as number) < 1)) {
+    throw new SentimentApplicationError("INVALID_PROVENANCE");
+  }
+  return {
+    sourceKind: input.sourceKind,
+    canonicalUrl: parsedUrl.toString(),
+    normalizedContentHash,
+    ...(templateVersion === undefined ? {} : { templateVersion: templateVersion as number }),
+    extractedAt,
+  };
+}
+
+function cloneResult(result: SentimentStoredResult): SentimentStoredResult {
+  return { ...result };
+}
+
+export function joinNewsSentimentProvenance(
+  result: SentimentStoredResult | undefined,
+  provenance?: NewsExtractionProvenanceInput,
+): SentimentNewsProvenanceJoin | undefined {
+  if (!result) return undefined;
+  const safeResult = cloneResult(result);
+  const safeProvenance = validNewsExtractionProvenance(provenance);
+  return {
+    newsId: safeResult.newsId,
+    result: safeResult,
+    ...(safeProvenance === undefined ? {} : { newsExtraction: safeProvenance }),
+  };
+}
+
 function observeFailure(
   dependencies: SentimentModuleDependencies,
   input: SentimentAnalysisInput,
@@ -119,6 +175,15 @@ function observeFailure(
 
 export interface SentimentApplication extends SentimentAnalysisService {
   readLatestForNews(newsId: string): Promise<SentimentStoredResult | undefined>;
+  readLatestForNewsWithProvenance(
+    newsId: string,
+    provenance?: NewsExtractionProvenanceInput,
+  ): Promise<SentimentNewsProvenanceJoin | undefined>;
+  readAvailability(newsId: string): Promise<
+    | { state: "AVAILABLE"; result: SentimentStoredResult }
+    | { state: "MISSING" }
+    | { state: "DEGRADED"; reason: "TIMEOUT" | "INFERENCE_ERROR" | "INVALID_RESULT" }
+  >;
 }
 
 export function createSentimentApplication(
@@ -153,5 +218,26 @@ export function createSentimentApplication(
   const readLatestForNews = async (newsId: string): Promise<SentimentStoredResult | undefined> =>
     dependencies.resultRepository.readLatestForNews(nonEmptyString(newsId, "newsId"));
 
-  return { analyze, readLatestForNews };
+  const readLatestForNewsWithProvenance = async (
+    newsId: string,
+    provenance?: NewsExtractionProvenanceInput,
+  ): Promise<SentimentNewsProvenanceJoin | undefined> => {
+    const normalizedNewsId = nonEmptyString(newsId, "newsId");
+    const result = await readLatestForNews(normalizedNewsId);
+    if (result && result.newsId !== normalizedNewsId) throw new SentimentApplicationError("INVALID_RESULT");
+    return joinNewsSentimentProvenance(result, provenance);
+  };
+
+  const readAvailability = async (newsId: string): Promise<Awaited<ReturnType<SentimentApplication["readAvailability"]>>> => {
+    try {
+      const result = await readLatestForNews(newsId);
+      return result ? { state: "AVAILABLE", result } : { state: "MISSING" };
+    } catch (error) {
+      const input = { newsId: nonEmptyString(newsId, "newsId") } as SentimentAnalysisInput;
+      observeFailure(dependencies, input, "INFERENCE_ERROR");
+      return { state: "DEGRADED", reason: "INFERENCE_ERROR" };
+    }
+  };
+
+  return { analyze, readLatestForNews, readLatestForNewsWithProvenance, readAvailability };
 }

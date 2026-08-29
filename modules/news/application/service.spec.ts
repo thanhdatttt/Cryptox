@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { createNewsModule } from "../api/bootstrap";
-import type { NewsSentimentPort, NormalizedNewsItemRecord } from "./ports";
-import { createInMemoryNewsRepository } from "./memory";
+import type { NewsModuleDependencies, NewsSentimentPort, NormalizedNewsItemRecord } from "./ports";
+import {
+  createInMemoryExtractionTemplateRepository,
+  createInMemoryNewsExtractionProvenanceRepository,
+  createInMemoryNewsRepository,
+} from "./memory";
 
 const ORDER = "PUBLISHED_AT_DESC_PROVIDER_ID_ASC_PROVIDER_ITEM_ID_ASC" as const;
 
@@ -182,5 +186,109 @@ describe("NewsApplicationService (CSL-R-NW-01, CSL-R-SN-01)", () => {
     await expect(invalid.module.readNews({ limit: 1, order: ORDER })).resolves.toMatchObject({
       items: [{ providerItemId: "invalid", sentiment: null }],
     });
+  });
+
+  it("purges retention children and references before restricted News parents", async () => {
+    const calls: string[] = [];
+    const repository = createInMemoryNewsRepository();
+    const newsRepository: NewsModuleDependencies["newsRepository"] = {
+      upsertByProviderIdentity: repository.upsertByProviderIdentity.bind(repository),
+      read: repository.read.bind(repository),
+      purgeExpired: async () => {
+        calls.push("news");
+        return 1;
+      },
+    };
+    const rawHtmlRepository: NonNullable<NewsModuleDependencies["rawHtmlRepository"]> = {
+      insert: async (artifact) => artifact,
+      purgeExpired: async () => {
+        calls.push("raw-html");
+        return 1;
+      },
+    };
+    const extractionProvenanceRepository: NonNullable<NewsModuleDependencies["extractionProvenanceRepository"]> = {
+      insert: async (provenance) => provenance,
+      purgeExpired: async () => {
+        calls.push("provenance");
+        return 1;
+      },
+    };
+    const templateRepository: NonNullable<NewsModuleDependencies["templateRepository"]> = {
+      insertDraft: async (template) => template,
+      approve: async () => undefined,
+      readActive: async () => undefined,
+      purgeExpired: async () => {
+        calls.push("templates");
+        return 1;
+      },
+    };
+    const module = createNewsModule({
+      providers: [],
+      newsRepository,
+      sentiment: {
+        analyze: async () => { throw new Error("not used"); },
+        readLatestForNews: async () => undefined,
+      },
+      sentimentTimeoutMs: 25,
+      observability: { recordProviderFailure: () => undefined, recordSentimentFailure: () => undefined },
+      rawHtmlRepository,
+      extractionProvenanceRepository,
+      templateRepository,
+    });
+
+    await expect(module.purgeRetention("2026-05-01T00:00:00.000Z")).resolves.toEqual({
+      normalizedNewsItems: 1,
+      rawHtmlArtifacts: 1,
+      extractionProvenance: 1,
+      templates: 1,
+    });
+    expect(calls).toEqual(["raw-html", "provenance", "templates", "news"]);
+  });
+
+  it("retains an expired template while live provenance still references it", async () => {
+    const templates = createInMemoryExtractionTemplateRepository();
+    const provenance = createInMemoryNewsExtractionProvenanceRepository();
+    await templates.insertDraft({
+      id: "template-1",
+      sourceId: "fixture-provider",
+      version: 1,
+      status: "DRAFT",
+      configuration: { titleSelector: "h1" },
+      createdAt: "2026-01-01T00:00:00.000Z",
+      retainUntil: "2026-04-01T00:00:00.000Z",
+    });
+    await templates.approve("template-1");
+    await provenance.insert({
+      id: "provenance-1",
+      newsId: "news-1",
+      sourceKind: "HTML",
+      canonicalUrl: "https://example.test/article",
+      normalizedContentHash: "a".repeat(64),
+      template: { id: "template-1", sourceId: "fixture-provider", version: 1, status: "APPROVED" },
+      extractedAt: "2026-02-01T00:00:00.000Z",
+      normalizedRetainUntil: "2026-05-02T00:00:00.000Z",
+    });
+    const module = createNewsModule({
+      providers: [],
+      newsRepository: createInMemoryNewsRepository(),
+      sentiment: { analyze: async () => { throw new Error("not used"); }, readLatestForNews: async () => undefined },
+      sentimentTimeoutMs: 25,
+      observability: { recordProviderFailure: () => undefined, recordSentimentFailure: () => undefined },
+      extractionProvenanceRepository: provenance,
+      templateRepository: templates,
+    });
+
+    await expect(module.purgeRetention("2026-04-02T00:00:00.000Z")).resolves.toMatchObject({
+      extractionProvenance: 0,
+      templates: 0,
+    });
+    await expect(templates.readById("template-1")).resolves.toMatchObject({ status: "APPROVED" });
+    await expect(provenance.readByNewsId("news-1")).resolves.toBeDefined();
+
+    await expect(module.purgeRetention("2026-05-03T00:00:00.000Z")).resolves.toMatchObject({
+      extractionProvenance: 1,
+      templates: 1,
+    });
+    await expect(templates.readById("template-1")).resolves.toBeUndefined();
   });
 });

@@ -65,3 +65,22 @@ export interface SentimentAvailabilityPort {
     | { state: "DEGRADED"; reason: "TIMEOUT" | "INFERENCE_ERROR" | "INVALID_RESULT" }
   >;
 }
+
+/**
+ * Neutral, provider-free News extraction provenance accepted at the
+ * News-to-Sentiment join. It intentionally does not depend on News storage or
+ * expose a provider payload.
+ */
+export interface NewsExtractionProvenanceInput {
+  readonly sourceKind: "CONFIGURED_WEBSITE" | "RSS" | "HTML" | "ALLOWLISTED_URL_IMPORT";
+  readonly canonicalUrl: string;
+  readonly normalizedContentHash: string;
+  readonly templateVersion?: number;
+  readonly extractedAt: string;
+}
+
+export interface SentimentNewsProvenanceJoin {
+  readonly newsId: string;
+  readonly result: SentimentStoredResult;
+  readonly newsExtraction?: NewsExtractionProvenanceInput;
+}
