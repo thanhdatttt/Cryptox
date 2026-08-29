@@ -100,3 +100,25 @@ task readiness.
 Affected: C-01A, D-01, S-01 and downstream ownership-sensitive tasks
 
 Canonical references: [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md), [MVP program](../implementation/MVP_PLAN.md)
+
+## DEC-006 — Packet-boundary closure and integrated proof ownership
+
+Status: `APPROVED`
+
+Authority: Instructor checkpoint review after INS-014
+
+Decision: B-02 may be closed at its packet boundary when its owner-scoped
+execution, rollback, terminal-outcome, provenance, PostgreSQL, and focused/global
+evidence pass. The remaining proof that Experiment persistence and Leaderboard
+admission are atomic across module adapters belongs to I-01, which must use and
+prove one explicit in-process transaction-aware composition. This integration
+gate must remain `UNVERIFIED` until I-01 evidence exists and must not prevent the
+Q-01 real-port phase from using the completed B-02 public APIs once B-02 is closed.
+
+Why: B-02's packet DoD is controlled manual execution reaching Leaderboard, while
+I-01 owns runtime composition and cross-module transaction wiring. Keeping those
+proofs distinct prevents both premature final claims and a circular task DAG.
+
+Affected: B-02, Q-01, I-01, I-02, `CSL-R-BT-01`, `CSL-R-RP-01`, `CSL-R-OW-01`
+
+Canonical references: [MVP plan](../implementation/MVP_PLAN.md), [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md), [ADR-006](../adr/ADR_006_local_backtest_execution.md), [ADR-007](../adr/ADR_007_practical_reproducibility.md)
