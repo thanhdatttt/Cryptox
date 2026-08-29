@@ -29,7 +29,7 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 | AU-02 | BLOCKED | 4 | YES | Manager / security integration worker | — | Blocked by private-resource implementations |
 | Q-01 | READY | 3–4 | Integration | Pending INS-017 Q-01 worker | `MVP_IMPLEMENTATION` / `67419d1` | Existing fake-port phase reviewed PASS; real-port closure is authorized after verified D-01, L-01, and B-02 dependencies |
 | N-01 | READY | 2 | Integration | Pending INS-017 N-01 worker | `MVP_IMPLEMENTATION` / `67419d1` | Initial News packet is authorized; C-01 and D-01 start dependencies are DONE |
-| N-02 | READY | 2 | Integration | Pending INS-017 N-02 worker | `MVP_IMPLEMENTATION` / `67419d1` | Initial LEXICON_V1 packet is authorized; C-01 and D-01 start dependencies are DONE |
+| N-02 | IN_PROGRESS | 2 | Integration | Sagan (N-02 worker; INS-017) | `MVP_IMPLEMENTATION` / pending | Initial LEXICON_V1 packet delegated under `modules/sentiment/**`; C-01 and D-01 start dependencies are DONE |
 | F-01 | DONE | 2 | Integration | Manager / Frontend worker | `MVP_IMPLEMENTATION` / `901065a` | Independent review, frontend/global gates, and browser interaction PASS |
 | F-AUTH | READY | 3 | Integration | Pending INS-017 F-AUTH worker | `MVP_IMPLEMENTATION` / `67419d1` | Existing real-session boundary patch reviewed; frontend and AU-01 PostgreSQL smoke evidence retained; final browser/service closure is authorized and remains UNVERIFIED |
 | F-02 | BLOCKED | 3 | Integration | Unassigned Frontend worker | — | Not started |
@@ -343,16 +343,17 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 
 - **Requirement IDs:** `CSL-R-SN-01`, `CSL-R-OB-01`, `CSL-R-AR-02`,
   `CSL-R-AR-03`, `CSL-R-DM-01`
-- **State / owner / wave:** READY / Pending INS-017 N-02 worker / Wave 2
+- **State / owner / wave:** IN_PROGRESS / Sagan (N-02 worker; INS-017) / Wave 2
 - **Critical / parallelism:** Integration / YES
 - **Start dependencies:** C-01, D-01
 - **Integration dependencies:** N-01 and I-01
 - **Objective:** Implement deterministic local lexicon/rule sentiment with normalized
   score, provenance, persistence, and failure isolation.
 - **Write scope:** `modules/sentiment/**` except frozen contracts and migrations.
-- **Latest branch / commit:** `MVP_IMPLEMENTATION` / `67419d1` (INS-017 authorization checkpoint).
-- **Validation:** Initial local LEXICON_V1 packet is READY with C-01/D-01
-  dependencies DONE; hosted services and downloaded model runtimes remain forbidden.
+- **Latest branch / commit:** `MVP_IMPLEMENTATION` / pending INS-017 worker result.
+- **Validation:** Initial local LEXICON_V1 packet is IN_PROGRESS under the
+  delegated `modules/sentiment/**` scope; hosted services and downloaded model
+  runtimes remain forbidden.
 - **Full packet:** [`MVP_PLAN.md#n-02--lexicon_v1-sentiment`](MVP_PLAN.md#n-02--lexicon_v1-sentiment)
 
 ### F-01 — Frontend Chart and Client Foundation
@@ -446,8 +447,9 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 P-00, C-01, A-00, C-01A, E-01, F-01, S-01, D-01, AU-01, M-01, L-01, and B-02
 are DONE. B-02 is closed only at its DEC-006 packet boundary; cross-module
 Experiment/Leaderboard transaction coupling remains UNVERIFIED for I-01.
-M-02 remains REVIEW because live-provider evidence is UNVERIFIED. F-AUTH, Q-01,
-N-01, and N-02 are READY solely for the authorized INS-017 frontier; real
-browser/service, real Search ports, live News, and persisted News/Sentiment
-evidence remain UNVERIFIED. All other unfinished tasks remain BLOCKED. No
-unauthorized task was started.
+M-02 remains REVIEW because live-provider evidence is UNVERIFIED. N-02 is
+IN_PROGRESS under INS-017; F-AUTH, Q-01, and N-01 remain READY solely for the
+authorized frontier. Real browser/service, real Search ports, live News, and
+persisted News/Sentiment evidence remain UNVERIFIED. The host worker-thread
+limit prevents parallel dispatch beyond the active N-02 worker; no other task
+was started and no manager-side feature implementation substituted for it.

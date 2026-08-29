@@ -14,8 +14,10 @@
   B-02, AU-02, F-02, I-01/I-02, D-01, AU-01, or follow-on work is authorized.
 - **Reconciliation:** Existing F-AUTH/Q-01 REVIEW records and N-01/N-02
   BLOCKED initial records were reconciled to READY after verifying their
-  authorized start dependencies. Four workers are assigned in disjoint scopes;
-  workers may not edit global control artifacts.
+  authorized start dependencies. The host worker-thread limit permits one new
+  worker at a time, so only N-02 is currently active; F-AUTH, Q-01, and N-01
+  remain READY for separate dispatch as slots release. Workers are assigned in
+  disjoint scopes and may not edit global control artifacts.
 - **Baseline carried forward:** B-02 remains DONE only at the DEC-006 packet
   boundary; I-01 cross-module Experiment/Leaderboard atomicity is UNVERIFIED.
   M-02 remains REVIEW with live Binance evidence UNVERIFIED. F-AUTH retains
