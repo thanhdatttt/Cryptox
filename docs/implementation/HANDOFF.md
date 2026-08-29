@@ -1,27 +1,30 @@
-# INS-019 Execution Checkpoint
+# INS-020 Execution Checkpoint
 
 ## Resume here
 
-- **Level 2 control plane:** INS-019 authorization commit is `772bc55`,
-  reviewed against Manager checkpoint `acbde53`. Applicability passed because
-  `844e22d` and `772bc55` are governance-only commits after the reviewed clean
-  base; no source, business-state, or task-DAG drift was found.
-- **Authorized work:** AU-02 cross-module ownership security integration and
-  one evidence-only M-02 live Binance re-probe. No downstream task or M-02
-  source/configuration rework was started.
+- **Level 2 control plane:** INS-020 authorization commit is `ca889dc`,
+  reviewed against Manager checkpoint `0939175`. Applicability passed because
+  `ca889dc` is the Instructor-only authorization after the reviewed clean
+  checkpoint; no source, business-state, or task-DAG drift was found.
+- **Authorized work:** Exactly one bounded AU-02 retry. INS-020 did not
+  authorize an M-02 probe, source rework, downstream task, or another retry.
 - **Transitions:** AU-02 BLOCKED→READY after verifying AU-01, D-01, S-01,
   L-01, B-02, Q-01 real integration, and F-AUTH DONE; then READY→IN_PROGRESS.
-  Its sole worker, `01a04bd5-8608-70c3-abae-94176723da39`, was safely
-  interrupted after the focused test process stalled during setup and produced
-  no source diff, test evidence, or commit. AU-02 is now BLOCKED.
-- **AU-02 worker scope result:** The worker worktree branch
-  `codex/au-02-ownership-security` contains only the inherited Manager TASKS
-  edit and no changes under the allowed Auth/Strategy/Search/Backtesting/
-  Leaderboard/runtime scope. The required two-user isolation matrix, 401/404
+  Its sole worker, `01a04be0-cc57-7c10-be30-5a845615eb88`, completed the
+  requested checkpoint and safely stopped after producing no matrix source,
+  tests, accepted evidence, or commit. AU-02 is now BLOCKED/UNVERIFIED.
+- **AU-02 worker scope result:** The worker worktree remained at `ca889dc`
+  with only the inherited Manager TASKS edit and no changes under the allowed
+  Auth/Strategy/Search/Backtesting/Leaderboard/runtime scope. Node `v22.21.0`
+  and npm `10.9.4` were available; the missing Vitest binary was restored by a
+  lockfile-pinned dependency install completed in 10 seconds. The focused
+  baseline then passed 14 tests in 2 files, with 2 files and 4 tests skipped.
+  PostgreSQL/Auth and Search real integration were skipped because
+  `DATABASE_URL` was unset. The required two-user isolation matrix, 401/404
   checks, trusted-identity spoofing checks, owner propagation, same-owner
-  ranking, shared-data, and secret-log evidence are all BLOCKED/UNVERIFIED.
-- **M-02 evidence:** One bounded live Binance WebSocket probe using the existing
-  built implementation ended in reconnect-limit exhaustion after socket
+  ranking, shared-data, and secret-log evidence remain BLOCKED/UNVERIFIED.
+- **M-02 evidence:** M-02 was not run under INS-020. Its prior bounded live
+  Binance WebSocket probe ended in reconnect-limit exhaustion after socket
   failures, with zero normalized candles and no live gap-recovery evidence.
   M-02 remains REVIEW/UNVERIFIED; fixture resilience was not promoted.
 - **Validation limits:** Formal OpenSpec CLI validation remains UNVERIFIED

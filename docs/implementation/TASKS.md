@@ -26,7 +26,7 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 | B-01 | DONE | 3 | YES | Manager / reviewed Backtesting domain worker | `MVP_IMPLEMENTATION` / `afbd88c` | Focused 9/9, Backtesting 18/18, independent review, and reproducible root workspace gate PASS |
 | B-02 | DONE | 4 | YES | Manager / B-02 review-closure worker | `MVP_IMPLEMENTATION` / `a24aa00` | Packet-boundary DoD proven: Backtesting 33/33, package typecheck/lint/build, Auth PostgreSQL 3/3, owner isolation, provenance, rollback, cancellation/saturation, and one-terminal-outcome evidence PASS; cross-module Experiment/Leaderboard atomicity remains UNVERIFIED for I-01 |
 | AU-01 | DONE | 2 | YES | Orchestrator / Kepler / Banach + independent Auth reviewer | `MVP_IMPLEMENTATION` / `a9b026b` | PostgreSQL Auth 11/11 and backend 9/9 PASS on dedicated PostgreSQL 16.10; independent review PASS; full `verify:stage4a` PASS; OpenSpec CLI UNVERIFIED |
-| AU-02 | BLOCKED | 4 | YES | AU-02 worker (`01a04bd5-8608-70c3-abae-94176723da39`) / Manager | — | INS-019 attempt reached IN_PROGRESS, but the sole worker was interrupted after its focused test process stalled during setup; no AU-02 source/test diff, commit, or security evidence was produced |
+| AU-02 | BLOCKED | 4 | YES | Manager (retry worker `01a04be0-cc57-7c10-be30-5a845615eb88` closed) | `MVP_IMPLEMENTATION` / containing INS-020 control checkpoint (no AU-02 source commit) | INS-020 retry stopped at bounded checkpoint: setup succeeded; in-memory baseline 14 passed / 4 skipped; `DATABASE_URL` unset; no matrix source/tests/evidence; renewed authorization required |
 | Q-01 | DONE | 3–4 | Integration | Ohm (`01a04bab-a02c-7221-9382-acf9a9a7d192`) | `MVP_IMPLEMENTATION` / `317ca0d` | Persisted SearchRun writes serialized with delayed-write regression; Search 22 passed / 1 skipped, package/global gates PASS; real PostgreSQL public Search→Backtesting→Leaderboard integration passed twice with terminal-state and ownership evidence |
 | N-01 | DONE | 2 | Integration | Manager / Plato (`01a04b84-e18e-7d82-ac56-14f20939bdee`) | `MVP_IMPLEMENTATION` / `04bf234` | News 14/14, typecheck/lint/build, architecture and scope gates PASS; live CoinDesk and real PostgreSQL remain UNVERIFIED |
 | N-02 | DONE | 2 | Integration | Manager / Sagan (`01a04b85-d5d2-7c81-95cd-08cb04249e04`) | `MVP_IMPLEMENTATION` / `04bf234` | Sentiment 16/16, typecheck/lint/build, architecture and scope gates PASS; real PostgreSQL remains UNVERIFIED |
@@ -297,7 +297,7 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 
 - **Requirement IDs:** `CSL-R-OW-01`, `CSL-R-AU-01`, `CSL-R-ST-04`,
   `CSL-R-SE-01`, `CSL-R-SE-02`, `CSL-R-BT-01`, `CSL-R-LB-01`, `CSL-R-OB-01`
-- **State / owner / wave:** BLOCKED / AU-02 worker (`01a04bd5-8608-70c3-abae-94176723da39`) / Manager / Wave 4
+- **State / owner / wave:** BLOCKED / Manager (retry worker `01a04be0-cc57-7c10-be30-5a845615eb88` closed) / Wave 4
 - **Critical / parallelism:** YES / NO with active private-resource writers
 - **Start dependencies:** AU-01, D-01, S-01, L-01, B-02, Q-01 real integration
 - **Integration dependencies:** F-AUTH and I-01
@@ -305,8 +305,8 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
   Strategy, Search, Backtesting, and Leaderboard.
 - **Write scope:** Cross-module security/integration tests and narrowly approved
   owner-scoped fixes; no unrelated capability implementation.
-- **Latest branch / commit:** —; the worker branch `codex/au-02-ownership-security` contains no AU-02 source commit.
-- **Validation:** INS-019 start dependencies were verified DONE and AU-02 reached IN_PROGRESS. The sole worker was safely interrupted after its focused test process stalled during setup; its separate worktree contains only the inherited Manager TASKS edit, with no source/test diff or security evidence. PostgreSQL/Auth security-matrix evidence is BLOCKED/UNVERIFIED pending renewed execution.
+- **Latest branch / commit:** `MVP_IMPLEMENTATION` / containing INS-020 control checkpoint; no AU-02 source commit.
+- **Validation:** INS-020 verified AU-01, D-01, S-01, L-01, B-02, Q-01 real integration, and F-AUTH DONE, then authorized one bounded retry. The worker completed setup diagnostics and an in-memory baseline of 14 passed / 4 skipped; PostgreSQL/Search integration was skipped because `DATABASE_URL` was unset. No AU-02 matrix source, tests, accepted evidence, or commit was produced, so the retry is BLOCKED/UNVERIFIED and no further retry is authorized by INS-020.
 - **Full packet:** [`MVP_PLAN.md#au-02--per-user-ownership-security-integration`](MVP_PLAN.md#au-02--per-user-ownership-security-integration)
 
 ### Q-01 — Seeded Random Search and SearchRun Lifecycle
