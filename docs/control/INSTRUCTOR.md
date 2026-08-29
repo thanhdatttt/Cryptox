@@ -2,27 +2,34 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-038`
+Instruction ID: `INS-039`
 
-Status: `NEEDS_HUMAN_DECISION`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
-## INS-038 — Human decision required after INS-036
+## INS-039 — Reconcile approved E1 checker boundaries (`ENV-02`)
 
-This is a replaceable control checkpoint. It supersedes `INS-037 / HOLD` and
-authorizes no implementation packet.
+This replaceable signal supersedes `INS-038 / NEEDS_HUMAN_DECISION` and
+authorizes exactly one new post-extension tooling packet. The prior `ENV-01`
+packet remains complete and is not reopened. The durable rationale and exact
+boundary policy are recorded in `DEC-010`.
 
 ### Reviewed checkpoint
 
 - Branch: `MVP_IMPLEMENTATION`.
-- HEAD: `3aa0db528d7758788067348f70b5ea02d68bdb45`
-  (`checkpoint(ins-036): review strategy extensions`).
-- Working tree: clean; `git diff --check` passes.
-- The commit contains only the Manager-owned `TASKS.md` and `HANDOFF.md`, plus
-  the 12 INS-036 S-05/S-06 implementation, focused-test, and limitation-README
-  paths. No canonical contract, shared registry, app, migration, dependency,
-  generated artifact, or downstream-module path changed.
+- Authorization base HEAD before this governance update:
+  `ea1b50338cafb90afa3a8e08671ea3633ebeaf14`.
+- Reviewed source/business checkpoint: `3aa0db528d7758788067348f70b5ea02d68bdb45`
+  (`checkpoint(ins-036): review strategy extensions`). The current authorization
+  commit contains only this Instructor signal, `DEC-010`, and the `MVP_PLAN`
+  packet; the Manager must prove that governance-only delta is non-material
+  before execution.
+- The reviewed source checkpoint contains only the Manager-owned `TASKS.md` and
+  `HANDOFF.md`, plus the 12 INS-036 S-05/S-06 implementation, focused-test, and
+  limitation-README paths. No canonical contract, shared registry, app,
+  migration, dependency, generated artifact, or downstream-module path changed.
+- Working tree was clean and `git diff --check` passed at review.
 - The INS-036 Manager
   (`01a04db6-6c00-7841-a5f2-443c8f05dad7`) and its only two workers
   (`01a04e66-d981-7e42-b75d-1bb3b7340c73` for S-05 and
@@ -30,7 +37,7 @@ authorizes no implementation packet.
   Cryptox Manager, Orchestrator, or worker was found; historical threads and
   worktrees were not reused or removed.
 
-### Independent evidence
+### Independent evidence carried into this authorization
 
 - S-05 `WEIGHTED_VOTE_V1`: focused tests `17/17 PASS`; Strategy workspace
   `89/89 PASS`.
@@ -53,39 +60,66 @@ authorizes no implementation packet.
   the executables/checker are unavailable. No unavailable check is claimed as
   PASS.
 
-### Task state and blocker
+### Task state and reconciliation
 
 - `TASKS.md` remains authoritative and unchanged by the Instructor:
   `S-05 = REVIEW`, `S-06 = REVIEW`; neither is `DONE` because the required
   root deferred-scope gate is blocked. `C-02 = DONE`, `S-01 = DONE`, and all
   downstream packets remain in their recorded states.
-- This is a control-plane/tooling reconciliation issue, not permission to
-  bypass the checker. The accepted `ENV-01` packet is already `DONE`, and the
-  current task board has no separate `READY` packet authorizing a follow-up
-  edit to `scripts/check-deferred-scope.cjs` and its focused tests. Reopening
-  ENV-01, adding a task, or changing checker allowlists requires an explicit
-  reconciled plan/DAG decision before execution.
+### Authorized packet: `ENV-02`
 
-### Required human decision
+- **Only packet:** `ENV-02 — Post-Extension Approved-Profile Checker Boundary
+  Reconciliation`.
+- **Requirements/authority:** `CSL-R-RP-02`, DEC-007, DEC-010, ADR-010, and
+  the approved S-05/S-06 packet records in `MVP_PLAN.md`.
+- **Manager pre-dispatch control-plane action:** Reconcile a new `ENV-02` row
+  in `TASKS.md` from the plan, initially `BLOCKED`, verify
+  `ENV-01 = DONE`, `C-02 = DONE`, `S-05 = REVIEW`, `S-06 = REVIEW`, and then
+  move only `ENV-02` through `BLOCKED -> READY`. No worker may be created
+  before the persisted row is `READY` and the signal/checkpoint comparison
+  passes.
+- **Exact worker write scope:** `scripts/check-deferred-scope.cjs` and
+  `scripts/check-deferred-scope.test.cjs` only. The worker must not edit
+  `TASKS.md`, `HANDOFF.md`, any module/package/app/migration file, or any
+  other governance artifact.
+- **Exact Manager-owned control scope:** the Manager alone may update the
+  `ENV-02` row and `HANDOFF.md`, review/integrate the worker's scoped changes,
+  and commit the execution checkpoint. No other source or plan changes are
+  authorized.
+- **Acceptance:** Add exact allowlist entries for
+  `modules/strategy/application/composite/`,
+  `modules/strategy/domain/composite/`,
+  `modules/strategy/domain/plugins/smc-lite/`, and
+  `modules/strategy/domain/plugins/wyckoff-lite/` for their corresponding
+  approved identifiers, while preserving existing canonical boundaries and
+  generic deferred-scope rejection. Focused tests must prove both allowed and
+  rejected paths. No broad exclusions or checker bypasses.
+- **Validation:** `npm run test:scope-check` and `npm run scope:check` must
+  pass; run applicable architecture/artifact/deferred-scope, typecheck,
+  build/lint, and `git diff --check` gates. Report OpenSpec CLI or unavailable
+  environments as `UNVERIFIED`/`BLOCKED`, never PASS.
+- **Dependencies:** The reviewed checkpoint, `ENV-01`, `C-02`, and existing
+  S-05/S-06 evidence must remain applicable. If source/business state, task DAG,
+  or material premises drift, stop with `NEEDS_INSTRUCTOR_REVIEW`.
+- **Prohibitions:** Do not mark S-05/S-06 `DONE`; do not start M-03, S-04,
+  Q-02, N-03, B-03, E-02, L-02, F-03, I-03, M-02, AU-02, I-01, I-02, or any
+  deferred packet; do not reopen ENV-01; do not install software, use cloud
+  databases, request secrets, reset Git, delete worktrees/history, or create a
+  duplicate Manager/worker.
+- **Stop condition:** Stop after `ENV-02` is reviewed, committed, and its
+  checkpoint is recorded, with `S-05`/`S-06` still `REVIEW`. The Manager must
+  not auto-start newly unlocked work. A fresh Instructor review is required
+  before any later signal.
 
-Approve a durable control-plane reconciliation that creates or otherwise
-explicitly authorizes a `READY` follow-up packet for the canonical deferred-scope
-checker. That packet must define the exact checker/script and focused-test write
-scope, allow the already approved S-05/S-06 implementation boundaries without
-weakening rejection of deferred scope, and reconcile `MVP_PLAN.md` with
-`TASKS.md` before dispatch. Alternatively, provide a different authoritative
-resolution for the conflict between the completed `ENV-01` row and its checker
-boundary. Chat-only permission to bypass the checker is not sufficient.
+### Dispatch preconditions
 
-### NEEDS_HUMAN_DECISION boundary
-
-- No Manager or worker may be created under this signal.
-- Do not mark S-05/S-06 `DONE`, start M-03, S-04, Q-02, N-03, B-03, E-02,
-  L-02, F-03, I-03, M-02, AU-02, I-01, I-02, or any deferred packet.
-- Before any next authorization, reconcile the checker follow-up as an
-  explicit executable packet or obtain the required human decision, then
-  re-verify branch/HEAD, clean Git, task DAG, checkpoint applicability, and
-  absence of active Cryptox Manager/worker threads.
+- One fresh Manager only, same-directory canonical checkout, no worktree, using
+  model `gpt-5.6-luna` with `max` reasoning. The Manager must read `AGENTS.md`
+  and `docs/control/prompts/ORCHESTRATOR_START.md` fully before acting.
+- Before dispatch, re-verify branch `MVP_IMPLEMENTATION`, the authorization
+  commit's governance-only delta, clean status, current signal, checkpoint
+  applicability, task states, and absence of active Cryptox Manager/worker
+  tasks. This signal is stale if any of those checks fail.
 
 ## Canonical references
 

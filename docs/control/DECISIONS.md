@@ -258,3 +258,48 @@ Canonical references: [Assignment evidence](../assignment/amendment-2026-08-29/R
 [Requirements](../requirements.md), [DEC-007](#dec-007--controlled-academic-functional-extension-profiles),
 [Architecture](../architecture.md), [Data model](../data-model.md), and the
 [active MVP change](../../openspec/changes/mvp-implementation/).
+
+## DEC-010 — Post-extension deferred-scope boundary reconciliation
+
+Status: `APPROVED`
+
+Authority: Instructor operational decision under the current human governance
+authorization, after independent review of INS-036 and INS-038
+
+Decision: The completed `ENV-01` packet is not reopened or retried. A distinct
+`ENV-02` packet is approved to reconcile the canonical deferred-scope checker
+after the approved S-05/S-06 implementation directories exist. The checker may
+allow `WEIGHTED_VOTE_V1` only in its existing canonical contract/port/REST/
+migration boundaries plus `modules/strategy/application/composite/` and
+`modules/strategy/domain/composite/`; it may allow `SMC_LITE_V1` only in
+`modules/strategy/domain/plugins/smc-lite/`; and it may allow `WYCKOFF_LITE_V1`
+only in `modules/strategy/domain/plugins/wyckoff-lite/`. The implementation must
+be expressed as exact, testable path boundaries with focused positive and
+negative tests. It must not exclude active paths broadly, bypass the checker,
+or weaken rejection of deferred enterprise identity, distributed/queue,
+live-trading/generalized-risk, autonomous/unconfigured LLM, or strict-replay
+scope.
+
+This reconciliation changes no product behavior, contracts, migrations,
+runtime configuration, or task state by itself. The Manager must add and move
+the `ENV-02` row through the normal operational sequence in `TASKS.md`, and the
+Instructor must separately review the resulting checkpoint before S-05/S-06 are
+promoted or any downstream packet starts.
+
+Why: `ENV-01` correctly reconciled the checker for the boundaries known at its
+pre-C-02 execution point. INS-036 then implemented approved extension-owned
+Strategy directories, exposing a real checker-boundary mismatch. A narrowly
+scoped follow-up preserves the checker as an executable policy without treating
+the mismatch as permission to bypass validation or as a reason to repeat a
+completed environment packet.
+
+Affected: `ENV-02`, S-05, S-06, `scripts/check-deferred-scope.cjs`, its focused
+tests, and the E1 closure DAG. `ENV-01`, C-02, product contracts, and downstream
+task state are not reopened by this decision.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [DEC-007](#dec-007--controlled-academic-functional-extension-profiles),
+[ADR-010](../adr/ADR_010_local_postgres_environment_and_scope_checker.md),
+[MVP plan](../implementation/MVP_PLAN.md), [Task state](../implementation/TASKS.md),
+[scope checker](../../scripts/check-deferred-scope.cjs), and
+[INS-039](./INSTRUCTOR.md).

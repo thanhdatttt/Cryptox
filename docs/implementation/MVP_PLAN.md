@@ -214,7 +214,11 @@ reconciled to DEC-007 before contract/schema work can be validated. `ENV-01` is
 therefore the sole pre-`C-02` environment/tooling gate. It must complete without
 changing C-02 business behavior, contracts, data model, or migration semantics.
 Every future extension implementation packet still depends on `C-02` after that
-gate passes.
+gate passes. Because the approved E1 implementation packets use extension-owned
+directories that did not exist when `ENV-01` was accepted, the distinct
+post-implementation reconciliation packet `ENV-02` closes the checker boundary
+before `S-05`/`S-06` can leave `REVIEW`; it is not a retry or reopening of
+`ENV-01`.
 
 ```text
 RB-01/RB-02 DONE
@@ -228,6 +232,10 @@ RB-01/RB-02 DONE
        +--> N-03 BLOCKED: safe URL import + versioned extraction/refinement
        +--> {N-03 | C-02} -> S-04 BLOCKED: LLM_AUTHORING_V1 controlled drafts
        +--> {S-05 | S-06} -> B-03 BLOCKED: SYNTHETIC_SHORT_PAPER_V1 + provenance
+
+{S-05 REVIEW | S-06 REVIEW} + C-02 DONE
+  -> ENV-02 BLOCKED: post-extension checker-boundary reconciliation
+       -> S-05/S-06 closure review; only then may their downstream joins start
 
 {C-02 | M-03 | S-04 | S-05 | S-06 | Q-02 | N-03 | B-03}
   -> E-02 BLOCKED: extension evaluation/decimal-boundary reconciliation
@@ -1046,6 +1054,53 @@ Instructor signal can authorize one safe frontier without treating the legacy
   historical S-02/S-03 evidence is not reused as ST-07 evidence. **Parallel:**
   YES after `C-02`; **Critical:** `B-03`/`F-03`.
 
+### ENV-02 — Post-Extension Approved-Profile Checker Boundary Reconciliation
+
+- **Requirement IDs / authority:** `CSL-R-RP-02`, DEC-007, DEC-010, ADR-010;
+  this is a post-extension validation/tooling gate and creates no product
+  behavior or new profile.
+- **State / owner / wave:** BLOCKED / Manager with exactly one checker-tooling
+  worker / E1 closure gate.
+- **Start dependencies:** `ENV-01` DONE, `C-02` DONE, and `S-05`/`S-06` at
+  `REVIEW` with their source evidence available. The current Instructor signal
+  must explicitly authorize this packet. `ENV-02` is not a retry of `ENV-01`.
+- **Integration dependencies:** The accepted checker gate is required before
+  `S-05`/`S-06` can be promoted to `DONE`; no downstream feature packet is
+  promoted by this packet.
+- **Objective:** Reconcile the canonical deferred-scope checker with the exact
+  extension-owned implementation boundaries already authorized for
+  `WEIGHTED_VOTE_V1`, `SMC_LITE_V1`, and `WYCKOFF_LITE_V1`, while retaining
+  rejection of every deferred or unapproved boundary.
+- **Exact write scope:** `scripts/check-deferred-scope.cjs` and
+  `scripts/check-deferred-scope.test.cjs` only, plus the Manager's required
+  `docs/implementation/TASKS.md` and `docs/implementation/HANDOFF.md` state /
+  checkpoint updates. No module, package, app, migration, dependency, runtime,
+  frontend, requirement, ADR, OpenSpec, or other governance file is in the
+  implementation worker scope.
+- **Acceptance/tests:** The checker permits the approved profile identifiers at
+  the existing canonical contract/port/REST/migration boundaries and at only
+  these exact implementation directories: `modules/strategy/application/
+  composite/`, `modules/strategy/domain/composite/`,
+  `modules/strategy/domain/plugins/smc-lite/`, and
+  `modules/strategy/domain/plugins/wyckoff-lite/`. Focused tests prove positive
+  cases for those boundaries and negative cases for the same identifiers in an
+  unrelated path. No path-wide exclusion, generic profile bypass, or weakening
+  of deferred enterprise identity, distributed/queue, live-trading/generalized
+  risk, autonomous/unconfigured LLM, or strict-replay rejection is allowed.
+- **Validation:** Focused checker tests (`npm run test:scope-check`), root
+  `npm run scope:check`, architecture/artifact/deferred-scope checks,
+  `git diff --check`, and applicable typecheck/build/lint evidence. OpenSpec CLI
+  and any unavailable environment check remain `UNVERIFIED`/`BLOCKED`, never
+  `PASS`.
+- **Definition of Done:** One fresh Manager reconciles the task row through
+  `READY`, delegates exactly one disjoint worker, independently reviews the
+  scoped diff and evidence, commits an `ENV-02` checkpoint, and records exact
+  status in the operational files. `S-05` and `S-06` remain `REVIEW` for a
+  separate Instructor closure review; no automatic downstream start occurs.
+  **Parallel:** NO. **Critical:** YES to S-05/S-06 closure. **Handoff:** Name
+  the four implementation boundaries, focused positive/negative results, root
+  scope result, and any unavailable checks.
+
 ### Q-02 — Seeded `DOMAIN_GUIDED_V1` and `GENETIC_V1` Discovery
 
 - **Requirement IDs:** `CSL-R-SE-03`, `CSL-R-RP-02`, `CSL-R-OB-01`,
@@ -1330,10 +1385,12 @@ real; `lightweight-charts` is retained; C-01A is the next ownership-sensitive ga
 E-01/F-01 are READY; and D-01/S-01 remain BLOCKED by C-01A.
 
 After the accepted `RB-01`/`RB-02` planning baseline and blocked first `C-02`
-attempt, the Manager must identify `ENV-01` as the sole pre-`C-02` environment and
-checker-reconciliation gate, then follow the DEC-007 extension DAG through the
-later contract/schema gate, Market Data, Strategy, Search, Backtesting,
-News/Sentiment, Evaluation/Leaderboard, Frontend, and `I-03`. All extension
-feature packets remain `BLOCKED`. `M-02` remains `REVIEW/UNVERIFIED`, `AU-02` and
-`I-01`/`I-02` remain blocked, and none of the legacy `DONE` packets is treated as
-proof of a newly approved extension requirement.
+attempt, the Manager must identify `ENV-01` as the sole pre-`C-02` environment
+and checker-reconciliation gate, then follow the DEC-007 extension DAG through
+the later contract/schema gate, Market Data, Strategy, Search, Backtesting,
+News/Sentiment, Evaluation/Leaderboard, Frontend, and `I-03`. `ENV-02` is the
+separate post-extension checker-boundary gate for the implemented S-05/S-06
+packets and does not authorize downstream work. `M-02` remains
+`REVIEW/UNVERIFIED`, `AU-02` and `I-01`/`I-02` remain blocked, and none of the
+legacy `DONE` packets is treated as proof of a newly approved extension
+requirement.
