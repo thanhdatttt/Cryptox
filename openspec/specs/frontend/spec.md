@@ -8,21 +8,32 @@ The frontend presents market charts, descriptor-driven strategy selection/config
 
 ### Requirement: Independent multi-timeframe market dashboard
 
-The frontend MUST display candlestick charts for up to four independently configurable timeframes. It MUST load historical data before applying normalized realtime market updates, display connection state, and recover after reconnect without cross-changing another chart.
+The frontend MUST display candlestick charts for up to four independently configurable timeframes. It MUST load historical data before applying normalized realtime market updates, display connection state, provider event/received time and last latency where available, and recover after reconnect without cross-changing another chart. Recent ticks are explicitly ephemeral and their restart loss MUST be represented as current delivery state, not historical/backtest data.
 
-Traceability: `CSL-R-FE-01`, `CSL-R-MD-02`, `CSL-R-AR-02`, `CSL-R-AR-03`, `CSL-R-DL-01`; ADR-001.
+Traceability: `CSL-R-FE-01`, `CSL-R-MD-02`, `CSL-R-MD-03`, `CSL-R-AR-02`, `CSL-R-AR-03`, `CSL-R-DL-01`; ADR-001.
 
 ### Requirement: Descriptor-driven strategy and search workflows
 
-The frontend MUST derive available strategies and parameter controls from public descriptors rather than hard-coded strategy names. It MUST support selecting/configuring a strategy or composite, submitting a manual backtest, starting Random Search with finite stop conditions, and reading progress through request/response APIs.
+The frontend MUST derive available strategies and parameter controls from public descriptors rather than hard-coded strategy names. It MUST support selecting/configuring a strategy or composite, submitting a manual synthetic paper backtest, starting an approved discovery profile with finite stop conditions, and reading progress through request/response APIs. It MUST make LLM draft, deterministic validation, missing-configuration/error, and explicit Save/Approve state distinct; it must not imply that draft generation automatically saves a Strategy Definition.
 
-Traceability: `CSL-R-ST-01`, `CSL-R-ST-03`, `CSL-R-SE-01`, `CSL-R-SE-02`, `CSL-R-BT-01`.
+Traceability: `CSL-R-ST-01`, `CSL-R-ST-03`, `CSL-R-ST-05`, `CSL-R-ST-06`, `CSL-R-ST-07`, `CSL-R-SE-01`, `CSL-R-SE-02`, `CSL-R-SE-03`, `CSL-R-BT-01`, `CSL-R-BT-02`.
 
 ### Requirement: Explainable results and auxiliary information
 
 The frontend MUST present required evaluation metrics, configurable Top-K results, selected-strategy overlays, Buy/Sell and Entry/Exit markers, News, and available Sentiment. Missing Sentiment MUST be shown as unavailable/degraded and MUST NOT block charts or core strategy/backtest flows.
 
 Traceability: `CSL-R-EV-01`, `CSL-R-LB-01`, `CSL-R-VIS-01`, `CSL-R-NW-01`, `CSL-R-SN-01`, `CSL-R-DM-01`.
+
+### Requirement: Functional-state presentation without visual prescription
+
+The frontend MUST present the backend-derived state needed to operate and audit
+the approved flows: synthetic-paper trade direction/exit and execution profile;
+discovery profile/budget/provenance; source/refresh and extraction-template draft
+review state; and result/leaderboard provenance. It MUST use public normalized
+contracts and must not reproduce any screenshot's layout, color, or pixel-level
+styling as a requirement.
+
+Traceability: `CSL-R-BT-02`, `CSL-R-NW-02`, `CSL-R-RP-02`; DEC-007.
 
 ### Requirement: Authenticated private workflows
 
@@ -51,6 +62,9 @@ Traceability: `CSL-R-RD-01`, `CSL-R-FE-01`, `CSL-R-DM-01`.
 - Chart and trade rendering MUST use backend-owned normalized contracts and preserve timeframe identity.
 - Loading and resource limits MUST be explicit/configurable; the frontend MUST NOT assume a fixed historical page size.
 - The chart library MUST NOT own Market Data normalization, Strategy, Backtest, Evaluation, or ranking logic; a custom candlestick engine is not MVP work.
+- Frontend state is a projection of backend authorization, validation, and
+  provenance; it cannot decide LLM approval, URL safety, template promotion,
+  candle reconciliation, simulation fills, or ranking.
 
 ## Executable public API and status
 
@@ -76,6 +90,20 @@ There is no current frontend `api/index.ts` public barrel. The frontend's backen
 - **Given** a newly registered conforming strategy descriptor
 - **When** the strategy screen loads
 - **Then** the strategy and its validated parameter controls appear without a frontend core branch for its name
+
+#### Scenario: Draft does not become a saved definition automatically
+
+- **Given** a structured authoring draft or a failed/unconfigured authoring request
+- **When** the Strategy workflow renders its backend state
+- **Then** it exposes validation/error and requires explicit Save/Approve before
+  showing a persisted version
+
+#### Scenario: Synthetic paper result is honestly labelled
+
+- **Given** a completed Long or synthetic Short Experiment
+- **When** its result is displayed
+- **Then** trade direction, exit details, execution profile, and paper-simulation
+  status are visible without representing the result as a live exchange order
 
 #### Scenario: Search progress uses the command/query boundary
 

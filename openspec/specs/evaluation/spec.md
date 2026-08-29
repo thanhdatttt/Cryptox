@@ -30,6 +30,9 @@ Traceability: `CSL-S-02`.
 - Win Rate is winning closed trades divided by closed trades; a zero-trade input yields a defined finite value.
 - Maximum Drawdown is the largest peak-to-trough decline on the supplied equity sequence and uses one documented finite sign/magnitude convention.
 - Number of Trades is the count of completed Trades according to the Backtesting result contract.
+- Evaluation receives fixed-point/decimal-normalized completed values from
+  Backtesting and does not recompute fee, slippage, or fills with binary floating
+  point.
 - Evaluation MUST NOT mutate the supplied result or calculate a leaderboard score.
 - Backtesting invokes Evaluation after a successful simulation; REST adapters, frontend code, Search, and strategies MUST NOT bypass that orchestration boundary to calculate or persist metrics.
 

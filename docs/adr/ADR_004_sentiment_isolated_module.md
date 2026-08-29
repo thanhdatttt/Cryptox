@@ -4,7 +4,7 @@
 
 Accepted — 2026-08-13
 
-- **Last reviewed:** 2026-08-27
+- **Last reviewed:** 2026-08-29
 - **Partially superseded for MVP by:** [ADR-007](./ADR_007_practical_reproducibility.md)
 - **Related decisions:** [ADR-005](./ADR_005_module_first_structure.md), [ADR-006](./ADR_006_local_backtest_execution.md)
 
@@ -13,6 +13,17 @@ Accepted — 2026-08-13
 News/Sentiment separation, neutral inputs, provider/model replaceability, persistence ownership, and failure isolation remain accepted. ADR-007 replaces mandatory sealed sentiment time-series, content hashes, and exact replay mechanics for the MVP with practical provenance. When sentiment is used, its result retains model/version provenance. Stricter snapshot and alignment guarantees require a later approved INFORMATION-backtest capability.
 
 Boundary clarification: ADR-005 (2026-08-14) amends the project-structure and ownership context referenced here; the internal News/Sentiment isolation decision remains unchanged.
+
+### 2026-08-29 News-to-Strategy boundary clarification
+
+The former mandatory sealed-sentiment snapshot and exact time-alignment rules in
+this ADR's historical Decision are superseded for the academic extension by
+ADR-007 as amended and `CSL-R-RP-02`. A future strategy may consume an explicit,
+versioned News/Sentiment-derived input only through the public neutral module
+boundary; it may not import News or Sentiment persistence, consume a mutable live
+aggregate as if it were historical data, or bypass the Backtesting provenance
+rules. The active scope provides practical provenance, not an unproven exact
+news-replay guarantee.
 
 ## Context
 

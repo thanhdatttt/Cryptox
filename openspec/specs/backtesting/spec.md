@@ -12,6 +12,20 @@ The capability MUST simulate a versioned strategy over identified historical can
 
 Traceability: `CSL-R-BT-01`, `CSL-R-ST-04`, `CSL-R-VIS-01`, `CSL-R-AR-02`, `CSL-R-AR-03`, `CSL-R-DM-01`.
 
+### Requirement: Synthetic directional paper execution
+
+`SYNTHETIC_SHORT_PAPER_V1` MUST simulate candle-derived Long and synthetic Short
+positions only. It MUST NOT create an exchange order or imply leverage, margin,
+funding, liquidation, or spot-trading capability. Its per-backtest execution
+profile is persisted with the Experiment and defaults to `0.08%` fee for each
+entry/exit fill, adverse `5 bps` slippage for each fill (buy reference price up,
+sell reference price down), and decimal/fixed-point P&L to eight decimal places.
+The profile supports SL/TP. When one OHLC candle reaches both, the symmetric
+conservative `STOP_LOSS_WINS_V1` outcome MUST apply; the exit uses normal fee and
+slippage.
+
+Traceability: `CSL-R-BT-02`, `CSL-R-RP-02`; ADR-006 and ADR-007.
+
 ### Requirement: Bounded replaceable execution
 
 Manual submission and Search MUST use a stable Backtest Execution Port. The MVP adapter MUST execute locally with configurable concurrency/resource bounds. Submission MUST NOT create an uncontrolled loop, and consumers MUST remain independent of an explicitly deferred future execution adapter.
@@ -46,6 +60,9 @@ Traceability: `CSL-R-OW-01`, `CSL-R-RP-01`; ADR-008.
 - Evaluation and Leaderboard remain separate capabilities invoked after a successful simulation.
 - Completed Experiment data and referenced definitions MUST not be overwritten by later runs or edits.
 - Execution bounds are configuration, not fixed architectural constants.
+- Binary floating point MUST NOT be the authoritative P&L representation.
+- Synthetic Short results and UI projections MUST identify themselves as paper
+  simulation, never as directly executable Binance Spot behavior.
 - Private Candidate/Experiment/Trade reads and mutations MUST be owner-scoped; an authenticated cross-user ID is not found.
 
 ## Executable public API and status
@@ -66,6 +83,21 @@ The current executable public surface is [`modules/backtesting/api/index.ts`](..
 - **Given** a valid versioned strategy and identified complete historical input
 - **When** a manual backtest executes twice with the same configuration
 - **Then** both successful results contain equivalent ordered Trades and evaluation inputs
+
+#### Scenario: Directional paper execution is explicit
+
+- **Given** the same complete candle dataset and a configured Long or synthetic
+  Short Strategy signal
+- **When** the Backtester executes the configured profile
+- **Then** each Trade records direction and paper-simulation provenance without an
+  exchange-order artifact
+
+#### Scenario: Dual-trigger candle is conservative
+
+- **Given** an open directional paper position with configured SL and TP
+- **When** one OHLC candle reaches both levels
+- **Then** it exits by `STOP_LOSS_WINS_V1` using the configured adverse slippage
+  and fee exactly once
 
 #### Scenario: Local concurrency is bounded
 

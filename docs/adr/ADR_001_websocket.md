@@ -4,7 +4,7 @@
 
 Accepted — 2026-08-13
 
-- **Last reviewed:** 2026-08-28
+- **Last reviewed:** 2026-08-29
 - **Related decisions:** [ADR-005](./ADR_005_module_first_structure.md), [ADR-006](./ADR_006_local_backtest_execution.md), [ADR-008](./ADR_008_simple_auth_and_per_user_ownership.md)
 - **Canonical architecture:** [Architecture](../architecture.md)
 
@@ -16,6 +16,16 @@ change and ADR-008; simple Authentication is now required. That change does not
 widen WebSocket into a general user-event channel. The historical `202 Accepted`
 guidance applies when a command is exposed as asynchronous; this ADR does not
 require every bounded-local operation to use that response status.
+
+### 2026-08-29 market-observability extension
+
+`CSL-R-MD-03` adds `MARKET_OBSERVABILITY_V1` without widening this transport
+boundary. Market Data may expose normalized provider event time, received time,
+last latency, connection state, and an in-memory ring buffer of the latest 100
+ticks for each pair. This is delivery/health state: it is explicitly ephemeral,
+is lost on restart, does not become a persistence or replay input, and must never
+change a Backtest's historical data or result. No non-market WebSocket message is
+authorized by this extension.
 
 ## Context
 

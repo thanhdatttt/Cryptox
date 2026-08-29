@@ -4,7 +4,7 @@
 
 Accepted — 2026-08-13
 
-- **Last reviewed:** 2026-08-27
+- **Last reviewed:** 2026-08-29
 - **Partially superseded for MVP by:** [ADR-007](./ADR_007_practical_reproducibility.md)
 - **Related decisions:** [ADR-005](./ADR_005_module_first_structure.md), [ADR-006](./ADR_006_local_backtest_execution.md)
 
@@ -13,6 +13,29 @@ Accepted — 2026-08-13
 The plugin/registry decision, pure strategy contract, and immutable versioned definitions remain accepted. ADR-007 replaces the MVP requirement for exact implementation hashes, retained executable artifacts, and indefinite artifact availability with practical experiment provenance. A strategy definition must still identify its strategy type, definition version, and normalized parameters. Exact binary replay is promised only when the corresponding data and code artifacts were actually retained.
 
 Boundary clarification: ADR-005 (2026-08-14) records the stable logical-family allocation and Composite validation invariants; the plugin/registry decision remains unchanged.
+
+### 2026-08-29 controlled authoring and deterministic extension profiles
+
+`LLM_AUTHORING_V1` places provider interaction behind a Strategy application
+port; it does not place network I/O in a pure Strategy plugin. The configured
+OpenAI-compatible demo adapter may make at most one 45-second request per
+submission and returns a structured draft only. The application deterministically
+validates the schema and domain configuration, then requires explicit user
+Save/Approve before allocating a new immutable Strategy Definition version.
+Unconfigured or failed authoring has no persistence side effect, and no model/API
+key enters a definition, API DTO, commit, or provenance record.
+
+`WEIGHTED_VOTE_V1` is an approved immutable composite method: enabled components
+map `BUY`/`HOLD`/`SELL` to `+1`/`0`/`-1`; finite, non-negative weights normalize
+to one; score at least `+0.30` is `BUY`, score at most `-0.30` is `SELL`, and all
+other scores, including ties, are `HOLD`. Enabled state, weights, thresholds, and
+referenced definition versions are behavior-bearing versioned configuration.
+
+`SMC_LITE_V1` and `WYCKOFF_LITE_V1` are deterministic registry plugins, not
+claims to discretionary/professional methodology. SMC Lite uses confirmed
+pivot-window swing highs/lows and close-based Break of Structure. Wyckoff Lite
+uses fixed range/volume accumulation/distribution and breakout heuristics. Their
+profiles, parameter validation, and fixtures must be documented before execution.
 
 ## Context
 

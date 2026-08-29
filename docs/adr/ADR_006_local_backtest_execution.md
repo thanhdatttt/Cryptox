@@ -39,6 +39,23 @@ Manual submission or Search
 
 Redis, BullMQ, a separate worker pool, queue-specific schemas, leases, fencing tokens, watchdogs, reconciliation, and distributed retry budgets are deferred. ADR-003 preserves the historical reasoning for that possible scale-out direction.
 
+### 2026-08-29 synthetic paper-execution extension
+
+`SYNTHETIC_SHORT_PAPER_V1` extends the deterministic simulator, not the execution
+topology. A backtest may open a candle-derived Long or synthetic Short position;
+it never creates an exchange order and has no leverage, margin, funding,
+liquidation, or spot-trading claim. `STOP_LOSS_WINS_V1` resolves a single OHLC
+candle that reaches both SL and TP symmetrically and conservatively: Stop Loss
+wins. That exit uses the normal adverse slippage and fee path.
+
+The default execution profile charges `0.08%` fee on every entry and exit fill,
+applies adverse `5 bps` per fill (buy reference price increases and sell reference
+price decreases), and calculates/stores P&L using decimal or fixed-point values
+to eight decimal places rather than binary floating point. Fee, slippage,
+rounding, position mode, and SL/TP settings are configurable per backtest and
+recorded as Experiment provenance. This amendment authorizes no generalized risk
+or live-trading behavior.
+
 ## Consequences
 
 ### Positive

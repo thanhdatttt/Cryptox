@@ -81,3 +81,22 @@ Traceability: `CSL-R-RD-01`.
 - **Given** the final/demo runtime profile
 - **When** readiness and acceptance evidence are collected
 - **Then** real Binance history/realtime, real News, PostgreSQL state, Auth, Backtest, and Leaderboard paths are demonstrated or reported BLOCKED/UNVERIFIED
+
+### Requirement: Approved functional extension profiles are traceable
+
+The program MUST implement the bounded 2026-08-29 functional profiles only after
+their requirements, decision ledger, ADRs, architecture/data model, capability
+specifications, and future reconciliation packets agree. Historical DONE evidence
+is preserved; later work is represented by new reconciliation/extension packets.
+No screenshot layout or pixel-perfect frontend requirement is implied.
+
+Traceability: `CSL-R-MD-03`, `CSL-R-ST-05`, `CSL-R-ST-06`, `CSL-R-ST-07`,
+`CSL-R-SE-03`, `CSL-R-BT-02`, `CSL-R-NW-02`, `CSL-R-RP-02`; DEC-007.
+
+#### Scenario: Re-baseline precedes future execution planning
+
+- **Given** the approved 2026-08-29 functional amendment and preserved task history
+- **When** the Manager later receives a new explicit execution signal
+- **Then** it creates reconciliation/extension planning from this authority chain
+  without rewriting completed packet history or treating this governance change as
+  current task authorization

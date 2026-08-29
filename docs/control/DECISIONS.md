@@ -122,3 +122,48 @@ proofs distinct prevents both premature final claims and a circular task DAG.
 Affected: B-02, Q-01, I-01, I-02, `CSL-R-BT-01`, `CSL-R-RP-01`, `CSL-R-OW-01`
 
 Canonical references: [MVP plan](../implementation/MVP_PLAN.md), [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md), [ADR-006](../adr/ADR_006_local_backtest_execution.md), [ADR-007](../adr/ADR_007_practical_reproducibility.md)
+
+## DEC-007 — Controlled academic functional-extension profiles
+
+Status: `APPROVED`
+
+Authority: Instructor functional amendment approved 2026-08-29
+
+Decision: The academic MVP adopts the bounded profiles recorded in
+`CSL-R-MD-03`, `CSL-R-ST-05` through `CSL-R-ST-07`, `CSL-R-SE-03`,
+`CSL-R-BT-02`, `CSL-R-NW-02`, and `CSL-R-RP-02`. They authorize: ephemeral
+market observability; provider-neutral LLM strategy drafts requiring deterministic
+validation and human Save/Approve; allowlisted and bounded backend-only external
+content fetches with draft-only extraction-template refinement; deterministic
+Lite SMC/Wyckoff plugins and weighted voting; bounded seeded Random,
+Domain-guided, and Genetic discovery; and synthetic Long/Short paper backtests
+with deterministic OHLC SL/TP, fee, slippage, decimal accounting, and practical
+provenance.
+
+The profiles do not authorize live exchange orders, leverage, margin, funding,
+liquidation, autonomous LLM persistence or promotion, unrestricted user URL
+fetching, a general WebSocket event channel, a pixel-perfect frontend, or claims
+of professional/discretionary SMC or Wyckoff behavior. The named requirements,
+accepted ADR amendments, and active OpenSpec capability specifications are the
+canonical detailed behavior; this decision does not itself create executable task
+state or implementation authorization.
+
+Why: The five-screen functional amendment expands the academic demonstration
+scope while preserving truthful simulation, explicit human control of generative
+and external-content actions, bounded resource use, and the established modular
+monolith boundaries.
+
+Affected: Market Data, Strategy, Search, Backtesting, News, Sentiment,
+Evaluation, Leaderboard, Frontend, the active `mvp-implementation` change, and
+future reconciliation/extension packets. `TASKS.md` and `HANDOFF.md` are not
+changed by this decision.
+
+Canonical references: [Requirements](../requirements.md),
+[Architecture](../architecture.md), [Data model](../data-model.md),
+[ADR-001](../adr/ADR_001_websocket.md),
+[ADR-002](../adr/ADR_002_plugin_architecture.md),
+[ADR-004](../adr/ADR_004_sentiment_isolated_module.md),
+[ADR-006](../adr/ADR_006_local_backtest_execution.md),
+[ADR-007](../adr/ADR_007_practical_reproducibility.md),
+[ADR-009](../adr/ADR_009_controlled_llm_and_external_content.md), and
+[active MVP change](../../openspec/changes/mvp-implementation/).

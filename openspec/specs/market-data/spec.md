@@ -18,6 +18,18 @@ Historical reads MUST be bounded and explicit about range, pagination, completen
 
 Traceability: `CSL-R-MD-01`, `CSL-R-MD-02`, `CSL-R-FE-01`, `CSL-R-OB-01`.
 
+### Requirement: Deterministic candle update and ephemeral observability
+
+For one pair/timeframe, an incoming normalized candle with the same timestamp as
+the latest forming or current candle MUST update that candle; a later timestamp
+MUST append a new candle. `MARKET_OBSERVABILITY_V1` MUST expose provider event
+time, received time, last latency, connection state, and only the latest 100
+normalized ticks per pair in an in-memory ring buffer. This state MUST be marked
+ephemeral, be lost on restart, remain a market-WebSocket concern, and MUST NOT be
+used as Backtest or replay input.
+
+Traceability: `CSL-R-MD-02`, `CSL-R-MD-03`; ADR-001.
+
 ### Requirement: Practical data provenance
 
 A backtest MUST be able to identify its pair, timeframe, historical range, and dataset identity/version where practical. If exact retained data is unavailable, the recorded source provenance MUST state that limitation rather than imply exact replay.
@@ -38,6 +50,8 @@ Traceability: `CSL-R-RD-01`, `CSL-R-DM-01`.
 - Candle OHLC values MUST be finite, `high` MUST be at least `open`, `close`, and `low`, and `low` MUST be at most those values.
 - Candle intervals MUST be ordered and non-overlapping for a pair/timeframe; the closed-candle key MUST be idempotent.
 - Closed candles MUST not regress to forming state. Corrections MUST be observable and deterministic.
+- A tick buffer contains no more than 100 normalized ticks for a pair and its loss
+  after restart is an explicit state transition, not missing persisted market data.
 - Provider failure MUST be isolated at the adapter boundary and MUST NOT expose raw provider objects to consumers.
 - Resource bounds, retry delays, and read limits MUST be configurable rather than architectural constants.
 
@@ -65,6 +79,21 @@ The current executable public surface is [`modules/market-data/api/index.ts`](..
 - **Given** an active market subscription that disconnects after a closed candle
 - **When** connectivity returns
 - **Then** connection state is reported, missing candles are reconciled, and subsequent normalized updates continue without duplicates
+
+#### Scenario: Same timestamp updates and later timestamp appends
+
+- **Given** a subscription whose latest candle has timestamp `T`
+- **When** a normalized candle for `T` arrives and then one for a later timestamp
+  arrives
+- **Then** the first update replaces the latest candle state and the second adds
+  one later candle without a duplicate closed candle
+
+#### Scenario: Recent ticks remain ephemeral
+
+- **Given** 101 normalized ticks for one pair and a live market connection
+- **When** Market Data exposes observability state and then restarts
+- **Then** the state contains the most recent 100 ticks before restart and an
+  explicitly empty/restarted ephemeral buffer afterward; no Backtest input changes
 
 #### Scenario: Four chart subscriptions remain independent
 

@@ -35,6 +35,24 @@ Additional rules:
 - When sentiment contributes to an Experiment, the relevant sentiment result retains model name/version provenance. Mandatory sealed sentiment time series and content hashes are deferred until an approved capability needs them.
 - The MVP does not require indefinite binary/plugin retention, a dedicated artifact repository, hashes for every intermediate object, or duplicate sealed datasets.
 
+### 2026-08-29 extension provenance amendment
+
+The following extension inputs join practical provenance and must be inspectable
+where they influence a result: Strategy Definition authoring origin without
+credentials; Composite enabled components, `WEIGHTED_VOTE_V1` weights and
+thresholds; Search algorithm profile/configuration and persisted seed; dataset
+identity; code version; Backtest execution profile including decimal/rounding,
+fee, slippage, position mode, and SL/TP policy; and normalized News extraction
+source/template version when a permitted News/Sentiment-derived input is used.
+
+`RANDOM_V1`, `DOMAIN_GUIDED_V1`, and `GENETIC_V1` must generate the same candidate
+sequence and ranking for the same input, seed, dataset identity, code version, and
+configuration. Retaining normalized News records, extraction provenance, and
+template version for 90 days (and raw HTML for only seven audit/reprocess days)
+does not assert byte-for-byte replay after those artifacts or an external source
+change. Secrets, raw credentials, cookies, and provider API keys are never
+provenance.
+
 ## Consequences
 
 ### Positive

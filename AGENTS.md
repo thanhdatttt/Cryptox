@@ -115,7 +115,15 @@ When sources conflict, follow the higher authority and record the lower-level in
 - MVP backtesting targets `Search -> BacktestExecutionPort -> Bounded Local Executor -> Backtester -> Evaluator -> Leaderboard`. Callers must not depend on local versus future distributed execution.
 - Authentication uses the approved simple local Auth V1: email/password plus a PostgreSQL-backed opaque server-side session in an HttpOnly cookie. Trusted authenticated identity is derived at the server boundary and passed separately from client DTOs.
 - StrategyDefinition, CompositeDefinition, SearchRun, Candidate, and LeaderboardScope are direct user-owned roots. Their approved children inherit ownership; normalized Market Data/datasets, public News/Sentiment, ranking configurations, and strategy plugin descriptors remain shared.
-- Approved MVP requirements are in `docs/requirements.md`. RBAC, organization/team or tenant hierarchy, OAuth/SSO, 2FA, external identity providers, password reset, enterprise IAM, AI/LLM authoring, optional trading/risk features, mandatory Redis/BullMQ, distributed protocols, microservices, Kafka, CQRS, and Event Sourcing remain deferred and must not become active requirements without approval.
+- Approved MVP requirements are in `docs/requirements.md`. The narrowly approved
+  `LLM_AUTHORING_V1`, controlled LLM-assisted News extraction, synthetic paper
+  Long/Short/SL-TP, deterministic Lite SMC/Wyckoff, and bounded seeded discovery
+  profiles are active only as defined there and in the accepted ADRs. RBAC,
+  organization/team or tenant hierarchy, OAuth/SSO, 2FA, external identity
+  providers, password reset, enterprise IAM, live trading/generalized risk,
+  autonomous or unconfigured LLM use, mandatory Redis/BullMQ, distributed
+  protocols, microservices, Kafka, CQRS, and Event Sourcing remain deferred and
+  must not become active requirements without approval.
 - Development and deterministic tests may use fixtures/fakes. The delivered runtime and instructor demo must use real configured Binance historical/realtime and News integrations, real PostgreSQL application/Auth state, and application-generated Backtest/Leaderboard data; mock providers must not be silently selected in final/demo configuration.
 
 Stage 2 documentation refinement is complete. Application/runtime source, executable contracts, migrations, infrastructure, generated artifacts, and tooling may be modified only through a separately approved change with explicit scope, governing requirements, acceptance criteria, and validation. Do not infer implementation scope from historical scaffolding, archived OpenSpec changes, or stale source assumptions. Repository inconsistencies discovered outside the current approved change must be reported rather than silently repaired.

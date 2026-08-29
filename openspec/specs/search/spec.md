@@ -2,19 +2,27 @@
 
 ## Purpose and boundary
 
-Search owns Search Runs, search-space validation, strategy candidate generation, explicit stop conditions, and bounded orchestration. Random Search is the only implemented-target MVP generator. Search submits candidates through Backtesting's public execution boundary; it does not simulate trades, calculate metrics, rank results, or own execution persistence.
+Search owns Search Runs, search-space validation, strategy candidate generation, explicit stop conditions, and bounded orchestration. It supports the deterministic `RANDOM_V1`, `DOMAIN_GUIDED_V1`, and `GENETIC_V1` profiles. Search submits candidates through Backtesting's public execution boundary; it does not simulate trades, calculate metrics, rank results, or own execution persistence.
 
 ## Requirements
 
-### Requirement: Stable generator seam and Random Search MVP
+### Requirement: Stable deterministic generator profiles
 
-The capability MUST expose a stable `StrategyGenerator` abstraction and MUST provide Random Search for the MVP. Generated candidates MUST use the same downstream form regardless of generator implementation and MUST satisfy the configured search space before submission.
+The capability MUST expose a stable `StrategyGenerator` abstraction and MUST
+provide `RANDOM_V1`, `DOMAIN_GUIDED_V1`, and `GENETIC_V1`. Generated candidates
+MUST use the same downstream form regardless of profile and MUST satisfy the
+configured search space before submission. Every run persists its seed, normalized
+algorithm configuration, dataset identity, and code version; the same inputs MUST
+produce the same candidate sequence and ranking. Domain-guided generation uses
+only declared valid categories and no LLM. Genetic defaults are population 50,
+at most 10 generations, elite 10%, mutation 20%, and never exceed the candidate
+budget.
 
-Traceability: `CSL-R-SE-01`, `CSL-R-ST-03`, `CSL-R-AR-01`, `CSL-R-AR-02`, `CSL-R-AR-03`, `CSL-R-DM-01`.
+Traceability: `CSL-R-SE-01`, `CSL-R-SE-03`, `CSL-R-ST-03`, `CSL-R-AR-01`, `CSL-R-AR-02`, `CSL-R-AR-03`, `CSL-R-DM-01`.
 
 ### Requirement: Finite bounded execution
 
-Every Search Run MUST have explicit finite stop conditions and a positive configurable in-flight bound. Generation MUST stop when a limit is reached, the run is cancelled, or no capacity remains. An uncontrolled infinite loop is prohibited.
+Every Search Run MUST have explicit finite stop conditions and a positive configurable in-flight bound. Generation MUST stop when a limit is reached, the run is cancelled, or no capacity remains. The default budget is the earlier of 500 candidates or five minutes. An uncontrolled infinite loop is prohibited.
 
 Traceability: `CSL-R-SE-02`, `CSL-R-OB-01`; ADR-006.
 
@@ -39,7 +47,8 @@ Traceability: `CSL-R-OW-01`; ADR-008.
 - Candidate generation and submission MUST respect available executor capacity.
 - Candidate failure MUST be counted and observable without creating an uncontrolled replacement loop.
 - Search MUST call Backtesting and Leaderboard only through their public APIs.
-- Future generator kinds are an explicitly deferred extension seam; they are not MVP implementations.
+- Bayesian, reinforcement-learning, agent-based, LLM-generated, and unbounded
+  generator kinds remain deferred.
 - Search Run collections and lifecycle commands MUST be owner-scoped before pagination/counting or state mutation.
 
 ## Executable public API and status
@@ -55,11 +64,18 @@ The current executable public surface is [`modules/search/api/index.ts`](../../.
 
 ## Acceptance scenarios
 
-#### Scenario: Random Search emits a valid candidate
+#### Scenario: Search profile emits a valid candidate
 
-- **Given** a valid bounded search space and Random Search selection
+- **Given** a valid bounded search space and an approved profile selection
 - **When** one candidate is generated
 - **Then** its strategy definitions and parameters are within the configured space and can be submitted through Backtesting's public boundary
+
+#### Scenario: Seeded discovery replays its sequence
+
+- **Given** identical search space, algorithm configuration, dataset identity,
+  code version, and persisted seed
+- **When** an approved profile is run twice
+- **Then** both runs generate the same candidate sequence and ranking
 
 #### Scenario: Stop condition terminates the run
 

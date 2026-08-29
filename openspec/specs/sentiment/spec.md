@@ -30,7 +30,11 @@ Traceability: `CSL-R-SN-01`, `CSL-R-OB-01`, `CSL-R-DM-01`.
 - Scores MUST be finite, use one documented normalized range, and have a deterministic label mapping.
 - A successful stored result MUST retain input/news reference, analysis time, and model provenance.
 - A model implementation MUST be substitutable without changing News or Strategy contracts.
-- When Sentiment contributes to an Experiment, practical provenance MUST identify the relevant result and model/version; exact sealed time-series replay is not an active MVP requirement.
+- When Sentiment contributes to an Experiment, it enters Strategy only through a
+  public neutral input selected by the Backtest configuration. Practical
+  provenance MUST identify the relevant result, model/version, and News extraction
+  provenance where applicable; exact sealed time-series replay is not an active
+  MVP requirement.
 
 ## Executable public API and status
 

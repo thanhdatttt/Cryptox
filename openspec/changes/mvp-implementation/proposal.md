@@ -17,8 +17,15 @@ must be implemented through one traceable, dependency-aware program.
   sessions and enforce per-user ownership for private Strategy, Search,
   Backtesting, and Leaderboard resources.
 - Implement pure strategies, deterministic simulation, independent Evaluation,
-  configurable ranking, bounded Random Search, provider-neutral Market Data and
-  News, isolated Sentiment, required frontend flows, and the minimum demo.
+  configurable ranking, bounded deterministic Random/Domain-guided/Genetic
+  discovery, provider-neutral Market Data and News, isolated Sentiment, required
+  frontend flows, and the minimum demo.
+- Implement only the approved academic functional-extension profiles: ephemeral
+  market observability; controlled LLM Strategy drafts and safe URL import;
+  versioned extraction templates with human-approved refinement; weighted voting
+  and deterministic Lite SMC/Wyckoff plugins; and synthetic Long/Short paper
+  backtesting with documented OHLC SL/TP, fee, slippage, decimal accounting, and
+  provenance.
 - Maintain durable execution state in `docs/implementation/` so a fresh Manager can
   resume without conversation context.
 - Prove final/demo operation with real Binance historical/realtime data, a real
@@ -41,7 +48,9 @@ task board.
 ## Non-goals
 
 No RBAC, organization/team or tenant hierarchy, OAuth/SSO, 2FA, external identity
-provider, password-reset system, enterprise IAM, generalized risk, advanced or AI
-search, AI strategy authoring, mandatory LLM crawling, distributed execution,
-microservices, general Event Bus, CQRS, Event Sourcing, or production artifact
-repository is introduced.
+provider, password-reset system, enterprise IAM, live exchange orders, leverage,
+margin, funding, liquidation, portfolio/risk optimization, autonomous LLM actions,
+unconfigured LLM providers, arbitrary user URL fetching, automatic template
+promotion, full discretionary SMC/Wyckoff, unbounded or ML/agent-based search,
+distributed execution, microservices, general Event Bus, CQRS, Event Sourcing, or
+production artifact repository is introduced.

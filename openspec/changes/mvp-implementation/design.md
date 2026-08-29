@@ -55,8 +55,27 @@ The versioned decisions are defined in `docs/implementation/MVP_PLAN.md`:
 - `REAL_DATA_DELIVERY_V1`: fixtures allowed in tests/dev, real integrations and
   persisted application/Auth state required for final/demo evidence;
 - `lightweight-charts` 4.2.3/current compatible lock for candlestick rendering.
+- `MARKET_OBSERVABILITY_V1`: Market Data exposes only ephemeral per-pair 100-tick
+  observability state, provider/received times, latency, and connection state;
+  this never becomes backtest/replay input.
+- `LLM_AUTHORING_V1`: a configured provider-neutral adapter returns one structured
+  45-second-bounded draft per submission; deterministic validation and explicit
+  user Save/Approve precede immutable definition persistence.
+- `EXTERNAL_CONTENT_SAFETY_V1`: backend-only allowlisted HTTPS fetches, bounded
+  redirects/time/body, no credentials, safe destination revalidation, and
+  draft-only extraction-template refinement with human approval and rollback.
+- `SYNTHETIC_SHORT_PAPER_V1` and `STOP_LOSS_WINS_V1`: candle-based directional
+  paper simulation only; no exchange orders; default 0.08% per-fill fee, adverse
+  5-bps per-fill slippage, decimal/fixed-point 8-place accounting, and immutable
+  execution provenance.
+- `RANDOM_V1`, `DOMAIN_GUIDED_V1`, and `GENETIC_V1`: seeded bounded discovery with
+  persisted input/configuration and default 500-candidate-or-five-minute budget.
+- `WEIGHTED_VOTE_V1`, `SMC_LITE_V1`, and `WYCKOFF_LITE_V1`: exact deterministic
+  behavior profiles; no professional/discretionary-method claim.
 
 These decisions are frozen for MVP V1 and are not to be re-opened by workers.
+They define functional behavior only; they do not prescribe screenshot layout,
+color, or pixel-perfect frontend reproduction.
 
 ## Execution and handoff
 

@@ -64,14 +64,15 @@ Orchestrator or worker execution for Cryptox:
 
 ## Scope-review state
 
-The five supplied screenshots are now treated as a proposed functional delta
-against the reviewed baseline. The delta includes realtime multi-timeframe
-market delivery, prompt/URL strategy authoring with LLM analysis, HTML/RSS/news
-extraction with versioned templates and controlled refinement, Long/Short
-backtesting with transaction cost/slippage and OHLC SL/TP behavior, and
-expanded strategy/discovery capabilities. These requirements are not yet
-approved executable scope; the Instructor must complete the authority-ordered
-re-baseline and obtain the required human/instructor decisions first.
+The five supplied screenshots are treated as a functional delta against the
+reviewed baseline, never as visual/pixel-level frontend instructions. The human
+decisions received on 2026-08-29 approve the bounded academic profiles recorded
+in `DEC-007` and the re-baselined requirements, ADRs, architecture, data model,
+and active `mvp-implementation` specifications. The controlled scope includes
+market observability, LLM draft authoring, safe external content/extraction,
+synthetic paper Long/Short backtesting, deterministic Lite strategy plugins, and
+bounded seeded discovery. It does not authorize implementation or task planning
+under this signal.
 
 ## Explicitly not authorized
 
@@ -81,21 +82,19 @@ re-baseline and obtain the required human/instructor decisions first.
   L-01, B-02, Q-01, F-AUTH, F-02, N-01, and N-02.
 - AU-02 retry, M-02 probe/rework, I-01, I-02, or any other unfinished packet.
 - Changes to application source, executable contracts, migrations, frontend
-  implementation, `TASKS.md`, `HANDOFF.md`, or the active change/specs before
-  the requirement delta is approved through the authority order.
+  implementation, `TASKS.md`, `HANDOFF.md`, `MVP_PLAN.md`, or task-DAG state.
+  The approved re-baseline documents do not themselves authorize execution.
 
 ## Required next authority sequence
 
-1. Review and approve the functional delta, add requirement IDs and acceptance
-   criteria in `docs/requirements.md`.
-2. Record durable decisions in `docs/control/DECISIONS.md` and amend accepted
-   ADRs, `docs/architecture.md`, and `docs/data-model.md` where warranted.
-3. Amend the existing active `mvp-implementation` change and affected
-   capability specifications; do not create a competing cross-cutting change.
-4. Only after those approvals, have the Manager reconcile `MVP_PLAN.md`, the
-   task DAG, and `TASKS.md` with new extension/reconciliation packets while
-   preserving historical `DONE` evidence.
-5. Issue a new Instructor execution signal with explicit bounded scope.
+1. Keep this HOLD while the committed re-baseline is independently reviewed for
+   internal consistency; this review has no execution authority.
+2. After a future explicit `APPROVED_FOR_EXECUTION` signal, have the Manager
+   reconcile `MVP_PLAN.md`, the task DAG, and `TASKS.md` with new
+   extension/reconciliation packets while preserving historical `DONE` evidence.
+3. The future signal must name a bounded scope, reviewed Git checkpoint, and
+   allowed packet frontier. Until then no Manager planning, assignment, or retry
+   is permitted.
 
 ## Canonical references
 

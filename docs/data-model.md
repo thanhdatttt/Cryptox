@@ -29,6 +29,7 @@ SearchRun ----< Candidate (when Search-generated)
 LeaderboardEntry ----> Experiment
 LeaderboardEntry ----> shared RankingConfiguration
 NewsItem ----< SentimentResult
+NewsItem ----< NewsExtractionProvenance ----> ExtractionTemplate
 ```
 
 | Entity | Owner | Purpose |
@@ -36,9 +37,10 @@ NewsItem ----< SentimentResult
 | User | Auth | Authenticated identity with normalized email and password hash. |
 | AuthSession | Auth; belongs to User | Opaque server-side session identity, secure token digest, fixed expiry, and optional revocation. |
 | Candle | Market Data | Normalized historical/closed OHLCV and forming realtime candle state. |
-| StrategyDefinition | Strategy; direct User ownership | Immutable, versioned strategy type and normalized parameter configuration. |
-| CompositeDefinition and CompositeComponent | Strategy; CompositeDefinition is directly user-owned and components inherit | Immutable, versioned combination of same-owner Strategy Definitions. |
-| SearchRun | Search; direct User ownership | Generator/search-space choice, bounded stop condition, state, progress, and timing. |
+| Market observability state | Market Data; ephemeral | Per-pair connection/latency state and a 100-tick in-memory ring buffer; it is lost on restart and never becomes replay input. |
+| StrategyDefinition | Strategy; direct User ownership | Immutable, versioned strategy type, normalized parameter configuration, and safe authoring-origin metadata. |
+| CompositeDefinition and CompositeComponent | Strategy; CompositeDefinition is directly user-owned and components inherit | Immutable, versioned combination of same-owner Strategy Definitions, including enabled component state and weighted-vote configuration when selected. |
+| SearchRun | Search; direct User ownership | Generator/profile/search-space configuration, seed, bounded stop condition, state, progress, and timing. |
 | Candidate | Backtesting; direct User ownership | One manual or Search-generated proposal submitted for execution. |
 | Backtest execution outcome | Backtesting | Observable success/failure, timing, and execution relationship for a Candidate. |
 | Trade | Backtesting; inherits through Experiment | One simulated entry/exit/result belonging to the successful execution represented by an Experiment. |
@@ -47,6 +49,7 @@ NewsItem ----< SentimentResult
 | Score/ranking configuration | Leaderboard; shared system data | Versioned or stably identified policy used to compare Experiments. |
 | LeaderboardScope and LeaderboardEntry | Leaderboard; scope is directly user-owned and entries inherit | User-specific ranking view whose entries reference same-owner completed Experiments. |
 | NewsItem | News | Normalized persisted provider item. |
+| ExtractionTemplate and extraction provenance | News; shared system data | Immutable/versioned template, extraction inputs/results/metrics, and controlled DRAFT-to-approved lifecycle. |
 | SentimentResult | Sentiment | Optional model output linked to a News Item with model provenance. |
 
 Modules expose these concepts through their public APIs. One module must not read or write another module's persistence directly.
@@ -78,7 +81,7 @@ identity from the server application boundary.
 
 A Candle carries pair, timeframe, timestamp, open, high, low, close, volume, and closed/forming state. Historical backtests use a declared pair, timeframe, and half-open or otherwise unambiguously documented historical range.
 
-Historical/closed candles are durable business input when persistence is implemented. Realtime ticks and provider connection status are ephemeral delivery/health state and do not require historical persistence.
+Historical/closed candles are durable business input when persistence is implemented. Realtime ticks and provider connection status are ephemeral delivery/health state and do not require historical persistence. `MARKET_OBSERVABILITY_V1` keeps exactly the most recent 100 normalized ticks per pair in memory with provider event time, received time, last latency, and connection state; it is labelled ephemeral, is lost after restart, and is excluded from backtest/replay input.
 
 For Experiment provenance, record a dataset identity/version when practical. If no immutable dataset identifier exists, retain the pair, timeframe, range, source/provider, and other available provenance without claiming exact byte replay.
 
@@ -90,16 +93,16 @@ A StrategyDefinition contains:
 - a strategy type/name;
 - a definition version;
 - normalized parameters; and
-- creation/provenance metadata useful to identify the definition.
+- creation/provenance metadata useful to identify the definition, including safe origin such as manual, approved LLM draft, or approved URL import.
 
 It also has one direct authenticated owner. Logical-family version allocation and
 uniqueness are scoped by that owner.
 
-Definitions are immutable. A behavior-bearing parameter or strategy version change creates a new definition/version rather than overwriting history. Application/code version or Git commit may be recorded where practical; exact executable hashes and indefinite artifact retention are not mandatory for the MVP.
+Definitions are immutable. A behavior-bearing parameter or strategy version change creates a new definition/version rather than overwriting history. An LLM draft is not a StrategyDefinition: deterministic validation and explicit user Save/Approve are required before version allocation. Provider secrets, raw credentials, and unapproved LLM output are never definition metadata. Application/code version or Git commit may be recorded where practical; exact executable hashes and indefinite artifact retention are not mandatory for the MVP.
 
 ### CompositeDefinition
 
-A CompositeDefinition contains a unique ID/version, combination method, and ordered component references. Each component references an exact StrategyDefinition version and records its weight when the selected method uses one. Method-specific thresholds or equivalent configuration are part of the immutable definition.
+A CompositeDefinition contains a unique ID/version, combination method, and ordered component references. Each component references an exact StrategyDefinition version and records enabled state and its weight when the selected method uses one. `WEIGHTED_VOTE_V1` records finite non-negative weights normalized to one and its `+0.30`/`-0.30` thresholds; only enabled components contribute their `+1/0/-1` signal. Method-specific thresholds or equivalent configuration are part of the immutable definition.
 
 Changing components, order when meaningful, weights, thresholds, method, or a referenced definition produces a new CompositeDefinition version.
 
@@ -112,12 +115,14 @@ from the CompositeDefinition.
 A SearchRun records:
 
 - generator choice and search-space configuration;
+- normalized algorithm profile/configuration and persisted seed;
+- dataset identity and code version where practical;
 - at least one explicit bounded stop condition;
 - lifecycle state and stop reason;
 - created, started, updated, and ended timing as applicable; and
 - progress counts or projections needed by the UI.
 
-The MVP generator is Random. Other generator types are evolution seams, not claims of implemented behavior. SearchRun owns orchestration metadata only; Candidate and execution persistence belong to Backtesting.
+The active profiles are `RANDOM_V1`, `DOMAIN_GUIDED_V1`, and `GENETIC_V1`. Domain-guided configuration names valid declared categories and no LLM. Genetic configuration includes its population, generation, elite, and mutation limits. Every profile respects the earlier of the configured candidate or duration bound; the default is 500 candidates or five minutes. SearchRun owns orchestration metadata only; Candidate and execution persistence belong to Backtesting.
 
 SearchRun is a direct user-owned root. Its definitions, LeaderboardScope, and
 Search-created Candidates must resolve to the same authenticated owner.
@@ -135,9 +140,9 @@ never from a client identity field.
 
 ### Trade and evaluation result
 
-A Trade is a simulated result, not an exchange order. It records its Experiment/execution relationship, sequence, pair, entry and exit time/price, quantity or notional information needed by the simulator, realized result, and win/loss/breakeven classification.
+A Trade is a simulated result, not an exchange order. It records its Experiment/execution relationship, sequence, pair, synthetic Long/Short side, entry and exit time/price, quantity or notional information needed by the simulator, exit reason, realized result, and win/loss/breakeven classification. It has no leverage, margin, funding, liquidation, exchange order, or spot-trading fields.
 
-Stop-loss, take-profit, generalized position/risk policies, and live-order fields are outside the MVP data model.
+An Experiment's immutable execution profile may record decimal/fixed-point scale, fee, adverse slippage, synthetic position mode, and configured Stop Loss/Take Profit values. The `STOP_LOSS_WINS_V1` policy is an execution-profile identifier, not a generalized risk-management entity.
 
 Evaluation results record the metrics required by the reviewed requirements and retain their relationship to the Experiment. Evaluation policy/implementation identification is stored when relevant to comparison, but the MVP does not require a separately retained evaluator binary.
 
@@ -152,6 +157,7 @@ Experiment is the canonical successful backtest record. It links or embeds enoug
 - application/code version or Git commit where practical;
 - the Trades and evaluation results;
 - score/ranking configuration where relevant; and
+- execution profile, decimal/rounding settings, fee, slippage, position mode, and SL/TP policy; and
 - creation/completion timing.
 
 This is practical provenance under [ADR-007](./adr/ADR_007_practical_reproducibility.md). A record can be traceable without being byte-for-byte replayable. Missing historical artifacts must not be hidden by substituting current code or data.
@@ -173,7 +179,9 @@ Owner filtering occurs before pagination/counting.
 
 ### NewsItem and SentimentResult
 
-NewsItem stores normalized title/content, source, publication/collection time, URL or provider identity, and related asset information as available. News persists/deduplicates the item before optional sentiment analysis.
+NewsItem stores normalized title/content, source, publication/collection time, canonical URL or provider identity, normalized-content hash, and related asset information as available. News persists/deduplicates the item before optional sentiment analysis.
+
+An ExtractionTemplate has a stable version, source applicability, extraction configuration, status (`DRAFT` or approved), and reviewable quality metrics/diff against its predecessor. Extraction provenance links a NewsItem to the source, template version when applicable, collection/extraction timing, and safe result metadata. Backend-only URL acquisition is configuration-driven rather than an unbounded user-owned URL entity; raw HTML is an audit/reprocess artifact retained for seven days, while normalized News, extraction provenance, and template versions retain for 90 days.
 
 SentimentResult references a NewsItem and records label/score, model name/version, and analysis time. Multiple results may exist when model versions change. Sentiment owns these results; a missing result is a valid degraded state when analysis fails or times out.
 
@@ -187,7 +195,7 @@ Mandatory sealed sentiment datasets, content hashes, and exact time-series repla
 - Experiment, Trade, metric, and score relationships must remain internally consistent and queryable.
 - Numeric metrics and scores must be finite or use an explicitly modeled unavailable state.
 - Store only provenance that is meaningful and available. Do not imply stronger replay guarantees than the retained data supports.
-- Retention duration is an operational/product policy. The MVP does not require indefinite artifact, binary, snapshot, or intermediate-value retention.
+- Retention duration is an operational/product policy. This MVP retains normalized News, extraction provenance, and template versions for 90 days and raw HTML for seven days; it does not require indefinite artifact, binary, snapshot, or intermediate-value retention.
 
 ## Deferred data
 
@@ -196,8 +204,8 @@ The active MVP model excludes:
 - roles/RBAC, organization/team membership, tenant/workspace hierarchies, external identity-provider records, OAuth/SSO, 2FA, email-verification, password-reset, and enterprise-IAM data;
 - queue jobs, queue terminal messages, distributed attempts, leases, fencing tokens, watchdog state, and reconciliation ledgers;
 - Redis keys or cache persistence;
-- stop-loss/take-profit and generalized portfolio/risk entities;
-- LLM prompt/completion records or AI strategy-authoring entities;
+- leverage/margin/funding/liquidation, trailing-stop, position-sizing, portfolio, generalized-risk, live-order, or exchange-account entities;
+- raw LLM prompt/completion retention, provider credentials, autonomous authoring persistence, or automatic template-promotion entities;
 - mandatory executable-artifact repositories and hashes for every input/intermediate; and
 - CQRS read stores or Event-Sourcing event logs.
 

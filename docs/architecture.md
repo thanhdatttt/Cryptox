@@ -99,8 +99,9 @@ Current business types are generally defined in each module's `domain/contracts.
 1. A provider adapter converts exchange-specific payloads to normalized Market Data types.
 2. Historical/closed candles are made available through REST-backed application reads.
 3. The frontend loads history before subscribing to realtime updates.
-4. The market WebSocket sends only normalized tick, candle, and connection-status messages.
-5. Adding an exchange means adding an adapter behind the Market Data boundary; Strategy and frontend business behavior do not branch on provider identity.
+4. The market WebSocket sends only normalized tick, candle, and connection-status messages. A same-pair/timeframe candle timestamp updates the forming/latest candle; a later timestamp appends a new candle. Duplicate or out-of-order input is normalized and reconciled rather than producing duplicate closed candles.
+5. `MARKET_OBSERVABILITY_V1` additionally exposes provider event time, received time, last latency, connection state, and the latest 100 normalized ticks per pair from an in-memory ring buffer. That state is explicitly ephemeral, is lost on restart, and never participates in backtest or replay input.
+6. Adding an exchange means adding an adapter behind the Market Data boundary; Strategy and frontend business behavior do not branch on provider identity.
 
 The dashboard may render up to four independently configured pair/timeframe charts; that presentation requirement does not change Market Data ownership or transport boundaries.
 
@@ -113,6 +114,10 @@ Candle history, Market Dataset/provenance, News Items, Sentiment Results, rankin
 3. A Composite Definition has one authenticated owner, references exact same-owner Strategy Definition versions, and records its combination method and configuration.
 4. Strategies analyze only their supplied context and return `BUY`, `SELL`, or `HOLD`.
 5. Composite logic combines normalized signals without reading plugin internals.
+6. `WEIGHTED_VOTE_V1` is a versioned composite configuration. Only enabled components participate; normalized non-negative weights apply to the `+1/0/-1` signal values and the immutable score thresholds decide the resulting signal.
+7. `SMC_LITE_V1` and `WYCKOFF_LITE_V1` are deterministic plugins with documented fixed profiles. They are not claims of complete discretionary trading methods.
+
+Prompt/URL authoring is an application workflow, not Strategy domain execution. A configured provider-neutral `LLM_AUTHORING_V1` adapter can produce one time-bounded structured draft, which deterministic validation and explicit user Save/Approve must turn into an immutable definition version. An unconfigured or failed request does not persist a definition. Pure plugins neither call the LLM nor fetch URLs.
 
 Adding a new indicator strategy is a registry extension. It must not require changes to Backtesting, Evaluation, Leaderboard, or frontend core logic.
 
@@ -132,22 +137,24 @@ Search or manual submission
 - Search generates candidates only while an explicit stop condition and executor capacity permit. A Search-created Candidate receives ownership from the trusted SearchRun/user context.
 - Search and manual callers know only the execution port.
 - The local executor bounds concurrency/resources and produces an observable terminal success or failure.
-- The Backtester simulates over historical input; it does not score its own result.
+- The Backtester simulates over historical input; it does not score its own result. `SYNTHETIC_SHORT_PAPER_V1` permits Long and synthetic Short directional positions only; it is not a spot or exchange-order capability.
+- The configured execution profile uses fixed-point/decimal accounting. Its default fee/slippage settings apply at both entry and exit; a candle that reaches both SL and TP follows the documented `STOP_LOSS_WINS_V1` path. The profile is immutable Experiment provenance.
 - Evaluation computes metrics from results/Trades.
 - Leaderboard applies an identified shared score/ranking configuration within a user-owned scope, accepts only same-owner Experiments, and exposes owner-scoped ranked reads.
 - A future distributed adapter may replace the local executor behind the port without changing upstream or downstream business contracts.
 
 ### News and sentiment
 
-1. News obtains normalized items from provider adapters.
-2. News persists/deduplicates an item before invoking Sentiment through a neutral input.
-3. Sentiment persists a successful result with model/version provenance.
-4. Timeout or inference failure is logged/observed and represented as missing sentiment; the News item remains readable.
-5. News and Sentiment do not import each other's persistence or domain internals.
+1. News obtains normalized items from configured Website, RSS, and HTML provider adapters. Imported URLs are fetched by backend adapters only under the ADR-009 HTTPS allowlist, destination validation, redirect, timeout, and body-size policy.
+2. News persists/deduplicates an item by canonical URL, provider identity when present, and normalized-content hash before invoking Sentiment through a neutral input.
+3. An LLM-assisted extraction adapter may yield versioned extraction templates. Self-healing can create only a reviewable `DRAFT` with a diff and metrics; user/administrator approval promotes it and prior versions remain rollback targets.
+4. Sentiment persists a successful result with model/version provenance. A future Strategy consumes approved News/Sentiment-derived input only through a public neutral boundary and must identify that input in practical provenance.
+5. Timeout or inference failure is logged/observed and represented as missing sentiment; the News item remains readable.
+6. News and Sentiment do not import each other's persistence or domain internals.
 
 ## Reproducibility
 
-[ADR-007](./adr/ADR_007_practical_reproducibility.md) defines practical provenance. A completed Experiment is traceable to its immutable strategy/composite configuration, pair/timeframe/range, dataset identity where practical, code version or Git commit where practical, Trades and metrics, and relevant score/ranking configuration.
+[ADR-007](./adr/ADR_007_practical_reproducibility.md) defines practical provenance. A completed Experiment is traceable to its immutable strategy/composite configuration, authoring origin when applicable, pair/timeframe/range, dataset identity where practical, code version or Git commit where practical, execution profile, Trades and metrics, and relevant score/ranking configuration. A Search Run records its selected profile, normalized configuration, persisted seed, dataset identity, and code version so identical inputs produce the same candidate sequence and ranking.
 
 Traceability is not automatically byte-for-byte replay. The system must state the available guarantee and must not silently substitute current code or data for unavailable historical inputs.
 
@@ -158,7 +165,8 @@ Traceability is not automatically byte-for-byte replay. The system must state th
 - A strategy failure is contained within its backtest execution and becomes an observable failed result.
 - Search has an explicit terminal state and stop reason; it never relies on an uncontrolled `while (true)` loop.
 - Backtest execution exposes progress or terminal outcome, duration, and a useful failure reason without requiring a distributed recovery protocol.
-- Market connection state is visible to the frontend so a disconnected feed is not mistaken for a static market.
+- Market connection state, last latency, provider event time, received time, and explicitly ephemeral recent ticks are visible to the frontend so a disconnected feed is not mistaken for a static market.
+- LLM authoring, external-content fetching, extraction, and template-refinement failures are bounded, observable, and cannot create an approved Strategy Definition or promoted template without the documented validation and human approval.
 - Authentication failure, invalid/expired session, protected-route rejection, and ownership denial are observable without logging passwords, raw credentials, cookies, session tokens, or token digests.
 
 ## Real-data delivery and chart rendering
@@ -175,6 +183,8 @@ The MVP deliberately keeps these substitutions possible:
 - a new exchange behind the Market Data adapter;
 - a new strategy through the Strategy Registry;
 - a new generator behind the Search generator contract;
+- a configured LLM authoring adapter behind the Strategy application port;
+- a configured Website/RSS/HTML source or extraction adapter behind the News boundary;
 - a new sentiment model behind the Sentiment analysis port; and
 - a future queue/worker executor behind the Backtest Execution Port.
 
@@ -185,8 +195,9 @@ An evolution is adopted only when requirements or measured constraints justify i
 The following are not active MVP architecture:
 
 - RBAC, organization/team models, tenant/workspace hierarchy, OAuth/SSO, 2FA, email verification, password reset, external identity providers, or enterprise IAM;
-- AI/LLM strategy authoring or LLM-specific crawling;
-- stop-loss, take-profit, portfolio, or generalized risk systems;
+- autonomous or unconfigured LLM use, LLM-driven trading/search, arbitrary URL retrieval, or automatic extraction-template promotion;
+- leverage, margin, funding, liquidation, trailing stop, position sizing, portfolio/risk optimization, live trading, or exchange-order behavior;
+- full discretionary/professional SMC or Wyckoff methodologies and unbounded/Bayesian/reinforcement-learning/agent-based search;
 - Redis caching;
 - BullMQ, separate backtest workers, distributed leases/fencing/watchdogs/reconciliation, and distributed retry budgets;
 - microservices, Kafka, a general Event Bus, CQRS, or Event Sourcing; and

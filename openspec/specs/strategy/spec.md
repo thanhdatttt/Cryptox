@@ -20,9 +20,30 @@ Traceability: `CSL-R-ST-02`.
 
 ### Requirement: Composite strategies
 
-The capability MUST compose exact Strategy Definition versions and resolve conflicting `BUY`, `SELL`, and `HOLD` signals through an explicitly recorded policy. Majority vote or finite weighted scoring are suggested policies; whichever is selected MUST validate and normalize its configuration.
+The capability MUST compose exact Strategy Definition versions and resolve conflicting `BUY`, `SELL`, and `HOLD` signals through an explicitly recorded policy. `WEIGHTED_VOTE_V1` MUST include only enabled components, map those signals to `+1`, `0`, and `-1`, normalize finite non-negative weights to one, and return BUY at score `>= +0.30`, SELL at `<= -0.30`, otherwise HOLD, including ties. Its enabled state, weights, thresholds, and referenced versions are immutable configuration.
 
-Traceability: `CSL-R-ST-03`, `CSL-S-01`.
+Traceability: `CSL-R-ST-03`, `CSL-R-ST-06`, `CSL-S-01`.
+
+### Requirement: Controlled draft authoring
+
+`LLM_AUTHORING_V1` MUST use a provider-neutral application boundary and MAY use a
+configured OpenAI-compatible demo adapter. One prompt/URL submission makes at most
+one request with a 45-second timeout and produces a structured draft only.
+Deterministic schema/domain validation and explicit user Save/Approve MUST precede
+new immutable Strategy Definition persistence. No configured provider, timeout,
+provider error, or invalid draft may create a persistence side effect.
+
+Traceability: `CSL-R-ST-05`, `CSL-R-RP-02`; ADR-002 and ADR-009.
+
+### Requirement: Deterministic extension plugins
+
+The registry MUST expose documented `SMC_LITE_V1` and `WYCKOFF_LITE_V1` profiles.
+SMC Lite uses confirmed pivot-window swings and close-based Break of Structure.
+Wyckoff Lite uses fixed range/volume heuristics for accumulation/distribution and
+breakout. Neither profile may be represented as a complete professional or
+discretionary methodology.
+
+Traceability: `CSL-R-ST-07`; ADR-002.
 
 ### Requirement: Immutable definitions and provenance
 
@@ -46,6 +67,11 @@ Traceability: `CSL-R-OW-01`; ADR-008.
 - Parameter validation MUST occur before a strategy is resolved or executed.
 - A composite MUST contain at least one component and reference immutable definitions.
 - Weighted configurations MUST use finite values and a documented normalization/threshold policy.
+- The default `WEIGHTED_VOTE_V1` example is MA `0.40`, RSI `0.30`, and
+  Support/Resistance `0.30`; a definition records actual values rather than
+  relying on a frontend default.
+- LLM providers, URL retrieval, and persistence are application/infrastructure
+  concerns. Pure strategy implementations never perform them.
 - Strategy runtime code MUST remain infrastructure-independent.
 - Client-supplied identity MUST NOT authorize definition access. Authenticated cross-user definition reads/mutations return the same not-found outcome as an absent definition.
 
@@ -95,6 +121,27 @@ The current executable public surface is [`modules/strategy/api/index.ts`](../..
 - **Given** component signals that disagree and a valid recorded combination policy
 - **When** the composite combines them
 - **Then** it returns one deterministic normalized signal according to that policy
+
+#### Scenario: Weighted vote is deterministic
+
+- **Given** enabled MA, RSI, and Support/Resistance components with weights
+  `0.40`, `0.30`, and `0.30`
+- **When** their normalized signals are combined under `WEIGHTED_VOTE_V1`
+- **Then** the configured score and thresholds produce one documented BUY, SELL,
+  or HOLD result, with a tie represented as HOLD
+
+#### Scenario: LLM draft requires approval
+
+- **Given** a configured provider returns a schema-valid structured draft
+- **When** the user has not explicitly saved/approved it
+- **Then** no Strategy Definition version exists; after validation and explicit
+  approval, exactly one immutable version is created
+
+#### Scenario: Lite plugin stays bounded
+
+- **Given** fixtures for an SMC Lite or Wyckoff Lite profile
+- **When** its registered pure strategy analyzes the fixtures
+- **Then** it follows its documented deterministic rule without infrastructure I/O
 
 #### Scenario: Definition edit preserves history
 
