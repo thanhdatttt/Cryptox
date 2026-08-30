@@ -2,13 +2,84 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-074`
+Instruction ID: `INS-075`
 
-Status: `HOLD`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
-## INS-074 — Independent post-INS-073 audit hold
+## INS-075 — Reconcile the audited INS-073 checkpoint
+
+This current signal supersedes `INS-074 / HOLD` and authorizes exactly one
+fresh Manager for a control-plane-only reconciliation. It does not authorize a
+worker, feature implementation, retry, replacement, duplicate, or downstream
+start.
+
+### Reviewed checkpoint and reason for reconciliation
+
+- Branch: `MVP_IMPLEMENTATION`.
+- Reviewed base: `6727122` (`docs(control): hold after N-03A audit`); the
+  working tree was clean at that checkpoint and no Cryptox Manager or worker
+  was active.
+- The independently reviewed N-03A source and tests, together with the
+  Manager-owned task/checkpoint changes, are integrated at
+  `f320b5f1d7731d121db27e788cffa4a8033dc7fd` (`feat(news): complete N-03A
+  refresh scheduler`). The latest `HANDOFF.md` was written before that narrow
+  integration and therefore still says the reviewed worker paths remain
+  uncommitted. That statement must be reconciled by the Manager who owns the
+  handoff artifact.
+- Current task facts to preserve: `N-03A=DONE`, `N-03=DONE`, `M-02` is
+  `REVIEW/UNVERIFIED`, and `AU-02`, `S-04`, `E-02`, `L-02`, `F-03`, `I-01`,
+  `I-02`, and `I-03` are `BLOCKED`. No other task state may change.
+
+### Exact Manager authorization
+
+- Create exactly one fresh Manager in the canonical same-directory checkout
+  `D:/agy-cli-projects/AOS/Cryptox`, branch `MVP_IMPLEMENTATION`, using model
+  `gpt-5.6-luna` with `max` reasoning. The Manager must read `AGENTS.md` and
+  `docs/control/prompts/ORCHESTRATOR_START.md` completely, recover the current
+  signal from Git, and verify the reviewed base, actual integration commit,
+  task board, handoff, and absence of competing active tasks.
+- This is Manager-owned governance reconciliation; no worker or subagent is
+  authorized or needed. Do not create any worker, retry, replacement, branch,
+  worktree, or duplicate task.
+- **Exact write scope:** only `docs/implementation/TASKS.md` and
+  `docs/implementation/HANDOFF.md`. The Manager must not edit
+  `INSTRUCTOR.md`, `DECISIONS.md`, `MVP_PLAN.md`, requirements, ADRs,
+  architecture, data model, OpenSpec artifacts, source, tests, migrations,
+  dependencies, frontend, backend composition, providers, or infrastructure.
+
+### Acceptance and validation
+
+- Reconcile the N-03A row and the latest INS-073 checkpoint so they identify
+  the actual integrated checkpoint `f320b5f` and no longer claim the reviewed
+  worker paths are uncommitted. Preserve the recorded Manager staging failure
+  as historical evidence; do not rewrite it as a successful Manager commit.
+- Preserve the exact `N-03A` and `N-03` `DONE` states and every unrelated task
+  state, dependency, and stop boundary. Do not promote or start any other
+  packet.
+- Verify the final control-only diff contains no path outside the two allowed
+  files, run `git diff --check` and applicable control-plane consistency checks,
+  and record any unavailable check as `UNVERIFIED`/`BLOCKED`, never `PASS`.
+- Attempt exactly one coherent Manager checkpoint commit containing only
+  `TASKS.md` and `HANDOFF.md`. If Git staging/commit is denied, report the
+  exact error once and do not retry; the parent Instructor will independently
+  audit any remaining control delta.
+
+### Stop condition
+
+After the reconciliation and one commit attempt, stop immediately. This
+signal authorizes no `M-02`, `S-04`, `E-02`, `L-02`, `F-03`, `AU-02`, `I-01`,
+`I-02`, `I-03`, or any other implementation/closure packet. The next step is
+an independent Instructor audit and a new `HOLD` signal.
+
+### Evidence limitations
+
+Real configured News/Binance, PostgreSQL/Docker runtime, browser/demo runtime,
+OpenSpec CLI, and link/DAG automation remain `UNVERIFIED` or `BLOCKED` where
+applicable. Fixtures and skipped tests are not promoted to `PASS`.
+
+## Historical INS-074 — Independent post-INS-073 audit hold
 
 This is the current Instructor signal and supersedes `INS-073 /
 APPROVED_FOR_EXECUTION`. The N-03A implementation and N-03 closure passed
