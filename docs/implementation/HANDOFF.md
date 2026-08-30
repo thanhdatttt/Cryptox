@@ -1,125 +1,108 @@
-# INS-097 Manager Checkpoint — AU-02 Per-User Ownership Security Integration
+# INS-099 Manager Checkpoint — AU-02 Completion Ownership Matrix
 
-## Resume here
+## Authorization and execution
 
-- **Authorization:** `INS-097 / APPROVED_FOR_EXECUTION` is committed at
-  `7febd0f0a8aa6d57825ecddb42794d8a742493ad` and supersedes `INS-096 / HOLD`
-  at `389db3b`. It authorizes exactly one fresh Manager and exactly one fresh
+- **Authorization:** `INS-099 / APPROVED_FOR_EXECUTION` is committed at
+  `ad755c4cb62522f533b5a503de0c77ae248453e6` and supersedes the reviewed
+  `INS-098 / HOLD` checkpoint at `8e73cb9`. It authorized exactly one fresh
   internal worker for one bounded AU-02 attempt. No retry, replacement,
-  duplicate, downstream packet, or I-01/I-02/I-03 work is authorized.
-- **Manager and checkout:** Manager `01a05289-9805-72a3-b811-fda8a7d89eed` is
-  operating in `D:/agy-cli-projects/AOS/Cryptox` on `MVP_IMPLEMENTATION` at
-  `7febd0f0a8aa6d57825ecddb42794d8a742493ad`. The reviewed checkpoint is
-  `389db3b`; the only delta from it is the committed Instructor signal, which
-  changes only `docs/control/INSTRUCTOR.md`. The only working-tree delta is the
-  app-generated untracked `.codex/config.toml`, which remains untouched,
+  duplicate, downstream packet, or I-01/I-02/I-03 work was authorized.
+- **Manager and checkout:** Manager `01a052b9-d343-7a03-8afe-764016f38d9f`
+  operated directly in `D:/agy-cli-projects/AOS/Cryptox` on
+  `MVP_IMPLEMENTATION`, starting from the applicable authorization checkpoint.
+  The reviewed base was `8e73cb9`; no source, business, or task-DAG drift was
+  found. The app-generated untracked `.codex/config.toml` remained untouched,
   unstaged, and undeleted.
-- **Task transition:** The board was `39 DONE`, `0 REVIEW`, and `4 BLOCKED`
-  (`AU-02`, `I-01`, `I-02`, `I-03`). AU-02 was verified READY from its DONE
-  dependencies, moved to `IN_PROGRESS`, and after the sole worker returned is
-  now `REVIEW`; no other task moved. The worker is Bacon
-  `01a0528f-4f6b-7ee3-be7f-5787c2b40005`.
-- **Worker boundary:** Exactly one internal worker will implement and test only
-  cross-module AU-02 ownership/security integration, with narrowly necessary
-  owner-scoped fixes, under `modules/auth/**`, `modules/strategy/**`,
-  `modules/search/**`, `modules/backtesting/**`, `modules/leaderboard/**`, and
-  `apps/backend/src/**`. Canonical contracts, migrations, dependencies,
-  generated files, News, Market Data, frontend, unrelated routes, architecture
-  policy, pure algorithm work, and other packets are excluded.
-- **Environment boundary:** The Instructor-recorded internal PostgreSQL health
-  and read-only checks are accepted as prior observations. Documented host
-  application access failed authentication and Docker Compose is unavailable;
-  no credential extraction, password change, volume reset, secret request,
-  software installation, cloud database, or environment expansion is allowed.
+- **Worker:** Exactly one fresh sequential worker was created: Dirac
+  `01a052d3-6f0c-7283-9732-4978b33d9186`. It was closed after the Manager's
+  bounded stop instruction. No other worker, replacement, retry, or
+  user-visible child was created; no worker remains active.
+- **Scope review:** Dirac inspected the governing material and scoped
+  Auth/Strategy/Search/Backtesting/Leaderboard/backend source, but made no
+  source or test change. No outside-scope dependency was identified. The
+  allowed implementation boundary was limited to the six path families named
+  by INS-099; contracts, migrations, dependencies, generated files, News,
+  Market Data, frontend, unrelated routes, policy, pure algorithms, and other
+  packets were not touched.
 
-## Initial validation and stop boundary
+## Task state and required acceptance
 
-- The applicable requirements are `CSL-R-AU-01`, `CSL-R-OW-01`, `CSL-R-ST-04`,
+- **Transition:** AU-02 moved `REVIEW → READY → IN_PROGRESS → REVIEW`; the
+  final board is `39 DONE`, `1 REVIEW` (`AU-02`), and `3 BLOCKED`
+  (`I-01`, `I-02`, `I-03`). No other task moved. AU-02 is not `DONE`.
+- **Requirements:** `CSL-R-AU-01`, `CSL-R-OW-01`, `CSL-R-ST-04`,
   `CSL-R-SE-01`, `CSL-R-SE-02`, `CSL-R-BT-01`, `CSL-R-LB-01`, and
   `CSL-R-OB-01`, governed by ADR-008 and the AU-02 packet in `MVP_PLAN.md`.
-- Required evidence is the resource-by-resource A/B matrix: unauthenticated
-  rejection; cross-user 404/no-leak for applicable read/update/delete/cancel/
-  list/submit/rank operations; same-owner success; trusted identity;
-  client-identity spoof resistance; Search Candidate owner propagation;
-  same-owner Leaderboard admission; shared-data visibility; and no secret
-  logging, plus applicable real PostgreSQL/Auth/Search integration.
-- No validation claim is made at this start checkpoint. The Manager will review
-  the worker diff, run the authorized focused and global checks, keep unavailable
-  checks `BLOCKED`/`UNVERIFIED`, and stop after one AU-02 attempt.
+- **Closure rule:** Fixture-only or isolated per-module evidence cannot close
+  AU-02. The complete resource-by-resource A/B matrix and applicable real
+  PostgreSQL/Auth/Search integration are required.
 
-## Worker result and Manager review boundary
+## Matrix evidence
 
-- Bacon was the only worker created for INS-097. After the bounded attempt
-  exceeded the Manager's safe wait window, the Manager requested a safe stop;
-  Bacon returned a completed handoff with no changed paths, no source/test fix,
-  no staging, and no commit. No replacement, retry, or second worker was used.
-- The worker's focused baseline results were: Auth 8 passed / 3 PostgreSQL
-  skips; Strategy 116 passed; Search 32 passed / 1 real-integration skip;
-  Backtesting 43 passed; Leaderboard 22 passed. These are existing package
-  evidence, not a complete AU-02 acceptance matrix.
-- Worker matrix classification: existing Auth/backend 401 behavior PASS at the
-  fixture/unit boundary but real E2E BLOCKED; existing per-module owner-scoped
-  read/mutation, same-owner, trusted-identity, spoof-resistance,
-  SearchRun-to-Candidate, Leaderboard admission, shared-data, and sensitive-log
-  checks PASS at their existing boundaries; complete cross-module isolation and
-  real integration remain UNVERIFIED/BLOCKED. No worker implementation was
-  accepted for closure.
-- The Manager independently reviewed the returned no-op diff and confirms that
-  no allowed source path changed. AU-02 therefore remains `REVIEW`, not `DONE`,
-  pending a renewed authorization and the complete matrix with applicable real
-  PostgreSQL/Auth/Search evidence.
+The fresh workspace suites passed their existing module tests, but Dirac added
+no cross-module tests and ran no worker tests before the authorized stop. The
+following records the boundary evidence without treating it as complete AU-02
+acceptance.
 
-## Manager validation evidence
+| Resource / behavior | Existing evidence | AU-02 status |
+|---|---|---|
+| Unauthenticated private boundary | Backend Auth controller suite covers `/auth/current-user` rejection; 401 behavior passed. No private business REST boundary exists in this packet. | **PASS** where applicable; complete private-resource matrix **UNVERIFIED** |
+| StrategyDefinition | Strategy owner predicates and trusted context are present; Strategy suite 116/116 passed. | **UNVERIFIED** for required cross-user/same-owner cross-module A/B proof |
+| CompositeDefinition | Composite owner checks and public API composition are present; Strategy suite 116/116 passed. | **UNVERIFIED** for required cross-user/same-owner cross-module A/B proof |
+| SearchRun lifecycle | Search owner filtering and pause/resume/cancel/status/list paths are present; Search suite 32 passed / 1 environment skip. | **BLOCKED** for real integrated lifecycle evidence; cross-module A/B proof remains **UNVERIFIED** |
+| Candidate | Backtesting owner-scoped candidate reads, lists, and cancellation are present; Backtesting suite 43/43 passed. | **UNVERIFIED** for complete cross-module A/B proof |
+| Experiment and Trade | Inherited owner lookups and owner-filtered trade reads are present; Backtesting suite 43/43 passed. | **UNVERIFIED** for required cross-module A/B proof |
+| LeaderboardScope and Entry | Owner-scoped scope/entry reads and owner-filtered ranking paths are present; Leaderboard suite 22/22 passed. | **UNVERIFIED** for complete cross-user/same-owner submit/rank proof |
+| SearchRun → Candidate propagation | Search passes trusted owner context into the public Backtesting submission path; the real integration reached PostgreSQL but observed `completedCandidateCount` 0 rather than 1 at `modules/search/application/integration.spec.ts:377`. | **BLOCKED**; no fresh two-user AU-02 matrix test was completed |
+| Trusted identity and spoof resistance | Commands omit client ownership authority and services derive owner from authenticated context; existing contract/application tests pass. | **UNVERIFIED** as a complete matrix across all resources |
+| Approved shared-data visibility | Shared market/ranking/plugin policy is preserved in reviewed source and contracts. | **UNVERIFIED** without the required integrated A/B evidence |
+| Sensitive logging | Static review found only backend active-module/readiness logs and no credential-bearing log expression; forbidden sensitive-log search returned no matches. | **PASS** for reviewed source; matrix closure still **UNVERIFIED** |
 
-- **PASS:** `npm run verify:stage4a` completed successfully. It ran all workspace
-  builds and typechecks, the full workspace test suites (`385` passed with `6`
-  environment-gated skips), dependency-cruiser plus architecture fixtures,
-  source-sidecar checks, deferred-scope checks, and backend runtime smoke
-  (`/live=200`, `/ready=503`, `/health=404`). The skips are not live integration
-  evidence.
-- **PASS:** `npm run lint` exited `0` across all workspaces, including backend
+## Environment and validation
+
+- **PASS:** Previously completed redacted process-local Node `pg` checks passed
+  `SELECT current_database()` for `cryptox_development` at
+  `127.0.0.1:55432` and `cryptox_test` at `127.0.0.1:55433`.
+- **UNVERIFIED:** Docker daemon, Docker Compose, and standalone `psql` CLI.
+  The pending elevated approval was treated as unavailable; no failed
+  elevated command was retried. The direct connectivity premise does not prove
+  application-level Auth/Search integration.
+- **PASS:** Real Auth PostgreSQL integration passed 3/3 against the documented
+  `cryptox_development` database using the process-local configuration.
+- **BLOCKED:** Real Search PostgreSQL integration reached the documented
+  `cryptox_test` database but failed at
+  `modules/search/application/integration.spec.ts:377`: `completedCandidateCount`
+  was `0` rather than the expected `1`. No source fix or test retry was made.
+  Skipped PostgreSQL-gated tests are not PASS evidence.
+- **PASS:** `npm run verify:stage4a`: workspace builds and typechecks; 385
+  workspace tests passed with 6 environment-gated skips; dependency-cruiser
+  and architecture rules completed; source-sidecar and deferred-scope checks
+  completed; backend smoke returned `/live=200`, `/ready=503`, `/health=404`.
+- **PASS:** `npm run lint` completed across all workspaces, including backend
   Auth-E2E and contract-test typechecks.
-- **PASS:** `npm run test:scope-check` exited `0` with `13/13` tests; deferred
-  scope remains enforced.
+- **PASS:** `npm run test:scope-check` returned 13/13 passing tests.
 - **PASS:** `git diff --check` reported no whitespace errors.
-- **PASS:** Exact changed-path review found only the Manager-owned
-  `docs/implementation/TASKS.md` and `docs/implementation/HANDOFF.md` deltas;
-  there are no AU-02 source/test changes. The untracked app-generated
-  `.codex/config.toml` remains untouched, unstaged, and undeleted.
-- **PASS:** Worker static review and existing redaction tests found no password,
-  raw credential, cookie, raw session-token, token-digest, or credential log
-  leakage. No new source was added by this attempt.
-- **UNVERIFIED:** The OpenSpec CLI is unavailable on the host; no installation
+- **PASS:** Exact changed-path review found only
+  `docs/implementation/TASKS.md` and `docs/implementation/HANDOFF.md`; no
+  AU-02 source/test path, contract, migration, dependency, generated,
+  frontend, News, Market Data, or unrelated path changed. `.codex/config.toml`
+  remains untracked and untouched.
+- **UNVERIFIED:** OpenSpec CLI; the host command is unavailable and no install
   or network fallback was attempted.
-- **BLOCKED / UNVERIFIED:** The required real PostgreSQL/Auth/Search integration
-  gate cannot be accepted. The Instructor-recorded local containers were
-  healthy for internal read-only checks, but documented host application access
-  failed authentication and Docker Compose is unavailable. No credentials were
-  extracted, changed, reset, requested, or retried; fixture/per-module evidence
-  cannot substitute for this gate.
-- **UNVERIFIED:** The complete cross-module A/B matrix is not proven because the
-  worker produced no integration test or owner-scoped fix. Existing per-module
-  tests pass, but they do not establish the required real two-user boundary.
 
-## Closure and explicit stop boundary
+## Closure and safe stop
 
-- The resulting board is `39 DONE`, `1 REVIEW` (`AU-02`), and `3 BLOCKED`
-  (`I-01`, `I-02`, `I-03`). AU-02 does not meet `DONE`.
-- No source/business/control artifact outside the two Manager-owned checkpoint
-  files changed; no downstream packet was started, promoted, retried, or
-  reopened. The single authorized worker attempt is exhausted.
-- Renewed Instructor review is required before any further AU-02 attempt or
-  before I-01/I-02/I-03 work. The next review must address the unavailable real
-  PostgreSQL/Auth/Search gate and the missing complete matrix.
-- **Commit scope:** one coherent Manager staging/commit attempt is authorized
-  for exactly `docs/implementation/TASKS.md` and this file. `.codex/config.toml`
-  and all other paths must remain unstaged. The exact Git result and final HEAD
-  are reported at the stop boundary; no commit retry is permitted.
-- **Exact Git result:** The single staging/commit attempt was denied at staging
-  with `fatal: Unable to create 'D:/agy-cli-projects/AOS/Cryptox/.git/index.lock': Permission denied`.
-  No commit was created and no retry was made. The exact two-file Manager
-  control-plane delta remains unstaged for parent-Instructor audit; the
-  app-generated `.codex/config.toml` remains untracked and unstaged.
+- Dirac's final handoff reports no changed paths, no fixes, and no worker tests.
+  Manager validation established real Auth 3/3, but the real Search integration
+  is BLOCKED by the concrete candidate-count failure and the complete matrix
+  remains unproven, so AU-02 stays `REVIEW`.
+- No downstream packet was started, promoted, retried, or reopened. I-01,
+  I-02, and I-03 remain `BLOCKED`.
+- **Commit result:** The one coherent Manager staging attempt for the exact two
+  Manager-owned checkpoint files was denied with `fatal: Unable to create
+  'D:/agy-cli-projects/AOS/Cryptox/.git/index.lock': Permission denied`. No
+  commit was created and no retry was made. `.codex/config.toml` and every
+  other path remained unstaged.
 
 # Historical INS-095 Manager Checkpoint — M-02 Realtime Evidence Closure Review
 
