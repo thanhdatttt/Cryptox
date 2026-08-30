@@ -2,45 +2,66 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-081`
+Instruction ID: `INS-082`
 
-Status: `APPROVED_FOR_EXECUTION`
+Status: `HOLD`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
-## INS-081 — Extension Evaluation and Decimal-Boundary Reconciliation
+## INS-082 — Post-INS-081 Independent Audit HOLD
 
-This current signal supersedes `INS-080 / HOLD` and authorizes exactly one
-fresh Manager to execute and close only packet `E-02`. It authorizes no other
-packet, worker thread, retry, replacement, duplicate, downstream promotion, or
-unrelated control/source change.
+This current signal supersedes `INS-081 / APPROVED_FOR_EXECUTION`. The bounded
+E-02 authorization is exhausted and the accepted checkpoint is held pending the
+next Instructor frontier review. It authorizes no Manager, worker, retry,
+replacement, duplicate, downstream promotion, or task-state transition.
 
-### Reviewed checkpoint and applicability
+### Reviewed checkpoint and acceptance
 
-- Reviewed base: `856f0973acf7066149777c566bef847180cc270d`
-  (`docs(control): hold after INS-079 audit`) on branch
-  `MVP_IMPLEMENTATION`. Git status is clean and the source/business tree has
-  not drifted since the accepted S-04 reconciliation.
-- The current operational board is `35 DONE`, `1 REVIEW` (`M-02`), and
-  `7 BLOCKED` (`AU-02`, `E-02`, `L-02`, `F-03`, `I-01`, `I-02`, `I-03`).
-  `C-02`, `B-03`, and the completed legacy `E-01` evidence required to start
-  E-02 are DONE. E-02 is the documented E2 frontier; L-02 is downstream and
-  depends on it.
-- `MVP_PLAN.md` defines E-02 as the decimal Evaluation boundary join from
-  B-03 to L-02. The exact packet requirements are
-  `CSL-R-BT-02`, `CSL-R-RP-02`, and `CSL-R-EV-01`. Its integration dependencies
-  `L-02`, `F-03`, and `I-03` are not start dependencies and must remain
-  blocked.
-- The current Evaluation public contracts are frozen in
-  `modules/evaluation/api/contracts.ts`; the existing evaluator is the exact
-  source evidence for the already-approved baseline metric surface. E-02 may
-  reconcile the implementation within its module boundary but may not edit
-  that canonical contract file.
-- Active-task inspection found only this Instructor task. There is no active
-  Cryptox Manager or worker, so a fresh Manager can be created without a
-  duplicate or concurrency conflict.
+- Branch: `MVP_IMPLEMENTATION`; the E-02 source and Manager-owned checkpoint
+  are accepted at `d3e3e6941056baaddc1618a3f694f5cd4ba6f30f` (`feat(evaluation):
+  reconcile decimal paper metrics`). The parent Instructor independently
+  audited the exact six-file Manager checkpoint after the Manager's one
+  staging/commit attempt was denied by `.git/index.lock` permission; the parent
+  then staged and committed that exact delta once. No Manager retry occurred.
+- The committed E-02 source scope is limited to the Evaluation implementation,
+  focused test, and module README, with `docs/implementation/TASKS.md` and
+  `docs/implementation/HANDOFF.md` as the Manager-owned checkpoint. The frozen
+  `modules/evaluation/api/contracts.ts` was unchanged. No downstream source or
+  business-state drift was found, and the working tree is clean after the
+  governance update is committed.
+- The operational board is now `36 DONE`, `1 REVIEW` (`M-02`), and `6 BLOCKED`
+  (`AU-02`, `L-02`, `F-03`, `I-01`, `I-02`, `I-03`). E-02 alone moved through
+  `BLOCKED -> READY -> IN_PROGRESS -> REVIEW -> DONE`; no downstream task was
+  promoted or started. `TASKS.md` remains the sole operational state authority.
+- Independent validation is accepted: E-02 focused tests `17/17`, complete
+  Evaluation tests `19/19`, package typecheck/build/lint, root tests `377
+  passed` with `6` environment-gated skips, root typecheck/build/lint,
+  architecture, artifacts, deferred-scope, scope tests `13/13`, exact-scope
+  review, cross-module import review, and `git diff --check` all PASS.
+- OpenSpec CLI evidence remains `UNVERIFIED` because the command is unavailable.
+  Live Binance/provider, PostgreSQL/Docker, browser/demo, and other unavailable
+  runtime evidence remain `UNVERIFIED` or `BLOCKED`; fixtures, local simulator
+  output, and skipped tests are not promoted to PASS.
+- Active-task inspection found no active Cryptox Manager or worker. Historical
+  tasks are not resumed, retried, replaced, or reused.
 
-### Authorization
+### HOLD conditions and next review
+
+- Re-read the current `MVP_PLAN.md`, `TASKS.md`, `HANDOFF.md`, requirements,
+  accepted ADRs, architecture, data model, active capability/change specs, and
+  the source/tests for the selected frontier before issuing any new signal.
+- The next nominal frontier is `L-02 — Extension-Aware Ranking and Provenance
+  Admission`, but it may be authorized only after its exact `Q-02`, `B-03`, and
+  `E-02` dependencies, public contract boundary, and disjoint Leaderboard write
+  scope are freshly verified from repository authority. `F-03` and `I-03` are
+  downstream and remain blocked. `M-02` remains `REVIEW/UNVERIFIED`; `AU-02`
+  remains blocked pending its recorded human decision. No state is silently
+  promoted because it is READY or nominally next.
+- Until a subsequent Instructor signal is committed, this `HOLD` authorizes no
+  Manager, worker/subagent, implementation, retry, replacement, duplicate,
+  downstream start, or task-state transition.
+
+### Historical INS-081 authorization (exhausted)
 
 - Create exactly one fresh Orchestrator/Manager in the same canonical checkout
   `D:\agy-cli-projects\AOS\Cryptox`, on branch `MVP_IMPLEMENTATION`, with no
@@ -67,7 +88,7 @@ unrelated control/source change.
   application, and domain files are allowed only when needed for the approved
   public Evaluation boundary. No other module or root source may change.
 
-### Required behavior and acceptance
+### Historical INS-081 acceptance
 
 - Consume the completed decimal-normalized paper result produced by B-03
   through the public Evaluation boundary. Preserve independence from Strategy
@@ -87,7 +108,7 @@ unrelated control/source change.
   edit migrations, dependencies, Strategy, Backtesting, Leaderboard,
   frontend, backend composition, provider code, or any deferred scope.
 
-### Validation and stop condition
+### Historical INS-081 validation
 
 - The Manager must review the one worker's diff and evidence independently,
   including focused Evaluation decimal-boundary tests and the complete
@@ -106,7 +127,7 @@ unrelated control/source change.
   truthfully, and stop. Do not start L-02, F-03, I-03, M-02, AU-02, I-01,
   I-02, or any other downstream/deferred work.
 
-### Concurrency rationale
+### Historical INS-081 concurrency rationale
 
 - No safe second implementation packet is available under this signal: L-02
   is a critical downstream join that depends on E-02, while F-03/I-03 and the
