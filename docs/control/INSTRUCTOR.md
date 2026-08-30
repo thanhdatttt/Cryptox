@@ -2,64 +2,121 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-082`
+Instruction ID: `INS-083`
 
-Status: `HOLD`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
-## INS-082 — Post-INS-081 Independent Audit HOLD
+## INS-083 — Extension-Aware Ranking and Provenance Admission
 
-This current signal supersedes `INS-081 / APPROVED_FOR_EXECUTION`. The bounded
-E-02 authorization is exhausted and the accepted checkpoint is held pending the
-next Instructor frontier review. It authorizes no Manager, worker, retry,
-replacement, duplicate, downstream promotion, or task-state transition.
+This current signal supersedes `INS-082 / HOLD` and authorizes exactly one fresh
+Manager to execute and close only packet `L-02`. It authorizes no other packet,
+worker thread, retry, replacement, duplicate, downstream promotion, or
+unrelated control/source change.
 
-### Reviewed checkpoint and acceptance
+### Reviewed checkpoint and applicability
 
-- Branch: `MVP_IMPLEMENTATION`; the E-02 source and Manager-owned checkpoint
-  are accepted at `d3e3e6941056baaddc1618a3f694f5cd4ba6f30f` (`feat(evaluation):
-  reconcile decimal paper metrics`). The parent Instructor independently
-  audited the exact six-file Manager checkpoint after the Manager's one
-  staging/commit attempt was denied by `.git/index.lock` permission; the parent
-  then staged and committed that exact delta once. No Manager retry occurred.
-- The committed E-02 source scope is limited to the Evaluation implementation,
-  focused test, and module README, with `docs/implementation/TASKS.md` and
-  `docs/implementation/HANDOFF.md` as the Manager-owned checkpoint. The frozen
-  `modules/evaluation/api/contracts.ts` was unchanged. No downstream source or
-  business-state drift was found, and the working tree is clean after the
-  governance update is committed.
-- The operational board is now `36 DONE`, `1 REVIEW` (`M-02`), and `6 BLOCKED`
-  (`AU-02`, `L-02`, `F-03`, `I-01`, `I-02`, `I-03`). E-02 alone moved through
-  `BLOCKED -> READY -> IN_PROGRESS -> REVIEW -> DONE`; no downstream task was
-  promoted or started. `TASKS.md` remains the sole operational state authority.
-- Independent validation is accepted: E-02 focused tests `17/17`, complete
-  Evaluation tests `19/19`, package typecheck/build/lint, root tests `377
-  passed` with `6` environment-gated skips, root typecheck/build/lint,
-  architecture, artifacts, deferred-scope, scope tests `13/13`, exact-scope
-  review, cross-module import review, and `git diff --check` all PASS.
-- OpenSpec CLI evidence remains `UNVERIFIED` because the command is unavailable.
-  Live Binance/provider, PostgreSQL/Docker, browser/demo, and other unavailable
-  runtime evidence remain `UNVERIFIED` or `BLOCKED`; fixtures, local simulator
-  output, and skipped tests are not promoted to PASS.
-- Active-task inspection found no active Cryptox Manager or worker. Historical
-  tasks are not resumed, retried, replaced, or reused.
+- Reviewed base: `ebb890df75f8d081aa5e15c1532fe0d626a51671` (`docs(control):
+  hold after E-02 audit`) on branch `MVP_IMPLEMENTATION`; the working tree was
+  clean before this authorization and no source/business-state drift was found.
+- The operational board is `36 DONE`, `1 REVIEW` (`M-02`), and `6 BLOCKED`
+  (`AU-02`, `L-02`, `F-03`, `I-01`, `I-02`, `I-03`). `C-02`, `Q-02`, `B-03`,
+  `E-02`, and completed legacy `L-01` are DONE and satisfy L-02's documented
+  start dependencies. `F-03`, baseline `I-01`, and `I-03` are integration
+  dependencies and must remain blocked.
+- `MVP_PLAN.md` defines L-02 as the E2 extension-aware Leaderboard join with
+  requirements `CSL-R-LB-01`, `CSL-R-SE-03`, `CSL-R-BT-02`, `CSL-R-RP-02`,
+  `CSL-R-OB-01`, and `CSL-R-OW-01`. It requires finite successfully evaluated
+  same-owner admission, deterministic Top-K/ties/idempotency, and traceable
+  discovery/paper/definition/metric/ranking provenance without mutation or
+  cross-user leakage.
+- The public Leaderboard contract in `modules/leaderboard/api/contracts.ts`
+  and the additive C-02 `RankableExperiment.extensionProvenance` shape are
+  frozen for this packet. L-02 must work through those existing public
+  boundaries; it may not edit canonical contracts, migrations, or other module
+  source. If the approved behavior cannot be proven without a contract/schema
+  expansion, the Manager must stop with `NEEDS_INSTRUCTOR_REVIEW` rather than
+  widening this authorization.
+- Active-task inspection found no active Cryptox Manager or worker. No historical
+  Manager or worker will be resumed, retried, replaced, or reused.
 
-### HOLD conditions and next review
+### Authorization
 
-- Re-read the current `MVP_PLAN.md`, `TASKS.md`, `HANDOFF.md`, requirements,
-  accepted ADRs, architecture, data model, active capability/change specs, and
-  the source/tests for the selected frontier before issuing any new signal.
-- The next nominal frontier is `L-02 — Extension-Aware Ranking and Provenance
-  Admission`, but it may be authorized only after its exact `Q-02`, `B-03`, and
-  `E-02` dependencies, public contract boundary, and disjoint Leaderboard write
-  scope are freshly verified from repository authority. `F-03` and `I-03` are
-  downstream and remain blocked. `M-02` remains `REVIEW/UNVERIFIED`; `AU-02`
-  remains blocked pending its recorded human decision. No state is silently
-  promoted because it is READY or nominally next.
-- Until a subsequent Instructor signal is committed, this `HOLD` authorizes no
-  Manager, worker/subagent, implementation, retry, replacement, duplicate,
-  downstream start, or task-state transition.
+- Create exactly one fresh Orchestrator/Manager in the same canonical checkout
+  `D:\agy-cli-projects\AOS\Cryptox`, on branch `MVP_IMPLEMENTATION`, with no
+  worktree or alternate branch, using model `gpt-5.6-luna` and reasoning
+  `max`. Do not reuse a historical Manager and do not create a duplicate.
+- The Manager must read `AGENTS.md` and
+  `docs/control/prompts/ORCHESTRATOR_START.md` completely, then verify the
+  current signal, reviewed base, branch/status, task DAG, dependencies,
+  checkpoint, and active-task list before acting. If any material premise has
+  changed, it must stop with `NEEDS_INSTRUCTOR_REVIEW`.
+- The Manager may create exactly one internal Leaderboard worker/subagent using
+  the repository-approved internal subagent mechanism. It must not create a
+  user-facing worker task, worktree worker, second worker, retry, replacement,
+  or duplicate. The Manager must stop when this authorization is exhausted.
+- The authorized packet is **L-02 — Extension-Aware Ranking and Provenance
+  Admission** only. The Manager alone may transition L-02 through
+  `BLOCKED -> READY -> IN_PROGRESS -> REVIEW -> DONE` and may update
+  `docs/implementation/TASKS.md` and `docs/implementation/HANDOFF.md`.
+  Workers must not edit those files or any Instructor/decision artifact.
+- Authorized source/write scope is limited to `modules/leaderboard/**`,
+  excluding `modules/leaderboard/api/contracts.ts`, migrations, other modules,
+  frontend, dependencies, and backend composition. Focused Leaderboard tests,
+  module documentation, and module-owned adapters are allowed only when needed
+  to prove this packet. No canonical contract or schema expansion is authorized.
+
+### Required behavior and acceptance
+
+- Admit only `SUCCEEDED` Experiments with finite required Evaluation metrics,
+  and preserve trusted owner-scoped scope/entry/search-run reads and mutations.
+  Unauthenticated access must reject; cross-user guessed identifiers and
+  client-supplied identity fields must not read or mutate private data.
+- Preserve `LINEAR_REQUIRED_V1` scoring, configurable positive K, deterministic
+  Top-K ordering and ties, duplicate/idempotent submission behavior, and
+  rejection of incomplete, failed, invalid, or non-finite results. Do not mutate
+  historical Experiments or Evaluation data and do not add risk, live-trading,
+  queue, or generalized score scope.
+- Make the existing extension provenance traceable through the public
+  Leaderboard/Experiment boundary: strategy or composite version, Search
+  profile/seed/configuration/dataset/code where supplied by the approved
+  projection, paper execution/decimal profile, finite Evaluation metrics, and
+  ranking-configuration identity. Preserve provenance as read-only; do not
+  fabricate unavailable replay evidence or duplicate another module's storage.
+  Any persistence limitation must be explicit in the Manager checkpoint.
+- Keep module ownership and dependency direction intact. Leaderboard may consume
+  only public ports/projections; it must not deep-import Strategy, Search,
+  Backtesting, or Evaluation internals, edit their contracts, recompute metrics,
+  simulate trades, or change migrations.
+
+### Validation and stop condition
+
+- The Manager must independently review the one worker's diff and evidence,
+  including Leaderboard domain/application, public-boundary, owner-isolation,
+  provenance, idempotency, deterministic ranking, and persistence-adapter tests.
+- Run the relevant root workspace tests and gates: architecture, artifacts,
+  deferred-scope, scope tests, typecheck, build, lint, and `git diff --check`.
+  Record unavailable OpenSpec CLI, PostgreSQL/Docker, live-provider,
+  browser/demo, or other environment evidence as `UNVERIFIED` or `BLOCKED`,
+  never `PASS`.
+- Verify the exact module-only write scope, frozen contract/schema, no
+  deferred-scope leakage, no source/business-state drift, and TASKS/HANDOFF
+  consistency before accepting. A missing provenance boundary, scope breach,
+  unexpected contract/schema change, or failed check requires `REVIEW`/`BLOCKED`
+  and Instructor review rather than broadening the packet.
+- Record `INS-083` and the reviewed base in the checkpoint, attempt at most one
+  coherent Manager checkpoint commit, report any permission failure truthfully,
+  and stop. Do not start F-03, I-03, I-01, I-02, M-02, AU-02, or any other
+  downstream/deferred work.
+
+### Concurrency rationale
+
+- No safe second implementation packet is available under this signal. F-03 and
+  I-03 depend on L-02, baseline I-01/AU-02 remain gated, and the `M-02`
+  `REVIEW/UNVERIFIED` closure shares the same canonical control plane. One
+  internal Leaderboard worker is therefore the maximum quality-preserving
+  concurrency for INS-083.
 
 ### Historical INS-081 authorization (exhausted)
 
