@@ -1,31 +1,43 @@
-# INS-085 Execution Checkpoint — F-03 DEC-007 Functional-State Frontend Projections
+# INS-087 Manager Checkpoint — F-03 Checkpoint Record Reconciliation
 
 ## Resume here
 
-- **Authorization:** `INS-085 / APPROVED_FOR_EXECUTION` authorizes exactly one
-  fresh Manager and exactly one internal Frontend worker for F-03 only. No
-  retry, replacement, duplicate, second worker, user-facing task, worktree,
-  branch, worker commit, downstream promotion, or other packet is authorized.
-- **Manager:** `01a051be-7874-7c12-bad0-d37404f7b89c` in the canonical
-  same-directory checkout `D:/agy-cli-projects/AOS/Cryptox` on branch
+- **Authorization:** `INS-087 / APPROVED_FOR_EXECUTION` at current signal
+  commit `6bc256a229d0c167b3f8b5a67db8a588044f812a` authorizes exactly one
+  fresh Manager in the canonical same-directory checkout to reconcile the
+  stale Manager-owned `TASKS.md` and `HANDOFF.md` records. This is
+  governance-only. No source implementation, F-03 residual work, worker,
+  downstream packet, retry, replacement, duplicate, or user-facing task is
+  authorized.
+- **Canonical checkout:** `D:/agy-cli-projects/AOS/Cryptox` on branch
   `MVP_IMPLEMENTATION`.
-- **Starting checkpoint:** `abc868c115c84b0a6a7e0afb619ff8904fe463e8`
-  (`docs(control): authorize F-03 frontend projections`), with reviewed base
-  `1c5b1cf9c250526990c1b4bc0da0b5d9bbec403d`. The base is an ancestor and the
-  only pre-execution delta was the committed `docs/control/INSTRUCTOR.md`
-  authorization. The source/business tree and task DAG were clean and
-  applicable before the Manager-owned state transition.
+- **Audited checkpoint:** The Instructor audited and committed the exact
+  eleven-path F-03 source/control delta at `122569c`
+  (`feat(frontend): add market observability projection seams`): the nine
+  effective frontend source paths listed below plus
+  `docs/implementation/TASKS.md` and `docs/implementation/HANDOFF.md`.
+  `122569c` is an ancestor of current HEAD; the source/business tree is clean
+  and unchanged since that checkpoint, and no uncommitted F-03 delta remains.
+- **Instructor HOLD being reconciled:** `INS-086 / HOLD` at `376dcbc`
+  (`docs(control): hold after partial F-03 review`). `INS-087` supersedes it
+  only for this record reconciliation.
 - **Dependencies:** `M-03`, `S-04`, `S-05`, `S-06`, `Q-02`, `B-03`, `N-03`,
   `E-02`, and `L-02` were verified `DONE`. `M-02` remains `REVIEW`, while
   `AU-02`, baseline `I-01`, `I-02`, and `I-03` remain blocked. No downstream
   packet was started or promoted.
-- **Concurrency:** The repository/app task inspection found no competing
+- **Task state:** `TASKS.md` remains authoritative at `37 DONE`, `2 REVIEW`
+  (`M-02`, `F-03`), and `4 BLOCKED` (`AU-02`, `I-01`, `I-02`, `I-03`). F-03
+  remains `REVIEW / NEEDS_INSTRUCTOR_REVIEW` and is not `DONE`.
+- **Prior execution and worker:** The INS-085 execution found no competing
   Cryptox Manager or Frontend worker. Exactly one internal worker was
-  dispatched: Descartes (`01a051c9-fe30-7a32-8b24-a3878e278323`).
+  dispatched: Descartes (`01a051c9-fe30-7a32-8b24-a3878e278323`). No worker
+  was created for this INS-087 governance-only reconciliation.
 - **State transition:** Only F-03 moved exactly
   `BLOCKED -> READY -> IN_PROGRESS -> REVIEW`. The worker stopped safely with
-  partial uncommitted edits; the Manager independently reviewed the result.
-  F-03 is not `DONE` and requires `NEEDS_INSTRUCTOR_REVIEW`.
+  partial edits; the Manager independently reviewed the result, and the
+  Instructor later audited and committed the exact eleven-path delta at
+  `122569c`. F-03 is not `DONE` and requires
+  `NEEDS_INSTRUCTOR_REVIEW`.
 
 ## Execution boundary
 
@@ -36,9 +48,10 @@
   and dependencies. Frozen REST/WebSocket contracts, backend/module source,
   migrations, providers, manifests/lockfiles, policy documents, and control
   files were protected. The worker made no commit and no control-plane edit.
-- **Manager scope:** Review/integration safety work plus the Manager-owned
-  `docs/implementation/TASKS.md` and this `HANDOFF.md`. No frontend feature
-  slice was reimplemented by the Manager.
+- **Manager scope:** The INS-085 Manager owned review/integration safety work
+  plus the Manager-owned `docs/implementation/TASKS.md` and this
+  `HANDOFF.md`; no frontend feature slice was reimplemented by the Manager.
+  INS-087 permits only this two-file record reconciliation.
 
 ## Worker result and independent review
 
@@ -48,7 +61,9 @@
   and new `features/projections.ts` helper were not accepted: the Manager
   restored `features/screens.tsx` byte-for-byte from the reviewed base and
   removed the unreferenced partial helper as review-safety cleanup. The initial
-  transient `App.tsx` prop change also has no effective diff.
+  transient `App.tsx` prop change also has no effective diff. The accepted
+  effective delta was later audited and committed by the Instructor at
+  `122569c`; no uncommitted F-03 implementation delta remains.
 - **Effective frontend source paths:**
   `apps/frontend/src/auth/cache.ts`,
   `apps/frontend/src/components/MarketChart.tsx`,
@@ -81,12 +96,15 @@
   or the separately blocked integration boundary. No fabricated client state,
   browser network call, new contract field, or client identity bypass was
   introduced.
-- **Scope review:** PASS. The final source diff is confined to the nine
-  `apps/frontend` paths above; `packages/contracts/**`, `apps/backend/**`,
-  `modules/**`, migrations, dependencies, policy documents, and generated
-  source artifacts are unchanged. The deferred-scope checker passes after the
-  unreferenced partial helper and fixture-only observability literal were
-  removed; this does not convert the incomplete F-03 behavior into acceptance.
+- **Scope review:** PASS. The exact eleven-path source/control delta audited
+  by the Instructor and committed at `122569c` consists of the nine
+  `apps/frontend` paths above plus `docs/implementation/TASKS.md` and
+  `docs/implementation/HANDOFF.md`; no uncommitted F-03 implementation delta
+  remains. `packages/contracts/**`, `apps/backend/**`, `modules/**`,
+  migrations, dependencies, policy documents, and generated source artifacts
+  are unchanged. The deferred-scope checker passes after the unreferenced
+  partial helper and fixture-only observability literal were removed; this does
+  not convert the incomplete F-03 behavior into acceptance.
 
 ## Validation evidence
 
@@ -122,11 +140,19 @@
   second worker, retry or resume this worker, implement another packet, or
   promote newly unlocked work. Instructor review is required before any
   further F-03 implementation or integration decision.
-- **Commit attempt:** The single coherent Manager staging/commit attempt was
-  made once and failed before staging with `fatal: Unable to create
+- **Prior INS-085 commit attempt:** The single coherent Manager staging/commit
+  attempt was made once and failed before staging with `fatal: Unable to create
   'D:/agy-cli-projects/AOS/Cryptox/.git/index.lock': Permission denied`. It was
-  not retried. The source/control delta remains uncommitted for Instructor
-  audit and commit.
+  not retried. The Instructor independently audited and committed the exact
+  eleven-path source/control delta at `122569c`; no uncommitted F-03
+  implementation delta remains.
+- **INS-087 commit attempt:** The one authorized coherent Manager staging/commit
+  attempt for this two-file reconciliation failed before staging with the same
+  exact error: `fatal: Unable to create
+  'D:/agy-cli-projects/AOS/Cryptox/.git/index.lock': Permission denied`. It was
+  not retried. The two-file reconciliation remains uncommitted for Instructor
+  audit and commit. Under `INS-087`, it changes only the two Manager-owned
+  control files and does not start or promote any downstream task.
 
 # INS-083 Execution Checkpoint — L-02 Extension-Aware Ranking and Provenance Admission
 
