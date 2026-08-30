@@ -522,3 +522,33 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 [F-03 authorization](./INSTRUCTOR.md), and commit `6a4e86e`.
+
+## DEC-016 — F-03 checkpoint consistency gate
+
+Status: `APPROVED`
+
+Authority: Instructor review after the INS-091 governance-only checkpoint
+reconciliation, preserved in commit `9ed13bc`
+
+Decision: F-03 remains unaccepted for operational closure until the Manager
+reconciles every current-state statement in `TASKS.md` and `HANDOFF.md`. The
+top task table may not claim `DONE` while the current state-derivation section
+claims `REVIEW / NEEDS_INSTRUCTOR_REVIEW`. A fresh governance-only Manager may
+correct that contradiction against the already audited `6a4e86e` source/test
+boundary, with no worker, source implementation, downstream promotion, or
+change to any other task state.
+
+Why: `TASKS.md` is the sole operational task-state authority, and an internal
+contradiction makes the checkpoint non-authoritative even though the F-03
+packet-local implementation and validation evidence are otherwise sufficient.
+The correction is a control-plane reconciliation, not a new implementation or
+permission to claim final integration, provider, database, or browser evidence.
+
+Affected: F-03 closure reconciliation, `TASKS.md`, `HANDOFF.md`, and the
+current Instructor HOLD. M-02, AU-02, I-01, I-02, I-03, final integration,
+deferred scope, and all source contracts remain unchanged.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+[INS-092 HOLD](./INSTRUCTOR.md), and commit `9ed13bc`.

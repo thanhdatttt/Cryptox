@@ -8,7 +8,47 @@ Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
-## INS-091 — F-03 Packet Closure and Checkpoint Reconciliation
+## INS-092 — HOLD after INS-091 checkpoint consistency review
+
+This current signal supersedes `INS-091 / APPROVED_FOR_EXECUTION` and grants no
+execution authority. The INS-091 Manager checkpoint was preserved in commit
+`9ed13bc` after its single staging/commit attempt was denied by the Git
+environment, but F-03 closure is not accepted yet because `TASKS.md` contains
+an internal state contradiction.
+
+### Reviewed checkpoint
+
+- The canonical checkout is `D:/agy-cli-projects/AOS/Cryptox`, branch
+  `MVP_IMPLEMENTATION`, with the exact INS-091 Manager-owned delta recorded in
+  `9ed13bc` (`docs(control): record INS-091 F-03 closure checkpoint`). No source
+  or business-state drift was introduced by that commit.
+- The top operational table records F-03 as `DONE` and the board as `38 DONE`,
+  `1 REVIEW` (`M-02`), and `4 BLOCKED` (`AU-02`, `I-01`, `I-02`, `I-03`).
+  However, the current `TASKS.md` “State derivation at this checkpoint” still
+  says that F-03 remains `REVIEW` and requires `NEEDS_INSTRUCTOR_REVIEW`.
+  Until those duplicated statements are reconciled by the Manager, the
+  operational board is inconsistent and F-03 is not accepted as DONE.
+- The INS-091 focused evidence remains packet-local and valid: F-03 tests
+  3/3, frontend/root suites and static checks pass, while Docker/PostgreSQL is
+  `BLOCKED` and OpenSpec/live-provider/feature-transport/browser-demo evidence
+  remains `UNVERIFIED` or `BLOCKED`. These limitations do not authorize final
+  integration or downstream work.
+- The INS-091 Manager is idle and made no source change or worker dispatch.
+  Its sole commit attempt failed before staging with
+  `fatal: Unable to create 'D:/agy-cli-projects/AOS/Cryptox/.git/index.lock':
+  Permission denied`; no retry was made.
+
+### Current boundary
+
+- This HOLD authorizes nothing: no worker, implementation packet, F-03 retry,
+  M-02, AU-02, I-01, I-02, I-03, downstream promotion, or duplicate Manager.
+- A separate fresh governance-only Manager may be authorized to reconcile the
+  contradictory F-03 state language in `TASKS.md` and the corresponding
+  `HANDOFF.md` checkpoint to the already audited `6a4e86e` source boundary.
+  That Manager must edit only those two Manager-owned files, create no worker,
+  perform no source implementation, and stop after one commit attempt.
+
+## Historical INS-091 — F-03 Packet Closure and Checkpoint Reconciliation
 
 This current signal supersedes `INS-090 / HOLD` and authorizes exactly one fresh
 Manager for a governance-only F-03 closure review. It authorizes no worker and no
