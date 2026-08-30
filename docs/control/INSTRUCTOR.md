@@ -2,13 +2,67 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-101`
+Instruction ID: `INS-102`
 
-Status: `APPROVED_FOR_EXECUTION`
+Status: `HOLD`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
-## INS-101 — AU-02 Search remediation and ownership matrix completion
+## INS-102 — Independent review after INS-101 AU-02 completion
+
+This signal replaces `INS-101 / APPROVED_FOR_EXECUTION` after the Instructor's
+independent review. It is a checkpoint only and authorizes no implementation,
+retry, replacement, duplicate Manager/worker, or downstream packet.
+
+### Reviewed checkpoint and acceptance
+
+- The canonical checkout is `D:/agy-cli-projects/AOS/Cryptox` on
+  `MVP_IMPLEMENTATION`, at
+  `422d47fad516f0e57930f91e3da88b22cb726183` (`fix(search): close AU-02
+  ownership integration`). The commit contains exactly the five tracked paths
+  produced by the INS-101 Manager: the three Search source/test paths and the
+  Manager-owned `TASKS.md` and `HANDOFF.md`.
+- The Instructor independently reviewed the source diff, the Search lifecycle
+  regression, the real PostgreSQL integration, the ownership matrix, task
+  transitions, and the Manager's exact one-commit boundary. No source,
+  business-state, task-DAG, generated-artifact, or out-of-scope drift was
+  found. `git diff --check` is clean.
+- AU-02 is accepted as `DONE`. Its recorded transition is exactly
+  `REVIEW -> READY -> IN_PROGRESS -> REVIEW -> DONE`. The board is now
+  `40 DONE`, `0 REVIEW`, and `3 BLOCKED` (`I-01`, `I-02`, `I-03`).
+- The fresh INS-101 Manager and its sole internal worker are idle/closed. No
+  Cryptox Manager, Orchestrator, worker, retry, replacement, duplicate, or
+  downstream packet is active.
+
+### Independent validation
+
+- **PASS:** Search application regression `13/13`.
+- **PASS:** Real PostgreSQL Search integration `1/1`, including SearchRun
+  persistence, Search -> Backtesting -> Leaderboard execution,
+  `completedCandidateCount = 1`, and owner A/B isolation.
+- **PASS:** Real PostgreSQL Auth integration `3/3` and backend Auth E2E `1/1`.
+- **PASS:** Serial `npm run verify:stage4a`: build, typecheck, workspace tests
+  (`386` passed with `6` environment-gated skips), architecture/dependency,
+  source-sidecar, deferred-scope, and backend runtime smoke gates. Lint,
+  test-scope check, secret-log review, exact changed-path review, and
+  whitespace checks also pass.
+- **UNVERIFIED:** Docker daemon/Compose and standalone `psql`; direct
+  process-local Node PostgreSQL checks and application integrations were used.
+- **UNVERIFIED:** OpenSpec CLI and local PDF text extraction because the host
+  tools are unavailable. No requirement was inferred from either missing tool.
+- The only remaining working-tree delta is the untouched app-generated
+  untracked `.codex/config.toml`; it is outside Cryptox scope and must remain
+  untouched, unstaged, and undeleted.
+
+### HOLD boundary
+
+- This `HOLD` authorizes no implementation. `I-01`, `I-02`, and `I-03` remain
+  `BLOCKED`; completion of AU-02 does not automatically promote or start any
+  downstream packet.
+- A future authorization may review and, if all dependencies and evidence are
+  still valid, authorize the next bounded packet from the repository plan.
+
+## Historical INS-101 — AU-02 Search remediation and ownership matrix completion
 
 This signal supersedes `INS-100 / HOLD` at `9d2d6d9` after a fresh Instructor
 review. It authorizes exactly one new bounded AU-02 remediation/completion

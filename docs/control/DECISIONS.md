@@ -739,3 +739,44 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [MVP plan](../implementation/MVP_PLAN.md), [Task state](../implementation/TASKS.md),
 [Latest checkpoint](../implementation/HANDOFF.md), `INS-100`, and commit
 `9d2d6d9`.
+
+## DEC-023 — INS-101 AU-02 remediation accepted at DONE
+
+Status: `APPROVED`
+
+Authority: Independent Instructor review after the fresh INS-101 Manager
+checkpoint and commit `422d47fad516f0e57930f91e3da88b22cb726183`
+
+Decision: The bounded `INS-101` AU-02 remediation is accepted as `DONE`.
+The Search lifecycle defect and the complete applicable two-user ownership /
+trusted-identity matrix are evidenced by the reviewed Search source/tests,
+real PostgreSQL Search integration, existing owner-focused module suites, and
+the real Auth/backend smoke. The current Instructor signal is
+`INS-102 / HOLD`; no downstream packet is authorized by this decision.
+
+Why: The independently rerun Search regression passed `13/13`; the real
+PostgreSQL Search integration passed `1/1` with the required completed-candidate
+invariant; real PostgreSQL Auth passed `3/3`; backend Auth E2E passed `1/1`; and
+serial `verify:stage4a` passed with `386` workspace tests and `6` explicit
+environment-gated skips. The Manager recorded exactly one fresh Manager and
+one fresh internal worker, made no retry, and stayed within the authorized
+Search/application and checkpoint scope. The Manager's staging attempt was
+denied by the Git ACL, so the Instructor committed the exact audited five-file
+delta once at the cited commit. No assertion was weakened and no fixture
+replaced the real Search database path.
+
+Remaining environment limitations are retained as `UNVERIFIED`: Docker /
+Compose, standalone `psql`, OpenSpec CLI, and local PDF text extraction. These
+limitations do not change the accepted AU-02 evidence, but they must not be
+reported as `PASS` or silently used to authorize unrelated work.
+
+Affected: AU-02, `TASKS.md`, `HANDOFF.md`, `INS-102`, and the remaining
+integration DAG. `I-01`, `I-02`, `I-03`, all deferred scope, requirements,
+ownership rules, and other task states remain unchanged until separately
+authorized.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [ADR-008](../adr/ADR_008_simple_auth_and_per_user_ownership.md),
+[MVP plan](../implementation/MVP_PLAN.md), [Task state](../implementation/TASKS.md),
+[Latest checkpoint](../implementation/HANDOFF.md), `INS-101`, and commit
+`422d47fad516f0e57930f91e3da88b22cb726183`.
