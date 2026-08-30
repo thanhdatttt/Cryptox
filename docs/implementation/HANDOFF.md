@@ -1169,3 +1169,67 @@ distinguished without a history schema change, which is outside INS-083.
   Staging failed with
   `fatal: Unable to create 'D:/agy-cli-projects/AOS/Cryptox/.git/index.lock': Permission denied`;
   no commit was created by that attempt, and no staging/commit retry was
+# INS-103 Manager Checkpoint — I-01 Runtime, Transports and Observability Integration (NEEDS_INSTRUCTOR_REVIEW)
+
+## Authorization and execution
+
+- **Authorization:** `INS-103 / APPROVED_FOR_EXECUTION`; current Instructor
+  signal is committed at `2a85c82711bb2e78e52e3a02e44f015d8c20a83f` and is
+  applicable to the reviewed checkpoint `9f0841a83da6bd917185d3d692b5c9f27f07cdff`.
+- **Checkout:** Manager is operating directly at
+  `D:/agy-cli-projects/AOS/Cryptox` on `MVP_IMPLEMENTATION`. The tracked tree
+  was clean apart from the untouched app-generated `.codex/config.toml`.
+  The authorization commit changes only Instructor/decision governance files;
+  no source, business-state, or task-DAG drift was found.
+- **Dependencies:** `TASKS.md` verified `40 DONE`, `0 REVIEW`, `3 BLOCKED`;
+  AU-01, AU-02, B-02, M-01, M-02, S-02, S-03, Q-01 integration, N-01, N-02,
+  F-01, F-AUTH, and F-02 are `DONE`.
+- **State:** I-01 moved exactly `BLOCKED → READY → IN_PROGRESS → REVIEW`.
+  No I-02, I-03, extension, retry, replacement, duplicate, or downstream
+  packet was started or promoted.
+- **Worker:** Exactly one fresh sequential internal worker was created:
+  Socrates (`01a05344-02cf-7930-9226-a3ec1be46522`). The worker is authorized
+  only for `apps/backend/**` and the narrowly permitted WebSocket dependency
+  exception; it must not edit control artifacts, stage, or commit.
+
+## Worker checkpoint and independent review
+
+The sole worker completed its source and contract review and returned
+`NEEDS_INSTRUCTOR_REVIEW`. It identified a concrete composition blocker: the
+public Strategy bootstrap requires injected `StrategyFactory` instances, but
+the public API exports no built-in factory registry or composition seam. The
+available built-in factories live under excluded
+`modules/strategy/domain/plugins/**`. Deep-importing or duplicating those
+implementations from `apps/backend/**` would violate the approved architecture
+and the exact INS-103 write scope. Independent Manager inspection confirmed
+that `createStrategyModule` accepts factories and the default facade constructs
+an empty registry; no backend implementation was started.
+
+No source, dependency, contract, generated, migration, infrastructure,
+frontend, or excluded-path files changed. The only working-tree changes are
+the Manager-owned `TASKS.md` and this checkpoint; `.codex/config.toml` remains
+untouched and untracked. The single Manager staging attempt for this truthful
+control checkpoint was denied with the exact error `fatal: Unable to create
+'D:/agy-cli-projects/AOS/Cryptox/.git/index.lock': Permission denied`. No
+implementation source was staged, no commit was created, and no staging or
+commit retry was made.
+
+## Acceptance and validation status
+
+I-01 acceptance gates are `BLOCKED` pending that decision: no composed REST or
+market-WebSocket backend exists to exercise, and no real PostgreSQL/Binance/
+News runtime smoke can truthfully be claimed. The baseline backend validation
+was 8 passed and 1 environment-gated skip; workspace tests were 386 passed and
+6 environment-gated skips. Backend and workspace typecheck/build/lint passed;
+architecture, source-sidecar, deferred-scope, test-scope, runtime-smoke, and
+whitespace checks passed. These are baseline/repository checks, not I-01
+implementation evidence. The OpenSpec CLI is unavailable and remains
+`UNVERIFIED`; checked-in active change artifacts were used. No I-02/I-03 work
+was started.
+
+## Required Instructor decision and next safe state
+
+Please authorize either a public Strategy registry/export composition seam
+within the approved contract architecture or explicitly reconcile the I-01
+scope to permit the required source change. Until then, leave I-01 in `REVIEW`
+with `NEEDS_INSTRUCTOR_REVIEW`; do not start I-02, I-03, or any extension.
