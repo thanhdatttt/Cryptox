@@ -61,7 +61,7 @@ const pointForCandle = (snapshot, snapshotId, candleCloseTime) => {
     const from = Date.parse(snapshot.ref.range.from);
     const to = Date.parse(snapshot.ref.range.to);
     const close = Date.parse(candleCloseTime);
-    if (close < from || close >= to)
+    if (close <= from || close >= to)
         return undefined;
     const windowMs = snapshot.ref.aggregationWindowSeconds * 1_000;
     const windowEnd = from + Math.max(1, Math.ceil((close - from) / windowMs)) * windowMs;
@@ -131,7 +131,7 @@ function createSentimentModule(dependencies = createInMemorySentimentDependencie
             const points = aggregateSnapshotPoints(normalized, await resultRepository.readForSnapshot(normalized));
             if (points.length === 0)
                 throw new errors_1.SentimentException("INVALID_SNAPSHOT", "Cannot create an empty Sentiment snapshot.");
-        const sha256 = (0, node_crypto_1.createHash)("sha256").update((0, rules_1.sentimentSnapshotSerialization)(normalized, points), "utf8").digest("hex");
+            const sha256 = (0, node_crypto_1.createHash)("sha256").update((0, rules_1.sentimentSnapshotSerialization)(normalized, points), "utf8").digest("hex");
             const ref = {
                 id: (0, node_crypto_1.randomUUID)(),
                 relatedCoin: normalized.relatedCoin,

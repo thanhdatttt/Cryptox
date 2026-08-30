@@ -12,6 +12,8 @@ export interface SimulationInput {
   /** Number of leading sealed candles reserved for indicator warm-up. */
   warmupCandles?: number;
   strategy: Strategy;
+  /** Exact sealed as-of lookup supplied by Backtesting's Sentiment boundary. */
+  sentimentAt?: (candleCloseTime: string) => StrategyContext["sentiment"];
   initialCapital: number;
   feeRatePercent: number;
   slippageBps?: number;
@@ -122,6 +124,12 @@ const toStrategyCandle = (candle: Candle): StrategyCandle => ({ timestamp: candl
 
 const assertPositivePercent = (value: number | undefined): void => {
   if (value !== undefined && (!Number.isFinite(value) || value <= 0 || value >= 100)) throw new Error("INVALID_INPUT");
+};
+
+const candleCloseTime = (timestamp: string, timeframe: Timeframe): string => {
+  const parsed = Date.parse(timestamp);
+  if (!Number.isFinite(parsed)) throw new Error("INVALID_INPUT");
+  return new Date(parsed + TIMEFRAME_MS[timeframe]).toISOString();
 };
 const assertPositivePrice = (value: Decimal | null): void => {
   if (value !== null && value.units <= 0n) throw new Error("INVALID_INPUT");
@@ -249,12 +257,14 @@ export function simulateBacktest(input: SimulationInput): CompletedBacktestResul
     }
 
     if (index < warmupCandles || index === candles.length - 1) continue;
+    const sentiment = input.sentimentAt?.(candleCloseTime(candle.timestamp, input.timeframe));
     const context: StrategyContext = {
       pair: input.pair,
       timeframe: input.timeframe,
       candles: candles.slice(0, index + 1).map(toStrategyCandle),
       currentPrice: candle.close,
       indicators: {},
+      ...(sentiment ? { sentiment } : {}),
     };
     const signal = input.strategy.analyze(context);
     if (signal === "HOLD") continue;

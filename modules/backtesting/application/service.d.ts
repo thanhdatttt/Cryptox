@@ -2,6 +2,7 @@ import type { BacktestQueueJob, BacktestQueuePayload, BacktestQueueReturn, Backt
 import type { CompositeStrategyDefinition, StrategyDefinition } from "modules/strategy/api";
 import type { BacktestLogApi, ExperimentVisualizationPageRequest, LegacyReplayVerificationResult, SearchCandidatePage, SearchCandidatePageRequest, SearchCandidateSummary, TradePage, TradePageRequest } from "../api";
 import type { BacktestAttemptAudit, BacktestSubmissionAccepted, BenchmarkScopeSummary, CandidateProgress, CompletedBacktestResult, CreateLeaderboardScopeCommand, ExecutionPolicySnapshot, ExperimentResultSummary, ExperimentVisualization, ReplayVerificationResult, StartManualBacktestCommand, SubmitSearchCandidateCommand, Trade } from "../domain/contracts";
+import type { SentimentDatasetSnapshotRef } from "modules/sentiment/api";
 import type { AuthContext } from "modules/auth/api";
 import type { BacktestDispatch, BacktestQueuePort, BacktestingModuleDependencies, BacktestingRepository, StoredBenchmarkScope, StoredCandidate, StoredExperiment, StoredReplayVerification, WorkerAttemptClaim } from "./ports";
 export declare const BACKTEST_RUNTIME_VERSION = "1.0.0";
@@ -151,7 +152,7 @@ export declare class InMemoryBacktestingRepository implements BacktestingReposit
         compositeDefinitionId: string;
         compositeDefinition: CompositeStrategyDefinition;
         datasetSnapshot: import("modules/market-data/api").DatasetSnapshotRef;
-        sentimentDatasetSnapshot?: import("modules/sentiment/api").SentimentDatasetSnapshotRef;
+        sentimentDatasetSnapshot?: SentimentDatasetSnapshotRef;
         strategyDefinitions: StrategyDefinition[];
         executionPolicy?: ExecutionPolicySnapshot;
         simulatorVersion?: string;
@@ -228,11 +229,14 @@ export declare class BacktestingService implements BacktestLogApi {
     private candidate;
     private ownedCandidate;
     private ownedSearchCandidates;
-    private requiredWarmupCandles;
+    private strategyRequirements;
     private validateStrategyReferences;
     private snapshot;
+    private loadSentiment;
     private captureSnapshot;
     private validateScope;
+    private verifySentimentReference;
+    private resolveSentimentReference;
     createBenchmarkScope(auth: AuthContext, command: CreateLeaderboardScopeCommand, options: {
         scopeIdempotencyKey: string;
     }): Promise<BenchmarkScopeSummary>;

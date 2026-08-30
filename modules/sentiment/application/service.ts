@@ -77,7 +77,7 @@ const pointForCandle = (snapshot: SealedSentimentSnapshot, snapshotId: string, c
   const from = Date.parse(snapshot.ref.range.from);
   const to = Date.parse(snapshot.ref.range.to);
   const close = Date.parse(candleCloseTime);
-  if (close < from || close >= to) return undefined;
+  if (close <= from || close >= to) return undefined;
   const windowMs = snapshot.ref.aggregationWindowSeconds * 1_000;
   const windowEnd = from + Math.max(1, Math.ceil((close - from) / windowMs)) * windowMs;
   if (windowEnd > to || windowEnd !== close) return undefined;

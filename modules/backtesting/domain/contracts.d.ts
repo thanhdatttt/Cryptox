@@ -1,6 +1,6 @@
 import type { CompositeStrategyDefinition, StrategyDefinition } from "modules/strategy/api";
 import type { Candle, DatasetSnapshotRef, Pair, Timeframe } from "modules/market-data/api";
-import type { SentimentDatasetSnapshotRef } from "modules/sentiment/api";
+import type { CreateSentimentSnapshotCommand, SentimentDatasetSnapshotRef } from "modules/sentiment/api";
 export type CandidateStatus = "CREATED" | "QUEUED" | "BACKTESTING" | "RETRY_WAIT" | "PROCESSING_RESULT" | "TERMINAL_FAILURE_PENDING" | "COMPLETED" | "FAILED" | "CANCELLED";
 export interface BacktestSubmissionAccepted {
     candidateId: string;
@@ -91,6 +91,7 @@ export interface CreateLeaderboardScopeCommand {
     name: string;
     datasetSnapshot: DatasetSnapshotRef;
     sentimentDatasetSnapshot?: SentimentDatasetSnapshotRef;
+    sentimentCreate?: CreateSentimentSnapshotCommand;
     initialCapital: number;
     feeRatePercent: number;
     slippageBps: number;

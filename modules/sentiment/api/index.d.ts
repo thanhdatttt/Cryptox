@@ -1,5 +1,5 @@
 import type { CreateSentimentSnapshotCommand, SentimentDatasetSnapshotRef, SentimentInput, SentimentResult, SentimentSnapshotReader } from "../domain/contracts";
-export type { SentimentLabel, SentimentInput, SentimentResult, SentimentDatasetSnapshotRef, SentimentSnapshotPoint, SentimentSnapshotReader } from "../domain/contracts";
+export type { CreateSentimentSnapshotCommand, SentimentLabel, SentimentInput, SentimentResult, SentimentDatasetSnapshotRef, SentimentSnapshotPoint, SentimentSnapshotReader } from "../domain/contracts";
 export type { SentimentAnalysisService } from "../application/ports";
 export interface SentimentModulePublicApi {
     analyze(input: SentimentInput): Promise<SentimentResult>;

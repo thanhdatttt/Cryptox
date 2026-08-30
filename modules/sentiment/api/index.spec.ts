@@ -46,6 +46,7 @@ describe("sentiment runtime", () => {
 
     expect(snapshot).toMatchObject({ relatedCoin: "BTC", pointCount: 2, createdAt: at(20), sha256: expect.stringMatching(/^[a-f0-9]{64}$/) });
     expect(await runtime.getSnapshotRef(snapshot.id)).toEqual(snapshot);
+    expect(reader.readAt(snapshot.id, at(0))).toBeUndefined();
     expect(reader.readAt(snapshot.id, at(5))).toMatchObject({ timestamp: at(5), label: "POSITIVE", averageScore: 0.2 });
     expect(reader.readAt(snapshot.id, at(10))).toMatchObject({ timestamp: at(10), label: "NEGATIVE", averageScore: -0.4 });
     expect(reader.readAt(snapshot.id, at(11))).toBeUndefined();

@@ -41,6 +41,98 @@ const candle = (timestamp, open, close) => ({
         (0, vitest_1.expect)(result.initialCapital).toBe(1000);
         (0, vitest_1.expect)(result.trades[0]).toMatchObject({ entryTime: "2025-01-01T01:00:00.000Z", marketEntryPrice: 102, marketExitPrice: 110, exitReason: "RANGE_END", result: "WIN" });
     });
+    (0, vitest_1.it)("supplies one exact candle-close sentiment observation to each decision context", () => {
+        const observed = [];
+        const result = (0, index_1.simulateBacktest)({
+            candidateId: "c",
+            attemptId: "a",
+            pair: "BTCUSDT",
+            settlementAsset: "USDT",
+            timeframe: "1h",
+            candles: [candle("2025-01-01T00:00:00.000Z", 100, 101), candle("2025-01-01T01:00:00.000Z", 102, 103), candle("2025-01-01T02:00:00.000Z", 104, 105)],
+            strategy: {
+                name: "sentiment-test",
+                category: "INFORMATION",
+                analyze: (context) => {
+                    observed.push({ time: context.candles.at(-1).timestamp, score: context.sentiment?.averageScore });
+                    return "HOLD";
+                },
+            },
+            sentimentAt: (closeTime) => closeTime === "2025-01-01T02:00:00.000Z" ? { label: "POSITIVE", averageScore: 0.75 } : undefined,
+            initialCapital: 1000,
+            feeRatePercent: 0,
+            slippageBps: 0,
+            workerRuntimeVersion: "1",
+            workerRuntimeSha256: "a".repeat(64),
+            startedAt: "2025-01-01T00:00:00.000Z",
+            completedAt: "2025-01-01T03:00:00.000Z",
+        });
+        (0, vitest_1.expect)(result.trades).toHaveLength(0);
+        (0, vitest_1.expect)(observed).toEqual([{ time: "2025-01-01T00:00:00.000Z", score: undefined }, { time: "2025-01-01T01:00:00.000Z", score: 0.75 }]);
+    });
+    (0, vitest_1.it)("rejects incomplete INFORMATION snapshots before enqueue and reuses the sealed snapshot on replay", async () => {
+        const snapshot = { id: "snapshot-information", pair: "BTCUSDT", pairMetadata: { pair: "BTCUSDT", baseAsset: "BTC", quoteAsset: "USDT", settlementAsset: "USDT" }, timeframe: "1h", range: { from: "2025-01-01T00:00:00.000Z", to: "2025-01-01T03:00:00.000Z" }, candleCount: 3, sha256: "s".repeat(64), createdAt: "2025-01-01T00:00:00.000Z" };
+        const candles = [candle("2025-01-01T00:00:00.000Z", 100, 101), candle("2025-01-01T01:00:00.000Z", 101, 102), candle("2025-01-01T02:00:00.000Z", 102, 103)];
+        const sentimentRef = { id: "sentiment-information", relatedCoin: "BTC", range: { from: "2025-01-01T00:00:00.000Z", to: "2025-01-01T04:00:00.000Z" }, aggregationWindowSeconds: 3600, modelName: "model", modelVersion: "1", modelSha256: "a".repeat(64), pointCount: 3, sha256: "b".repeat(64), createdAt: "2025-01-01T00:00:00.000Z" };
+        const points = new Map([
+            ["2025-01-01T01:00:00.000Z", { timestamp: "2025-01-01T01:00:00.000Z", label: "POSITIVE", averageScore: 0.7 }],
+            ["2025-01-01T02:00:00.000Z", { timestamp: "2025-01-01T02:00:00.000Z", label: "NEUTRAL", averageScore: 0 }],
+            ["2025-01-01T03:00:00.000Z", { timestamp: "2025-01-01T03:00:00.000Z", label: "NEGATIVE", averageScore: -0.7 }],
+        ]);
+        const createFixture = async (readAt) => {
+            const dependencies = (0, service_1.createInMemoryBacktestingDependencies)();
+            const queue = new service_1.InMemoryBacktestQueue();
+            const observed = [];
+            const definition = { id: "information-definition", userId: "user-1", logicalFamilyKey: "strategy:information", strategyName: "INFORMATION_TEST", implementationVersion: "1", implementationSha256: "a".repeat(64), version: 1, parameters: {}, createdAt: "2025-01-01T00:00:00.000Z" };
+            const composite = { id: "information-composite", userId: "user-1", logicalFamilyKey: "composite:information", version: 1, method: "WEIGHTED_SCORE", components: [{ strategyDefinitionId: definition.id, weight: 1 }], thresholds: { buy: 0.3, sell: -0.3 }, createdAt: "2025-01-01T00:00:00.000Z" };
+            const service = (0, service_1.createBacktestingService)({
+                ...dependencies,
+                queue,
+                marketData: { readDatasetSnapshot: async () => ({ snapshot, candles }) },
+                sentiment: { createSnapshot: async () => sentimentRef, getSnapshotRef: async () => sentimentRef, readSnapshot: async () => ({ readAt }) },
+                strategy: {
+                    listStrategies: () => [{ name: definition.strategyName, category: "INFORMATION", implementationVersion: definition.implementationVersion, implementationSha256: definition.implementationSha256, minimumHistoryCandles: 0, requiresSentiment: true }],
+                    readDefinitions: async () => [definition],
+                    readComposite: async () => composite,
+                    resolveStrategy: async () => ({ name: definition.strategyName, category: "INFORMATION", analyze: (context) => { observed.push({ time: context.candles.at(-1).timestamp, score: context.sentiment?.averageScore }); return "HOLD"; } }),
+                    combineSignals: (_definition, signals) => signals[0]?.signal ?? "HOLD",
+                },
+            });
+            const scope = await service.createBenchmarkScope({ userId: "user-1" }, { name: "Information fixture", datasetSnapshot: snapshot, sentimentDatasetSnapshot: sentimentRef, initialCapital: 1000, feeRatePercent: 0, slippageBps: 0, scoreFormulaId: "MVP_MANUAL_V1", workerRuntimeVersion: "1", workerRuntimeSha256: "b".repeat(64), evaluationRuntimeVersion: "1", evaluationRuntimeSha256: "c".repeat(64) }, { scopeIdempotencyKey: `scope-${readAt === undefined ? "default" : String(readAt)}` });
+            return { service, queue, scope, definition, composite, observed };
+        };
+        const complete = await createFixture((snapshotId, closeTime) => snapshotId === sentimentRef.id ? points.get(closeTime) : undefined);
+        const accepted = await complete.service.startManual({ userId: "user-1" }, { leaderboardScopeId: complete.scope.id, strategyDefinitionIds: [complete.definition.id], compositeDefinitionId: complete.composite.id, maxAttempts: 1 });
+        const workerReturn = await complete.service.processQueueJob(complete.queue.jobs.get(accepted.jobId), { attemptNumber: 1, fenceToken: "information-worker" });
+        await complete.service.processQueueTerminalSignal({ schemaVersion: 1, jobId: accepted.jobId, status: "COMPLETED", returnValue: workerReturn });
+        const progress = await complete.service.status({ userId: "user-1" }, accepted.candidateId);
+        const experiment = await complete.service.readExperimentSummary({ userId: "user-1" }, progress.experimentResultId);
+        (0, vitest_1.expect)(experiment.sentimentDatasetSnapshot).toMatchObject({ id: sentimentRef.id, sha256: sentimentRef.sha256 });
+        (0, vitest_1.expect)(complete.observed).toEqual([{ time: "2025-01-01T00:00:00.000Z", score: 0.7 }, { time: "2025-01-01T01:00:00.000Z", score: 0 }]);
+        await (0, vitest_1.expect)(complete.service.verifyReplay({ userId: "user-1" }, experiment.id)).resolves.toMatchObject({ status: "MATCH" });
+        const incomplete = await createFixture((_snapshotId, closeTime) => closeTime === "2025-01-01T02:00:00.000Z" ? undefined : points.get(closeTime));
+        await (0, vitest_1.expect)(incomplete.service.startManual({ userId: "user-1" }, { leaderboardScopeId: incomplete.scope.id, strategyDefinitionIds: [incomplete.definition.id], compositeDefinitionId: incomplete.composite.id, maxAttempts: 1 })).rejects.toThrow("SNAPSHOT_INCOMPLETE");
+        (0, vitest_1.expect)(incomplete.queue.jobs).toHaveLength(0);
+    });
+    (0, vitest_1.it)("creates and verifies a pinned Sentiment snapshot, and rejects ambiguous selection", async () => {
+        const snapshot = { id: "snapshot-sentiment-create", pair: "BTCUSDT", pairMetadata: { pair: "BTCUSDT", baseAsset: "BTC", quoteAsset: "USDT", settlementAsset: "USDT" }, timeframe: "1h", range: { from: "2025-01-01T00:00:00.000Z", to: "2025-01-01T03:00:00.000Z" }, candleCount: 3, sha256: "s".repeat(64), createdAt: "2025-01-01T00:00:00.000Z" };
+        const candles = [candle("2025-01-01T00:00:00.000Z", 100, 101), candle("2025-01-01T01:00:00.000Z", 101, 102), candle("2025-01-01T02:00:00.000Z", 102, 103)];
+        const sentimentRef = { id: "sentiment-created", relatedCoin: "BTC", range: { from: "2025-01-01T00:00:00.000Z", to: "2025-01-01T04:00:00.000Z" }, aggregationWindowSeconds: 3600, modelName: "model", modelVersion: "1", modelSha256: "a".repeat(64), pointCount: 3, sha256: "b".repeat(64), createdAt: "2025-01-01T00:00:00.000Z" };
+        const dependencies = (0, service_1.createInMemoryBacktestingDependencies)();
+        const service = (0, service_1.createBacktestingService)({
+            ...dependencies,
+            marketData: { readDatasetSnapshot: async () => ({ snapshot, candles }) },
+            sentiment: {
+                createSnapshot: async () => sentimentRef,
+                getSnapshotRef: async () => sentimentRef,
+                readSnapshot: async () => ({ readAt: (_snapshotId, closeTime) => ({ timestamp: closeTime, label: "NEUTRAL", averageScore: 0 }) }),
+            },
+        });
+        const command = { name: "Sentiment scope", datasetSnapshot: snapshot, sentimentCreate: { relatedCoin: "BTC", range: sentimentRef.range, aggregationWindowSeconds: 3600, modelName: "model", modelVersion: "1", modelSha256: sentimentRef.modelSha256 }, initialCapital: 1000, feeRatePercent: 0, slippageBps: 0, scoreFormulaId: "MVP_MANUAL_V1", workerRuntimeVersion: "1", workerRuntimeSha256: "b".repeat(64), evaluationRuntimeVersion: "1", evaluationRuntimeSha256: "c".repeat(64) };
+        const scope = await service.createBenchmarkScope({ userId: "user-1" }, command, { scopeIdempotencyKey: "sentiment-create" });
+        (0, vitest_1.expect)(scope.sentimentDatasetSnapshot).toMatchObject({ id: sentimentRef.id, sha256: sentimentRef.sha256 });
+        await (0, vitest_1.expect)(service.createBenchmarkScope({ userId: "user-1" }, { ...command, sentimentDatasetSnapshot: sentimentRef }, { scopeIdempotencyKey: "sentiment-both" })).rejects.toThrow("INVALID_SENTIMENT_SELECTION");
+    });
     (0, vitest_1.it)("applies stop loss before take profit when both occur", () => {
         const result = (0, index_1.simulateBacktest)({
             candidateId: "c",

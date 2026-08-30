@@ -3,6 +3,7 @@ import { BullMqBacktestQueue, BullMqBacktestWorker, createBacktestingModule, cre
 import type { BacktestLogApi } from "modules/backtesting/api";
 import { createMarketDataSnapshotReader, PostgresSnapshotRepository } from "modules/market-data/api/bootstrap";
 import { createStrategyModule } from "modules/strategy/api/bootstrap";
+import { createSentimentModule, PostgresSentimentSnapshotRepository } from "modules/sentiment/api/bootstrap";
 
 interface WorkerQueue {
   enqueue(value: import("@cryptox/contracts/queue").BacktestQueuePayload): Promise<void>;
@@ -42,8 +43,10 @@ export function composeWorkerModules(options: WorkerCompositionOptions = {}): Wo
     clock: { now: () => new Date().toISOString() },
     observability: { record: () => undefined },
   });
+  const sentiment = createSentimentModule({ snapshotRepository: new PostgresSentimentSnapshotRepository(pool) });
   const backtesting = createBacktestingModule(createPostgresBacktestingDependencies(pool, {
     marketData,
+    sentiment,
     strategy: createStrategyModule(),
     queue,
     completion: {

@@ -62,6 +62,13 @@ export function composeAllModules(options: { profile?: RuntimeProfile; env?: Nod
     })
     : createStrategyModule();
   const evaluation = createEvaluationModule();
+  const sentiment = createSentimentModule({
+    analysis: config.durable
+      ? createOpenAiCompatibleSentimentAdapter({ apiKey: config.strategyLlmApiKey!, model: config.strategyModelName!, modelVersion: config.strategyModelVersion, endpoint: config.strategyModelEndpoint, timeoutMs: config.strategyModelTimeoutMs })
+      : createDeterministicSentimentAdapter(),
+    resultRepository: postgres ? new PostgresSentimentResultRepository(postgres) : undefined,
+    snapshotRepository: postgres ? new PostgresSentimentSnapshotRepository(postgres) : undefined,
+  });
   let backtesting: BacktestLogApi;
   let search: SearchModuleRuntime;
   const backtestingReader = {
@@ -79,18 +86,11 @@ export function composeAllModules(options: { profile?: RuntimeProfile; env?: Nod
     notifySearchCandidateFinished: async (searchRunId: string) => { await search.onCandidateFinished(searchRunId); },
   };
   backtesting = postgres
-    ? createBacktestingModule(createPostgresBacktestingDependencies(postgres, { marketData, strategy, evaluation, queue, completion, beginCompletion: (input) => createPostgresCompletionUnitOfWork(postgres, input), clock: { now: () => new Date().toISOString() } }))
-    : createBacktestingModule({ ...inMemoryBacktesting, marketData, strategy, evaluation, queue, completion });
+    ? createBacktestingModule(createPostgresBacktestingDependencies(postgres, { marketData, sentiment, strategy, evaluation, queue, completion, beginCompletion: (input) => createPostgresCompletionUnitOfWork(postgres, input), clock: { now: () => new Date().toISOString() } }))
+    : createBacktestingModule({ ...inMemoryBacktesting, marketData, sentiment, strategy, evaluation, queue, completion });
   search = postgres
     ? createSearchModule(createPostgresSearchDependencies(postgres, { strategyService: strategy, backtestCoordinator: backtesting, leaderboardService: leaderboard, beginCancellation: () => createPostgresCancellationUnitOfWork(postgres), clock: { now: () => new Date().toISOString() } }))
     : createSearchModule({ ...createInMemorySearchDependencies(), strategyService: strategy, backtestCoordinator: backtesting, leaderboardService: leaderboard, clock: { now: () => new Date().toISOString() } });
-  const sentiment = createSentimentModule({
-    analysis: config.durable
-      ? createOpenAiCompatibleSentimentAdapter({ apiKey: config.strategyLlmApiKey!, model: config.strategyModelName!, modelVersion: config.strategyModelVersion, endpoint: config.strategyModelEndpoint, timeoutMs: config.strategyModelTimeoutMs })
-      : createDeterministicSentimentAdapter(),
-    resultRepository: postgres ? new PostgresSentimentResultRepository(postgres) : undefined,
-    snapshotRepository: postgres ? new PostgresSentimentSnapshotRepository(postgres) : undefined,
-  });
   const news = createNewsModule({
     providers: createConfiguredNewsProviders({ provider: config.newsProvider }),
     newsRepository: postgres ? new PostgresNewsRepository(postgres) : undefined,

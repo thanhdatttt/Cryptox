@@ -39,6 +39,7 @@ const input = (newsId, minute) => ({ newsId, title: `News ${newsId}`, content: "
         const reader = await runtime.readSnapshot(snapshot.id);
         (0, vitest_1.expect)(snapshot).toMatchObject({ relatedCoin: "BTC", pointCount: 2, createdAt: at(20), sha256: vitest_1.expect.stringMatching(/^[a-f0-9]{64}$/) });
         (0, vitest_1.expect)(await runtime.getSnapshotRef(snapshot.id)).toEqual(snapshot);
+        (0, vitest_1.expect)(reader.readAt(snapshot.id, at(0))).toBeUndefined();
         (0, vitest_1.expect)(reader.readAt(snapshot.id, at(5))).toMatchObject({ timestamp: at(5), label: "POSITIVE", averageScore: 0.2 });
         (0, vitest_1.expect)(reader.readAt(snapshot.id, at(10))).toMatchObject({ timestamp: at(10), label: "NEGATIVE", averageScore: -0.4 });
         (0, vitest_1.expect)(reader.readAt(snapshot.id, at(11))).toBeUndefined();

@@ -85,6 +85,12 @@ const assertPositivePercent = (value) => {
     if (value !== undefined && (!Number.isFinite(value) || value <= 0 || value >= 100))
         throw new Error("INVALID_INPUT");
 };
+const candleCloseTime = (timestamp, timeframe) => {
+    const parsed = Date.parse(timestamp);
+    if (!Number.isFinite(parsed))
+        throw new Error("INVALID_INPUT");
+    return new Date(parsed + TIMEFRAME_MS[timeframe]).toISOString();
+};
 const assertPositivePrice = (value) => {
     if (value !== null && value.units <= 0n)
         throw new Error("INVALID_INPUT");
@@ -215,12 +221,14 @@ function simulateBacktest(input) {
         }
         if (index < warmupCandles || index === candles.length - 1)
             continue;
+        const sentiment = input.sentimentAt?.(candleCloseTime(candle.timestamp, input.timeframe));
         const context = {
             pair: input.pair,
             timeframe: input.timeframe,
             candles: candles.slice(0, index + 1).map(toStrategyCandle),
             currentPrice: candle.close,
             indicators: {},
+            ...(sentiment ? { sentiment } : {}),
         };
         const signal = input.strategy.analyze(context);
         if (signal === "HOLD")

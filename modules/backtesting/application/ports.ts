@@ -1,6 +1,7 @@
 import type { EvaluationMetrics, EvaluatorModulePublicApi } from "modules/evaluation/api";
 import type { Candle, DatasetSnapshotRef, MarketDataModulePublicApi } from "modules/market-data/api";
 import type { Strategy, StrategyContext, StrategyDefinition, CompositeStrategyDefinition } from "modules/strategy/api";
+import type { SentimentModulePublicApi } from "modules/sentiment/api";
 import type { BacktestAttemptAudit, BacktestAttemptProgress, BenchmarkScopeSummary, CandidateProgress, CompletedBacktestResult, CompletionUnitOfWork, ExecutionPolicySnapshot, ExperimentResultSummary, StrategyVisualizationOverlay, Trade } from "../domain/contracts";
 import type { BacktestQueueJob, BacktestQueuePayload } from "@cryptox/contracts/queue";
 import type { AuthContext } from "modules/auth/api";
@@ -120,9 +121,11 @@ export interface BacktestingRepository {
  */
 export interface BacktestingStrategyDescriptor {
   name: string;
+  category?: string;
   implementationSha256: string;
   implementationVersion?: string;
   minimumHistoryCandles?: number;
+  requiresSentiment?: boolean;
 }
 
 export interface BacktestingStrategyApi {
@@ -136,6 +139,7 @@ export interface BacktestingStrategyApi {
 
 export interface BacktestingModuleDependencies {
   marketData: Pick<MarketDataModulePublicApi, "readDatasetSnapshot">;
+  sentiment?: Pick<SentimentModulePublicApi, "createSnapshot" | "getSnapshotRef" | "readSnapshot">;
   strategy: BacktestingStrategyApi;
   evaluation: Pick<EvaluatorModulePublicApi, "evaluator">;
   repository: BacktestingRepository;

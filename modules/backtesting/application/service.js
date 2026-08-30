@@ -33,6 +33,7 @@ const VISUALIZATION_CANDLE_MAX = 2000;
 const VISUALIZATION_OVERLAY_MAX = 32;
 const DEFAULT_WARMUP_CAPACITY_CANDLES = 500;
 const MAX_WARMUP_CANDLES = 10_000;
+const TIMEFRAME_MS = { "1m": 60_000, "5m": 300_000, "15m": 900_000, "1h": 3_600_000, "4h": 14_400_000, "1d": 86_400_000 };
 const REPLAY_MISMATCH_SAMPLE_LIMIT = 50;
 const REPLAY_MISMATCH_SAMPLE_MAX = 500;
 const policyPayload = (policy) => JSON.stringify(policy);
@@ -359,11 +360,12 @@ class BacktestingService {
             throw new Error("BACKTEST_SEARCH_RUN_NOT_FOUND");
         return [];
     }
-    requiredWarmupCandles(definitions) {
+    strategyRequirements(definitions) {
         const descriptors = this.deps.strategy.listStrategies?.() ?? [];
         if (descriptors.length === 0)
-            return 0;
+            return { warmupCandles: 0, requiresSentiment: false };
         let required = 0;
+        let requiresSentiment = false;
         for (const definition of definitions) {
             const descriptor = descriptors.find((item) => item.name === definition.strategyName && item.implementationSha256 === definition.implementationSha256 && (!item.implementationVersion || item.implementationVersion === definition.implementationVersion));
             if (!descriptor)
@@ -372,8 +374,9 @@ class BacktestingService {
             if (!Number.isInteger(minimum) || minimum < 0 || minimum > MAX_WARMUP_CANDLES)
                 invalid("INVALID_STRATEGY_DESCRIPTOR");
             required = Math.max(required, minimum);
+            requiresSentiment = requiresSentiment || descriptor.requiresSentiment === true || descriptor.category === "INFORMATION";
         }
-        return required;
+        return { warmupCandles: required, requiresSentiment };
     }
     async validateStrategyReferences(ownerUserId, command) {
         const requestedIds = command.strategyDefinitionIds ?? command.strategyDefinitions?.map((definition) => definition.id) ?? [];
@@ -391,10 +394,47 @@ class BacktestingService {
             invalid("STRATEGY_DEFINITION_MISMATCH");
         const definitionsById = new Map(definitions.map((definition) => [definition.id, definition]));
         const strategyDefinitions = componentIds.map((id) => definitionsById.get(id));
-        return { strategyDefinitions, compositeDefinition: clone(composite), warmupCandles: this.requiredWarmupCandles(strategyDefinitions) };
+        const requirements = this.strategyRequirements(strategyDefinitions);
+        return { strategyDefinitions, compositeDefinition: clone(composite), ...requirements };
     }
     async snapshot(snapshotId) { const snapshot = await this.deps.repository.readInputSnapshot(snapshotId); if (!snapshot)
         throw new Error("BACKTEST_DATASET_NOT_FOUND"); return snapshot; }
+    async loadSentiment(scope, candles, required) {
+        if (!required)
+            return undefined;
+        const reference = scope.sentimentDatasetSnapshot;
+        const sentiment = this.deps.sentiment;
+        if (!reference)
+            invalid("SNAPSHOT_INCOMPLETE");
+        if (!sentiment)
+            invalid("SNAPSHOT_INCOMPLETE");
+        const actual = await sentiment.getSnapshotRef(reference.id).catch(() => invalid("SNAPSHOT_INCOMPLETE"));
+        const sameReference = actual.id === reference.id && actual.relatedCoin === reference.relatedCoin && actual.range.from === reference.range.from && actual.range.to === reference.range.to && actual.aggregationWindowSeconds === reference.aggregationWindowSeconds && actual.modelName === reference.modelName && actual.modelVersion === reference.modelVersion && actual.modelSha256 === reference.modelSha256 && actual.pointCount === reference.pointCount && actual.sha256 === reference.sha256 && actual.createdAt === reference.createdAt;
+        if (!sameReference || actual.relatedCoin !== scope.datasetSnapshot.pairMetadata.baseAsset || !/^[a-f0-9]{64}$/i.test(actual.modelSha256) || !/^[a-f0-9]{64}$/i.test(actual.sha256) || !Number.isInteger(actual.pointCount) || actual.pointCount < 1 || !Number.isInteger(actual.aggregationWindowSeconds) || actual.aggregationWindowSeconds < 1)
+            invalid("SNAPSHOT_INCOMPLETE");
+        const sentimentFrom = Date.parse(actual.range.from);
+        const sentimentTo = Date.parse(actual.range.to);
+        const orderedCandles = candles.filter((candle) => candle.isClosed).sort((left, right) => left.timestamp.localeCompare(right.timestamp));
+        const firstClose = orderedCandles.length > 0 ? Date.parse(orderedCandles[0].timestamp) + TIMEFRAME_MS[scope.timeframe] : NaN;
+        const lastClose = orderedCandles.length > 0 ? Date.parse(orderedCandles[orderedCandles.length - 1].timestamp) + TIMEFRAME_MS[scope.timeframe] : NaN;
+        if (!Number.isFinite(sentimentFrom) || !Number.isFinite(sentimentTo) || sentimentFrom > firstClose || sentimentTo <= lastClose)
+            invalid("SNAPSHOT_INCOMPLETE");
+        const reader = await sentiment.readSnapshot(actual.id).catch(() => invalid("SNAPSHOT_INCOMPLETE"));
+        const readAt = (candleCloseTime) => {
+            const point = reader.readAt(actual.id, candleCloseTime);
+            if (!point)
+                return undefined;
+            if (!["POSITIVE", "NEUTRAL", "NEGATIVE"].includes(point.label) || !Number.isFinite(point.averageScore) || point.averageScore < -1 || point.averageScore > 1)
+                invalid("SNAPSHOT_INCOMPLETE");
+            return { label: point.label, averageScore: point.averageScore };
+        };
+        for (const candle of orderedCandles) {
+            const close = new Date(Date.parse(candle.timestamp) + TIMEFRAME_MS[scope.timeframe]).toISOString();
+            if (!readAt(close))
+                invalid("SNAPSHOT_INCOMPLETE");
+        }
+        return readAt;
+    }
     async captureSnapshot(snapshotId) { const first = await this.deps.marketData.readDatasetSnapshot({ snapshotId, limit: 1000 }); const candles = [...first.candles]; let cursor = first.nextCursor; while (cursor) {
         const page = await this.deps.marketData.readDatasetSnapshot({ snapshotId, cursor, limit: 1000 });
         candles.push(...page.candles);
@@ -402,10 +442,38 @@ class BacktestingService {
     } const snapshot = await this.deps.repository.createInputSnapshot(first.snapshot, candles); return { snapshot, candles }; }
     validateScope(command) { const warmupCapacityCandles = command.warmupCapacityCandles ?? DEFAULT_WARMUP_CAPACITY_CANDLES; if (!command.name.trim() || !command.scoreFormulaId.trim() || !Number.isFinite(command.initialCapital) || command.initialCapital <= 0 || !Number.isFinite(command.feeRatePercent) || command.feeRatePercent < 0 || !Number.isInteger(command.slippageBps) || command.slippageBps < 0 || !Number.isInteger(warmupCapacityCandles) || warmupCapacityCandles < 0 || warmupCapacityCandles > MAX_WARMUP_CANDLES)
         invalid("INVALID_BENCHMARK_SCOPE"); if (!/^[a-f0-9]{64}$/i.test(command.workerRuntimeSha256) || !/^[a-f0-9]{64}$/i.test(command.evaluationRuntimeSha256))
-        invalid("INVALID_BENCHMARK_SCOPE"); }
+        invalid("INVALID_BENCHMARK_SCOPE"); if (command.sentimentDatasetSnapshot && command.sentimentCreate)
+        invalid("INVALID_SENTIMENT_SELECTION"); }
+    async verifySentimentReference(reference, snapshot, candles) {
+        const sentiment = this.deps.sentiment;
+        if (!sentiment)
+            throw new Error("SENTIMENT_NOT_CONFIGURED");
+        const actual = await sentiment.getSnapshotRef(reference.id).catch(() => invalid("SNAPSHOT_INCOMPLETE"));
+        const sameReference = actual.id === reference.id && actual.relatedCoin === reference.relatedCoin && actual.range.from === reference.range.from && actual.range.to === reference.range.to && actual.aggregationWindowSeconds === reference.aggregationWindowSeconds && actual.modelName === reference.modelName && actual.modelVersion === reference.modelVersion && actual.modelSha256 === reference.modelSha256 && actual.pointCount === reference.pointCount && actual.sha256 === reference.sha256 && actual.createdAt === reference.createdAt;
+        const from = Date.parse(actual.range.from);
+        const to = Date.parse(actual.range.to);
+        const orderedCandles = candles.filter((candle) => candle.isClosed).sort((left, right) => left.timestamp.localeCompare(right.timestamp));
+        const firstClose = orderedCandles.length > 0 ? Date.parse(orderedCandles[0].timestamp) + TIMEFRAME_MS[snapshot.timeframe] : NaN;
+        const lastClose = orderedCandles.length > 0 ? Date.parse(orderedCandles[orderedCandles.length - 1].timestamp) + TIMEFRAME_MS[snapshot.timeframe] : NaN;
+        if (!sameReference || actual.relatedCoin !== snapshot.pairMetadata.baseAsset || !/^[a-f0-9]{64}$/i.test(actual.modelSha256) || !/^[a-f0-9]{64}$/i.test(actual.sha256) || !Number.isInteger(actual.pointCount) || actual.pointCount < 1 || !Number.isInteger(actual.aggregationWindowSeconds) || actual.aggregationWindowSeconds < 1 || !Number.isFinite(from) || !Number.isFinite(to) || from > firstClose || to <= lastClose)
+            invalid("SNAPSHOT_INCOMPLETE");
+        await sentiment.readSnapshot(actual.id).catch(() => invalid("SNAPSHOT_INCOMPLETE"));
+        return actual;
+    }
+    async resolveSentimentReference(command, snapshot, candles) {
+        if (command.sentimentDatasetSnapshot)
+            return this.verifySentimentReference(command.sentimentDatasetSnapshot, snapshot, candles);
+        if (!command.sentimentCreate)
+            return undefined;
+        const sentiment = this.deps.sentiment;
+        if (!sentiment)
+            throw new Error("SENTIMENT_NOT_CONFIGURED");
+        const created = await sentiment.createSnapshot(command.sentimentCreate).catch(() => invalid("SNAPSHOT_INCOMPLETE"));
+        return this.verifySentimentReference(created, snapshot, candles);
+    }
     async createBenchmarkScope(auth, command, options) { this.assertAuth(auth); if (!options.scopeIdempotencyKey.trim())
         invalid("INVALID_BENCHMARK_SCOPE"); const existing = await this.deps.repository.findScopeByIdempotency(auth.userId, options.scopeIdempotencyKey); if (existing)
-        return existing; this.validateScope(command); const captured = await this.captureSnapshot(command.datasetSnapshot.id); const createdAt = this.now(); const scope = { id: this.id(), ownerUserId: auth.userId, name: command.name, version: 1, datasetSnapshot: captured.snapshot, sentimentDatasetSnapshot: command.sentimentDatasetSnapshot, workerRuntimeVersion: command.workerRuntimeVersion, workerRuntimeSha256: command.workerRuntimeSha256, evaluationRuntimeVersion: command.evaluationRuntimeVersion, evaluationRuntimeSha256: command.evaluationRuntimeSha256, simulatorVersion: exports.SIMULATOR_VERSION, simulatorSha256: exports.SIMULATOR_SHA256, benchmarkTimezone: BENCHMARK_TIMEZONE, fillPolicyId: FILL_POLICY_ID, oppositeSignalPolicyId: OPPOSITE_SIGNAL_POLICY_ID, sameCandleOrderingPolicyId: SAME_CANDLE_ORDERING_POLICY_ID, deterministicGuarantee: DETERMINISTIC_GUARANTEE, pair: captured.snapshot.pair, timeframe: captured.snapshot.timeframe, datasetRange: captured.snapshot.range, datasetSnapshotId: captured.snapshot.id, datasetSnapshotSha256: captured.snapshot.sha256, warmupCapacityCandles: command.warmupCapacityCandles ?? DEFAULT_WARMUP_CAPACITY_CANDLES, initialCapital: command.initialCapital, feeRatePercent: command.feeRatePercent, slippageBps: command.slippageBps, riskPolicy: command.riskPolicy, decimalPolicyId: "MVP_DECIMAL_HALF_UP_V1", evaluationPolicyId: "MVP_EVALUATION_V1", scoreFormulaId: command.scoreFormulaId, createdAt }; return this.deps.repository.createScope(scope, options.scopeIdempotencyKey); }
+        return existing; this.validateScope(command); const captured = await this.captureSnapshot(command.datasetSnapshot.id); const sentimentDatasetSnapshot = await this.resolveSentimentReference(command, captured.snapshot, captured.candles); const createdAt = this.now(); const scope = { id: this.id(), ownerUserId: auth.userId, name: command.name, version: 1, datasetSnapshot: captured.snapshot, sentimentDatasetSnapshot, workerRuntimeVersion: command.workerRuntimeVersion, workerRuntimeSha256: command.workerRuntimeSha256, evaluationRuntimeVersion: command.evaluationRuntimeVersion, evaluationRuntimeSha256: command.evaluationRuntimeSha256, simulatorVersion: exports.SIMULATOR_VERSION, simulatorSha256: exports.SIMULATOR_SHA256, benchmarkTimezone: BENCHMARK_TIMEZONE, fillPolicyId: FILL_POLICY_ID, oppositeSignalPolicyId: OPPOSITE_SIGNAL_POLICY_ID, sameCandleOrderingPolicyId: SAME_CANDLE_ORDERING_POLICY_ID, deterministicGuarantee: DETERMINISTIC_GUARANTEE, pair: captured.snapshot.pair, timeframe: captured.snapshot.timeframe, datasetRange: captured.snapshot.range, datasetSnapshotId: captured.snapshot.id, datasetSnapshotSha256: captured.snapshot.sha256, warmupCapacityCandles: command.warmupCapacityCandles ?? DEFAULT_WARMUP_CAPACITY_CANDLES, initialCapital: command.initialCapital, feeRatePercent: command.feeRatePercent, slippageBps: command.slippageBps, riskPolicy: command.riskPolicy, decimalPolicyId: "MVP_DECIMAL_HALF_UP_V1", evaluationPolicyId: "MVP_EVALUATION_V1", scoreFormulaId: command.scoreFormulaId, createdAt }; return this.deps.repository.createScope(scope, options.scopeIdempotencyKey); }
     async readBenchmarkScope(auth, scopeId) { return this.ownedScope(auth, scopeId); }
     async listBenchmarkScopes(auth) { this.assertAuth(auth); return this.deps.repository.listScopesByOwner(auth.userId); }
     async compositeStrategy(definitions, composite) { const byId = new Map(definitions.map((definition) => [definition.id, definition])); if (composite.components.length === 0 || composite.components.some((component) => !byId.has(component.strategyDefinitionId)))
@@ -450,7 +518,7 @@ class BacktestingService {
     } const scope = await this.deps.repository.readScope(command.leaderboardScopeId, input.ownerUserId); if (!scope)
         throw new Error("BACKTEST_SCOPE_NOT_FOUND"); const references = await this.validateStrategyReferences(input.ownerUserId, command); if (references.warmupCandles > scope.warmupCapacityCandles)
         invalid("SNAPSHOT_INCOMPLETE"); const inputSnapshot = await this.snapshot(scope.datasetSnapshotId); if (references.warmupCandles > inputSnapshot.candles.filter((candle) => candle.isClosed).length)
-        invalid("SNAPSHOT_INCOMPLETE"); const executionPolicy = normalizeExecutionPolicy(command.executionPolicy, references.warmupCandles, scope.riskPolicy); const candidate = this.candidateRecord({ ownerUserId: input.ownerUserId, scope, command, strategyDefinitions: references.strategyDefinitions, compositeDefinition: references.compositeDefinition, executionPolicy, origin: input.origin, candidateId: this.id(), warmupCandles: references.warmupCandles }); const dispatch = this.dispatchRecord(candidate, scope); const saved = await this.deps.repository.createQueuedSubmission({ candidate, dispatch, submissionIdempotencyKey: input.submissionIdempotencyKey }); const persistedDispatch = saved.candidateId === candidate.candidateId ? dispatch : await this.deps.repository.readDispatch(saved.queueJobId); if (persistedDispatch)
+        invalid("SNAPSHOT_INCOMPLETE"); await this.loadSentiment(scope, inputSnapshot.candles, references.requiresSentiment); const executionPolicy = normalizeExecutionPolicy(command.executionPolicy, references.warmupCandles, scope.riskPolicy); const candidate = this.candidateRecord({ ownerUserId: input.ownerUserId, scope, command, strategyDefinitions: references.strategyDefinitions, compositeDefinition: references.compositeDefinition, executionPolicy, origin: input.origin, candidateId: this.id(), warmupCandles: references.warmupCandles }); const dispatch = this.dispatchRecord(candidate, scope); const saved = await this.deps.repository.createQueuedSubmission({ candidate, dispatch, submissionIdempotencyKey: input.submissionIdempotencyKey }); const persistedDispatch = saved.candidateId === candidate.candidateId ? dispatch : await this.deps.repository.readDispatch(saved.queueJobId); if (persistedDispatch)
         await this.dispatchOne(persistedDispatch); return { candidateId: saved.candidateId, jobId: saved.queueJobId, status: saved.status }; }
     async startManual(auth, command, options) { this.assertAuth(auth); return this.submit(command, { ownerUserId: auth.userId, origin: "MANUAL", submissionIdempotencyKey: options?.submissionIdempotencyKey }); }
     async submitSearchCandidate(auth, command) { this.assertAuth(auth); return this.submit(command, { ownerUserId: auth.userId, origin: "SEARCH" }); }
@@ -465,8 +533,9 @@ class BacktestingService {
             const scope = await this.scope(candidate.leaderboardScopeId);
             const input = await this.snapshot(scope.datasetSnapshotId);
             const strategy = await this.compositeStrategy(candidate.strategyDefinitions, candidate.compositeDefinition);
+            const sentimentAt = await this.loadSentiment(scope, input.candles, this.strategyRequirements(candidate.strategyDefinitions).requiresSentiment);
             const completedAt = this.now();
-            const result = (0, simulator_1.simulateBacktest)({ candidateId: candidate.candidateId, attemptId: attempt.attemptId, pair: scope.pair, settlementAsset: scope.datasetSnapshot.pairMetadata.settlementAsset || scope.datasetSnapshot.pairMetadata.quoteAsset || "USDT", timeframe: scope.timeframe, candles: input.candles, warmupCandles: candidate.warmupCandles, strategy, initialCapital: scope.initialCapital, feeRatePercent: scope.feeRatePercent, slippageBps: scope.slippageBps, stopLossPercent: candidate.executionPolicy?.stopLossPercent ?? scope.riskPolicy?.stopLossPercent, takeProfitPercent: candidate.executionPolicy?.takeProfitPercent ?? scope.riskPolicy?.takeProfitPercent, workerRuntimeVersion: job.workerRuntimeVersion, workerRuntimeSha256: job.workerRuntimeSha256, startedAt: attempt.startedAt, completedAt });
+            const result = (0, simulator_1.simulateBacktest)({ candidateId: candidate.candidateId, attemptId: attempt.attemptId, pair: scope.pair, settlementAsset: scope.datasetSnapshot.pairMetadata.settlementAsset || scope.datasetSnapshot.pairMetadata.quoteAsset || "USDT", timeframe: scope.timeframe, candles: input.candles, warmupCandles: candidate.warmupCandles, strategy, sentimentAt, initialCapital: scope.initialCapital, feeRatePercent: scope.feeRatePercent, slippageBps: scope.slippageBps, stopLossPercent: candidate.executionPolicy?.stopLossPercent ?? scope.riskPolicy?.stopLossPercent, takeProfitPercent: candidate.executionPolicy?.takeProfitPercent ?? scope.riskPolicy?.takeProfitPercent, workerRuntimeVersion: job.workerRuntimeVersion, workerRuntimeSha256: job.workerRuntimeSha256, startedAt: attempt.startedAt, completedAt });
             await this.deps.repository.persistWorkerSuccess({ candidate, attempt, result, fenceToken });
             return { candidateId: candidate.candidateId, status: "COMPLETED", attemptId: attempt.attemptId, completedAt };
         }
@@ -638,7 +707,7 @@ class BacktestingService {
         }
         catch (error) {
             const code = error instanceof Error ? error.message : "REPLAY_ARTIFACT_EXPIRED";
-            const failureCode = code === "BACKTEST_DATASET_NOT_FOUND" ? "MISSING_SNAPSHOT" : code === "IMPLEMENTATION_ARTIFACT_UNAVAILABLE" ? "IMPLEMENTATION_ARTIFACT_UNAVAILABLE" : "REPLAY_ARTIFACT_EXPIRED";
+            const failureCode = code === "BACKTEST_DATASET_NOT_FOUND" || code === "SNAPSHOT_INCOMPLETE" ? "MISSING_SNAPSHOT" : code === "IMPLEMENTATION_ARTIFACT_UNAVAILABLE" ? "IMPLEMENTATION_ARTIFACT_UNAVAILABLE" : "REPLAY_ARTIFACT_EXPIRED";
             result = { replayJobId, experimentId: claimed.experimentId, sourceAttemptId: claimed.sourceAttemptId, status: "NON_REPLAYABLE", failureCode };
         }
         await this.deps.repository.completeReplayVerification({ replayJobId, claimToken: claimed.activeClaimToken, now: this.now(), result });
@@ -735,7 +804,7 @@ class BacktestingService {
             invalid("INVALID_CURSOR");
         start = index + 1;
     } const items = ordered.slice(start, start + limit); const nextCursor = start + items.length < ordered.length && items.length > 0 ? encodeTradeCursor(ownerUserId, resource, limit, items[items.length - 1]) : undefined; return { items, totalCount: ordered.length, nextCursor }; }
-    async verifyReplay(auth, experimentId) { const experiment = await this.readExperimentSummary(auth, experimentId); const candidate = await this.ownedCandidate(auth, experiment.candidateId); const scope = await this.ownedScope(auth, experiment.leaderboardScopeId); const attempt = await this.readAttempt(auth, experiment.backtestAttemptId); const snapshot = await this.snapshot(scope.datasetSnapshotId); const strategy = await this.compositeStrategy(candidate.strategyDefinitions, candidate.compositeDefinition); const replay = (0, simulator_1.simulateBacktest)({ candidateId: candidate.candidateId, attemptId: attempt.attemptId, pair: scope.pair, settlementAsset: scope.datasetSnapshot.pairMetadata.settlementAsset || scope.datasetSnapshot.pairMetadata.quoteAsset || "USDT", timeframe: scope.timeframe, candles: snapshot.candles, warmupCandles: candidate.warmupCandles, strategy, initialCapital: scope.initialCapital, feeRatePercent: scope.feeRatePercent, slippageBps: scope.slippageBps, stopLossPercent: candidate.executionPolicy?.stopLossPercent ?? scope.riskPolicy?.stopLossPercent, takeProfitPercent: candidate.executionPolicy?.takeProfitPercent ?? scope.riskPolicy?.takeProfitPercent, workerRuntimeVersion: attempt.workerRuntimeVersion, workerRuntimeSha256: attempt.workerRuntimeSha256, startedAt: attempt.startedAt, completedAt: attempt.completedAt ?? attempt.startedAt }); const replayMetrics = this.deps.evaluation.evaluator.evaluate(replay); const expected = experiment; const replayPolicy = candidate.executionPolicy ?? normalizeExecutionPolicy(undefined, candidate.warmupCandles, scope.riskPolicy); const mismatches = []; const compare = (fieldPath, expectedValue, actualValue) => { if (JSON.stringify(expectedValue) !== JSON.stringify(actualValue))
+    async verifyReplay(auth, experimentId) { const experiment = await this.readExperimentSummary(auth, experimentId); const candidate = await this.ownedCandidate(auth, experiment.candidateId); const scope = await this.ownedScope(auth, experiment.leaderboardScopeId); const attempt = await this.readAttempt(auth, experiment.backtestAttemptId); const snapshot = await this.snapshot(scope.datasetSnapshotId); const strategy = await this.compositeStrategy(candidate.strategyDefinitions, candidate.compositeDefinition); const sentimentAt = await this.loadSentiment(scope, snapshot.candles, this.strategyRequirements(candidate.strategyDefinitions).requiresSentiment); const replay = (0, simulator_1.simulateBacktest)({ candidateId: candidate.candidateId, attemptId: attempt.attemptId, pair: scope.pair, settlementAsset: scope.datasetSnapshot.pairMetadata.settlementAsset || scope.datasetSnapshot.pairMetadata.quoteAsset || "USDT", timeframe: scope.timeframe, candles: snapshot.candles, warmupCandles: candidate.warmupCandles, strategy, sentimentAt, initialCapital: scope.initialCapital, feeRatePercent: scope.feeRatePercent, slippageBps: scope.slippageBps, stopLossPercent: candidate.executionPolicy?.stopLossPercent ?? scope.riskPolicy?.stopLossPercent, takeProfitPercent: candidate.executionPolicy?.takeProfitPercent ?? scope.riskPolicy?.takeProfitPercent, workerRuntimeVersion: attempt.workerRuntimeVersion, workerRuntimeSha256: attempt.workerRuntimeSha256, startedAt: attempt.startedAt, completedAt: attempt.completedAt ?? attempt.startedAt }); const replayMetrics = this.deps.evaluation.evaluator.evaluate(replay); const expected = experiment; const replayPolicy = candidate.executionPolicy ?? normalizeExecutionPolicy(undefined, candidate.warmupCandles, scope.riskPolicy); const mismatches = []; const compare = (fieldPath, expectedValue, actualValue) => { if (JSON.stringify(expectedValue) !== JSON.stringify(actualValue))
         mismatches.push({ fieldPath, expected: JSON.stringify(expectedValue), actual: JSON.stringify(actualValue) }); }; const expectedTrades = experiment.trades; const actualTrades = replay.trades; if (expectedTrades.length !== actualTrades.length)
         compare("trades.length", expectedTrades.length, actualTrades.length); const tradeFields = ["id", "sequence", "entryTime", "entryPrice", "exitTime", "exitPrice", "quantity", "equityBeforeTrade", "equityAfterTrade", "feeAmount", "slippageAmount", "profit", "resultPercent", "result"]; for (let index = 0; index < Math.max(expectedTrades.length, actualTrades.length); index += 1) {
         const expectedTrade = expectedTrades[index];
