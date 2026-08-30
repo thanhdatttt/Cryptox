@@ -1,11 +1,16 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.PostgresStrategyGenerationUnitOfWork = exports.PostgresStrategyGenerationRepository = exports.PostgresStrategyDefinitionRepository = exports.PostgresCompositeDefinitionRepository = exports.createPostgresStrategyDependencies = exports.createPublicStrategySourceLoader = exports.createOpenAiStrategyGenerationAdapter = exports.createStrategyModule = exports.createInMemoryStrategyDependencies = void 0;
+exports.PostgresStrategyGenerationUnitOfWork = exports.PostgresStrategyGenerationRepository = exports.PostgresStrategyDefinitionRepository = exports.PostgresCompositeDefinitionRepository = exports.createPostgresStrategyDependencies = exports.createPublicStrategySourceLoader = exports.StrategyModelError = exports.createOpenAiStrategyGenerationAdapter = exports.createOpenAiCompatibleStrategyGenerationAdapter = exports.createStrategyModule = exports.createInMemoryStrategyDependencies = void 0;
 var service_1 = require("../application/service");
 Object.defineProperty(exports, "createInMemoryStrategyDependencies", { enumerable: true, get: function () { return service_1.createInMemoryStrategyDependencies; } });
 Object.defineProperty(exports, "createStrategyModule", { enumerable: true, get: function () { return service_1.createStrategyModule; } });
+var plugins_1 = require("../domain/plugins");
+Object.defineProperty(exports, "createStrategyRegistry", { enumerable: true, get: function () { return plugins_1.createStrategyRegistry; } });
+Object.defineProperty(exports, "InMemoryStrategyRegistry", { enumerable: true, get: function () { return plugins_1.InMemoryStrategyRegistry; } });
 var openai_generation_adapter_1 = require("../infrastructure/openai-generation-adapter");
 Object.defineProperty(exports, "createOpenAiStrategyGenerationAdapter", { enumerable: true, get: function () { return openai_generation_adapter_1.createOpenAiStrategyGenerationAdapter; } });
+Object.defineProperty(exports, "createOpenAiCompatibleStrategyGenerationAdapter", { enumerable: true, get: function () { return openai_generation_adapter_1.createOpenAiCompatibleStrategyGenerationAdapter; } });
+Object.defineProperty(exports, "StrategyModelError", { enumerable: true, get: function () { return openai_generation_adapter_1.StrategyModelError; } });
 var public_source_loader_1 = require("../infrastructure/public-source-loader");
 Object.defineProperty(exports, "createPublicStrategySourceLoader", { enumerable: true, get: function () { return public_source_loader_1.createPublicStrategySourceLoader; } });
 var postgres_repositories_1 = require("../infrastructure/postgres-repositories");

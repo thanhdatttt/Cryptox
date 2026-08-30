@@ -50,7 +50,7 @@ describe("strategy definition runtime", () => {
 
     expect(result).toMatchObject({ kind: "SINGLE", modelName: "test-model", modelVersion: "2025-01", strategyDefinition: { strategyName: "RSI" } });
     expect(received?.sourceText).toContain("14 period");
-    expect(received?.strategies.map((strategy) => (strategy as { name: string }).name)).toEqual(["MA", "RSI", "BOLLINGER", "SUPPORT_RESISTANCE"]);
+    expect(received?.strategies.map((strategy) => (strategy as { name: string }).name)).toEqual(["BOLLINGER", "MA", "RSI", "SENTIMENT", "SUPPORT_RESISTANCE"]);
     expect(received?.promptVersion).toBe("1");
     expect(await runtime.listDefinitions("user-a")).toHaveLength(1);
   });

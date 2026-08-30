@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createOpenAiStrategyGenerationAdapter } from "./openai-generation-adapter";
+import { createOpenAiCompatibleStrategyGenerationAdapter, createOpenAiStrategyGenerationAdapter, StrategyModelError } from "./openai-generation-adapter";
 
 const input = {
   sourceText: "Use RSI with a 14 period.",
@@ -7,7 +7,7 @@ const input = {
   promptVersion: "prompt-v1",
 };
 
-describe("OpenAI strategy generation adapter", () => {
+describe("OpenAI-compatible strategy generation adapter", () => {
   it("sends only the bounded proposal contract and parses the structured response", async () => {
     let requestBody: Record<string, unknown> | undefined;
     const adapter = createOpenAiStrategyGenerationAdapter({
@@ -35,5 +35,23 @@ describe("OpenAI strategy generation adapter", () => {
 
     const unavailable = createOpenAiStrategyGenerationAdapter({ apiKey: "", model: "test-model", fetch: async () => { throw new Error("must not fetch"); } });
     await expect(unavailable.generate(input)).rejects.toThrow("STRATEGY_MODEL_UNAVAILABLE");
+  });
+
+  it("distinguishes authentication, rate-limit, provider, and timeout failures without exposing response data", async () => {
+    const authentication = createOpenAiCompatibleStrategyGenerationAdapter({ apiKey: "test-key", model: "test-model", maxRetries: 0, fetch: async () => new Response("secret provider payload", { status: 401 }) });
+    await expect(authentication.generate(input)).rejects.toMatchObject({ code: "STRATEGY_MODEL_AUTHENTICATION_FAILED" });
+
+    let attempts = 0;
+    const rateLimited = createOpenAiCompatibleStrategyGenerationAdapter({ apiKey: "test-key", model: "test-model", maxRetries: 1, fetch: async () => { attempts += 1; return new Response("secret provider payload", { status: 429 }); } });
+    await expect(rateLimited.generate(input)).rejects.toMatchObject({ code: "STRATEGY_MODEL_RATE_LIMITED" });
+    expect(attempts).toBe(2);
+
+    const timeout = createOpenAiCompatibleStrategyGenerationAdapter({ apiKey: "test-key", model: "test-model", timeoutMs: 5, fetch: async (_url, init) => new Promise((_resolve, reject) => { init?.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError"))); }) });
+    await expect(timeout.generate(input)).rejects.toMatchObject({ code: "STRATEGY_MODEL_TIMEOUT" });
+    expect(new StrategyModelError("STRATEGY_MODEL_ERROR").message).toBe("STRATEGY_MODEL_ERROR");
+  });
+
+  it("supports the provider-neutral factory while retaining the source-compatible alias", () => {
+    expect(createOpenAiStrategyGenerationAdapter).toBe(createOpenAiCompatibleStrategyGenerationAdapter);
   });
 });

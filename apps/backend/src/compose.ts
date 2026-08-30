@@ -16,7 +16,7 @@ import { createConfiguredNewsProviders, createNewsModule, PostgresNewsRepository
 import type { SearchModulePublicApi, SearchModuleRuntime } from "modules/search/api";
 import { createInMemorySearchDependencies, createPostgresCancellationUnitOfWork, createPostgresSearchDependencies, createSearchModule } from "modules/search/api/bootstrap";
 import { createDeterministicSentimentAdapter, createSentimentModule, PostgresSentimentResultRepository, PostgresSentimentSnapshotRepository } from "modules/sentiment/api/bootstrap";
-import { createOpenAiStrategyGenerationAdapter, createPostgresStrategyDependencies, createStrategyModule } from "modules/strategy/api/bootstrap";
+import { createOpenAiCompatibleStrategyGenerationAdapter, createPostgresStrategyDependencies, createStrategyModule } from "modules/strategy/api/bootstrap";
 import { createAuthModule, createInMemoryAuthDependencies } from "modules/auth/api";
 import { loadBackendRuntimeConfig, type RuntimeProfile } from "./runtime-config";
 
@@ -52,7 +52,7 @@ export function composeAllModules(options: { profile?: RuntimeProfile; env?: Nod
     ? createStrategyModule({
       ...strategyDependencies,
       ...(config.strategyLlmApiKey && config.strategyModelEndpoint && config.strategyModelName ? {
-        generationAdapter: createOpenAiStrategyGenerationAdapter({
+        generationAdapter: createOpenAiCompatibleStrategyGenerationAdapter({
           apiKey: config.strategyLlmApiKey,
           model: config.strategyModelName,
           modelVersion: config.strategyModelVersion,

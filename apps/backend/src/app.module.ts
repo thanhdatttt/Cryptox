@@ -127,7 +127,7 @@ const strategyHttpError = (error: unknown): never => {
   if (!(error instanceof Error)) throw error;
   if (error.message.endsWith("_NOT_FOUND")) throw new NotFoundException(error.message);
   if (["STRATEGY_SOURCE_UNUSABLE", "STRATEGY_SOURCE_UNSUPPORTED_CONTENT"].includes(error.message)) throw new UnprocessableEntityException(error.message);
-  if (["STRATEGY_SOURCE_TIMEOUT", "STRATEGY_SOURCE_TOO_LARGE", "STRATEGY_SOURCE_REDIRECT_LIMIT", "STRATEGY_SOURCE_UNAVAILABLE", "STRATEGY_MODEL_TIMEOUT", "STRATEGY_MODEL_UNAVAILABLE"].includes(error.message)) throw new ServiceUnavailableException(error.message);
+  if (["STRATEGY_SOURCE_TIMEOUT", "STRATEGY_SOURCE_TOO_LARGE", "STRATEGY_SOURCE_REDIRECT_LIMIT", "STRATEGY_SOURCE_UNAVAILABLE", "STRATEGY_MODEL_TIMEOUT", "STRATEGY_MODEL_UNAVAILABLE", "STRATEGY_MODEL_AUTHENTICATION_FAILED", "STRATEGY_MODEL_RATE_LIMITED", "STRATEGY_MODEL_ERROR"].includes(error.message)) throw new ServiceUnavailableException(error.message);
   if (["STRATEGY_SOURCE_INVALID_URL", "STRATEGY_SOURCE_UNSAFE"].includes(error.message)) throw new BadRequestException(error.message);
   if (error.message.startsWith("INVALID_") || error.message.startsWith("STRATEGY_MODEL_SCHEMA") || error.message === "VALIDATION_ERROR" || error.message === "STRATEGY_NOT_REGISTERED") throw new BadRequestException(error.message);
   throw error;

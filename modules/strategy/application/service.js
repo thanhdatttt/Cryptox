@@ -13,7 +13,7 @@ const keysAre = (value, required, optional = []) => required.every((key) => Obje
 const finite = (value) => typeof value === "number" && Number.isFinite(value);
 const parameterRecord = (value) => isPlainRecord(value) && Object.values(value).every((item) => typeof item === "string" || finite(item));
 const validateHttpUrl = (value) => {
-    if (typeof value !== "string" || !value.trim())
+    if (typeof value !== "string" || !value.trim() || value.trim().length > 100000)
         throw new Error("VALIDATION_ERROR");
     const text = value.trim();
     let url;
@@ -27,7 +27,7 @@ const validateHttpUrl = (value) => {
         invalid("VALIDATION_ERROR");
     return text;
 };
-const runtimeList = () => plugins_1.builtInFactories.map((factory) => factory.descriptor);
+const runtimeList = (registry) => registry.list();
 const runtimeCombine = (definition, signals) => {
     const selected = definition.components.map((component) => ({ component, signal: signals.find((item) => item.strategyDefinitionId === component.strategyDefinitionId)?.signal ?? "HOLD" }));
     if (selected.length === 0)
@@ -108,7 +108,8 @@ function createInMemoryStrategyDependencies() {
     const definitions = new Map();
     const composites = new Map();
     const generations = new Map();
-    const factories = new Map(plugins_1.builtInFactories.map((factory) => [`${factory.descriptor.name}:${factory.descriptor.implementationSha256}`, factory]));
+    const registry = (0, plugins_1.createStrategyRegistry)();
+    const factories = new Map(registry.list().map((descriptor) => [`${descriptor.name}:${descriptor.implementationSha256}`, registry.get(descriptor.name, descriptor.implementationSha256)]));
     const generationUnitOfWork = {
         commit: async ({ ownerUserId, definitions: generatedDefinitions, composite, audit }) => {
             const definitionSnapshot = new Map(definitions);
@@ -165,6 +166,7 @@ function createInMemoryStrategyDependencies() {
 }
 function createStrategyModule(dependencies = createInMemoryStrategyDependencies()) {
     const defaults = createInMemoryStrategyDependencies();
+    const registry = dependencies.registry ?? (0, plugins_1.createStrategyRegistry)();
     const generationAdapter = dependencies.generationAdapter ?? defaults.generationAdapter;
     const sourceLoader = dependencies.sourceLoader ?? defaults.sourceLoader;
     const generationUnitOfWork = dependencies.generationUnitOfWork ?? {
@@ -176,7 +178,7 @@ function createStrategyModule(dependencies = createInMemoryStrategyDependencies(
     const modelVersion = generationAdapter.modelVersion ?? (configuredModelVersion && configuredModelVersion !== "0" ? configuredModelVersion : "1");
     const promptVersion = dependencies.promptVersion ?? "1";
     const modelTimeoutMs = finite(dependencies.modelTimeoutMs) && dependencies.modelTimeoutMs > 0 ? dependencies.modelTimeoutMs : 15_000;
-    const factories = new Map(plugins_1.builtInFactories.map((factory) => [factory.descriptor.name, factory]));
+    const factories = new Map(registry.list().map((descriptor) => [descriptor.name, registry.get(descriptor.name, descriptor.implementationSha256)]));
     const retainedFactories = new Map();
     const nextId = (kind) => `${kind}-${(0, node_crypto_1.randomUUID)()}`;
     const artifactKey = (definition) => `${definition.strategyName}:${definition.implementationSha256}`;
@@ -323,7 +325,7 @@ function createStrategyModule(dependencies = createInMemoryStrategyDependencies(
         return { kind: "COMPOSITE", components, method: record.method, thresholds: { buy: thresholds.buy, sell: thresholds.sell } };
     };
     return {
-        listStrategies: runtimeList,
+        listStrategies: () => runtimeList(registry),
         resolveStrategy: async (definition) => (await resolveRetainedFactory(definition)).create(definition.parameters),
         combineSignals: runtimeCombine,
         buildVisualization: (definition, contexts) => normalizeVisualization(definition, resolveRetainedFactorySync(definition).create(definition.parameters).buildVisualization?.(contexts.slice(-MAX_VISUALIZATION_POINTS))),
@@ -371,10 +373,10 @@ function createStrategyModule(dependencies = createInMemoryStrategyDependencies(
                 invalid("STRATEGY_SOURCE_UNUSABLE");
             let generated;
             try {
-                generated = proposal(await withTimeout(generationAdapter.generate({ sourceText, strategies: runtimeList(), promptVersion }), modelTimeoutMs, "STRATEGY_MODEL_TIMEOUT"));
+                generated = proposal(await withTimeout(generationAdapter.generate({ sourceText, strategies: runtimeList(registry), promptVersion }), modelTimeoutMs, "STRATEGY_MODEL_TIMEOUT"));
             }
             catch (error) {
-                if (error instanceof Error && ["STRATEGY_MODEL_TIMEOUT", "STRATEGY_MODEL_UNAVAILABLE", "STRATEGY_MODEL_SCHEMA_INVALID"].includes(error.message))
+                if (error instanceof Error && ["STRATEGY_MODEL_TIMEOUT", "STRATEGY_MODEL_UNAVAILABLE", "STRATEGY_MODEL_AUTHENTICATION_FAILED", "STRATEGY_MODEL_RATE_LIMITED", "STRATEGY_MODEL_SCHEMA_INVALID", "STRATEGY_MODEL_ERROR"].includes(error.message))
                     throw error;
                 throw new Error("STRATEGY_MODEL_UNAVAILABLE");
             }

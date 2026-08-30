@@ -1,7 +1,8 @@
-import type { Strategy, StrategyCategory, StrategyContext, StrategyFactory, StrategyPluginDescriptor, StrategyVisualizationOverlayDraft, Signal } from "./contracts";
+import { createHash } from "node:crypto";
+import type { Strategy, StrategyCategory, StrategyContext, StrategyFactory, StrategyPluginDescriptor, StrategyRegistry, StrategyVisualizationOverlayDraft, Signal } from "./contracts";
 import { bollingerBands, relativeStrengthIndex, simpleMovingAverage, supportResistance } from "./indicators";
 
-const descriptor = (name: string, displayName: string, description: string, category: StrategyCategory, minimumHistoryCandles: number, parameters: StrategyPluginDescriptor["parameters"]): StrategyPluginDescriptor => {
+const descriptor = (name: string, displayName: string, description: string, category: StrategyCategory, minimumHistoryCandles: number, parameters: StrategyPluginDescriptor["parameters"], requiresSentiment = false): StrategyPluginDescriptor => {
   if (!Number.isInteger(minimumHistoryCandles) || minimumHistoryCandles < 0) throw new Error("INVALID_STRATEGY_DESCRIPTOR");
   return Object.freeze({
     name,
@@ -9,9 +10,10 @@ const descriptor = (name: string, displayName: string, description: string, cate
     description,
     category,
     implementationVersion: "1.0.0",
-    implementationSha256: `builtin:${name}:1.0.0`,
+    implementationSha256: createHash("sha256").update(JSON.stringify({ name, implementationVersion: "1.0.0", category, minimumHistoryCandles, parameters, requiresSentiment }), "utf8").digest("hex"),
     minimumHistoryCandles,
     parameters: Object.freeze(parameters.map((parameter) => Object.freeze({ ...parameter }))),
+    ...(requiresSentiment ? { requiresSentiment: true } : {}),
   });
 };
 const lastValues = (context: StrategyContext) => context.candles.map((candle) => candle.close);
@@ -136,4 +138,36 @@ const supportResistanceFactory: StrategyFactory = {
   },
 };
 
-export const builtInFactories: readonly StrategyFactory[] = [ma, rsi, bollinger, supportResistanceFactory];
+const sentimentFactory: StrategyFactory = {
+  descriptor: descriptor("SENTIMENT", "News sentiment", "Reads the sealed sentiment context and emits a directional signal.", "INFORMATION", 0, [
+    { key: "buyThreshold", label: "Buy threshold", type: "NUMBER", required: true, defaultValue: 0.2, minimum: 0.01, maximum: 1 },
+    { key: "sellThreshold", label: "Sell threshold", type: "NUMBER", required: true, defaultValue: -0.2, minimum: -1, maximum: -0.01 },
+  ], true),
+  create: (parameters) => {
+    const buyThreshold = Number(parameters.buyThreshold ?? 0.2);
+    const sellThreshold = Number(parameters.sellThreshold ?? -0.2);
+    return { name: "SENTIMENT", category: "INFORMATION", analyze: (context) => !context.sentiment ? "HOLD" : context.sentiment.averageScore >= buyThreshold ? "BUY" : context.sentiment.averageScore <= sellThreshold ? "SELL" : "HOLD",
+      buildVisualization: (contexts) => nonEmpty([{ id: "sentiment", kind: "SIGNAL", label: "News sentiment", points: contexts.flatMap((context) => context.sentiment ? signalPoint(context, context.sentiment.averageScore, context.sentiment.averageScore >= buyThreshold ? "BUY" : context.sentiment.averageScore <= sellThreshold ? "SELL" : "HOLD") : []) }]),
+    };
+  },
+  validateParameters: (parameters) => { if (Number(parameters.buyThreshold) <= Number(parameters.sellThreshold)) throw new Error("INVALID_STRATEGY_PARAMETERS"); },
+};
+
+export const builtInFactories: readonly StrategyFactory[] = [ma, rsi, bollinger, supportResistanceFactory, sentimentFactory];
+
+export class InMemoryStrategyRegistry implements StrategyRegistry {
+  private readonly factories = new Map<string, StrategyFactory>();
+
+  constructor(factories: readonly StrategyFactory[] = []) { factories.forEach((factory) => this.register(factory)); }
+
+  register(factory: StrategyFactory): void {
+    const key = `${factory.descriptor.name}:${factory.descriptor.implementationSha256}`;
+    if (!this.factories.has(key)) this.factories.set(key, factory);
+  }
+
+  get(name: string, implementationSha256: string): StrategyFactory | undefined { return this.factories.get(`${name}:${implementationSha256}`); }
+
+  list(): StrategyPluginDescriptor[] { return [...this.factories.values()].map((factory) => factory.descriptor).sort((left, right) => left.name.localeCompare(right.name)); }
+}
+
+export const createStrategyRegistry = (factories: readonly StrategyFactory[] = builtInFactories): StrategyRegistry => new InMemoryStrategyRegistry(factories);

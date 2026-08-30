@@ -11,6 +11,7 @@ export interface StrategyModuleDependencies {
     modelVersion?: string;
     promptVersion?: string;
     modelTimeoutMs?: number;
+    registry?: import("../domain/contracts").StrategyRegistry;
 }
 export type { GeneratedStrategyProposal, StrategyGenerationAdapter, StrategyGenerationSource, StrategySourceLoader } from "./ports";
 export interface StrategyGenerationResult {

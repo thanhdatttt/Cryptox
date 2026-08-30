@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { CombinationMethod, CompositeStrategyDefinition, Signal, Strategy, StrategyContext, StrategyDefinition, StrategyFactory, StrategyPluginDescriptor, StrategyVisualizationOverlay, StrategyVisualizationOverlayDraft } from "../domain/contracts";
-import { builtInFactories } from "../domain/plugins";
+import { createStrategyRegistry } from "../domain/plugins";
 import { createPublicStrategySourceLoader } from "../infrastructure/public-source-loader";
 import type { CompositeDefinitionRepository, GeneratedStrategyProposal, StrategyDefinitionRepository, StrategyGenerationAdapter, StrategyGenerationRequest, StrategyGenerationSource, StrategyGenerationUnitOfWork, StrategySourceLoader } from "./ports";
 
@@ -15,6 +15,7 @@ export interface StrategyModuleDependencies {
   modelVersion?: string;
   promptVersion?: string;
   modelTimeoutMs?: number;
+  registry?: import("../domain/contracts").StrategyRegistry;
 }
 export type { GeneratedStrategyProposal, StrategyGenerationAdapter, StrategyGenerationSource, StrategySourceLoader } from "./ports";
 export interface StrategyGenerationResult {
@@ -57,7 +58,7 @@ const validateHttpUrl = (value: unknown): string => {
   return text;
 };
 
-const runtimeList = (): StrategyPluginDescriptor[] => builtInFactories.map((factory) => factory.descriptor);
+const runtimeList = (registry: import("../domain/contracts").StrategyRegistry): StrategyPluginDescriptor[] => registry.list();
 const runtimeCombine = (definition: CompositeStrategyDefinition, signals: Array<{ strategyDefinitionId: string; signal: Signal }>): Signal => {
   const selected = definition.components.map((component) => ({ component, signal: signals.find((item) => item.strategyDefinitionId === component.strategyDefinitionId)?.signal ?? "HOLD" as Signal }));
   if (selected.length === 0) return "HOLD";
@@ -124,7 +125,8 @@ export function createInMemoryStrategyDependencies(): StrategyModuleDependencies
   const definitions = new Map<string, { ownerUserId: string; value: StrategyDefinition }>();
   const composites = new Map<string, { ownerUserId: string; value: CompositeStrategyDefinition }>();
   const generations = new Map<string, StrategyGenerationRequest>();
-  const factories = new Map(builtInFactories.map((factory) => [`${factory.descriptor.name}:${factory.descriptor.implementationSha256}`, factory]));
+  const registry = createStrategyRegistry();
+  const factories = new Map(registry.list().map((descriptor) => [`${descriptor.name}:${descriptor.implementationSha256}`, registry.get(descriptor.name, descriptor.implementationSha256)!]));
   const generationUnitOfWork: StrategyGenerationUnitOfWork = {
     commit: async ({ ownerUserId, definitions: generatedDefinitions, composite, audit }) => {
       const definitionSnapshot = new Map(definitions);
@@ -178,6 +180,7 @@ export function createInMemoryStrategyDependencies(): StrategyModuleDependencies
 
 export function createStrategyModule(dependencies: StrategyModuleDependencies = createInMemoryStrategyDependencies()): StrategyModuleRuntime {
   const defaults = createInMemoryStrategyDependencies();
+  const registry = dependencies.registry ?? createStrategyRegistry();
   const generationAdapter = dependencies.generationAdapter ?? defaults.generationAdapter!;
   const sourceLoader = dependencies.sourceLoader ?? defaults.sourceLoader!;
   const generationUnitOfWork = dependencies.generationUnitOfWork ?? {
@@ -189,7 +192,7 @@ export function createStrategyModule(dependencies: StrategyModuleDependencies = 
   const modelVersion = generationAdapter.modelVersion ?? (configuredModelVersion && configuredModelVersion !== "0" ? configuredModelVersion : "1");
   const promptVersion = dependencies.promptVersion ?? "1";
   const modelTimeoutMs = finite(dependencies.modelTimeoutMs) && dependencies.modelTimeoutMs > 0 ? dependencies.modelTimeoutMs : 15_000;
-  const factories = new Map(builtInFactories.map((factory) => [factory.descriptor.name, factory]));
+  const factories = new Map(registry.list().map((descriptor) => [descriptor.name, registry.get(descriptor.name, descriptor.implementationSha256)!]));
   const retainedFactories = new Map<string, StrategyFactory>();
   const nextId = (kind: string): string => `${kind}-${randomUUID()}`;
   const artifactKey = (definition: StrategyDefinition): string => `${definition.strategyName}:${definition.implementationSha256}`;
@@ -311,7 +314,7 @@ export function createStrategyModule(dependencies: StrategyModuleDependencies = 
   };
 
   return {
-    listStrategies: runtimeList,
+    listStrategies: () => runtimeList(registry),
     resolveStrategy: async (definition) => (await resolveRetainedFactory(definition)).create(definition.parameters),
     combineSignals: runtimeCombine,
     buildVisualization: (definition, contexts) => normalizeVisualization(definition, resolveRetainedFactorySync(definition).create(definition.parameters).buildVisualization?.(contexts.slice(-MAX_VISUALIZATION_POINTS))),
@@ -331,7 +334,7 @@ export function createStrategyModule(dependencies: StrategyModuleDependencies = 
       const allowedSourceKeys = sourceType === "TEXT" ? ["sourceType", "text"] : ["sourceType", "url"];
       if (!keysAre(source, allowedSourceKeys)) invalid("VALIDATION_ERROR");
       const value = sourceType === "TEXT" ? source.text : source.url;
-      if (typeof value !== "string" || !value.trim()) invalid("VALIDATION_ERROR");
+      if (typeof value !== "string" || !value.trim() || value.trim().length > 100_000) invalid("VALIDATION_ERROR");
       let sourceText: string;
       if (sourceType === "TEXT") {
         sourceText = value.trim();
@@ -350,9 +353,9 @@ export function createStrategyModule(dependencies: StrategyModuleDependencies = 
       if (!sourceText) invalid("STRATEGY_SOURCE_UNUSABLE");
       let generated: GeneratedStrategyProposal;
       try {
-        generated = proposal(await withTimeout(generationAdapter.generate({ sourceText, strategies: runtimeList(), promptVersion }), modelTimeoutMs, "STRATEGY_MODEL_TIMEOUT"));
+        generated = proposal(await withTimeout(generationAdapter.generate({ sourceText, strategies: runtimeList(registry), promptVersion }), modelTimeoutMs, "STRATEGY_MODEL_TIMEOUT"));
       } catch (error) {
-        if (error instanceof Error && ["STRATEGY_MODEL_TIMEOUT", "STRATEGY_MODEL_UNAVAILABLE", "STRATEGY_MODEL_SCHEMA_INVALID"].includes(error.message)) throw error;
+        if (error instanceof Error && ["STRATEGY_MODEL_TIMEOUT", "STRATEGY_MODEL_UNAVAILABLE", "STRATEGY_MODEL_AUTHENTICATION_FAILED", "STRATEGY_MODEL_RATE_LIMITED", "STRATEGY_MODEL_SCHEMA_INVALID", "STRATEGY_MODEL_ERROR"].includes(error.message)) throw error;
         throw new Error("STRATEGY_MODEL_UNAVAILABLE");
       }
       const generatedDefinitions: StrategyDefinition[] = [];

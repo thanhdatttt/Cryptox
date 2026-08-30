@@ -1,4 +1,5 @@
 export { createInMemoryStrategyDependencies, createStrategyModule } from "../application/service";
+export { createStrategyRegistry, InMemoryStrategyRegistry } from "../domain/plugins";
 export type { StrategyModuleDependencies, StrategyModuleRuntime } from "../application/service";
 export type { GeneratedStrategyProposal, StrategyGenerationAdapter, StrategyGenerationRequest, StrategyGenerationSource, StrategySourceLoader, StrategyGenerationUnitOfWork } from "../application/ports";
 export { createOpenAiStrategyGenerationAdapter } from "../infrastructure/openai-generation-adapter";

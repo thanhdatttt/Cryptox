@@ -134,6 +134,7 @@ export interface StrategyPluginDescriptor {
     implementationSha256: string;
     readonly minimumHistoryCandles: number;
     readonly parameters: readonly StrategyParameterDescriptor[];
+    requiresSentiment?: boolean;
 }
 export interface StrategyFactory {
     descriptor: StrategyPluginDescriptor;
@@ -143,4 +144,9 @@ export interface StrategyFactory {
 export interface StrategyArtifactResolver {
     resolve(strategyName: string, implementationSha256: string): Promise<StrategyFactory>;
     resolveSync?(strategyName: string, implementationSha256: string): StrategyFactory | undefined;
+}
+export interface StrategyRegistry {
+    register(factory: StrategyFactory): void;
+    get(name: string, implementationSha256: string): StrategyFactory | undefined;
+    list(): StrategyPluginDescriptor[];
 }
