@@ -41,6 +41,17 @@ function cloneStatus(status: SearchRunStatus): SearchRunStatus {
       configuration: { ...status.candidateTemplate.configuration },
     },
     activeCandidateIds: [...status.activeCandidateIds],
+    ...(status.seededDiscovery
+      ? {
+          seededDiscovery: {
+            ...status.seededDiscovery,
+            algorithmConfiguration: { ...status.seededDiscovery.algorithmConfiguration },
+            datasetIdentity: { ...status.seededDiscovery.datasetIdentity },
+            code: { ...status.seededDiscovery.code },
+            defaultBudget: { ...status.seededDiscovery.defaultBudget },
+          },
+        }
+      : {}),
   };
 }
 

@@ -10,6 +10,7 @@ import type {
 } from "modules/auth/api";
 import type {
   CandidateGenerationRequest,
+  GeneratorType,
   GeneratedCandidate,
   SearchCandidateTemplate,
   SearchModulePublicApi,
@@ -19,11 +20,20 @@ import type {
   SearchRunStatus,
   SearchRunStopReason,
   SearchSpaceConfig,
+  SeededDiscoveryProvenance,
   StartSearchCommand,
   StopCondition,
 } from "../api/contracts";
-import type { SearchApplicationDependencies } from "./ports";
-import { RandomGeneratorError } from "../domain/random-generator";
+import { GENETIC_V1_DEFAULTS } from "../api/contracts";
+import type { SearchApplicationDependencies, StrategyGeneratorPort } from "./ports";
+import {
+  DomainGuidedStrategyGenerator,
+  type DomainGuidedGeneratorOptions,
+} from "../domain/generators/domain-guided";
+import {
+  GeneticStrategyGenerator,
+  type GeneticGeneratorOptions,
+} from "../domain/generators/genetic";
 
 type Dependencies = SearchApplicationDependencies<
   SearchRunStatus,
@@ -51,6 +61,7 @@ export class SearchApplicationError extends Error {
 
 interface SearchRunControl {
   status: SearchRunStatus;
+  generator: StrategyGeneratorPort<CandidateGenerationRequest, GeneratedCandidate>;
   generatedCandidateKeys: Set<string>;
   nextIterationNumber: number;
   terminalCandidateIds: Set<string>;
@@ -198,6 +209,17 @@ function cloneStatus(status: SearchRunStatus): SearchRunStatus {
     stopCondition: { ...status.stopCondition },
     candidateTemplate: cloneTemplate(status.candidateTemplate),
     activeCandidateIds: [...status.activeCandidateIds],
+    ...(status.seededDiscovery
+      ? {
+          seededDiscovery: {
+            ...status.seededDiscovery,
+            algorithmConfiguration: { ...status.seededDiscovery.algorithmConfiguration },
+            datasetIdentity: { ...status.seededDiscovery.datasetIdentity },
+            code: { ...status.seededDiscovery.code },
+            defaultBudget: { ...status.seededDiscovery.defaultBudget },
+          },
+        }
+      : {}),
   };
 }
 
@@ -205,13 +227,153 @@ function readableError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+type AlgorithmConfiguration = SeededDiscoveryProvenance["algorithmConfiguration"];
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
+function asStringArray(value: unknown): readonly string[] | undefined {
+  return Array.isArray(value) && value.every((item) => typeof item === "string")
+    ? value
+    : undefined;
+}
+
+function configurationNumber(configuration: AlgorithmConfiguration, key: string): number | undefined {
+  const value = configuration[key];
+  return typeof value === "number" ? value : undefined;
+}
+
+function domainOptionsFromConfiguration(
+  configuration: AlgorithmConfiguration | undefined,
+): DomainGuidedGeneratorOptions {
+  if (!configuration) return {};
+  const categories = asStringArray(configuration.categories);
+  const categoryMembers: Record<string, string[]> = {};
+  const encodedMembers = [
+    asStringArray(configuration.categoryMembers),
+    asStringArray(configuration.categoryStrategyDefinitionIds),
+  ].find((value): value is readonly string[] => value !== undefined);
+  for (const encoded of encodedMembers ?? []) {
+    const separator = encoded.indexOf("=");
+    if (separator <= 0 || separator === encoded.length - 1) continue;
+    const category = encoded.slice(0, separator);
+    const strategyDefinitionId = encoded.slice(separator + 1);
+    categoryMembers[category] ??= [];
+    categoryMembers[category]!.push(strategyDefinitionId);
+  }
+  for (const [key, value] of Object.entries(configuration)) {
+    const category = key.startsWith("category.") ? key.slice("category.".length) : undefined;
+    const members = asStringArray(value);
+    if (category && category.length > 0 && members) categoryMembers[category] = [...members];
+  }
+  return {
+    ...(categories ? { categories } : {}),
+    ...(Object.keys(categoryMembers).length > 0 ? { categoryMembers } : {}),
+  };
+}
+
+function geneticOptionsFromConfiguration(
+  configuration: AlgorithmConfiguration | undefined,
+): GeneticGeneratorOptions {
+  if (!configuration) return {};
+  return {
+    ...(configurationNumber(configuration, "population") !== undefined
+      ? { population: configurationNumber(configuration, "population") }
+      : {}),
+    ...(configurationNumber(configuration, "maximumGenerations") !== undefined
+      ? { maximumGenerations: configurationNumber(configuration, "maximumGenerations") }
+      : {}),
+    ...(configurationNumber(configuration, "elitePercent") !== undefined
+      ? { elitePercent: configurationNumber(configuration, "elitePercent") }
+      : {}),
+    ...(configurationNumber(configuration, "mutationPercent") !== undefined
+      ? { mutationPercent: configurationNumber(configuration, "mutationPercent") }
+      : {}),
+  };
+}
+
+function generatorProfileId(generatorType: GeneratorType): SeededDiscoveryProvenance["profileId"] {
+  switch (generatorType) {
+    case "RANDOM":
+      return "RANDOM_V1";
+    case "DOMAIN_GUIDED":
+      return "DOMAIN_GUIDED_V1";
+    case "GENETIC":
+      return "GENETIC_V1";
+  }
+}
+
+function isSeededGenerator(generatorType: GeneratorType): boolean {
+  return generatorType === "DOMAIN_GUIDED" || generatorType === "GENETIC";
+}
+
+function clonedAlgorithmConfiguration(
+  value: AlgorithmConfiguration,
+): AlgorithmConfiguration {
+  return Object.fromEntries(
+    Object.entries(value).map(([key, item]) => [
+      key,
+      Array.isArray(item) ? [...item] : item,
+    ]),
+  ) as AlgorithmConfiguration;
+}
+
+function normalizeSeededDiscovery(
+  supplied: SeededDiscoveryProvenance | undefined,
+  generatorType: GeneratorType,
+  randomSeed: string,
+  generator: StrategyGeneratorPort<CandidateGenerationRequest, GeneratedCandidate>,
+): SeededDiscoveryProvenance | undefined {
+  if (!isSeededGenerator(generatorType) && supplied === undefined) return undefined;
+  const expectedProfileId = generatorProfileId(generatorType);
+  if (supplied && (supplied.profileId !== expectedProfileId || supplied.seed !== randomSeed)) {
+    throw new SearchApplicationError("INVALID_SEEDED_PROVENANCE");
+  }
+  if (supplied && (
+    !isRecord(supplied.defaultBudget) ||
+    supplied.defaultBudget.maxCandidates !== 500 ||
+    supplied.defaultBudget.maxDurationSeconds !== 300 ||
+    !isRecord(supplied.algorithmConfiguration) ||
+    !isRecord(supplied.datasetIdentity) ||
+    !isRecord(supplied.code)
+  )) {
+    throw new SearchApplicationError("INVALID_SEEDED_PROVENANCE");
+  }
+  const generatorConfiguration = (generator as StrategyGeneratorPort<CandidateGenerationRequest, GeneratedCandidate> & {
+    readonly algorithmConfiguration?: AlgorithmConfiguration;
+  }).algorithmConfiguration;
+  const algorithmConfiguration = supplied?.algorithmConfiguration ?? generatorConfiguration ?? {};
+  return {
+    profileId: expectedProfileId,
+    algorithmConfiguration: clonedAlgorithmConfiguration(algorithmConfiguration),
+    datasetIdentity: supplied ? { ...supplied.datasetIdentity } : {},
+    code: supplied ? { ...supplied.code } : {},
+    seed: randomSeed,
+    defaultBudget: { maxCandidates: 500, maxDurationSeconds: 300 },
+  };
+}
+
+function boundedSeededStopCondition(stopCondition: StopCondition): StopCondition {
+  return Object.freeze({
+    ...stopCondition,
+    maxCandidates: Math.min(stopCondition.maxCandidates ?? GENETIC_V1_DEFAULTS.candidateBudget, 500),
+    maxDurationSeconds: Math.min(stopCondition.maxDurationSeconds ?? 300, 300),
+  }) as StopCondition;
+}
+
+function isSearchSpaceExhausted(error: unknown): boolean {
+  return isRecord(error) && error.code === "SEARCH_SPACE_EXHAUSTED";
+}
+
 function generatedCandidateIsValid(
   candidate: GeneratedCandidate,
   searchSpace: SearchSpaceConfig,
+  generatorType: GeneratorType,
 ): boolean {
   if (
     !candidate ||
-    candidate.generatedBy !== "RANDOM" ||
+    candidate.generatedBy !== generatorType ||
     candidate.combinationProfileId !== "MAJORITY_VOTE_V1" ||
     !Array.isArray(candidate.strategyDefinitionIds)
   ) {
@@ -254,6 +416,29 @@ export function createSearchApplication(
 
   const controls = new Map<string, SearchRunControl>();
 
+  const resolveGenerator = (
+    generatorType: GeneratorType,
+    seededDiscovery?: SeededDiscoveryProvenance,
+  ): StrategyGeneratorPort<CandidateGenerationRequest, GeneratedCandidate> => {
+    if (generatorType === "RANDOM") return dependencies.generators.RANDOM;
+    if (generatorType === "DOMAIN_GUIDED") {
+      const configured = dependencies.generators.DOMAIN_GUIDED;
+      if (configured && configured.profileId !== "DOMAIN_GUIDED_V1") {
+        throw new SearchApplicationError("INVALID_GENERATOR_CONFIGURATION");
+      }
+      return configured ?? new DomainGuidedStrategyGenerator(
+        domainOptionsFromConfiguration(seededDiscovery?.algorithmConfiguration),
+      );
+    }
+    const configured = dependencies.generators.GENETIC;
+    if (configured && configured.profileId !== "GENETIC_V1") {
+      throw new SearchApplicationError("INVALID_GENERATOR_CONFIGURATION");
+    }
+    return configured ?? new GeneticStrategyGenerator(
+      geneticOptionsFromConfiguration(seededDiscovery?.algorithmConfiguration),
+    );
+  };
+
   const touch = (control: SearchRunControl): void => {
     control.status.updatedAt = clock.now();
   };
@@ -289,6 +474,11 @@ export function createSearchApplication(
     );
     if ("deadlineExceeded" in rankingResult) return;
     const entries = rankingResult.value;
+    if (entries[0]) {
+      control.status.currentTopLeaderboardEntryId = entries[0].candidateId;
+    } else {
+      delete control.status.currentTopLeaderboardEntryId;
+    }
     const scores = entries
       .map((entry) => entry.score)
       .filter((score) => Number.isFinite(score));
@@ -590,7 +780,7 @@ export function createSearchApplication(
           return;
         }
 
-        const generator = dependencies.generators.RANDOM;
+        const generator = control.generator;
         let generated: GeneratedCandidate;
         try {
           generated = generator.generate({
@@ -600,7 +790,7 @@ export function createSearchApplication(
             previouslyGeneratedCandidateKeys: [...control.generatedCandidateKeys],
           });
         } catch (error) {
-          if (error instanceof RandomGeneratorError && error.code === "SEARCH_SPACE_EXHAUSTED") {
+          if (isSearchSpaceExhausted(error)) {
             await completeRun(control, "COMPLETED", "SEARCH_SPACE_EXHAUSTED");
           } else {
             await failRun(control, readableError(error));
@@ -608,7 +798,7 @@ export function createSearchApplication(
           return;
         }
         control.nextIterationNumber += 1;
-        if (!generatedCandidateIsValid(generated, control.status.searchSpace)) {
+        if (!generatedCandidateIsValid(generated, control.status.searchSpace, control.status.generatorType)) {
           await failRun(control, "generator returned a malformed candidate");
           return;
         }
@@ -705,8 +895,12 @@ export function createSearchApplication(
     }
   }
 
-  const controlFromStatus = (status: SearchRunStatus): SearchRunControl => ({
+  const controlFromStatus = (
+    status: SearchRunStatus,
+    generator = resolveGenerator(status.generatorType, status.seededDiscovery),
+  ): SearchRunControl => ({
     status,
+    generator,
     generatedCandidateKeys: new Set(),
     nextIterationNumber: status.submittedCandidateCount + 1,
     terminalCandidateIds: new Set(),
@@ -736,7 +930,7 @@ export function createSearchApplication(
     command: StartSearchCommand,
   ): Promise<{ searchRunId: string }> => {
     const ownerUserId = assertContext(context);
-    if (!command || command.generatorType !== "RANDOM") {
+    if (!command || !["RANDOM", "DOMAIN_GUIDED", "GENETIC"].includes(command.generatorType)) {
       throw new SearchApplicationError("UNSUPPORTED_GENERATOR");
     }
     assertNonEmptyString(command.randomSeed, "INVALID_RANDOM_SEED");
@@ -745,7 +939,21 @@ export function createSearchApplication(
       throw new SearchApplicationError("INVALID_MAX_IN_FLIGHT");
     }
     const searchSpace = normalizeSearchSpace(command.searchSpace);
-    const stopCondition = normalizeStopCondition(command.stopCondition);
+    let generator: StrategyGeneratorPort<CandidateGenerationRequest, GeneratedCandidate>;
+    try {
+      generator = resolveGenerator(command.generatorType, command.seededDiscovery);
+    } catch (error) {
+      throw new SearchApplicationError("INVALID_GENERATOR_CONFIGURATION", readableError(error));
+    }
+    const seededDiscovery = normalizeSeededDiscovery(
+      command.seededDiscovery,
+      command.generatorType,
+      command.randomSeed,
+      generator,
+    );
+    const stopCondition = isSeededGenerator(command.generatorType)
+      ? boundedSeededStopCondition(normalizeStopCondition(command.stopCondition))
+      : normalizeStopCondition(command.stopCondition);
     const candidateTemplate = validateTemplate(command.candidateTemplate);
     let leaderboardScope;
     try {
@@ -775,7 +983,7 @@ export function createSearchApplication(
     const status: SearchRunStatus = {
       searchRunId,
       ownerUserId,
-      generatorType: "RANDOM",
+      generatorType: command.generatorType,
       randomSeed: command.randomSeed,
       searchSpace,
       stopCondition,
@@ -791,8 +999,9 @@ export function createSearchApplication(
       createdAt,
       startedAt: createdAt,
       updatedAt: createdAt,
+      ...(seededDiscovery ? { seededDiscovery } : {}),
     };
-    const control = controlFromStatus(status);
+    const control = controlFromStatus(status, generator);
     if (stopCondition.maxDurationSeconds !== undefined) {
       control.deadlineAtMonotonicMs = Date.now() + stopCondition.maxDurationSeconds * 1_000;
     }

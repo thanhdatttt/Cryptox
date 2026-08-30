@@ -1,91 +1,104 @@
-# INS-055 Execution Checkpoint — C-03 Search Contract Reconciliation
+# INS-057 Execution Checkpoint — Q-02 Seeded Discovery
 
 ## Resume here
 
-- **Authorization:** `INS-055 / APPROVED_FOR_EXECUTION` authorized exactly one
-  bounded packet, `C-03`. No Q-02 algorithm or other feature packet was
-  started, promoted, reopened, retried, or duplicated.
-- **Fresh Manager:** This Manager operated directly in the canonical
-  same-directory checkout `D:/agy-cli-projects/AOS/Cryptox` on branch
-  `MVP_IMPLEMENTATION`.
-- **Reviewed base:** Instructor control records `d6bd0a6870b2f3d60c04d1dd4cd57a91e8589919`
-  as the reviewed source/business checkpoint. Current dispatch HEAD was
-  `07f460dcbb7877b928d070c9d3aa46724b6d0481`; its only diff from the reviewed
-  base was the governance-only `docs/control/INSTRUCTOR.md` authorization, so
-  no source, business state, task DAG, contract, migration, or C-03 premise
-  drift was found.
-- **Starting conditions:** The working tree was clean; `C-02` was `DONE`,
-  `ENV-03` was `REVIEW` with its deferred-scope gate passing, and `Q-02` was
-  `BLOCKED`. Active-task inspection found only the parent Instructor task and
-  this Manager task; no separate Cryptox Manager or worker was running.
+- **Authorization:** `INS-057 / APPROVED_FOR_EXECUTION` authorized exactly one
+  bounded packet, `Q-02`. No other feature, checker reconciliation, retry,
+  replacement, or downstream packet was started.
+- **Manager:** This Manager operated directly in the canonical same-directory
+  checkout `D:/agy-cli-projects/AOS/Cryptox` on branch `MVP_IMPLEMENTATION`.
+- **Reviewed base:** Instructor HOLD checkpoint
+  `72b357d358217a2b57b7d4fc29edfec4d1cac595`; authorization commit
+  `e27900aff4b068f8b0fa1c80f80859c5fa2cfa71`. The working tree was clean
+  before Q-02 state execution. C-03 remains `REVIEW` at its accepted contract
+  checkpoint `51e98f9d5edd545831007dc6ce105701384bfd44`.
+- **Starting conditions:** `C-02=DONE`, `C-03=REVIEW`, `S-01=DONE`,
+  `Q-01=DONE`, and `Q-02=BLOCKED` were verified from the control plane. Active
+  inspection found the parent Instructor task and this Manager only; no other
+  Cryptox Manager or worker was running. Historical idle/not-loaded tasks were
+  not resumed.
 
 ## State and worker
 
-- `C-03` was added to `TASKS.md` as `BLOCKED`, then moved exactly
-  `BLOCKED -> READY -> IN_PROGRESS -> REVIEW`. No unrelated task state changed.
-- Exactly one fresh worker, Turing
-  (`01a04fed-36a2-76a2-b034-090c150c4873`), worked in the canonical checkout.
-  It created no commit, branch, worktree, or worker and edited no control-plane
-  file. The Manager independently reviewed its result.
+- `Q-02` transitioned exactly `BLOCKED -> READY -> IN_PROGRESS -> REVIEW`.
+  No unrelated task state changed, and Q-02 was not marked `DONE`.
+- Exactly one fresh worker was used: `01a0500c-2fa8-7a82-a4f0-0badf7479b01`.
+  It created no commit, branch, worktree, worker, or control-plane change. The
+  Manager independently reviewed its working-tree result.
 
 ## Implementation and review
 
-Worker-owned changed paths:
+The accepted Q-02 implementation/test paths are:
 
-- `modules/search/api/contracts.ts`
-- `modules/search/api/contracts.spec.ts`
-- `modules/search/application/ports.ts`
-- `modules/search/application/ports.spec.ts`
-- `packages/contracts/rest/search.ts`
-- `packages/contracts/rest/search.spec.ts`
-- `scripts/check-deferred-scope.cjs`
-- `scripts/check-deferred-scope.test.cjs`
+- `modules/search/application/memory.ts`
+- `modules/search/application/profile.spec.ts`
+- `modules/search/application/service.ts`
+- `modules/search/domain/generators/domain-guided/domain-guided-generator.spec.ts`
+- `modules/search/domain/generators/domain-guided/domain-guided-generator.ts`
+- `modules/search/domain/generators/domain-guided/index.ts`
+- `modules/search/domain/generators/genetic/genetic-generator.spec.ts`
+- `modules/search/domain/generators/genetic/genetic-generator.ts`
+- `modules/search/domain/generators/genetic/index.ts`
+- `modules/search/infrastructure/postgres.spec.ts`
+- `modules/search/infrastructure/postgres.ts`
 
-The canonical Search contracts now represent `RANDOM`, `DOMAIN_GUIDED`, and
-`GENETIC`, preserve the one-candidate form and current Random implementation,
-and expose optional typed registry slots for future Q-02 implementations.
-SearchRun commands remain free of owner identity; status and seeded provenance
-retain finite stop conditions, profile/configuration, seed, dataset identity,
-code version, and the bounded 500-candidate/300-second default budget.
+The implementation adds deterministic seeded Domain-guided and Genetic
+generators while retaining the one-candidate identity and existing Random
+behavior. Domain-guided generation uses explicitly configured category
+membership and rejects unavailable/invalid declared categories without
+inventing candidates. Genetic generation preserves population `50`, maximum
+`10` generations, elite `10%`, and mutation `20%` defaults. Search application
+wiring selects the profile slot, preserves bounded seeded provenance, clamps
+seeded runs to the earlier 500-candidate/300-second budget, and keeps existing
+capacity, cancellation, failure, timing, and ranking projections. In-memory and
+PostgreSQL SearchRun projections round-trip the seeded provenance without a
+migration or a second lifecycle.
 
-The REST contract/parser accepts only the three generator values and the three
-matching seeded profile IDs, validates bounded provenance and existing search
-space/stop/in-flight rules, rejects unsupported or mismatched values and
-client-supplied identity fields, and adds no endpoint or lifecycle behavior.
-The deferred-scope checker recognizes the exact canonical
-`packages/contracts/rest/search.ts` file while retaining negative checks for
-near-match and unrelated paths. No Q-02 algorithm, Search lifecycle,
-persistence, migration, frontend, provider, queue/distributed, LLM, or
-unrelated source changed.
+The implementation uses the bounded internal category-membership encoding
+`Category=definitionId` when translating the generic C-03 algorithm
+configuration. C-03 public contracts were not reopened; any requirement for a
+different canonical encoding needs a later Instructor-reviewed packet.
+
+Manager scope audit found no changes to Search canonical contracts, REST
+contracts, ports, migrations, apps, frontend, providers, queues, Backtesting,
+Evaluation, Leaderboard, the deferred-scope checker, dependencies, or unrelated
+source.
 
 ## Validation and limitations
 
-- Focused Search API/ports/REST tests: **PASS**, 9/9.
-- Deferred-scope checker tests: **PASS**, 10/10.
-- `npm run scope:check`: **PASS**.
+- Focused Q-02 generators, profile wiring, and Search persistence tests:
+  **PASS**, 12/12.
+- Full Search workspace tests: **PASS**, 32 passed; 1 PostgreSQL integration
+  test skipped because `DATABASE_URL` is absent.
+- Root workspace tests: **PASS**, 341 passed; 6 environment-gated tests
+  skipped and not counted as passing evidence.
 - `npm run arch:check`: **PASS**.
 - `npm run artifacts:check`: **PASS**.
 - `npm run typecheck`: **PASS**.
 - `npm run build`: **PASS**.
 - `npm run lint`: **PASS**.
-- Full workspace tests: **PASS**, 332 passed; 6 environment-gated tests
-  skipped and not counted as passing evidence.
 - `git diff --check`: **PASS**.
-- OpenSpec CLI validation: **UNVERIFIED**; the `openspec` executable is not
-  available in this environment.
-
-The worker initially tried an unsupported Vitest option, then completed its
-focused checks successfully with the supported command. The Manager reran the
-correct focused and required repository gates independently. No real
-PostgreSQL/Binance evidence is claimed because it is outside this
-contract-reconciliation packet.
+- `npm run scope:check`: **BLOCKED** as required by INS-057. Exact findings:
+  `modules/search/application/service.ts` rejects approved profiles
+  `DOMAIN_GUIDED_V1` and `GENETIC_V1`; and
+  `modules/search/domain/generators/domain-guided/domain-guided-generator.ts`
+  and `modules/search/domain/generators/genetic/genetic-generator.ts` reject
+  their corresponding approved profile identifiers. The checker was not edited
+  or bypassed; separate Instructor authorization is required for reconciliation.
+- OpenSpec CLI: **UNVERIFIED**; the executable is unavailable.
+- Real PostgreSQL Search integration: **UNVERIFIED**; `DATABASE_URL` is absent.
+  No real PostgreSQL, Binance, or final/demo evidence is claimed in this
+  packet.
 
 ## Stop boundary
 
-- `C-03` is at `REVIEW`, not `DONE`, pending Instructor review.
-- `Q-02` remains `BLOCKED`; no newly unlocked or downstream packet was started.
-- Manager-owned changed paths are only `docs/implementation/TASKS.md` and this
-  `docs/implementation/HANDOFF.md`. One coherent checkpoint commit contains
-  those files plus the eight worker paths above.
-- Renewed Instructor authorization is required before Q-02 or any other
-  follow-on work.
+- Q-02 is at `REVIEW`, not `DONE`, pending Instructor review and the required
+  checker-boundary decision. The current validation blocker must not be hidden
+  by changing the checker.
+- No newly unlocked packet was started or promoted. `B-03`, `S-04`, `E-02`,
+  `L-02`, `F-03`, `I-01`, `I-02`, `I-03`, `M-02`, `M-03`, `N-03`, `AU-02`,
+  and all other downstream/newly unlocked work remain at their recorded states.
+- The final local checkpoint commit contains only the eleven authorized Q-02
+  implementation/test paths above plus Manager-owned `TASKS.md` and this
+  `HANDOFF.md`. The Manager stops here; no checker reconciliation, Q-02 retry,
+  or downstream integration may begin without renewed Instructor authority.

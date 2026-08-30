@@ -59,6 +59,7 @@ function rowFromRun(value: SearchRunStatus): Record<string, unknown> {
         candidateTemplate: value.candidateTemplate,
         activeCandidateIds: value.activeCandidateIds,
         averageBacktestDurationMs: value.averageBacktestDurationMs,
+        ...(value.seededDiscovery ? { seededDiscovery: value.seededDiscovery } : {}),
       },
     }),
     stop_condition: JSON.stringify(value.stopCondition),
@@ -156,5 +157,48 @@ describe("PostgresSearchRunRepository", () => {
     const page = await repository.listByOwner(ownerA, { limit: 1 });
     expect(page.items.map((item) => item.searchRunId)).toEqual([runId]);
     expect(page.nextCursor).toBe(runId);
+  });
+
+  it("round-trips seeded profile provenance through the existing SearchRun projection", async () => {
+    const seededRun: SearchRunStatus = {
+      ...run,
+      generatorType: "GENETIC",
+      seededDiscovery: {
+        profileId: "GENETIC_V1",
+        algorithmConfiguration: {
+          population: 50,
+          maximumGenerations: 10,
+          elitePercent: 0.1,
+          mutationPercent: 0.2,
+        },
+        datasetIdentity: { datasetId: "dataset-q02", datasetVersion: "v1" },
+        code: { gitCommit: "q02-test" },
+        seed: "real-port-seed",
+        defaultBudget: { maxCandidates: 500, maxDurationSeconds: 300 },
+      },
+    };
+    const saveCalls: Array<{ text: string; values: unknown[] }> = [];
+    const savePool: PostgresPool = {
+      query: async <Row extends Record<string, unknown>>(text: string, values: unknown[] = []) => {
+        saveCalls.push({ text, values });
+        return { rows: [] as Row[], rowCount: 1 };
+      },
+      end: async () => undefined,
+    };
+    const repository = new PostgresSearchRunRepository(savePool);
+    await repository.save(ownerA, seededRun);
+    const stored = JSON.parse(String(saveCalls[0]!.values[4])) as Record<string, unknown>;
+    expect(stored.__cryptoxSearchRun).toMatchObject({
+      seededDiscovery: seededRun.seededDiscovery,
+    });
+
+    const readRepository = new PostgresSearchRunRepository({
+      query: async <Row extends Record<string, unknown>>() => ({ rows: [rowFromRun(seededRun) as Row] }),
+      end: async () => undefined,
+    });
+    await expect(readRepository.getByOwnerAndId(ownerA, runId)).resolves.toMatchObject({
+      generatorType: "GENETIC",
+      seededDiscovery: seededRun.seededDiscovery,
+    });
   });
 });

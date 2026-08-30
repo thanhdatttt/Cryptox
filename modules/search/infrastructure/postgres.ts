@@ -3,6 +3,7 @@ import type {
   SearchCandidateTemplate,
   SearchRunStatus,
   SearchSpaceConfig,
+  SeededDiscoveryProvenance,
   StopCondition,
 } from "../api/contracts";
 import type { SearchRunRepository } from "../application/ports";
@@ -52,6 +53,7 @@ interface SearchRunStorageMetadata {
   readonly candidateTemplate: SearchCandidateTemplate;
   readonly activeCandidateIds: readonly string[];
   readonly averageBacktestDurationMs: number | null;
+  readonly seededDiscovery?: SeededDiscoveryProvenance;
 }
 
 type StoredSearchSpace = SearchSpaceConfig & {
@@ -94,6 +96,9 @@ function storageMetadata(status: SearchRunStatus): SearchRunStorageMetadata {
     candidateTemplate: cloneTemplate(status.candidateTemplate),
     activeCandidateIds: [...status.activeCandidateIds],
     averageBacktestDurationMs: status.averageBacktestDurationMs,
+    ...(status.seededDiscovery
+      ? { seededDiscovery: structuredClone(status.seededDiscovery) }
+      : {}),
   };
 }
 
@@ -109,6 +114,7 @@ function searchSpaceFromStorage(value: unknown): {
   candidateTemplate: SearchCandidateTemplate;
   activeCandidateIds: readonly string[];
   averageBacktestDurationMs: number | null;
+  seededDiscovery?: SeededDiscoveryProvenance;
 } {
   const stored = parseJson(value, "search_space") as unknown as StoredSearchSpace;
   const metadata = stored[STORAGE_METADATA_KEY];
@@ -136,6 +142,9 @@ function searchSpaceFromStorage(value: unknown): {
     candidateTemplate: cloneTemplate(metadata.candidateTemplate),
     activeCandidateIds,
     averageBacktestDurationMs,
+    ...(metadata.seededDiscovery
+      ? { seededDiscovery: structuredClone(metadata.seededDiscovery) }
+      : {}),
   };
 }
 
@@ -159,6 +168,7 @@ function statusFromRow(row: SearchRunRow): SearchRunStatus {
     completedCandidateCount: integerColumn(row.completed_candidate_count, "completed_candidate_count"),
     failedCandidateCount: integerColumn(row.failed_candidate_count, "failed_candidate_count"),
     averageBacktestDurationMs: stored.averageBacktestDurationMs,
+    ...(stored.seededDiscovery ? { seededDiscovery: stored.seededDiscovery } : {}),
     createdAt: timestampColumn(row.created_at, "created_at"),
     ...(startedAt ? { startedAt } : {}),
     updatedAt: timestampColumn(row.updated_at, "updated_at"),
