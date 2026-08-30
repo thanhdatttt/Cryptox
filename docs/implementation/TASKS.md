@@ -17,7 +17,7 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 | C-01A | DONE | 1A | YES | Manager / contract worker | `MVP_IMPLEMENTATION` / `9ca2d7c` | Independent review and all contract/global gates PASS |
 | D-01 | DONE | 2 | YES — B-02 gate | Orchestrator / Dewey + independent DB reviewer | `MVP_IMPLEMENTATION` / `f5c5562` | Live down/up/remigrate, schema/constraint/ownership/deferred-scope probes, global gates PASS; config defect fixed |
 | M-01 | DONE | 2 | Integration | Halley (Market Data worker) and Manager | `3c95063` | Focused 14/14, dedicated PostgreSQL 1/1, root gates PASS; live Binance UNVERIFIED |
-| M-02 | REVIEW | 3 | Integration | M-02 review-closure worker (INS-014) | `MVP_IMPLEMENTATION` / `5160c1c` | Socket-error reconnect fix and regression coverage reviewed; focused realtime 9/9 and full Market Data 23 PASS / 1 skipped; live Binance remains UNVERIFIED |
+| M-02 | DONE | 3 | Integration | M-02 review-closure worker (INS-014); INS-095 Manager | `MVP_IMPLEMENTATION` / `5160c1c` source; INS-095 closure checkpoint | Existing reconnect/gap implementation reviewed; focused realtime 12/12, full Market Data 31 PASS / 1 skipped, package/global gates PASS; public Binance smoke PASS with normalized tick and clean shutdown |
 | S-01 | DONE | 2 | YES | Manager / S-01 strategy | `MVP_IMPLEMENTATION` / containing INS-005 checkpoint commit | Strategy tests/workspace gates PASS; persistence and built-in plugin scopes untouched |
 | S-02 | DONE | 3 | Integration | Manager / reviewed Strategy worker A | `MVP_IMPLEMENTATION` / `afbd88c` | Focused 15/15, independent review, and reproducible root workspace gate PASS |
 | S-03 | DONE | 3 | Integration | Manager / reviewed Strategy worker B | `MVP_IMPLEMENTATION` / `afbd88c` | Focused 25/25, independent review, and reproducible root workspace gate PASS |
@@ -64,15 +64,16 @@ Manager review. M-03 was recovered under INS-049 by one fresh worker and closed
 real Binance readiness and PostgreSQL integration remain unavailable. B-03 is now `DONE` under INS-069
 after one fresh worker and independent Manager review; its fixture evidence and
 current deferred-scope checker gate pass, while real-provider/database evidence
-remains blocked or unverified. `N-03` and `N-03A` are `DONE`; `M-02` remains
-`REVIEW/UNVERIFIED`; `ENV-03` is
+remains blocked or unverified. `N-03` and `N-03A` are `DONE`; `M-02` is
+`DONE` under `INS-095` after packet-local recovery evidence and a public
+Binance normalized-tick smoke with clean shutdown; `ENV-03` is
 `DONE` after its closure. `S-04` is `DONE` under `INS-077`; `E-02` and `L-02`
 are `DONE`; `F-03` is `DONE` under INS-091 at its packet-local screen/test
 boundary; external feature transport and real-provider/browser evidence remain
 unavailable for downstream integration; `I-03` remains `BLOCKED`. No downstream
 packet was authorized or started.
 The existing legacy rows, including
-`M-02` at `REVIEW`, `AU-02` at `BLOCKED`, and `I-01`/`I-02` at `BLOCKED`, retain
+`M-02` at `DONE`, `AU-02` at `BLOCKED`, and `I-01`/`I-02` at `BLOCKED`, retain
 their states and evidence. DEC-007 feature behavior remains unimplemented in
 the separately gated downstream packets.
 
@@ -224,19 +225,21 @@ started and no worker was created for closure.
 
 - **Requirement IDs:** `CSL-R-MD-02`, `CSL-R-FE-01`, `CSL-R-OB-01`,
   `CSL-R-AR-02`, `CSL-R-DM-01`, `CSL-R-RD-01`
-- **State / owner / wave:** REVIEW / M-02 review-closure worker (INS-014) / Wave 3
+- **State / owner / wave:** DONE / M-02 review-closure worker (INS-014) and INS-095 Manager / Wave 3
 - **Critical / parallelism:** Integration / YES
 - **Start dependencies:** M-01
 - **Integration dependencies:** F-01 and I-01
 - **Objective:** Deliver normalized market klines with bounded reconnect, gap fill,
   deduplication, and observable connection state.
 - **Write scope:** Market Data application/infrastructure and market WebSocket tests.
-- **Latest branch / commit:** `MVP_IMPLEMENTATION` / `5160c1c`.
-- **Validation:** REVIEW after INS-014 closure; realtime 9/9 and full Market
-  Data 23 PASS / 1 skipped, package gates PASS. INS-018 made one bounded live
-  Binance WebSocket attempt using the existing provider; it ended with
-  reconnect-limit exhaustion and is UNVERIFIED. No M-02 source/configuration
-  changes were made.
+- **Latest branch / commit:** `MVP_IMPLEMENTATION` / `5160c1c` source; INS-095
+  closure checkpoint.
+- **Validation:** DONE under INS-095 after current realtime 12/12 and full
+  Market Data 31 PASS / 1 skipped, package typecheck/lint/build, global
+  `verify:stage4a`, scope 13/13, and whitespace checks PASS. The fresh public
+  Binance smoke connected, delivered a normalized tick, and shut down cleanly.
+  The earlier INS-018 live attempt remains historical UNVERIFIED evidence; no
+  M-02 source/configuration changes were made under INS-095.
 - **Full packet:** [`MVP_PLAN.md#m-02--realtime-market-delivery-and-gap-recovery`](MVP_PLAN.md#m-02--realtime-market-delivery-and-gap-recovery)
 
 ### S-01 — Strategy Registry, Definitions and Composite Core
@@ -1145,10 +1148,11 @@ acceptance criteria and handoff requirements are in the linked packets in
 
 ## State derivation at this checkpoint
 
-P-00, C-01, A-00, C-01A, E-01, F-01, S-01, D-01, AU-01, M-01, L-01, and B-02
-are DONE. B-02 is closed only at its DEC-006 packet boundary; cross-module
+P-00, C-01, A-00, C-01A, E-01, F-01, S-01, D-01, AU-01, M-01, L-01, B-02,
+and M-02 are DONE. B-02 is closed only at its DEC-006 packet boundary; cross-module
 Experiment/Leaderboard transaction coupling remains UNVERIFIED for I-01.
-M-02 remains REVIEW because live-provider evidence is UNVERIFIED. Q-01 and
+M-02 is DONE under INS-095 because the current packet-local resilience evidence
+and the fresh public Binance normalized-tick smoke both passed. Q-01 and
 F-02 are DONE at their authorized packet boundaries; F-02 is fixture/fake-client
 evidence only and real API/browser integration remains for I-01. F-AUTH, N-01,
 and N-02 remain DONE. `RB-01` is DONE as the current governance checkpoint.
@@ -1173,7 +1177,8 @@ fresh checker-tooling worker completed, the Manager independently reviewed the
 exact Search profile allowlist and preserved deferred-scope rejection, and the
 committed implementation checkpoint `5032582` was reconciled.
 `E-02` and `L-02` are DONE under their exact authorized worker dispatches;
-`M-02` remains `REVIEW/UNVERIFIED`; `F-03` is `DONE` under INS-091 at its
+`M-02` is `DONE` under INS-095 at its approved packet-local realtime boundary
+after the fresh public Binance smoke; `F-03` is `DONE` under INS-091 at its
 approved packet-local frontend screen/test boundary. `AU-02`, `I-01`, `I-02`,
 and `I-03` remain BLOCKED.
 No downstream packet was authorized, started, or promoted; no legacy DONE

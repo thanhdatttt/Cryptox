@@ -1,129 +1,112 @@
-# INS-093 Manager Checkpoint — F-03 Checkpoint Consistency Reconciliation
+# INS-095 Manager Checkpoint — M-02 Realtime Evidence Closure Review
 
 ## Resume here
 
-- **Authorization:** `INS-093 / APPROVED_FOR_EXECUTION` is committed at
-  `e32dea4f320533d6b94e9fe6eee092b1364e4a3e` and supersedes
-  `INS-092 / HOLD` at `b50f8db`. It authorizes exactly one fresh,
-  governance-only Manager to reconcile this F-03 checkpoint. It authorizes no
-  worker, source implementation, retry, replacement, duplicate, downstream
-  packet, or change to any other task state.
-- **Canonical checkout and reviewed base:**
+- **Authorization:** `INS-095 / APPROVED_FOR_EXECUTION` is committed at
+  `9127700fec29cdfe9d5fed9f1c5bc64b8d4ea999` and supersedes `INS-094 / HOLD`
+  at `8556c43`. It authorizes exactly one fresh Manager for a bounded,
+  evidence-only M-02 review. No worker, source rework, retry, replacement,
+  duplicate, or downstream packet is authorized.
+- **Canonical checkout and applicability:**
   `D:/agy-cli-projects/AOS/Cryptox`, branch `MVP_IMPLEMENTATION`, starting at
-  the clean authorization HEAD `e32dea4f320533d6b94e9fe6eee092b1364e4a3e`.
-  The audited F-03 source/test checkpoint remains
-  `6a4e86e1011806f1e2e9f3017d343e00d1cf7971`; the INS-091 Manager checkpoint
-  was preserved by the Instructor at `9ed13bc`. There is no source or
-  business-state drift after `6a4e86e`; the intervening changes are control
-  records only. This checkpoint changes only `TASKS.md` and `HANDOFF.md`.
-- **Current task state:** `TASKS.md` consistently records F-03 as `DONE`; the
-  board is `38 DONE`, `1 REVIEW` (`M-02`), and `4 BLOCKED` (`AU-02`, `I-01`,
-  `I-02`, `I-03`). F-03 dependencies `M-03`, `S-04`, `S-05`, `S-06`, `Q-02`,
-  `B-03`, `N-03`, `E-02`, and `L-02` are `DONE`. No other task state moved;
-  no downstream packet was started or promoted.
-- **Prior execution identities and transitions:** The exact prior identity was
-  `INS-089 Manager` with exactly one fresh internal Frontend worker Darwin
-  (`01a05209-7eaa-7162-b10c-4cdf849258f2`). Darwin made no control-plane edit,
-  commit, branch, worktree, child-worker, retry, or replacement attempt. The
-  prior execution recorded `REVIEW -> READY -> IN_PROGRESS -> REVIEW`; the
-  INS-091 governance-only closure recorded only `REVIEW -> DONE` for F-03.
-  No worker was created under INS-091 or INS-093.
-- **INS-091 commit outcome:** The repository-recorded `INS-091 Manager` made
-  exactly one coherent staging/commit attempt for the two control files. It
-  failed before staging with the exact error:
+  `9127700fec29cdfe9d5fed9f1c5bc64b8d4ea999`. The reviewed authorization delta
+  `8556c43..9127700` changes only `docs/control/INSTRUCTOR.md` and
+  `docs/control/DECISIONS.md`; no source, business-state, or task-DAG drift
+  occurred during INS-095. The existing M-02 implementation checkpoint is
+  `5160c1c623347fe75c945e00603c6f11adf92ae7`. Later authorized M-03 changes
+  are already present in the current Market Data provider/test tree and were
+  not edited by this review.
+- **Starting task state:** Before this review, `TASKS.md` recorded `38 DONE`,
+  `1 REVIEW` (`M-02`), and `4 BLOCKED` (`AU-02`, `I-01`, `I-02`, `I-03`). M-01
+  and F-01 were `DONE`; all other task states and dependencies were preserved.
+- **Workers and scope:** No worker or subagent was created because INS-095
+  provides no independent implementation write scope. The Manager changed
+  only `docs/implementation/TASKS.md` and `docs/implementation/HANDOFF.md`.
+  The prior INS-014 implementation worker was not retried or reused.
 
-  `fatal: Unable to create 'D:/agy-cli-projects/AOS/Cryptox/.git/index.lock': Permission denied`
+## M-02 source and packet review
 
-  No retry occurred. The Instructor-preserved `9ed13bc` checkpoint is not an
-  INS-091 Manager commit, and the source/test checkpoint remains the committed
-  `6a4e86e` implementation.
+- **Requirement IDs:** `CSL-R-MD-02`, `CSL-R-FE-01`, `CSL-R-OB-01`,
+  `CSL-R-AR-02`, `CSL-R-DM-01`, and `CSL-R-RD-01`.
+- **Existing source/test boundary:**
+  `modules/market-data/infrastructure/binance-realtime.ts` and
+  `modules/market-data/infrastructure/binance-realtime.spec.ts`, with the
+  M-02 socket-error recovery change recorded at `5160c1c`. The reviewed code
+  normalizes market ticks/candles, updates same-timestamp candles, appends
+  later candles, suppresses duplicate/unseen out-of-order closed candles,
+  reconciles bounded REST gaps before continuation, resubscribes with bounded
+  backoff, handles socket errors, isolates provider failures, and shuts down
+  without creating replacement sockets. Current Market Data tests also cover
+  the later accepted observability extension; no source or test file was
+  changed under INS-095.
+- **Closure decision:** M-02 moved exactly `REVIEW -> DONE` under INS-095 only
+  after the packet-local evidence and the fresh public Binance smoke below
+  both passed. This is packet closure, not final integration or demo closure.
 
-## Scope and source reconciliation
+## Validation evidence and exact commands
 
-- **Requirement IDs:** `CSL-R-MD-03`, `CSL-R-ST-05`–`07`, `CSL-R-SE-03`,
-  `CSL-R-BT-02`, `CSL-R-NW-02`, `CSL-R-RP-02`, `CSL-R-FE-01`, and
-  `CSL-R-DM-01`.
-- **Exact F-03 source/test paths:**
-  `apps/frontend/src/features/screens.tsx` and
-  `apps/frontend/src/features/screens.spec.tsx`, committed at
-  `6a4e86e1011806f1e2e9f3017d343e00d1cf7971`. The diff from the INS-089
-  starting commit `3945fb09286e062446cd95b55b6714bc1bbdda3b` to that checkpoint
-  contains exactly those two source/test paths plus the two Manager control
-  records; no backend, module, contract, migration, provider, manifest,
-  lockfile, generated artifact, transport, persistence, client-identity, or
-  browser path changed.
-- **No drift check:** From `6a4e86e` through the authorization HEAD, no
-  frontend source/test or business-state path changed. The only intervening
-  paths are `docs/control/INSTRUCTOR.md`, `docs/control/DECISIONS.md`,
-  `docs/implementation/TASKS.md`, and `docs/implementation/HANDOFF.md`.
-- **Accepted packet boundary:** The committed slice projects supplied DTO/state
-  for unavailable authoring, origin/descriptor/composite metadata, frozen
-  Search generator and seeded provenance state with honest unsupported starts,
-  supplied Experiment/Trade paper and visualization provenance, and News
-  extraction plus supplied Sentiment availability. It adds no transport,
-  persistence, browser provider call, frontend business calculation,
-  client-identity bypass, strategy-name branch, or deferred-scope behavior.
+- **PASS:** `npm --workspace @cryptox/market-data test -- infrastructure/binance-realtime.spec.ts`
+  — 1 file, 12/12 tests.
+- **PASS:** `npm --workspace @cryptox/market-data test` — 6 files passed,
+  31 tests passed; 1 PostgreSQL integration test skipped because its environment
+  gate was unavailable.
+- **PASS:** `npm --workspace @cryptox/market-data run typecheck`.
+- **PASS:** `npm --workspace @cryptox/market-data run lint`.
+- **PASS:** `npm --workspace @cryptox/market-data run build`.
+- **PASS:** `npm run verify:stage4a` — exit 0; workspace build/typecheck,
+  385 tests passed with 6 environment-gated skips, architecture dependency
+  validation, artifact validation, deferred-scope validation, and runtime
+  smoke all passed. Runtime smoke reported `/live=200`, `/ready=503`,
+  `/health=404`. The architecture rules command reported its 9 expected
+  forbidden-dependency fixtures while exiting successfully; this is not
+  feature-provider or final integration evidence.
+- **PASS:** `npm run test:scope-check` — 13/13.
+- **PASS:** `git diff --check`.
+- **Not claimed:** Docker/PostgreSQL integration remains `BLOCKED` where its
+  environment gate is unavailable. OpenSpec CLI, full feature REST/market-WS
+  composition, real News, Auth/application persistence, and browser/demo
+  evidence remain `UNVERIFIED` or `BLOCKED`; fixture tests and skips are not
+  substituted for those gates.
 
-### Read-only public/source inputs preserved from the audited checkpoint
+## Public Binance realtime smoke
 
-- Market observability and charts: `packages/contracts/rest/market-data.ts`,
-  `packages/contracts/websocket/market-data.ts`,
-  `modules/market-data/api/contracts.ts`, and the market bridge/projection at
-  `122569c`: `apps/frontend/src/market/chart-state.ts`,
-  `apps/frontend/src/market/remote-source.ts`,
-  `apps/frontend/src/market/types.ts`,
-  `apps/frontend/src/market/clients.ts`, and
-  `apps/frontend/src/components/MarketChart.tsx`.
-- Feature composition/state: `apps/frontend/src/features/state.ts`,
-  `apps/frontend/src/features/types.ts`, and
-  `apps/frontend/src/features/clients.ts`.
-- Strategy authoring/descriptors/composites: `packages/contracts/rest/strategy.ts`
-  and `modules/strategy/api/contracts.ts`.
-- Search/discovery: `packages/contracts/rest/search.ts`,
-  `modules/search/api/contracts.ts`, `modules/search/application/service.ts`,
-  `modules/search/application/memory.ts`, and
-  `modules/search/infrastructure/postgres.ts`.
-- Experiments/paper execution/evaluation/visualizations:
-  `packages/contracts/rest/backtesting.ts`,
-  `packages/contracts/rest/evaluation.ts`,
-  `modules/backtesting/api/contracts.ts`, and
-  `modules/evaluation/api/contracts.ts`.
-- Leaderboard/ranking: `packages/contracts/rest/leaderboard.ts` and
-  `modules/leaderboard/api/contracts.ts`.
-- News/Sentiment: `packages/contracts/rest/news.ts`,
-  `modules/news/api/contracts.ts`, and
-  `modules/sentiment/api/contracts.ts`.
+The one authorized attempt used the existing compiled Market Data API bootstrap
+after the read-only package build. No credentials, cookies, or secrets were
+provided or logged. The exact command was:
 
-## Packet-local validation and limitations
+```text
+node -e '(async () => { const { createBinanceRealtimeProvider } = require("./modules/market-data/dist/modules/market-data/api/bootstrap.js"); const endpoint = "wss://stream.binance.com:9443/ws"; const startedAt = Date.now(); const updates = []; const observations = []; let normalizedSeen = false; let resolveNormalized; const normalizedDelivery = new Promise((resolve) => { resolveNormalized = resolve; }); let provider; let unsubscribe; let deadlineTimer; let forcedTimeout = false; let cleanupError; const sink = (update) => { if (updates.length >= 20) return; if (update.kind === "CONNECTION_STATUS") { updates.push({ kind: "CONNECTION_STATUS", status: update.payload.status }); return; } if (update.kind === "TICK") { normalizedSeen = true; updates.push({ kind: "TICK", pair: update.payload.pair, timestamp: update.payload.timestamp }); resolveNormalized(); return; } if (update.kind === "CANDLE") { normalizedSeen = true; updates.push({ kind: "CANDLE", pair: update.payload.pair, timestamp: update.payload.timestamp, isClosed: update.payload.isClosed }); resolveNormalized(); } }; let errorMessage; try { provider = createBinanceRealtimeProvider({ maxReconnectAttempts: 1, reconnectBaseDelayMs: 250, reconnectMaxDelayMs: 250, observability: { record: (event) => observations.push({ type: event.type, detail: event.detail }) } }); deadlineTimer = setTimeout(() => { forcedTimeout = true; void provider.shutdown().catch(() => undefined); }, 8000); unsubscribe = await provider.subscribe([{ pair: "BTCUSDT", timeframe: "1m" }], sink); if (!normalizedSeen) await Promise.race([normalizedDelivery, new Promise((resolve) => setTimeout(resolve, 3000))]); } catch (error) { errorMessage = error instanceof Error ? error.message : String(error); } finally { if (deadlineTimer) clearTimeout(deadlineTimer); try { if (unsubscribe) await unsubscribe(); } catch (error) { cleanupError = error instanceof Error ? error.message : String(error); } try { if (provider) await provider.shutdown(); } catch (error) { cleanupError = cleanupError ?? (error instanceof Error ? error.message : String(error)); } } const statuses = updates.filter((update) => update.kind === "CONNECTION_STATUS").map((update) => update.status); const connected = statuses.includes("CONNECTED"); const shutdown = cleanupError ? "UNVERIFIED" : "PASS"; let outcome = "UNVERIFIED"; if (forcedTimeout) outcome = "UNVERIFIED_TIMEOUT"; else if (errorMessage) outcome = "UNVERIFIED_PROVIDER_FAILURE"; else if (connected && normalizedSeen && shutdown === "PASS") outcome = "PASS"; else if (!connected) outcome = "UNVERIFIED_NO_CONNECTION"; else if (!normalizedSeen) outcome = "UNVERIFIED_NO_NORMALIZED_DELIVERY"; console.log(JSON.stringify({ outcome, elapsedMs: Date.now() - startedAt, endpoint, connectionStatuses: statuses, normalizedDelivery: normalizedSeen, updates, providerObservations: observations, shutdown, providerError: errorMessage ?? null, cleanupError: cleanupError ?? null, reconnectLimit: 1 })); })()'
+```
 
-- **PASS:** Focused F-03 screen test —
-  `npm --workspace @cryptox/frontend test -- src/features/screens.spec.tsx` —
-  3/3; independently rerun for this reconciliation.
-- **PASS:** Full Frontend 33/33; root 385 passed with 6 environment-gated
-  skips; Frontend/root typecheck, build, and lint; architecture, artifacts,
-  deferred-scope, scope tests 13/13, runtime smoke, whitespace, and reviewed-
-  diff checks.
-- **PASS (limited):** Runtime smoke health evidence `/live=200`, `/ready=503`,
-  `/health=404`; this does not prove feature REST or WebSocket composition.
-- **BLOCKED:** Docker/PostgreSQL validation because Docker Compose/config access
-  is unavailable; no database evidence is claimed.
-- **UNVERIFIED:** OpenSpec CLI, live Binance/News/provider traffic, real feature
-  REST and market-WebSocket composition, and browser/demo evidence. Fixture
-  tests and environment-gated skips are not final integration/demo evidence.
+Observed result (provider-safe summary):
+
+- **PASS:** outcome `PASS`; elapsed time `746 ms`; endpoint
+  `wss://stream.binance.com:9443/ws`.
+- **PASS:** connection status `CONNECTED`; normalized delivery was `true`.
+  One normalized `TICK` was delivered for `BTCUSDT` at
+  `2026-08-30T11:28:49.655Z`.
+- **PASS:** shutdown status `DISCONNECTED`; cleanup `PASS`.
+- **PASS:** provider observations were empty; provider error and cleanup error
+  were both `null`.
+- **Bound:** the attempt allowed one reconnect with a 250 ms ceiling and had
+  an 8-second hard deadline. The live connection did not need to reconnect, so
+  live reconnect itself is not claimed; bounded reconnect/gap behavior remains
+  covered by the deterministic suite.
 
 ## Closure and explicit stop boundary
 
-- F-03 is `DONE` only at its approved packet-local frontend projection
-  boundary. The resulting board is `38 DONE`, `1 REVIEW` (`M-02`), and
-  `4 BLOCKED` (`AU-02`, `I-01`, `I-02`, `I-03`). This does not claim final MVP,
-  final integration, or instructor-demo completion.
-- INS-093 performs no task-state transition beyond reconciling the duplicated
-  current-state language. No downstream work is authorized or started:
-  `M-02`, `AU-02`, `I-01`, `I-02`, `I-03`, live-provider, database, and
-  browser/demo work remain outside this checkpoint.
-- **Checkpoint ownership:** This file and `TASKS.md` are the complete
-  Manager-owned INS-093 reconciliation scope. No implementation or task-state
-  transition is included.
+- The resulting board is `39 DONE`, `0 REVIEW`, and `4 BLOCKED` (`AU-02`,
+  `I-01`, `I-02`, `I-03`). No task other than M-02 moved, and no downstream
+  task was started, reopened, or promoted.
+- This checkpoint does not claim final runtime/demo completion. Final feature
+  transport, real News, PostgreSQL/Auth application state, browser/demo,
+  ownership integration, and remaining integration gates are outside INS-095.
+- INS-095 is exhausted after this bounded review. Renewed Instructor review is
+  required before AU-02, I-01, I-02, I-03, or any downstream/retry work.
+- **Commit scope:** one coherent staging/commit attempt is authorized for
+  exactly `docs/implementation/TASKS.md` and this file; no other path is
+  eligible for staging under INS-095. The Git result and final HEAD are
+  reported at the stop boundary.
 
 # Historical INS-091 Manager Checkpoint — F-03 Packet Closure and Checkpoint Reconciliation
 
