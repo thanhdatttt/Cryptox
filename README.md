@@ -33,9 +33,9 @@ Architectural Decision Records (ADRs) capture the reasoning behind the key desig
 - [Node.js](https://nodejs.org/) 22 LTS or newer (npm is included)
 - Git
 
-No Binance API key or secret is required: Market Data uses Binance's public REST and WebSocket endpoints only. Before deploying the backend, set a strong `JWT_SECRET`; a development-only fallback is used locally so the Auth routes can run without a `.env` file.
+No Binance API key or secret is required: Market Data uses Binance's public REST and WebSocket endpoints only. Durable `DEVELOPMENT` and `PRODUCTION` profiles require PostgreSQL, Redis, a strong `JWT_SECRET`, and the configured strategy model endpoint/name/key. `TEST` and `DEMO` are explicit non-durable compositions; there is no implicit JWT or persistence fallback in durable runtime.
 
-The backend uses CoinDesk's official RSS News provider plus deterministic local Sentiment by default, so News needs no external credentials. Normal Compose mode explicitly selects the live Binance market provider. Market-data snapshots are created from persisted normalized and sealed candles. For a local launcher, set the provider and the documented public endpoints before starting the backend (internet access is required):
+The backend uses CoinDesk's official RSS News provider by default. Durable runtime uses the configured OpenAI-compatible strategy/sentiment adapter; deterministic `LOCAL_LEXICON` sentiment is restricted to explicit `TEST`/`DEMO` composition. Normal Compose mode explicitly selects the live Binance market provider. Market-data snapshots are created from persisted normalized and sealed candles. For a local launcher, set the provider and the documented public endpoints before starting the backend (internet access is required):
 
 ```powershell
 $env:MARKET_DATA_PROVIDER = "BINANCE"
@@ -63,6 +63,13 @@ Start the backend and Vite frontend together from the repository root:
 npm run dev
 ```
 
+For an offline presentation shell, opt into the explicit non-durable demo profile before starting:
+
+```powershell
+$env:RUNTIME_PROFILE = "DEMO"
+npm run dev
+```
+
 The backend listens on `http://localhost:3000` and Vite prints its local URL (normally `http://localhost:5173`). The backend is compiled before it starts; rerun `npm run dev` after changing backend TypeScript. To run either process separately, use `npm run dev:backend` or `npm run dev:frontend` from the root.
 
 ### Build and start the backend
@@ -85,6 +92,10 @@ docker compose -f infra/docker-compose.yml up -d postgres redis
 $env:DATABASE_URL = "postgres://cryptox:cryptox@localhost:5432/cryptox"
 $env:REDIS_URL = "redis://localhost:6379"
 $env:JWT_SECRET = "replace-this-with-a-long-random-production-secret"
+$env:RUNTIME_PROFILE = "DEVELOPMENT"
+$env:STRATEGY_MODEL_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
+$env:STRATEGY_MODEL_NAME = "gemini-3.7-flash"
+$env:STRATEGY_LLM_API_KEY = "set-this-in-your-private-shell-environment"
 npm run db:migrate
 npm run build
 npm run start:backend
@@ -92,7 +103,7 @@ npm run start:backend
 npm run start:worker
 ```
 
-The same `DATABASE_URL`, `REDIS_URL`, and `JWT_SECRET` must be present in the backend process; the worker requires the first two. Migrations create the users, versioned Strategy Library, normalized market candle/snapshot, Backtesting input-snapshot/scope/candidate/attempt/trade/experiment, durable queue-dispatch/fence, Search-run, Leaderboard, News, Sentiment-result, and Sentiment-snapshot tables. A manual backtest first commits its candidate and dispatch record to PostgreSQL, then publishes one BullMQ job with `jobId = candidateId`. The independently runnable worker claims the delivery under a database fence, persists retries and result records, and returns a duplicate-safe terminal result. Search defaults to a deterministic offline generator over the owner’s saved strategy definitions; it does not require LLM credentials. News defaults to the concrete `COINDESK_RSS` provider using CoinDesk's official RSS feed, and Sentiment defaults to the deterministic `LOCAL_LEXICON` model (`1.0.0`) with persisted model provenance.
+The same `DATABASE_URL`, `REDIS_URL`, `JWT_SECRET`, and strategy model settings must be present in the backend process; the worker requires the first two. Migrations create the users, versioned Strategy Library, normalized market candle/snapshot, Backtesting input-snapshot/scope/candidate/attempt/trade/experiment, durable queue-dispatch/fence, Search-run, Leaderboard, News, Sentiment-result, and Sentiment-snapshot tables. A manual backtest first commits its candidate and dispatch record to PostgreSQL, then publishes one BullMQ job with `jobId = candidateId`. The independently runnable worker claims the delivery under a database fence, persists retries and result records, and returns a duplicate-safe terminal result. Search exposes distinct deterministic `RANDOM`, `DOMAIN_GUIDED`, and `GENETIC` generators and does not require LLM credentials. News defaults to the concrete `COINDESK_RSS` provider; durable Sentiment uses the configured model adapter and persists its provenance.
 
 Browser clients never consume Binance payloads directly: they use authenticated REST and Socket.IO messages from the backend. If Binance is unavailable, the Market screen reports unavailable history and a disconnected/reconnecting upstream state instead of creating synthetic candles.
 
@@ -137,7 +148,7 @@ The architecture check enforces the module boundaries described below. If a pack
 
 # 📁 Target Project Structure
 
-The repository contains the implementation in progress alongside its architecture/OpenSpec documents. The tree below shows the intended module layout; some adapters, endpoints, and assignment screens remain to be completed.
+The repository contains the completed implementation alongside its architecture/OpenSpec documents. The tree below shows the module layout and deployable composition roots.
 
 ```
 cryptox/                               ← Repository root
@@ -194,7 +205,7 @@ cryptox/                               ← Repository root
 - 🔌 **Plugin-based strategies** — new indicator strategies (e.g. MACD) register via `StrategyRegistry.register(...)` without edits to the Backtester, Evaluator, Leaderboard, or frontend core.
 - 📡 **Realtime market data** — exchange adapters normalize `MarketTick`/`Candle` contracts, streamed to the dashboard over WebSocket instead of polling `GET /price` in a loop.
 - 🧩 **Composable strategies** — a Composite Strategy layer combines multiple signals (majority vote / weighted score) without any single strategy knowing about the others.
-- 🔍 **Pluggable search engine** — random and domain-guided strategy-space search behind a common `StrategyGenerator` interface, swappable for genetic/Bayesian search later.
+- 🔍 **Pluggable search engine** — distinct random, domain-guided, and genetic strategy-space generators behind a common `StrategyGenerator` interface.
 - 🧪 **Independent evaluation** — Return, Win Rate, Max Drawdown, Profit Factor, Sharpe Ratio computed by a dedicated Evaluation module, never inline in a strategy or the backtester.
 - 🏆 **Scoped Leaderboard & reproducibility** — every non-cancelled Candidate whose pipeline succeeds becomes a permanent scored Experiment; rank-eligible results appear in the Search Run ranking, while a persistent Top-10 compares Manual and Search Experiments only inside the same immutable benchmark scope and pins strategy/formula/data plus worker/evaluation runtime versions. Zero-trade results remain auditable but are not ranked.
 - ♻️ **Bounded continuous loop** — the generate → backtest → evaluate → rank pipeline runs with an explicit stop condition, not an unbounded `while(true)`.

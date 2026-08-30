@@ -25,7 +25,7 @@ async function waitFor(url, expected) {
 
 const child = spawn(process.execPath, [resolve(repositoryRoot, "scripts", "dev.mjs")], {
   cwd: repositoryRoot,
-  env: { ...process.env, PORT: String(backendPort), FRONTEND_PORT: String(frontendPort), DEV_SHUTDOWN_AFTER_MS: "6000" },
+  env: { ...process.env, PORT: String(backendPort), FRONTEND_PORT: String(frontendPort), DEV_SHUTDOWN_AFTER_MS: "6000", RUNTIME_PROFILE: "DEMO" },
   stdio: "inherit",
 });
 

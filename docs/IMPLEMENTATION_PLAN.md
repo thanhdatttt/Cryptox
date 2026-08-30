@@ -1,73 +1,54 @@
-# Continuation Implementation Plan
+# MISSING_FEATURE_2 Execution Record
 
 ## Source precedence
 
-1. `B:\Bao\Crypto Strategy Lab – Đồ án cuối kỳ.pdf` — authoritative assignment
-2. `backtest.jpg`, `disco.jpg`, `news.jpg`, `realtime.jpg`, and `strategy.jpg` — visual reference
-3. `docs/assignment/crypto-strategy-lab-final-project.md`, `docs/REQUIREMENTS_MAP.md`, and design/OpenSpec documents
-4. Existing code and tests
+1. `openspec/specs/**` and applicable active OpenSpec change specifications
+2. `MISSING_FEATURE_2.md` for the implementation phases and acceptance criteria
+3. The assignment PDF, when supplied, followed by its checked-in Markdown companion and visual references
+4. Existing code, tests, and historical status notes as evidence only
 
-The Markdown assignment is a searchable companion to the PDF. Existing tests and earlier status claims are evidence only; they do not turn a placeholder or demonstration path into a completed requirement.
+The assignment PDF is not present in this checkout. The searchable companion at
+`docs/assignment/crypto-strategy-lab-final-project.md` and the supplied images
+were used for secondary traceability; OpenSpec controls conflicts.
 
-## Reopening audit — 2026-08-24
+## Initial audit
 
-The previous `Complete` state was premature and is withdrawn. The targeted audit found these assignment-critical gaps:
+The original reopening audit identified incomplete runtime profiles, strategy
+generation and registry provenance, durable market/news/sentiment storage,
+worker/queue execution, completion/ranking, Search lifecycle, transport, and a
+hard-coded frontend. That audit is historical evidence, not current status.
+Each item was rechecked against the implementation and tests before being
+closed. Existing tests that only exercised placeholders were not accepted as
+completion evidence.
 
-| Area | Evidence | Consequence |
+## Ordered completion ledger
+
+| Phase | Completed vertical slice | Focused commits |
 | --- | --- | --- |
-| Public backtesting flow | `modules/backtesting/api/index.ts` exports required lifecycle/query functions that all throw `NOT_IMPLEMENTED`; `apps/backtest-worker/src/compose.ts` throws from snapshot creation and sentiment analysis. | R-07, R-08, and R-09 cannot run through their public/worker path. |
-| Search and leaderboard public flows | `modules/search/api/index.ts` and `modules/leaderboard/api/index.ts` export only `NOT_IMPLEMENTED` functions. | R-07 and R-10 cannot operate end-to-end. |
-| Worker/queue integration | `apps/backtest-worker/src/main.ts` is a skeleton and `modules/backtesting/infrastructure/queue/adapter.ts` is a placeholder. | The assignment’s asynchronous backtest flow is not deployable. |
-| Persistence | Only users and strategy-library migrations/repositories exist (`002`, `003`). Candidate, attempt, trade, evaluation, search-run, leaderboard, market-snapshot, and news/sentiment durable records are missing. | Required reproducibility, audit, ranking, and pipeline state are not durable. |
-| Backend composition | The backend only exposes health, auth, strategies, market candles, and news reads; it composes several modules with `undefined as never`. | Strategy → market data → backtest → evaluation → leaderboard/search has no HTTP end-to-end flow. |
-| Frontend | `apps/frontend/src/main.tsx` is an explicitly labelled hard-coded demo presentation. | R-02, R-03, R-13, and R-15 are not fulfilled with live API data. |
-| Operational workflow | The root supports npm workspaces, but the backend `dev` script invokes undeclared `ts-node`; backend and worker start scripts rely on POSIX `NODE_PATH=...` syntax. | The documented local workflow fails on Windows and is not a single reliable npm workflow. |
+| 1 | Explicit runtime profiles, durable dependency requirements, configuration validation, and auth entrypoint synchronization | `7a0bf71`, `3c38f6e` |
+| 2 | Gemini/OpenAI-compatible strategy generation, typed provider failures, bounded public-source loading, and atomic provenance | `829404f` |
+| 3 | Versioned plugin registry, registered INFORMATION strategy, generic visualization, and retained-artifact resolution | `829404f` |
+| 4 | Transactionally sealed Market Data snapshots and provider provenance | `33cdfb0` |
+| 5 | News content-type safety, production sentiment inference, immutable sentiment snapshots, and failure isolation | `95613b0`, `4f9b863` |
+| 6 | Durable worker dispatch, sealed inputs, leases/fences, retries, recovery, atomic completion, execution provenance, and replay verification | `ddb7c80`, `8875da9`, `5759d8e`, `edf4864`, `83d41de`, `d142462`, `1ad9f15` |
+| 7 | Distinct durable Search generators and asynchronous lifecycle recovery | `2393263`, `0c3d604` |
+| 8 | Exact sealed Sentiment loading for INFORMATION backtests and replay | `83bbdcd` |
+| 9 | Contract-validated frontend, capability-driven market/backtest controls, incremental charts, bounded reconnect/reconcile, deep links, Search/Experiment/Trade/News/Leaderboard views, and backend-owned signals | `f20b4da`, `c1f627e`, `3ad94bc`, `57097c4`, `0d30160`, `00fa0c8`, `e02b7d9` |
+| 10 | Production placeholder audit, artifact-derived runtime/plugin hashes, unsupported-provider rejection, Compose durable configuration, documentation reconciliation, and full validation | `f39ed8f` plus the final documentation/configuration commit |
 
-The audit also found source-adjacent generated JavaScript/declaration files that preserve obsolete `NOT_IMPLEMENTED` test expectations. Those expectations must be replaced only as their corresponding public flows are implemented.
+The lead orchestrator staged and committed only files belonging to each slice.
+Pre-existing worktree changes remain outside these commits.
 
-## Ordered continuation features
+## Phase 10 acceptance
 
-1. **Repair the normal local developer workflow** *(completed in `2070778`)*
-   - Keep npm as the sole supported package manager; commit and maintain `package-lock.json`.
-   - Make root install/build/development/start commands work, with a cross-platform backend launcher and no undeclared runtime tools.
-   - Acceptance: `npm install`, `npm run build`, documented root development/start commands, and focused launcher smoke verification pass on Windows-compatible Node tooling.
-
-2. **Implement durable manual backtest execution and public API** *(completed in `4518930`)*
-   - Replace the assignment-required Backtesting public `NOT_IMPLEMENTED` functions with an authenticated, synchronous manual-run vertical slice.
-   - Add PostgreSQL migrations/repositories for Backtesting-owned copies of input snapshots/candles, benchmark scopes, candidates, attempts, trades, experiment results, and idempotency/audit data.
-   - Acceptance: a saved strategy and market snapshot produce deterministic persisted trades and evaluation through the public API; scope, candidate, attempt, trade, and experiment reads enforce ownership.
-
-3. **Connect evaluation, leaderboard, and bounded search end-to-end** *(completed in `745dc18`)*
-   - Replace Search and Leaderboard public `NOT_IMPLEMENTED` functions with a deterministic, offline-capable generation → Backtesting → Evaluation → Top-K flow.
-   - Persist search runs, candidate projections, and leaderboard entries; expose authenticated REST commands and reads.
-   - Acceptance: a bounded search generates deterministic strategies without external credentials, submits/evaluates them through Backtesting, and serves scope-specific rankings with lifecycle controls. Search runs and Leaderboard entries are durable; candidate and experiment records remain Backtesting-owned durable projections.
-
-4. **Replace the Backtesting worker/queue skeleton with durable dispatch and recovery** *(completed in `d168167`)*
-   - Replace `apps/backtest-worker` and the Backtesting queue placeholder with BullMQ/Redis dispatch and consumption.
-   - Persist a transactional dispatch record before publishing, use a stable job identity, and make recovery replay undispatched work after a process failure.
-   - Use a database lease/fencing token at worker execution and completion so duplicate broker deliveries cannot duplicate trades or experiments. Configure bounded retries with deterministic backoff and durable retry/terminal state.
-   - Acceptance: a queued submission is durable before Redis publication, can be recovered after dispatch failure, is processed at most once under a valid fence, records retry/terminal outcomes, and completes normal attempt/trade/result records through the worker process.
-
-5. **Complete durable Market Data, News, and Sentiment backend flows** *(completed in `f7fc06e`)*
-   - Add PostgreSQL migrations/repositories for normalized market candles/snapshots, news, sentiment analyses, and sentiment snapshots.
-   - Make configured Binance access real without fabricating a provider success on failure; supply a concrete CoinDesk RSS News provider and deterministic sentiment fallback with model/version provenance.
-   - Expose the required authenticated REST commands and reads and prove collect → normalize → persist → analyze and snapshot retrieval with integration fixtures.
-
-6. **Implement durable Backtesting completion, ranking, and Search advancement** *(completed in `956b1c5`)*
-   - Move evaluation, experiment persistence, scoring, and Top-K admission out of the worker completion path into a durable completion processor.
-   - Add the BullMQ terminal-notification adapter, terminal-failure/retry recovery, and startup reconciliation required by ADR-003.
-   - On each idempotent terminal completion/failure, release the corresponding Search slot and advance its bounded deterministic loop.
-   - Acceptance: integration tests prove queued generate → worker → completion processor → evaluate → rank → next slot, duplicate terminal notifications, and exhausted retry handling.
-
-7. **Close remaining backend REST transport and facade gaps** *(completed in `0649bb5`)*
-   - Complete and verify all authenticated Strategy, Market Data, Backtesting, Search, Leaderboard, News, and Sentiment transport surfaces; remove or replace any remaining assignment-required facade or adapter placeholder found by the post-completion audit.
-   - Add the normalized authenticated Market WebSocket transport using the declared npm Nest/socket.io dependencies and the shared versioned market message contract.
-   - Acceptance: module-boundary REST/WebSocket integration tests prove the full authenticated backend flow without controller-owned domain logic or undeclared external credentials.
-
-8. **Docker-backed backend integration and final traceability** *(completed in `21eafd2`)*
-   - Make Docker Compose run PostgreSQL, Redis, backend, and the backtest worker; apply migrations and execute a real end-to-end validation.
-   - Acceptance: no assignment-required backend public API, worker, queue, repository, or facade remains a `NOT_IMPLEMENTED` implementation or placeholder; full tests, build, lint, architecture check, and Docker-backed validation pass. If Docker is unavailable, record the exact evidence and stop rather than claiming completion.
+- All workspace unit tests, builds, lint/type checks, architecture checks, workflow smoke tests, and backend smoke tests are run after the final edits.
+- Compose configuration supplies required durable configuration explicitly; PostgreSQL, Redis, migrations, backend, and worker are validated when Docker is available.
+- Production-source audit finds no committed API/JWT/model credentials, stale `OPENAI_API_KEY` usage, static fake runtime hashes, epoch candidate timestamps, deterministic Search placeholder shared across modes, unsupported News provider placeholder, or silent durable fallback.
+- README, `.env.example`, requirements traceability, data model, and implementation status describe the completed behavior and the explicit TEST/DEMO versus DEVELOPMENT/PRODUCTION boundary.
 
 ## Execution discipline
 
-For each feature: update status to in progress; add/adjust focused tests; run the smallest relevant validation first; run the appropriate broader checks; update status before committing; then create one focused commit. Do not start a later feature while a required check for the current feature fails.
+For each feature, the specification requirements were identified, a complete
+vertical slice and tests were implemented, targeted checks were run before
+commit, the diff was reviewed for scope/secrets/generated files, and one
+focused conventional commit was created. No destructive Git command was used.

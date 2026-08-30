@@ -53,11 +53,26 @@ services:
       dockerfile: infra/docker/backend.Dockerfile
     environment:
       PORT: 3000
+      RUNTIME_PROFILE: ${RUNTIME_PROFILE:-DEVELOPMENT}
       DATABASE_URL: postgres://cryptox:cryptox@postgres:5432/cryptox
       REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET for the durable backend}
       MARKET_DATA_PROVIDER: ${MARKET_DATA_PROVIDER:-BINANCE}
       MARKET_DATA_BINANCE_REST_URL: ${MARKET_DATA_BINANCE_REST_URL:-https://api.binance.com}
       MARKET_DATA_BINANCE_WS_URL: ${MARKET_DATA_BINANCE_WS_URL:-wss://stream.binance.com:9443}
+      NEWS_PROVIDER: ${NEWS_PROVIDER:-COINDESK_RSS}
+      STRATEGY_MODEL_ENDPOINT: ${STRATEGY_MODEL_ENDPOINT:?Set STRATEGY_MODEL_ENDPOINT for the durable backend}
+      STRATEGY_MODEL_NAME: ${STRATEGY_MODEL_NAME:?Set STRATEGY_MODEL_NAME for the durable backend}
+      STRATEGY_LLM_API_KEY: ${STRATEGY_LLM_API_KEY:?Set STRATEGY_LLM_API_KEY for the durable backend}
+      STRATEGY_MODEL_VERSION: ${STRATEGY_MODEL_VERSION:-}
+      STRATEGY_PROMPT_VERSION: ${STRATEGY_PROMPT_VERSION:-1}
+      STRATEGY_MODEL_TIMEOUT_MS: ${STRATEGY_MODEL_TIMEOUT_MS:-15000}
+      BACKTEST_RECOVERY_INTERVAL_MS: ${BACKTEST_RECOVERY_INTERVAL_MS:-30000}
+      BACKTEST_WORKER_CONCURRENCY: ${BACKTEST_WORKER_CONCURRENCY:-1}
+      BACKTEST_DEFAULT_INITIAL_CAPITAL: ${BACKTEST_DEFAULT_INITIAL_CAPITAL:-1000}
+      BACKTEST_DEFAULT_FEE_RATE_PERCENT: ${BACKTEST_DEFAULT_FEE_RATE_PERCENT:-0}
+      BACKTEST_DEFAULT_SLIPPAGE_BPS: ${BACKTEST_DEFAULT_SLIPPAGE_BPS:-5}
+      BACKTEST_DEFAULT_MAX_ATTEMPTS: ${BACKTEST_DEFAULT_MAX_ATTEMPTS:-1}
     ports: ["3000:3000"]
     depends_on:
       postgres: { condition: service_healthy }
@@ -76,6 +91,7 @@ services:
     environment:
       DATABASE_URL: postgres://cryptox:cryptox@postgres:5432/cryptox
       REDIS_URL: redis://redis:6379
+      BACKTEST_WORKER_CONCURRENCY: ${BACKTEST_WORKER_CONCURRENCY:-1}
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }

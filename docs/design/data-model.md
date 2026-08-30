@@ -1100,7 +1100,19 @@ ORDER BY news_id, analyzed_at DESC, id DESC;
 | `LoopStatus` | Derived at REST read-time from `search_runs` + `candidate_strategies` + `backtest_attempts` + `experiment_results` | It is a read model, not a second source of truth. Its current top entry is scoped to that Search Run. |
 | `StrategyPluginDescriptor` / registered plugin list | In-process `StrategyRegistry`, queried live | See §3.2.1 — persisting it would create a second, driftable source of truth for something that is really just "what code is currently deployed." |
 
-## 5. Redis Key Design
+## 5. Runtime capability defaults
+
+The backend exposes supported market pairs/timeframes and configurable backtest
+form defaults through `GET /market/pairs`. The `BACKTEST_DEFAULT_*` variables
+(`INITIAL_CAPITAL`, `FEE_RATE_PERCENT`, `SLIPPAGE_BPS`, and `MAX_ATTEMPTS`)
+are runtime configuration, not durable business rows: they seed a new form and
+are copied into the immutable Leaderboard Scope and Candidate execution policy
+when a user submits a run. A later configuration change therefore affects only
+new submissions; it cannot alter an existing Scope, Experiment, Trade, or
+Leaderboard entry. The frontend treats these values as capabilities and does
+not embed a second set of business defaults.
+
+## 6. Redis Key Design
 
 | Key pattern | Type | Written by | Read by | Purpose |
 |---|---|---|---|---|

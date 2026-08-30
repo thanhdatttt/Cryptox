@@ -25,7 +25,7 @@ async function healthcheck() {
 
 const child = spawn(process.execPath, [launcher], {
   cwd: repositoryRoot,
-  env: { ...process.env, PORT: String(port) },
+  env: { ...process.env, PORT: String(port), RUNTIME_PROFILE: "DEMO" },
   stdio: "inherit",
 });
 

@@ -1,252 +1,121 @@
 # Implementation Status
 
-## Current state
+## Current state — 2026-08-31
 
 - Branch: `implement`
-- Project status: **Live Binance Spot market-data integration implemented and validated on 2026-08-25**
-- Current feature: **Environment-selected Binance REST klines, persisted history backfill, public trade/kline WebSocket union management, honest provider status, and explicit demo-only seed policy**
-- Next feature: **none for this market-data integration; future providers remain behind the existing adapter contract**
+- `MISSING_FEATURE_2.md`: implementation phases complete; final repository validation is recorded below.
+- Authority: OpenSpec specifications first, then the assignment/reference material. The assignment PDF is not present in this checkout; its checked-in Markdown companion and supplied images remain secondary evidence.
+- Runtime boundary: `TEST`/`DEMO` are explicit non-durable compositions. `DEVELOPMENT`/`PRODUCTION` require PostgreSQL, Redis, `JWT_SECRET`, and configured strategy model settings. Durable Compose now passes those settings through explicit environment interpolation.
+- Secrets: no `.env` file, JWT secret, model API key, or other credential is committed. `.env.example` contains only safe templates and commented credential slots.
 
-## Live Binance market-data implementation (2026-08-25)
+## Completed implementation
 
-The Market Data module now composes Binance explicitly when `MARKET_DATA_PROVIDER=BINANCE`.
-The backend-only `MARKET_DATA_BINANCE_REST_URL` and `MARKET_DATA_BINANCE_WS_URL`
-variables default to Binance's public Spot endpoints `https://api.binance.com` and
-`wss://stream.binance.com:9443`; no API key or secret is read or emitted.
+### Runtime and composition
 
-- No-range candle reads calculate the latest aligned closed-candle window, fetch only missing ranges through Binance REST `/api/v3/klines`, persist normalized OHLCV rows, and avoid another request while the window is complete.
-- Explicit ranges are gap-synced through the provider contract and preserve completeness errors; snapshots continue to use only persisted, non-forming sealed candles.
-- Binance combined streams normalize `@trade` and `@kline_<interval>` payloads. One subscription manager maintains the complete union for all active panels, replaces forming candles by timestamp, appends new timestamps, rejects closed-candle regressions, and reconnects with bounded exponential backoff/resubscription.
-- PostgreSQL rows carry `BINANCE:HISTORICAL_SYNC` or `BINANCE:REALTIME_STREAM` provenance. The deterministic `seed-dev-market` job is now `demo`-profile-only and requires `MARKET_DATA_SEED_MODE=DEMO`; normal Compose startup does not run it.
-- `GET /market/pairs` exposes the active provider's supported pair/timeframe capabilities for controlled Market selectors. The browser persists the validated versioned Market layout (`cryptox.market-layout`) in parent UI state and local storage, including the 1–4 panel arrangement, pair/timeframe choices, realtime setting, and selected primary panel.
-- Binance `@trade` payloads retain positive `q` quantity and derive the documented aggressor side from `m` (`m=true` means the buyer was the maker, therefore the trade is rendered as `SELL`; otherwise `BUY`). The public Socket.IO `MARKET_TICK` payload carries pair, price, timestamp, quantity, and side. A bounded five-second provider-clock skew is accepted so real Binance trades are not discarded while materially future timestamps remain invalid.
-- The Market UI consumes backend connection-status messages and labels Binance as not connected until the upstream status is genuinely `CONNECTED`. Provider/network failures leave the chart empty/error or disconnected/reconnecting rather than fabricating candles.
+Runtime profiles validate required infrastructure and bounded operational settings
+without exposing values. Durable backend composition uses PostgreSQL repositories,
+Redis latest-value/cache and BullMQ, while explicit TEST/DEMO composition owns
+deterministic adapters and in-memory test doubles. The worker is an independent
+PostgreSQL/Redis process and does not own completion or ranking business logic.
 
-The reference-aligned Market correction also removes the Candle update logic and Legend side cards, keeps the provider wording honest, renders bounded newest-first Recent Ticks with real quantity/side values, and uses an accessible red SVG Remove chart control that is disabled when only one panel remains. Chart-card text is enlarged without changing compact axis labels.
+### Strategy, generation, and provenance
 
-## Validation evidence (2026-08-25)
+The Strategy Registry exposes versioned MA, RSI, Bollinger, Support/Resistance,
+and INFORMATION/Sentiment plugins. Parameters, history requirements, composites,
+visualization overlays, owner scope, and exact retained-artifact resolution are
+validated through the public Strategy API. Durable generation uses the configured
+OpenAI-compatible model adapter with bounded public-source loading, schema and
+domain validation, typed failures, and atomic definition/composite/audit writes.
+Plugin hashes are derived from the executable factory artifact rather than a
+manually embedded identity string.
 
-- Focused market-data tests passed: 16 tests covering recorded Binance REST/WebSocket payloads, REST pagination, latest no-range sync, explicit missing-range sync, provenance persistence, forming-candle replacement, closed-candle protection, panel-union resubscription, reconnect/backoff, and offline failure state.
-- Backend WebSocket/controller tests passed: 9 tests, including authenticated subscription changes and normalized message forwarding. Frontend tests passed: 15 tests, including honest disconnected provider status.
-- `npm test` passed: all workspace suites plus deterministic seed tests. `npm run build`, `npm run lint`, `npm run arch:check`, and `git diff --check` passed; the architecture check reported 773 modules and 1,077 dependencies with no violations.
-- `docker compose -f infra/docker-compose.yml config --quiet` passed. A rebuilt normal Compose run completed with migration exit 0 and healthy PostgreSQL, Redis, backend, backtest-worker, and frontend services. The `seed-dev-market` service was not started because it is demo-profile gated.
-- Authenticated live smoke against the rebuilt Compose backend passed: history returned three candles with `BINANCE:HISTORICAL_SYNC` source for BTCUSDT `1m`, `5m`, `15m`, and `1h`; the Socket.IO market stream reported `DISCONNECTED → RECONNECTING → CONNECTED` and delivered live kline updates for all four timeframes.
-- PostgreSQL verification after the smoke found Binance history and realtime rows for all four timeframes, including `BINANCE:REALTIME_STREAM` forming-candle updates.
+### Market Data, News, and Sentiment
 
-## Frontend integration audit (2026-08-25)
+Market Data normalizes Binance REST/WebSocket data, persists closed candles and
+content-hashed snapshots, keeps Redis non-authoritative, and exposes backend-owned
+pair/timeframe capabilities and connection state. News defaults to the concrete
+CoinDesk RSS adapter; unsupported or incompletely configured providers fail at
+composition instead of returning a throwing placeholder. Durable Sentiment uses
+the configured model adapter; deterministic `LOCAL_LEXICON` is limited to
+TEST/DEMO composition. News failures do not fabricate records, and immutable
+Sentiment results/snapshots retain model and content provenance.
 
-The former `apps/frontend/src/main.tsx` was a reference-screen presentation with hard-coded candles, strategies, trades, news, leaderboard rows, demo user text, and a `Demo transport` status. It has been replaced by a live integration shell. `apps/frontend/src/api.ts` is the only frontend transport boundary and persists the JWT in `localStorage`.
+### Backtesting, Evaluation, Leaderboard, and Search
 
-| Frontend surface | Backend contract | Status |
-| --- | --- | --- |
-| Register, login, session restore, logout | `POST /auth/register`, `POST /auth/login`, `GET /auth/me` | Implemented |
-| Strategy plugins, definitions, composites | `GET /strategies`, `POST /strategies`, `GET/POST /strategies/definitions|composites` | Implemented |
-| Market history, snapshots, live updates | `GET /market/candles`, `POST /market/snapshots`, authenticated Socket.IO `/market` | Implemented with 1–4 independent panels, bounded reconnect, and REST reconciliation |
-| Scope and queued manual backtesting | `GET/POST /leaderboard-scopes`, `POST/GET /backtests/:candidateId` | Implemented with polling lifecycle |
-| Experiment, replay, visualization | `GET /experiments/:id`, `POST .../replay`, `GET .../visualization` | Implemented |
-| Search lifecycle and ranking | `POST/GET /search-runs`, `GET /search-runs/:id/leaderboard` | Implemented with polling |
-| Leaderboard | `GET /leaderboard?scopeId=` | Implemented |
-| News | `GET /news`, `POST /news/collect` | Implemented |
+Manual and Search Candidates are durable asynchronous jobs. PostgreSQL records
+sealed inputs, immutable scopes and execution-policy snapshots, dispatch state,
+attempt leases/fences, retries, terminal recovery, trades, completion claims,
+Experiments, evaluation metrics, ranking, and replay-verification results.
+Evaluation handles edge cases with finite metrics. Runtime fingerprints are
+derived from the loaded simulator, evaluator, and backtest service artifacts.
+Search has distinct bounded `RANDOM`, `DOMAIN_GUIDED`, and `GENETIC` generators,
+durable lifecycle controls, owner-scoped pagination, and cancellation/recovery.
+INFORMATION runs pin and replay the exact aligned Sentiment snapshot.
 
-The frontend now also renders candidate history and authoritative Search pause/resume/cancel controls, Experiment metrics and paginated Trade Detail, sealed visualization markers, replay status, and explicit unavailable SL/TP values. Focused frontend transport tests cover bearer persistence, 401 clearing, empty 201/202 responses, and Socket.IO namespace framing.
+### Frontend
 
-### Realtime Market integration correction validation (2026-08-25)
+The frontend is a presentation/transport client. It validates REST DTOs, owns
+session/query/socket state, follows backend capabilities for pairs, timeframes,
+signals, policy defaults, and provenance, and contains no strategy, ranking,
+backtest, or sentiment inference. Market panels update candles incrementally and
+reconcile authoritative REST history before bounded reconnect completion. Deep
+links cover authenticated experiment and Search views. Search ranking is kept
+distinct from persistent scope Top-10; Experiment and Trade views expose
+economics, risk, policy, benchmark, runtime, strategy, and replay provenance.
 
-- Focused validation passed: 20 frontend tests, 19 Market Data tests, and 9 backend tests. Coverage includes versioned layout storage/fallback, backend capabilities transport, bounded tick presentation, Binance quantity/side normalization, invalid payload rejection, provider-clock skew handling, closed-candle protection, and authenticated WebSocket forwarding.
-- Full `npm test`, `npm run build`, `npm run lint`, `npm run arch:check`, and `git diff --check` passed after the correction. The architecture check reported no dependency violations.
-- Rebuilt Docker Compose with migration gating. A fresh authenticated browser session rendered 1m/5m/15m/1h history from Binance REST, connected all four authenticated Socket.IO panel subscriptions, and Recent Ticks displayed genuine BTCUSDT rows with non-rounded quantities plus BUY/SELL sides. The backend/provider status remained honest and no mock market rows were used.
+## Traceability
 
-### Backend contract limitation
+`docs/REQUIREMENTS_MAP.md` marks R-01 through R-15 as implemented and identifies
+their test evidence. `docs/design/data-model.md` documents ownership, immutable
+provenance, queue state, replay inputs, and the runtime capability-default
+boundary. `docs/IMPLEMENTATION_PLAN.md` records the ordered feature ledger and
+focused commits. OpenSpec remains the normative behavior specification.
 
-`POST /strategy-generations` is now implemented and authenticated. It validates text/HTTP(S) URL input and persists the generated definition through the existing strategy facade. The current adapter is intentionally deterministic (`LOCAL_DETERMINISTIC`, version `1.0.0`) and selects a registered plugin from source keywords; it does not yet fetch remote source content, call an external model, or persist a full generation-audit record. The frontend shows the returned provenance and backend errors instead of silently falling back to demo data.
+## Validation evidence
 
-The backend bootstrap now explicitly enables bearer-token CORS for the separately served Vite frontend, and the Market Gateway enables the matching Socket.IO origin policy. Without these narrow transport fixes, a browser could reach the API from the Compose/local frontend origin but the browser would block HTTP or WebSocket responses.
+Final local validation passed as follows:
 
-The previously open validation gaps are now closed: the browser-level Compose flow and the assignment-required worker-backed completed backtest flow both passed. The deterministic generation adapter limitation remains explicit below; it does not silently substitute frontend demo data.
+- `npm test`: PASS — 193 tests, including the four deterministic seed tests.
+- `npm run build`: PASS across all workspaces, including the Vite production build.
+- `npm run lint`: PASS — all workspace TypeScript checks.
+- `npm run arch:check`: PASS — 740 modules and 1,294 dependencies, with no violations.
+- `npm run test:workflow`: PASS — 2 launcher tests.
+- `npm run smoke:backend`: PASS — compiled backend health and complete route registration under explicit DEMO composition.
+- `npm run smoke:dev`: PASS — backend plus Vite launcher health under explicit DEMO composition.
 
-### Frontend runtime evidence (local launcher, 2026-08-25)
+The required local checks are:
 
-- `npm run smoke:dev`: passed after wiring the isolated backend port into Vite.
-- Browser flow against the local launcher: synthetic test account registration, login, authenticated Market screen, persisted-session reload, logout/protected-route return to sign-in, live Socket.IO state `CONNECTED`, independent second chart panel, backend descriptor-driven strategy selection, persisted MA definition, and persisted weighted composite all passed.
-- The local in-memory runtime has no historical candle rows and no worker/Redis completion path, so the browser showed the honest Market empty state; it was not treated as backtest completion evidence.
+```text
+npm test
+npm run build
+npm run lint
+npm run arch:check
+npm run test:workflow
+npm run smoke:backend
+npm run smoke:dev
+```
 
-### Frontend runtime evidence (Docker Compose, 2026-08-25)
+The production-source audit covers default secrets, `OPENAI_API_KEY`, static
+fake hashes, epoch timestamps, unsupported provider placeholders, deterministic
+Search stubs, silent durable fallbacks, and unavailable UI controls.
 
-Docker was available through Docker Desktop, but this shell did not inherit its PATH. Validation therefore used the absolute executable `C:\Users\Admin\AppData\Local\Programs\DockerDesktop\resources\bin\docker.exe`.
+`docker compose -f infra/docker-compose.yml config --quiet` passes with
+non-secret validation environment values. A live `docker compose up --build -d`
+attempt was blocked because the Docker Desktop Linux engine named pipe was not
+available in this environment; Docker Desktop was launched once and the engine
+remained unavailable. Therefore no claim is made here for a new PostgreSQL,
+Redis, migration, backend, or worker container run. The Compose graph and all
+non-container repository checks remain verifiable independently.
 
-- `docker version`: passed — Docker Desktop 4.87.0, Docker Engine 29.7.2, `desktop-linux`, `linux/amd64`.
-- `docker compose version`: passed — Docker Compose v5.4.0.
-- `docker compose -f infra/docker-compose.yml up --build`: passed. PostgreSQL, Redis, backend, backtest-worker, and frontend became healthy; the migration service exited successfully. The final published endpoints were backend `http://localhost:3000` and frontend `http://localhost:5173`.
-- Development Market seed: passed in the earlier demo validation. Migration `009_add_market_candle_source` adds explicit candle provenance; the deterministic `seed-dev-market` service is now gated behind the Compose `demo` profile and `MARKET_DATA_SEED_MODE=DEMO`. Seed rows use source `DEV_SEED:realtime-v1` and do not create users, credentials, backtests, or leaderboard data.
-- API E2E against the containers: passed. A fresh user registered and logged in; protected identity, strategy definitions, composite creation, 8 historical market candles, input snapshot, benchmark scope, `202 QUEUED` manual backtest, worker-completed candidate/attempt, experiment, one trade, replay `MATCH`, 8-candle/1-marker visualization, leaderboard, Search `COMPLETED`, one Search candidate, and one Search leaderboard entry were all verified from the live responses.
-- Browser E2E against `http://localhost:5173`: passed. The UI registered and logged in a fresh synthetic account, and logout returned to sign-in. In the authenticated Compose flow, the UI restored the session after reload, showed 12 backend candles and authenticated Socket.IO `CONNECTED` state, created a strategy and weighted composite, displayed persisted generation provenance, created a snapshot/scope, queued and observed a completed backtest, rendered experiment/trade detail, verified replay `MATCH`, loaded sealed visualization markers, ran Search through `COMPLETED`, and displayed real Leaderboard rows.
-- Repeat scope validation after the final rebuild: passed. Creating another scope from the backend candle range no longer produced the duplicate canonical snapshot hash error; the newly returned scope was added to the selector and retained as the selected scope.
-- Runtime contract fixes found during validation: Compose now exposes the browser-facing API as `VITE_BACKEND_URL=http://localhost:3000`; composite backtests send all component definition IDs; scopes use the live candle range; PostgreSQL Search IDs are generated with UUIDs; and canonical input snapshots are reused by SHA-256.
+## Focused commit ledger
 
-## Assignment and reference-image audit (2026-08-25)
+The implementation commits are recorded in `docs/IMPLEMENTATION_PLAN.md`. The
+latest code hardening commit is `f39ed8f` (`fix(provenance): remove production
+placeholders`). Documentation and Compose reconciliation is kept in the final
+documentation commit after the full validation pass.
 
-Sources reviewed, in priority order: the 54-page assignment PDF, `crypto-strategy-lab-final-project.md`, and the supplied `realtime.jpg`, `strategy.jpg`, `disco.jpg`, `backtest.jpg`, and `news.jpg` reference screens. The audit distinguished source requirements from implementation notes and checked the running frontend against the authenticated public HTTP/WebSocket contracts.
+## Known non-blocking constraints
 
-### Genuine mismatches corrected
-
-- The Market screen had only a basic single bar view at runtime. It now renders up to four independent backend OHLCV candlestick/volume panels, authenticated Socket.IO state, reconnect/loading/error/empty states, recent ticks, and forming-versus-closed candle handling.
-- Backtest was a minimal scope-and-queue form. It now exposes pair, timeframe, date range, capital, transaction cost, slippage, saved scopes, queued/running/completed/failed lifecycle, persisted experiment metrics, trade detail, replay verification, and backend visualization markers.
-- Search and Leaderboard rows previously exposed only candidate/rank state. They now enrich rows from persisted experiment results and show real return, win rate, drawdown, trade count, score, and status values while retaining honest empty states.
-- Strategy Library now presents the backend plugin catalog, versioned saved definitions, weighted composite creation with valid normalized default weights, the Generate → Backtest → Evaluate → Rank → Leaderboard workflow, and generation provenance. News now exposes backend source/asset filters, collection state, persisted sentiment distribution/model provenance, and the actual collect → normalize → analyze → persist pipeline.
-- Frontend fixtures and demo rows were removed from the runtime surfaces. Backend source/model labels are displayed explicitly so local providers cannot appear to be Binance or an external LLM.
-
-Commits for the corrected frontend modules: `0c22960 feat(frontend): align live screens with assignment references` and `7d2c247 fix(frontend): default composite weights evenly`. Focused frontend validation passed with 11 tests, including chart bounds/formatting, sentiment aggregation, composite weight defaults, API transport, and state behavior.
-
-### Strategy screen reference audit refinement (2026-08-25)
-
-- The Strategy route now uses the same compact authenticated shell as Realtime and matches the supplied `strategy.jpg` workspace: prompt/URL input, backend-returned summary cards, readable JSON with copy action, validation/provenance/save state, and a persisted recent-library table. The catalog/manual definition and weighted-composite areas remain available below the reference workspace so existing live authoring behavior is preserved.
-- Compose browser verification passed against the rebuilt frontend: prompt generation and URL generation both used authenticated `POST /strategy-generations`, rendered the returned definition and `LOCAL_DETERMINISTIC` provenance, refreshed `GET /strategies/definitions`, and saved a two-component `WEIGHTED_SCORE` composite through `POST /strategies/composites`.
-- Empty, loading, validation, and backend-error states are rendered in the reference card language. The UI does not invent LONG/SHORT condition cards; the public Strategy contract returns plugin parameters and provenance, not condition expressions.
-- Focused Strategy validation passed: 15 frontend tests, including API request/provenance mapping and generated-definition/composite helper behavior.
-
-### Final live validation evidence
-
-- Fresh browser registration/login, persisted-session reload, logout, and protected-route return to sign-in passed against the containers.
-- Fresh browser registration/login against the seeded Compose stack passed. The authenticated Market screen returned and rendered non-empty backend history for all four default panels: `BTCUSDT · 1m`, `5m`, `15m`, and `1h`, each reporting `Historical candles: 1000` with authenticated Socket.IO `Connected` state.
-- After the final `docker compose -f infra/docker-compose.yml up --build -d`, the browser created MA/RSI definitions and a weighted composite, created a snapshot/scope, observed a completed backtest with 2 trades (`-2.21%` return, `50%` win rate, `5.88%` max drawdown), verified replay `MATCH`, loaded a 12-candle/3-marker visualization, completed Random Search, and displayed two real Leaderboard rows.
-- The final browser smoke also confirmed four market panels with authenticated `CONNECTED` WebSocket state and backend candlestick rendering. The current News runtime uses CoinDesk's official RSS provider with persisted `LOCAL_LEXICON` sentiment fields.
-- Final repository validation passed: `npm test` (67 tests), `npm run build`, `npm run lint`, `npm run arch:check` (763 modules / 1,050 dependencies, no violations), and `git diff --check`.
-- Docker validation passed with Docker Desktop 4.87.0 / Engine 29.7.2 / Compose v5.4.0; backend, worker, PostgreSQL, Redis, and frontend all reached healthy status.
-
-### Explicit remaining limitations and contract gaps
-
-- Deterministic local market data is available only through the explicit development-only `demo` Compose profile. Normal Compose startup uses `MARKET_DATA_PROVIDER=BINANCE`; the seed is not a startup dependency or frontend fallback.
-- The public Market contract returns OHLCV and backend markers, but no MA/Bollinger/support-resistance overlay series. The frontend does not duplicate strategy rules; those reference overlays remain unavailable until the backend contract exposes them.
-- The public News contract supports collection, normalization, persistence, and sentiment, but does not expose the reference image's LLM HTML extraction-template/version/self-healing controls. The UI reports the available pipeline and does not fabricate those controls.
-- Strategy generation remains the authenticated deterministic `LOCAL_DETERMINISTIC` adapter; URL content is not fetched and no external LLM is called. Search currently exercises the required Random Search path; advanced generators remain optional per the assignment.
-- The backend may omit SL/TP fields for trades, so the frontend displays `Unavailable` rather than inventing risk values. These limitations are backend/provider contract boundaries, not frontend demo fallbacks.
-
-## Audit summary
-
-The previous final-validation claim did not establish the assignment-required product flow. The reopened audit findings for the Backtesting queue and for `undefined as never` News/Sentiment composition have now been repaired in features 4 and 5. Feature 6 now also repairs the ADR-003 completion gap: workers persist terminal simulation data only; a fenced completion processor durably evaluates, stages the experiment, scores/admit Top-K entries, and advances Search. BullMQ terminal events, startup reconciliation, and a periodic watchdog recover lost notifications. Feature 8 has now passed the real Docker-backed migration and end-to-end gate.
-
-## Completed historical milestones (not evidence of full completion)
-
-| Commit | Historical milestone | Current assessment |
-| --- | --- | --- |
-| `97bd4f6` | Strategy plugin runtime | Reusable domain implementation exists; not yet connected to a complete product flow. |
-| `cd091a6`, `37fd18b` | Market-data contracts and optional Binance adapter | Partial: no durable/live end-to-end composed flow. |
-| `0d8f1f8`, `9d9645e` | Evaluation and simulator | Domain logic exists; public durable worker path is incomplete. |
-| `8f8364c`, `06b93e5` | Leaderboard and Search runtimes | Internal test runtimes exist; required public APIs are `NOT_IMPLEMENTED`. |
-| `502e7e2` | News/Sentiment runtime | Boundary logic exists; concrete durable collection pipeline remains incomplete. |
-| `da4ca1c`, `3e5d913`, `36bee80` | Auth, user persistence, initial facade routes | Partial: routes do not expose backtest/search/leaderboard flow. |
-| `126e718` | Reference-screen frontend | Demo-only local presentation; must be replaced with live API flows. |
-| `40f7e59`, `4e8d686` | Strategy authoring and library persistence | PostgreSQL strategy library exists; is an input to, not completion of, the pipeline. |
-| `d9e9eaa` | Previous completion documentation | Superseded by this honest reopened status. |
-| `2070778` | Cross-platform npm developer workflow | Completed: npm lockfile/workspace workflow, root development/start scripts, Node-based backend launcher, and focused smoke checks. |
-| `4518930` | Durable manual Backtesting runtime and API | Completed and validated: authenticated benchmark scope/manual-run/read routes, deterministic simulator execution, PostgreSQL repositories/migration for all records created by this slice, and ownership/idempotency/audit behavior. The worker/queue path remains explicitly incomplete. |
-| `745dc18` | Deterministic Search and Leaderboard flow | Completed and validated: authenticated bounded Search lifecycle/Top-K routes, offline deterministic generation over saved strategy definitions, Backtesting/Evaluation scoring handoff, durable Search runs and Leaderboard entries, and persisted Backtesting candidate/experiment scores. |
-| `d168167` | Durable Backtesting BullMQ worker and recovery | Completed and validated: PostgreSQL dispatch/fence migration, transactional candidate-plus-dispatch persistence, Redis/BullMQ dispatch with bounded exponential retry, worker consumption, database claim fencing, worker-side result/retry persistence, restart reconciliation of pending dispatches, and portable worker startup. |
-| `f7fc06e` | Durable Market Data, News, and Sentiment flows | Completed and validated: migration `007`, PostgreSQL repositories for normalized candles/snapshots, news, analyses, and sentiment snapshots; offline demo News provider; deterministic `LOCAL_LEXICON` Sentiment adapter with model/version provenance; authenticated Market, News, and Sentiment REST routes. |
-| `956b1c5` | Durable Backtesting completion, ranking, and Search advancement | Completed and validated: migration `008`; a durable fenced completion processor; BullMQ terminal listener plus periodic recovery; idempotent evaluation/experiment/Leaderboard admission; and callback/recovery-driven bounded Search advancement. |
-| `0649bb5` | Backend REST and Market transport completion | Completed and validated: owner-scoped strategy-library/scope reads, complete market query mapping, manual cancellation, Search candidate history, experiment visualization/replay reads, required `/leaderboard?scopeId=` and `/leaderboard-scopes` surfaces, concealed cross-owner 404 mapping, and authenticated normalized Market WebSocket subscription control/update messages. |
-| `21eafd2` | Docker-backed backend completion | Completed and validated: Compose migration gating, runtime launcher packaging for backend/worker images, healthy PostgreSQL/Redis/backend/worker/frontend services, successful migrations, and a real authenticated strategy → market snapshot → Redis/BullMQ backtest → worker → evaluation → leaderboard plus deterministic Search flow. |
-
-## Latest validation
-
-- `npm install`: passed from the repository root with npm 11.17.0; removed the obsolete `cross-env` dependency chain and refreshed the committed npm lockfile. npm reported its informational allow-scripts warning, but installation, compilation, and Vite all completed successfully.
-- `npm run test:workflow`: passed — 2 Node launcher tests validate compiled-entry resolution, platform-delimited `NODE_PATH`, and the pre-build error.
-- `npm run smoke:backend`: passed — compiled backend launched through the Node-based launcher and returned `GET /health` with `{ "status": "ok" }` on an isolated port.
-- `npm run smoke:dev`: passed — the root development launcher built the backend, served its health endpoint, served the Vite frontend on an isolated port, and stopped both processes cleanly.
-- `npm test`: passed — all workspace tests completed successfully (including the existing placeholder-oriented tests, which do not satisfy the reopened product requirements).
-- `npm run build`: passed — all workspaces compiled and the frontend production bundle was generated.
-- `npm run lint`: passed — all workspace TypeScript no-emit checks completed successfully.
-- `npm run arch:check`: passed — dependency-cruiser reported no violations across 470 modules and 551 dependencies.
-- Historical Feature 1 note: Docker-backed validation was intentionally deferred at that point; it was completed in Feature 8 below.
-- `npm test --workspace=@cryptox/backtesting`: passed — 7 tests: deterministic simulator behavior plus manual scope/candidate/attempt/trade/result/replay flow and PostgreSQL persistence/rehydration coverage.
-- `npm test --workspace=@cryptox/backend`: passed — 5 tests, including authenticated scope, manual backtest, attempt, and experiment transport mappings.
-- `npm test`: passed — 43 tests across all workspaces.
-- `npm run build`: passed — all workspaces compile and the frontend production bundle completes.
-- `npm run lint`: passed — all workspace TypeScript no-emit checks complete.
-- `npm run arch:check`: passed — dependency-cruiser reported no violations across 519 modules and 681 dependencies.
-- `npm test --workspace=@cryptox/search`: passed — 5 tests, including deterministic generate → Backtesting → Evaluation → Top-K flow and PostgreSQL Search-run repository SQL coverage.
-- `npm test --workspace=@cryptox/leaderboard`: passed — 4 tests, including formula scoring, Top-K admission, rank ordering, and PostgreSQL Leaderboard-entry SQL coverage.
-- `npm test --workspace=@cryptox/backend`: passed — 6 tests, including authenticated Search lifecycle and scoped Leaderboard REST mappings plus an actual controller-driven search/backtest/evaluate/rank flow.
-- `npm test`: passed — 50 tests across all workspaces.
-- `npm run build`: passed — all workspaces compile and the frontend production bundle completes.
-- `npm run lint`: passed — all workspace TypeScript no-emit checks complete.
-- `npm run arch:check`: passed — dependency-cruiser reported no violations across 536 modules and 738 dependencies.
-- `npm run smoke:backend`: passed — compiled Nest backend started, registered Search and Leaderboard routes, and passed `GET /health`.
-- `npm install bullmq@^5.70.2 --workspace=@cryptox/backtesting`: passed — installed the Backtesting-owned BullMQ dependency and updated `package-lock.json`. npm reported two moderate audit findings and informational pending install-script approvals; no scripts were approved or run for this feature.
-- `npm test --workspace=@cryptox/backtesting`: passed — 7 tests, including durable queued submission, retry state, fenced worker execution, duplicate-delivery no-op, and PostgreSQL queue-dispatch SQL coverage.
-- `npm test --workspace=@cryptox/backtest-worker`: passed — 2 tests; the worker requires explicit PostgreSQL/Redis configuration and exposes only the Backtesting public worker runtime.
-- `npm test --workspace=@cryptox/backend`: passed — 6 tests; authenticated manual transport now returns `QUEUED` and is completed only through the worker public operation.
-- `npm test --workspace=@cryptox/search`: passed — 5 tests; Search now asserts queued lifecycle behavior instead of an inline Backtesting shortcut.
-- `npm test`: passed — 51 tests across all workspaces.
-- `npm run build`: passed — all workspaces compile and the frontend production bundle completes.
-- `npm run lint`: passed — all workspace TypeScript no-emit checks complete.
-- `npm run arch:check`: passed — dependency-cruiser reported no violations across 709 modules and 920 dependencies.
-- `npm run smoke:backend`: passed — compiled backend started and passed `GET /health`; startup queue reconciliation is safe when Redis is not configured.
-- `npm test --workspace=@cryptox/market-data`: passed — 8 tests, including PostgreSQL candle/snapshot SQL coverage.
-- `npm test --workspace=@cryptox/news`: passed — 5 tests, including deterministic local-news collection and provider failure behavior.
-- `npm test --workspace=@cryptox/sentiment`: passed — 4 tests, including model-versioned result and sealed-snapshot SQL persistence.
-- `npm test --workspace=@cryptox/backend`: passed — 6 tests, including authenticated Market snapshot, News collect, and Sentiment transport mappings.
-- `npm test`: passed — 55 tests across all workspaces.
-- `npm run build`: passed — all workspaces compile and the frontend production bundle completes.
-- `npm run lint`: passed — all workspace TypeScript no-emit checks complete.
-- `npm run arch:check`: passed — dependency-cruiser reported no violations across 746 modules and 995 dependencies.
-- `npm run smoke:backend`: passed — compiled Nest backend registered the Market snapshot, News collect, and Sentiment routes and passed `GET /health`.
-- `npm test --workspace=@cryptox/backtesting`: passed — 8 tests, including terminal completion forwarding, duplicate terminal notification idempotency, fenced durable completion, and exhausted-retry finalization.
-- `npm test --workspace=@cryptox/search`: passed — 5 tests, including queued generate → worker → completion → evaluate → rank → next-slot completion through public module APIs.
-- `npm test --workspace=@cryptox/backend`: passed — 6 tests, including composed startup reconciliation support.
-- `npm test --workspace=@cryptox/backtest-worker`: passed — 2 tests; worker composition remains constrained to public Backtesting and Strategy APIs.
-- `npm test`: passed — 55 tests across all workspaces.
-- `npm run build`: passed — all workspaces compile and the frontend production bundle completes.
-- `npm run lint`: passed — all workspace TypeScript no-emit checks complete.
-- `npm run arch:check`: passed — dependency-cruiser reported no violations across 753 modules and 1,012 dependencies.
-- `npm run smoke:backend`: passed — compiled Nest backend registered all current authenticated transport routes, initialized the recovery runtime safely without Redis, and passed `GET /health`.
-- `npm test --workspace=@cryptox/backend`: passed — 8 tests, including owner-scoped library/scope reads, manual cancellation, candidate history, visualization/replay, required leaderboard query transport, full market query mapping, and authenticated normalized Market WebSocket messages.
-- `npm test --workspace=@cryptox/backtesting`: passed — 8 tests, including bounded Candidate projections, scope persistence, visualization/replay API compatibility, and existing worker/completion behavior.
-- `npm test --workspace=@cryptox/strategy`: passed — 5 tests, including owner-scoped strategy/composite library persistence and runtime behavior.
-- `npm install @nestjs/websockets@^10.4.15 @nestjs/platform-socket.io@^10.4.15 socket.io@^4.8.1 --workspace=@cryptox/backend`: passed — declared WebSocket transport dependencies and refreshed `package-lock.json`; npm reported 10 audit findings and pending install-script notices, with no scripts approved.
-- `npm test`: passed — 58 tests across all workspaces.
-- `npm run build`: passed — all workspaces compile and the frontend production bundle completes.
-- `npm run lint`: passed — all workspace TypeScript no-emit checks complete.
-- `npm run arch:check`: passed — dependency-cruiser reported no violations across 757 modules and 1,033 dependencies.
-- `npm run smoke:backend`: passed — compiled Nest backend registered `/leaderboard-scopes`, `/backtests/:candidateId/cancel`, `/search-runs/:searchRunId/candidates`, `/experiments/:experimentId/visualization`, `/experiments/:experimentId/replay`, `/leaderboard`, and the MarketGateway subscription handler; `GET /health` passed.
-- Feature 8 local validation: `npm test` passed — 58 tests across all workspaces; `npm run build` passed; `npm run lint` passed; `npm run arch:check` passed with no violations across 757 modules and 1,033 dependencies; `npm run smoke:backend` passed with the full authenticated route inventory; `git diff --check` passed.
-- Compose migration wiring: `infra/docker-compose.yml` now runs a one-shot `migrate` service and gates backend/worker startup on `service_completed_successfully`; `infra/docker/backend.Dockerfile` includes `infra/db/migrations` for the migration image.
-- `docker --version`: passed — Docker Desktop 29.7.2; `docker compose version`: passed — Compose v5.4.0.
-- `docker compose -f infra/docker-compose.yml config --quiet`: passed.
-- `docker compose -f infra/docker-compose.yml up --build -d`: passed after adding the repository `scripts/` directory to both runtime images. PostgreSQL and Redis became healthy; the migration service exited 0; backend and backtest-worker became healthy; frontend became healthy. The first build exposed `MODULE_NOT_FOUND: /app/scripts/start-backend.mjs` and `/app/scripts/start-worker.mjs`, which was fixed within this feature before the successful rerun.
-- Docker-backed E2E: passed against the live REST/Redis/PostgreSQL stack. Registered/logged in a user; created and persisted an MA definition and weighted composite; read 12 normalized PostgreSQL candles; created a durable snapshot/scope; submitted a `202 QUEUED` manual backtest; observed the BullMQ worker complete it; retrieved completed attempt, 2 trades, experiment, and leaderboard entry; replay returned `MATCH`; started deterministic Search with one candidate and observed `COMPLETED`, one candidate, and one Search leaderboard entry.
-- Docker-backed durable row check: passed with 1 user, 1 strategy definition, 1 composite, 12 market candles, 1 market snapshot, 1 scope, 2 candidates, 2 queue dispatches, 2 attempts, 4 trades, 2 experiments, 1 search run, and 2 leaderboard entries. Redis was reachable and the worker log reported `backtest worker ready`.
-- Final validation rerun (2026-08-25): `npm test` passed — 63 tests across all workspaces; `npm run build` passed; `npm run lint` passed; `npm run arch:check` passed with no violations across 761 modules and 1,044 dependencies; and `git diff --check` passed.
-- Development Market seed validation (2026-08-25): focused seed tests and the full `npm test` passed (71 tests including seed coverage); `npm run build`, `npm run lint`, `npm run arch:check`, migration, Compose startup, repeat seed, PostgreSQL row counts, and fresh-user browser Market verification all passed. The seed remains development-only and explicitly provenance-marked.
-
-## Current decisions and assumptions
-
-- The PDF is authoritative; the Markdown companion and supplied images guide searchable details and visual acceptance respectively.
-- npm is the supported developer package manager because the root declares npm workspaces and the user explicitly requires `npm install` from the repository root. `package-lock.json` is the committed lockfile.
-- `ts-node` is not declared and will not be relied on. Shell-specific environment assignment is not an acceptable backend start mechanism.
-- The root `npm run dev` script builds the backend once, starts it through a Node-based launcher, and starts the frontend’s declared Vite workspace dependency. Backend TypeScript changes require restarting that command; Vite continues to provide frontend development serving.
-- The backend launcher sets `NODE_PATH` programmatically for its compiled child process using the operating system’s path delimiter. This keeps module-alias resolution portable across Windows, macOS, and Linux without relying on shell syntax.
-- Existing code/tests that assert `NOT_IMPLEMENTED` are treated as placeholders to replace when their required feature is implemented, not as completion evidence.
-- Manual submissions are durably queued in PostgreSQL and Redis/BullMQ completes them through the backtest-worker. The worker persists terminal simulation data, after which the fenced completion processor evaluates, stages the experiment, scores/admits leaderboard entries, and advances Search.
-- Backtesting copies the sealed market dataset snapshot and its candles into Backtesting-owned persistence before executing. This preserves module boundaries (the source is read only through Market Data's public API) while making the replay input durable.
-- Search defaults to a deterministic, offline `RANDOM` generator. It cycles sorted owner-visible strategy definitions into immutable composite candidates, so core Search functionality does not depend on LLM credentials or network access.
-- Search owns durable run lifecycle state in `search_runs`; Backtesting continues to own candidate and experiment persistence, including the score written after Leaderboard evaluates the saved metrics. Leaderboard owns durable Top-K entries in `leaderboard_entries` and reads Backtesting records only through its public API adapters.
-- Queue dispatch uses `jobId = candidateId`. A `backtest_queue_dispatches` row and `QUEUED` Candidate are committed in the same PostgreSQL transaction before BullMQ publication. If publication fails or the process dies before acknowledgement, backend and worker startup reconciliation re-enqueue the durable pending record using the same job ID.
-- BullMQ uses the Candidate's bounded `maxAttempts` and a one-second exponential backoff. Each delivery takes a PostgreSQL fence/lease; late or duplicate deliveries cannot persist trades, experiments, or a candidate transition after the active fence has changed. Worker failures persist `RETRY_WAIT` or `TERMINAL_FAILURE_PENDING` before they are rethrown to BullMQ.
-- The worker app imports only Backtesting and Strategy public APIs. Its Backtesting runtime processes persisted Backtesting snapshots and strategy definitions; it does not call scope creation or configure provider adapters. Backend composition owns the live Binance provider while preserving that worker boundary.
-- Market Data, News, and Sentiment now compose concrete PostgreSQL repositories whenever `DATABASE_URL` is configured. With no configured News provider, News uses the concrete CoinDesk RSS provider; requesting an unsupported configured provider raises an explicit provider error rather than reporting a false success. Sentiment uses deterministic `LOCAL_LEXICON` version `1.0.0` with a stable model fingerprint, so News does not require LLM credentials.
-- `MVP_MANUAL_V1` is the shared default score-formula identity for benchmark scopes and the deterministic Leaderboard formula, preventing an unscorable default scope.
-- Workers only persist attempt/trade simulation outcomes and move a candidate to `PROCESSING_RESULT`. A completion claim with a database lease/fencing token then performs evaluation, immutable experiment staging, Leaderboard scoring/admission, final candidate state, and finally the best-effort Search callback. This ordering makes duplicate terminal signals and restarts safe.
-- Queue events are advisory. `BullMqBacktestCompletionListener` verifies terminal job state before forwarding, while startup plus a one-second unref'd reconciliation watchdog repair missed QueueEvents and process due completion retries. Completion retries are capped at five claims with a deterministic one-second delay.
-- Docker Compose uses the backend image for a one-shot migration service. PostgreSQL readiness is required before migrations, and backend/worker services require successful migration completion before starting, so container startup cannot race the schema application step.
-- Search advancement is owned by Search: the Backtesting completion processor only invokes its public candidate-finished callback after durable finalization. Search startup/periodic reconciliation fills any unfinished active run, so an unavailable callback cannot permanently consume a bounded slot.
-- Backend transport remains an adapter: controllers authenticate with Auth, validate transport primitives, and call module public APIs; they do not read PostgreSQL/Redis or calculate domain results. Candidate projections explicitly strip owner, strategy, composite, queue, and fence internals.
-- Docker runtime images copy the repository `scripts/` directory because the npm workspace start scripts invoke cross-platform Node launchers from `/app/scripts`. Compose applies migrations as a successful one-shot dependency before backend and worker startup.
-- The required persistent scope surface is `/leaderboard-scopes` (the earlier `/backtest-scopes` path remains an alias), and the required board read is `/leaderboard?scopeId=...` (the earlier path-style aliases remain for compatibility). Manual submission returns `202` and uses `5` bps when slippage is omitted.
-- Market WebSocket messages use the repository's versioned `@cryptox/contracts/websocket/market-data` shape on the `/market` namespace and `market` event. The gateway authenticates the bearer token during connection, forwards only normalized tick/candle/status updates, and sends correlated subscription acknowledgements/errors.
-- The repository’s OpenSpec apply skill was consulted, but the `openspec` CLI is not installed in this checkout. The durable plan/status documents remain the continuation record until that tooling is available.
-
-## Unresolved decisions and blockers
-
-- The npm install emitted 10 audit findings (8 moderate, 2 high) and pending install-script notices; these do not block compilation/tests but remain operational limitations to review.
-- The local Codex runtime exposes Node but not `npm` on `PATH`; a system npm executable was located at `C:\Program Files\nodejs\npm.cmd` for validation. The repository commands themselves must remain normal `npm ...` commands for developers.
+- The assignment PDF is unavailable in this checkout; the Markdown companion and images were used for secondary traceability.
+- Docker Desktop is installed but its Linux engine was unavailable during the final container attempt.
+- Dependency audit findings, if reported by npm, are separate from the implementation contract and should be reviewed during dependency maintenance.
