@@ -21,3 +21,11 @@ export {
   joinNewsSentimentProvenance,
   type SentimentApplication,
 } from "../application/service";
+
+export {
+  createPostgresSentimentDependencies,
+  type PostgresPool,
+  type PostgresQueryResult,
+  type PostgresSentimentDependencies,
+  type PostgresSentimentOptions,
+} from "../infrastructure/bootstrap";

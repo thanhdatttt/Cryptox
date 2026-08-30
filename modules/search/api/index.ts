@@ -19,6 +19,16 @@ import { InMemorySearchRunRepository } from "../application/memory";
 import { SeededRandomStrategyGenerator } from "../domain/random-generator";
 
 export * from "./contracts";
+export {
+  createSearchGeneratorRegistry,
+  type SearchGeneratorAlgorithmConfiguration,
+  type SearchGeneratorInstance,
+  type SearchGeneratorRegistration,
+  type SearchGeneratorRegistry,
+  type SearchGeneratorRegistryOptions,
+  type DomainGuidedGeneratorOptions,
+  type GeneticGeneratorOptions,
+} from "./registry";
 
 const defaultApplication = createSearchApplication({
   searchRunRepository: new InMemorySearchRunRepository(),

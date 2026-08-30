@@ -7,11 +7,18 @@ export type {
   BacktestRunner,
   BacktestSubmission,
   BacktestTerminalOutcome,
+  Clock,
   BacktestingApplicationDependencies,
   BacktestingUnitOfWork,
   CandidateRepository,
   ExperimentRepository,
 } from "../application/ports";
+export {
+  createBoundedLocalBacktestExecutor,
+} from "./composition";
+export type {
+  BoundedLocalBacktestExecutorOptions,
+} from "./composition";
 import type { BacktestingApplicationDependencies } from "../application/ports";
 import {
   createBacktestingApplication,

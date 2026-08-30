@@ -21,6 +21,17 @@ export function createSearchModule(
   return createSearchApplication(_deps, options);
 }
 
+export {
+  createSearchGeneratorRegistry,
+  type SearchGeneratorAlgorithmConfiguration,
+  type SearchGeneratorInstance,
+  type SearchGeneratorRegistration,
+  type SearchGeneratorRegistry,
+  type SearchGeneratorRegistryOptions,
+  type DomainGuidedGeneratorOptions,
+  type GeneticGeneratorOptions,
+} from "./registry";
+
 export { createPostgresSearchRunRepository, PostgresSearchRunRepository } from "../infrastructure/postgres";
 export type {
   PostgresPool,

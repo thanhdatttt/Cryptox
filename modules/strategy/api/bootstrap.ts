@@ -38,3 +38,11 @@ export function createStrategyAuthoringPortFactory(
 
 export type { StrategyAuthoringApplicationDependencies } from "../application/authoring";
 export type { StrategyDefinition, CompositeStrategyDefinition };
+
+export {
+  createPostgresStrategyDependencies,
+  type PostgresPool,
+  type PostgresQueryResult,
+  type PostgresStrategyDependencies,
+  type PostgresStrategyOptions,
+} from "../infrastructure/postgres";

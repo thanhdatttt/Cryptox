@@ -35,6 +35,7 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 | F-02 | DONE | 3 | Integration | Mendel (`01a04bab-a123-7bd2-855b-c02a6ab30f1c`) | `MVP_IMPLEMENTATION` / `84209b0` | Fixture-first Strategy/Search/result/auxiliary views and typed clients; frontend 31/31 across 12 files, typecheck/lint/build and global gates PASS; real API/browser integration remains I-01 |
 | I-01 | REVIEW | 5 | YES | INS-106 Manager / exactly one fresh sequential internal worker Volta `01a0539c-3372-71e3-acb6-d27a0239f4b6` | `MVP_IMPLEMENTATION` / uncommitted I-01 source and checkpoint delta from authorization `984a4bd`; single staging attempt denied by `.git/index.lock` permission error; no retry | `REVIEW → READY → IN_PROGRESS → REVIEW`; backend HTTP/WS composition tests, backend 15 passed / 1 environment-gated skip, root build/typecheck/lint/tests, artifacts, deferred-scope, scope tests, secret/log, and whitespace checks PASS; real DB/provider/demo evidence BLOCKED or UNVERIFIED, architecture has 71 existing violations, runtime smoke expects stale readiness, so I-01 is `NEEDS_INSTRUCTOR_REVIEW` and not DONE |
 | I-01S | DONE | 5R | YES | INS-104 Manager / exactly one fresh sequential internal worker Mendel `01a0536c-7ff6-7713-bbd7-839e1b535d10` | `MVP_IMPLEMENTATION` / authorized source and checkpoint delta remains uncommitted after the single Manager staging attempt was denied by `.git/index.lock` permission error; no retry | `BLOCKED → READY → IN_PROGRESS → REVIEW → DONE`; worker changed only the authorized Strategy registry/public-entrypoint paths; independent Strategy 119/119, workspace 389 passed / 6 environment-gated skips, build/typecheck/lint, architecture, artifacts, scope, runtime-smoke, secret scan, whitespace, and exact-path review PASS; OpenSpec CLI UNVERIFIED |
+| I-01R | REVIEW | 6R | YES | INS-108 Manager / Euler (A), Erdos (B), Chandrasekhar (C) | `MVP_IMPLEMENTATION` / uncommitted authorized source and checkpoint delta from authorization `4e62101` (reviewed source checkpoint `b20c5e6`); workers `01a053ee-d398-7463-b291-3da26a1d4f83`, `01a053ee-d47e-7eb1-8544-0efbd12a2e87`, `01a053ee-d5c3-74e2-aa98-c56eddc0e1fe` completed; one staging/commit attempt denied: `fatal: Unable to create 'D:/agy-cli-projects/AOS/Cryptox/.git/index.lock': Permission denied` | `BLOCKED → READY → IN_PROGRESS → REVIEW`; focused public-entrypoint and workspace evidence PASS, but deferred-scope FAIL, architecture FAIL (71 violations), runtime smoke FAIL, PostgreSQL BLOCKED, OpenSpec UNVERIFIED, and Git commit BLOCKED; `NEEDS_INSTRUCTOR_REVIEW` |
 | I-02 | BLOCKED | 6 | YES | Manager plus independent reviewers | — | Not started |
 | RB-01 | DONE | E0 | YES | Manager | `MVP_IMPLEMENTATION` / containing INS-024 RB-01 checkpoint | Documentation-only DEC-007 reconciliation planning committed; no feature implementation started |
 | C-02 | DONE | E0 | YES | Manager / exactly one contract-and-schema worker `01a04d53-6ab4-70c1-a926-f68464b0fc6a` (INS-034) | `MVP_IMPLEMENTATION` / containing INS-034 closure checkpoint | Contract/schema review, 254/254 workspace tests, PostgreSQL up/constraints/down/remigrate, architecture, artifacts, scope, deferred-scope, typecheck, build, lint, and diff checks PASS; OpenSpec CLI and link/DAG automation UNVERIFIED |
@@ -76,10 +77,11 @@ packet was authorized or started.
 The existing legacy rows, including
 `M-02` at `DONE` retains its state and evidence. `AU-02` is `DONE` under
 `INS-101`; `I-01` is `REVIEW` under `INS-103` with
-`NEEDS_INSTRUCTOR_REVIEW`; `I-01S` is the sole packet authorized by the current
-`INS-104` signal and completed exactly `BLOCKED -> READY -> IN_PROGRESS ->
-REVIEW -> DONE` under this checkpoint. `I-02` and `I-03` remain `BLOCKED`; no
-downstream packet is authorized by this checkpoint.
+`NEEDS_INSTRUCTOR_REVIEW`; `I-01S` is `DONE` under `INS-104`, and `I-01R` is
+the sole packet authorized by current `INS-108`, now `REVIEW / NEEDS_INSTRUCTOR_REVIEW`
+after its three disjoint workers returned scoped output and the required
+bounded/global checks were run. `I-02` and `I-03` remain
+`BLOCKED`; no downstream packet is authorized by this checkpoint.
 
 `ENV-02` was the sole implementation packet named by `INS-039`; it was
 persisted as `BLOCKED`, moved to `READY`, executed by exactly one scoped worker,
@@ -514,6 +516,22 @@ started and no worker was created for closure.
 - **Review evidence:** The public `STRATEGY_FACTORIES` collection is frozen, ordered as the four baseline factories followed by `SMC_LITE_V1` and `WYCKOFF_LITE_V1`, preserves exact factory/descriptor/create-function identity and profile IDs, contains no duplicate algorithm source, and is accepted by `createStrategyModule`. No contract, plugin algorithm, backend, dependency, generated artifact, or unrelated path changed.
 - **Stop boundary:** Move only I-01S through `BLOCKED -> READY -> IN_PROGRESS -> REVIEW -> DONE` when all scoped evidence passes, make one coherent commit attempt, and stop for fresh Instructor review before I-01 can resume.
 - **Full packet:** [`MVP_PLAN.md#i-01s--strategy-public-composition-seam-reconciliation`](MVP_PLAN.md#i-01s--strategy-public-composition-seam-reconciliation)
+
+### I-01R — Public Module Bootstrap and Persistence Seam Reconciliation
+
+- **Requirement IDs:** `CSL-R-AU-01`, `CSL-R-OW-01`, `CSL-R-ST-01`, `CSL-R-ST-04`, `CSL-R-ST-06`, `CSL-R-ST-07`, `CSL-R-SE-03`, `CSL-R-BT-01`–`02`, `CSL-R-SN-01`, `CSL-R-RP-01`–`02`, and `CSL-R-AR-01`–`03`
+- **State / owner / wave:** REVIEW / NEEDS_INSTRUCTOR_REVIEW / INS-108 Manager plus exactly three fresh disjoint internal workers — Euler (A), Erdos (B), Chandrasekhar (C) / 6R
+- **Critical / parallelism:** YES / YES, maximum three workers
+- **Start dependencies:** `I-01` is `REVIEW / NEEDS_INSTRUCTOR_REVIEW`; `C-02`, `S-01`–`S-06`, `Q-01`, `Q-02`, `B-01`–`B-03`, `AU-01`, `AU-02`, `N-01`–`N-03`, `E-01`, `E-02`, `L-01`, `L-02`, and accepted `I-01S` are DONE; no implementation writer is active
+- **Integration dependencies:** Later separately authorized resumed `I-01` plus real PostgreSQL/provider/browser evidence; this packet does not authorize I-01, I-02, I-03, extensions, or downstream work
+- **Objective:** Make already approved Backtesting, Search, Strategy persistence, and Sentiment behavior consumable through public package/bootstrap boundaries without changing contracts, schema, application ports, algorithms, or backend composition
+- **Worker scopes:** A — `modules/backtesting/api/**` excluding `contracts.ts` and focused tests; B — `modules/search/api/**` excluding `contracts.ts` and focused tests; C — `modules/strategy/api/**`, narrowly required Strategy PostgreSQL adapter/tests, `modules/sentiment/api/**`, and focused tests. Scopes are disjoint; workers do not edit control-plane files or commit.
+- **Exact write scope:** `modules/backtesting/api/**` excluding `contracts.ts`; `modules/search/api/**` excluding `contracts.ts`; `modules/strategy/api/**`; new or narrowly required `modules/strategy/infrastructure/postgres.ts` and focused tests; `modules/sentiment/api/**` and focused tests; plus Manager-owned `TASKS.md` and `HANDOFF.md` only
+- **Latest branch / commit:** `MVP_IMPLEMENTATION` / authorization checkpoint `4e62101`; reviewed source checkpoint `b20c5e6`; authorized source and checkpoint remain uncommitted. Workers `01a053ee-d398-7463-b291-3da26a1d4f83` (A), `01a053ee-d47e-7eb1-8544-0efbd12a2e87` (B), and `01a053ee-d5c3-74e2-aa98-c56eddc0e1fe` (C) completed and were closed after scoped review. The single staging/commit attempt was denied with `fatal: Unable to create 'D:/agy-cli-projects/AOS/Cryptox/.git/index.lock': Permission denied`; no retry was made.
+- **Validation:** `BLOCKED → READY → IN_PROGRESS → REVIEW` recorded by the Manager. PASS — Backtesting 46/46; Search 36 passed / 1 PostgreSQL-gated skip; Strategy 125 passed / 2 PostgreSQL-gated skips; Sentiment 20/20; workspace build, typecheck, lint, full workspace tests, artifact/source-sidecar, test-scope (13/13), focused secret/log scan, whitespace, exact-path, and diff checks. FAIL — `scope:check` rejects `DOMAIN_GUIDED_V1` and `GENETIC_V1` in the authorized public Search registry; `arch:check` reports 71 dependency violations; runtime smoke has a readiness assertion mismatch. BLOCKED — live PostgreSQL/Docker Compose. UNVERIFIED — OpenSpec CLI. The required exclusions prevent repairing these gates in I-01R.
+- **Known limitation:** Worker C proved the currently executable `MAJORITY_VOTE_V1` persistence path and exact component-version provenance; weighted-vote persistence was not claimed at this boundary.
+- **Stop boundary:** I-01R stops at `REVIEW / NEEDS_INSTRUCTOR_REVIEW` pending Instructor reconciliation of the deferred-scope/architecture checker boundaries, excluded runtime composition, and live PostgreSQL evidence. Do not resume I-01 or start I-02/I-03/downstream work. One coherent Manager commit attempt is allowed; any Git denial is recorded without retry.
+- **Full packet:** [`MVP_PLAN.md#i-01r--public-module-bootstrap-and-persistence-seam-reconciliation`](MVP_PLAN.md#i-01r--public-module-bootstrap-and-persistence-seam-reconciliation)
 
 ### I-02 — E2E Demo, Documentation and Final Verification
 

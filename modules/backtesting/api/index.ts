@@ -15,7 +15,7 @@ import { createEvaluationModule } from "@cryptox/evaluation/bootstrap";
 import { getLeaderboardScope, score, submit } from "@cryptox/leaderboard";
 import { createBacktestingApplication } from "../application/service";
 import { InMemoryBacktestingRepositories } from "../application/memory";
-import { BoundedLocalBacktestExecutor } from "../infrastructure/local/bounded-local-backtest-executor";
+import { createBoundedLocalBacktestExecutor } from "./composition";
 
 export * from "./contracts";
 export type {
@@ -31,7 +31,7 @@ export type {
 
 const repositories = new InMemoryBacktestingRepositories();
 const defaultEvaluation = createEvaluationModule();
-const defaultExecution = new BoundedLocalBacktestExecutor({
+const defaultExecution = createBoundedLocalBacktestExecutor({
   capacity: 1,
   runner: {
     run: async () => {
