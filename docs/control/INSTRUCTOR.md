@@ -2,13 +2,134 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-088`
+Instruction ID: `INS-089`
 
-Status: `HOLD`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
-## INS-088 — Post-INS-087 Checkpoint Reconciliation HOLD
+## INS-089 — F-03 Residual Screen Projections
+
+This current signal supersedes `INS-088 / HOLD` and authorizes exactly one
+fresh Manager and exactly one internal Frontend worker to complete the
+remaining screen-level portion of packet `F-03`. It is a bounded residual
+execution, not a retry or replacement of the completed INS-085 worker. It
+authorizes no second worker, parallel frontend writer, downstream packet,
+M-02, AU-02, I-01, I-02, I-03, or unrelated source/control change.
+
+### Reviewed authority and applicability
+
+- The canonical checkout is `D:/agy-cli-projects/AOS/Cryptox`, branch
+  `MVP_IMPLEMENTATION`, clean at reviewed base `29464d3` (`docs(control): hold
+  after checkpoint reconciliation`). The already audited market/cache source
+  slice is committed at `122569c`; the reconciled Manager checkpoint is
+  `43ae5d2`; the current HOLD is `INS-088` at `29464d3`.
+- `TASKS.md` remains authoritative at `37 DONE`, `2 REVIEW` (`M-02`, `F-03`),
+  and `4 BLOCKED` (`AU-02`, `I-01`, `I-02`, `I-03`). F-03 is
+  `REVIEW / NEEDS_INSTRUCTOR_REVIEW`; its dependencies `M-03`, `S-04`,
+  `S-05`, `S-06`, `Q-02`, `B-03`, `N-03`, `E-02`, and `L-02` are `DONE`.
+  The residual may reopen only F-03 through `REVIEW -> READY -> IN_PROGRESS ->
+  REVIEW` and may reach `DONE` only if the bounded acceptance and packet tests
+  are actually complete.
+- The source/business state and task DAG were reviewed against the reconciled
+  checkpoint. No active Cryptox Manager or worker exists. The historical
+  INS-085 Manager and Descartes worker, and the INS-087 governance Manager,
+  are idle/closed and must not be reused. The fresh Manager must run in the
+  same canonical directory with model `gpt-5.6-luna` and reasoning `max`, with
+  no worktree or alternate checkout.
+- This packet uses the already committed `FeatureWorkspaceState.authoring`,
+  frozen REST DTOs, frozen market WebSocket DTOs, and existing typed clients.
+  No new transport is authorized. If a required state is absent from a frozen
+  DTO or not composed by the current client, the UI must say
+  `not supplied/not yet composed` or unavailable and the handoff must record
+  `NEEDS_INSTRUCTOR_REVIEW`; it must not fabricate state or calculate business
+  results in the browser.
+
+### Exact residual write scope
+
+- **Allowed implementation paths:**
+  `apps/frontend/src/features/screens.tsx`,
+  `apps/frontend/src/features/screens.spec.tsx`, and—only when needed to
+  supply deterministic development evidence for those screen tests—
+  `apps/frontend/src/features/fixture-data.ts` and
+  `apps/frontend/src/features/fixture-client.ts`.
+- Existing classes/dependencies should be reused. `apps/frontend/src/style.css`
+  may be changed only if a directly required F-03 screen projection cannot be
+  rendered accessibly with the existing styles; no unrelated visual redesign
+  is allowed.
+- **Forbidden:** `apps/frontend/src/market/**`,
+  `apps/frontend/src/components/MarketChart.tsx`, auth/cache/state/types
+  outside the already committed seam, `apps/frontend/src/features/clients.ts`,
+  all `modules/**`, `apps/backend/**`, `packages/contracts/**`, migrations,
+  providers/infrastructure, manifests/lockfiles, OpenSpec/ADR/requirements/
+  architecture/data-model policy, new fields/endpoints, persistence, browser
+  Binance/News/LLM calls, hard-coded strategy-name business branches, private
+  cache or client-identity bypass, live-order/risk behavior, and any deferred
+  scope.
+
+### Required screen projections and acceptance
+
+- **Authoring and Strategy:** render the existing authoring state distinctly.
+  The current frozen contracts have no draft/validation/Save/Approve transport,
+  so the unavailable/disabled state must be explicit rather than simulated.
+  For supplied saved definitions, render `MANUAL`, `LLM_DRAFT`, and
+  `APPROVED_NEWS_ITEM` origin metadata without exposing prompts or credentials.
+  Render descriptor `behaviorProfileId`, implementation version, visualization
+  metadata, and parameters generically. Render composite method/profile,
+  component enabled/weight metadata, and supplied weighted thresholds and
+  normalization; weighted and Lite profiles must be descriptor/metadata-driven,
+  never selected by strategy-name branches.
+- **Search:** present the three frozen generator types `RANDOM`,
+  `DOMAIN_GUIDED`, and `GENETIC`. Render supplied seeded profile, seed,
+  algorithm configuration, dataset identity, code provenance, finite stop
+  condition, state, candidate counts, timing, errors, and ranking. If the
+  existing client cannot start a seeded request because that transport is not
+  exposed, keep the unsupported action disabled or label it not yet composed;
+  do not silently convert it to RANDOM or invent provenance. Preserve REST
+  request/response semantics and do not generate candidates in the browser.
+- **Experiments/paper:** project only supplied Experiment/Trade fields,
+  including search/candidate/market/code/ranking/replay provenance, execution
+  profile, initial capital, fee/slippage, opaque paper-execution provenance,
+  position mode, exit reason, and visualization markers/overlays/signals.
+  Clearly distinguish synthetic paper Long versus Short when supplied, show
+  SL/TP/stop-policy/decimal fields only when supplied, and otherwise show
+  `not supplied/not yet composed`. Include an explicit no-live-order label;
+  do not calculate metrics, P&L, or execution values in the frontend.
+- **News/Sentiment:** keep stories usable when sentiment is absent. Render
+  extraction source/canonical URL/hash/time/retention and template id/source/
+  version/status (`DRAFT`, `APPROVED`, `RETIRED`) when supplied. Render
+  sentiment as explicit `AVAILABLE`, `MISSING`, or `DEGRADED` with its reason
+  when the DTO supplies it, without inferring a provider result from absent
+  data. Do not add arbitrary URL fetching or LLM calls.
+- **Privacy and tests:** preserve trusted server identity and private-cache
+  isolation. Add packet-specific screen/component regression tests covering
+  the available and unavailable paths above, including no fabricated state and
+  no name-based business branch. Fixture data must remain clearly fixture-only
+  and cannot be cited as final real-provider/demo evidence.
+
+### Manager/worker procedure and validation
+
+- The fresh Manager must read `AGENTS.md` and
+  `docs/control/prompts/ORCHESTRATOR_START.md` completely, then independently
+  verify this signal, `DECISIONS.md`, `TASKS.md`, `HANDOFF.md`, the F-03 packet,
+  requirements, accepted ADRs, active specs, frozen contracts, and current
+  frontend source. It must create exactly one internal Frontend worker with a
+  disjoint scope inside the allowed feature-screen/test paths. The worker must
+  not edit control files or commit; the Manager alone updates TASKS/HANDOFF.
+- The Manager must review the worker path-by-path, run focused frontend tests
+  including the new packet tests, frontend typecheck/build/lint, applicable
+  root tests, architecture/artifact/deferred-scope/scope/whitespace checks,
+  and browser/real API evidence when available. OpenSpec CLI, Docker/
+  PostgreSQL, live providers, real feature transport, and browser/demo checks
+  must remain `UNVERIFIED`/`BLOCKED` when unavailable, never `PASS`.
+- Only F-03 may transition under this instruction. The Manager must stop when
+  the residual scope is exhausted, must not start downstream work, and must
+  make at most one coherent checkpoint commit attempt. If Git rejects it, it
+  must not retry and must report the exact error for Instructor audit. If any
+  source/business/DAG drift or forbidden contract/backend need appears, stop
+  with `NEEDS_INSTRUCTOR_REVIEW` rather than expanding scope.
+
+## Historical INS-088 — Post-INS-087 Checkpoint Reconciliation HOLD
 
 This current signal supersedes `INS-087 / APPROVED_FOR_EXECUTION`. The
 governance-only reconciliation is complete and grants no execution authority.
