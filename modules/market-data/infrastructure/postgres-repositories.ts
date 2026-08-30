@@ -1,7 +1,11 @@
+import { createHash } from "node:crypto";
 import type { Candle, DatasetSnapshotRef, MarketPairMetadata } from "../domain/contracts";
 import type { CandleRepository, SnapshotRepository } from "../application/ports";
+import { MarketDataException } from "../domain/errors";
+import { TIMEFRAME_SECONDS, missingRanges, snapshotSerialization } from "../domain/rules";
 
-export interface MarketDataSqlClient { query<Row>(text: string, values: unknown[]): Promise<{ rows: Row[] }>; }
+export interface MarketDataSqlTransactionClient { query<Row>(text: string, values: unknown[]): Promise<{ rows: Row[] }>; release(): void; }
+export interface MarketDataSqlClient { query<Row>(text: string, values: unknown[]): Promise<{ rows: Row[] }>; connect?(): Promise<MarketDataSqlTransactionClient>; }
 
 const number = (value: number | string): number => typeof value === "number" ? value : Number(value);
 const date = (value: Date | string): string => new Date(value).toISOString();
@@ -24,17 +28,49 @@ export class PostgresCandleRepository implements CandleRepository {
 
 export class PostgresSnapshotRepository implements SnapshotRepository {
   constructor(private readonly client: MarketDataSqlClient) {}
+  private validateContent(input: { snapshot: DatasetSnapshotRef; candles: Candle[] }): void {
+    const { snapshot: ref, candles } = input;
+    const sorted = candles;
+    const interval = TIMEFRAME_SECONDS[ref.timeframe] * 1_000;
+    if (!ref.id || ref.candleCount !== sorted.length || sorted.length === 0 || sorted.some((candle, index) => !candle.isClosed || candle.pair !== ref.pair || candle.timeframe !== ref.timeframe || (index > 0 && candle.timestamp <= sorted[index - 1]!.timestamp)) || new Set(sorted.map((candle) => candle.timestamp)).size !== sorted.length || sorted[0]!.timestamp !== ref.range.from || sorted.at(-1)!.timestamp !== new Date(Date.parse(ref.range.to) - interval).toISOString() || missingRanges(sorted, ref.range, ref.timeframe).length > 0) {
+      throw new MarketDataException("DATASET_INTEGRITY_FAILURE", "Dataset snapshot content is incomplete or inconsistent.");
+    }
+    const expectedHash = createHash("sha256").update(snapshotSerialization(ref.pair, ref.timeframe, ref.range, sorted), "utf8").digest("hex");
+    if (expectedHash !== ref.sha256) throw new MarketDataException("DATASET_INTEGRITY_FAILURE", "Dataset snapshot content hash is invalid.");
+  }
   async create(input: { snapshot: DatasetSnapshotRef; candles: Candle[] }): Promise<DatasetSnapshotRef> {
-    const existing = await this.client.query<SnapshotRow>("SELECT id, pair, pair_metadata, timeframe, dataset_from, dataset_to, candle_count, sha256, created_at FROM market_dataset_snapshots WHERE sha256 = $1", [input.snapshot.sha256]);
-    const saved = existing.rows[0] ? snapshot(existing.rows[0]) : input.snapshot;
-    if (!existing.rows[0]) await this.client.query("INSERT INTO market_dataset_snapshots (id, pair, pair_metadata, timeframe, dataset_from, dataset_to, candle_count, sha256, created_at) VALUES ($1, $2, $3::jsonb, $4, $5, $6, $7, $8, $9)", [saved.id, saved.pair, JSON.stringify(saved.pairMetadata), saved.timeframe, saved.range.from, saved.range.to, saved.candleCount, saved.sha256, saved.createdAt]);
-    for (const item of input.candles) await this.client.query("INSERT INTO market_dataset_snapshot_candles (snapshot_id, timestamp, open, high, low, close, volume, is_closed) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT (snapshot_id, timestamp) DO NOTHING", [saved.id, item.timestamp, item.open, item.high, item.low, item.close, item.volume, item.isClosed]);
-    return saved;
+    this.validateContent(input);
+    const run = async (client: MarketDataSqlClient | MarketDataSqlTransactionClient): Promise<DatasetSnapshotRef> => {
+      const existing = await client.query<SnapshotRow>("SELECT id, pair, pair_metadata, timeframe, dataset_from, dataset_to, candle_count, sha256, created_at FROM market_dataset_snapshots WHERE sha256 = $1 FOR UPDATE", [input.snapshot.sha256]);
+      const saved = existing.rows[0] ? snapshot(existing.rows[0]) : input.snapshot;
+      if (!existing.rows[0]) {
+        await client.query("INSERT INTO market_dataset_snapshots (id, pair, pair_metadata, timeframe, dataset_from, dataset_to, candle_count, sha256, created_at) VALUES ($1, $2, $3::jsonb, $4, $5, $6, $7, $8, $9)", [saved.id, saved.pair, JSON.stringify(saved.pairMetadata), saved.timeframe, saved.range.from, saved.range.to, saved.candleCount, saved.sha256, saved.createdAt]);
+        for (const item of input.candles) await client.query("INSERT INTO market_dataset_snapshot_candles (snapshot_id, timestamp, open, high, low, close, volume, is_closed) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)", [saved.id, item.timestamp, item.open, item.high, item.low, item.close, item.volume, item.isClosed]);
+        const count = await client.query<{ count: number | string }>("SELECT COUNT(*)::int AS count FROM market_dataset_snapshot_candles WHERE snapshot_id = $1", [saved.id]);
+        if (count.rows[0] && Number(count.rows[0].count) !== saved.candleCount) throw new MarketDataException("DATASET_INTEGRITY_FAILURE", "Dataset snapshot child count does not match metadata.");
+      }
+      return saved;
+    };
+    if (!this.client.connect) return run(this.client);
+    const transaction = await this.client.connect();
+    try {
+      await transaction.query("BEGIN", []);
+      const saved = await run(transaction);
+      await transaction.query("COMMIT", []);
+      return saved;
+    } catch (error) {
+      try { await transaction.query("ROLLBACK", []); } catch { /* preserve the original failure */ }
+      throw error;
+    } finally { transaction.release(); }
   }
   async read(query: { snapshotId: string }): Promise<{ snapshot: DatasetSnapshotRef; candles: Candle[] } | undefined> {
     const head = await this.client.query<SnapshotRow>("SELECT id, pair, pair_metadata, timeframe, dataset_from, dataset_to, candle_count, sha256, created_at FROM market_dataset_snapshots WHERE id = $1", [query.snapshotId]);
     if (!head.rows[0]) return undefined;
     const result = await this.client.query<CandleRow>("SELECT $2::text AS pair, $3::text AS timeframe, timestamp, open, high, low, close, volume, is_closed FROM market_dataset_snapshot_candles WHERE snapshot_id = $1 ORDER BY timestamp ASC", [query.snapshotId, head.rows[0].pair, head.rows[0].timeframe]);
-    return { snapshot: snapshot(head.rows[0]), candles: result.rows.map(candle) };
+    const ref = snapshot(head.rows[0]);
+    const candles = result.rows.map(candle);
+    try { this.validateContent({ snapshot: ref, candles }); }
+    catch (error) { if (error instanceof MarketDataException) throw error; throw new MarketDataException("DATASET_INTEGRITY_FAILURE", "Dataset snapshot content is invalid."); }
+    return { snapshot: ref, candles };
   }
 }

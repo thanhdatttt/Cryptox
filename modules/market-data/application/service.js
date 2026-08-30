@@ -294,12 +294,12 @@ class MarketDataService {
         if (existing)
             return existing.snapshot;
         const snapshot = { id: (0, node_crypto_1.randomUUID)(), pair, pairMetadata: await this.readPairMetadata(pair), timeframe, range, candleCount: page.candles.length, sha256, createdAt: this.now() };
-        this.snapshots.set(snapshot.id, { snapshot, candles: page.candles.map((candle) => ({ ...candle })) });
         if (this.deps.snapshotRepository) {
             const persisted = await this.deps.snapshotRepository.create({ snapshot, candles: page.candles });
-            this.snapshots.set(persisted.id, { snapshot: persisted, candles: page.candles });
+            this.snapshots.set(persisted.id, { snapshot: persisted, candles: page.candles.map((candle) => ({ ...candle })) });
             return persisted;
         }
+        this.snapshots.set(snapshot.id, { snapshot, candles: page.candles.map((candle) => ({ ...candle })) });
         return snapshot;
     }
     async readDatasetSnapshot(query) {

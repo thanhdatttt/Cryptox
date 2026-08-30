@@ -4,6 +4,13 @@ export interface MarketDataSqlClient {
     query<Row>(text: string, values: unknown[]): Promise<{
         rows: Row[];
     }>;
+    connect?(): Promise<MarketDataSqlTransactionClient>;
+}
+export interface MarketDataSqlTransactionClient {
+    query<Row>(text: string, values: unknown[]): Promise<{
+        rows: Row[];
+    }>;
+    release(): void;
 }
 export declare class PostgresCandleRepository implements CandleRepository {
     private readonly client;
@@ -21,6 +28,7 @@ export declare class PostgresCandleRepository implements CandleRepository {
 export declare class PostgresSnapshotRepository implements SnapshotRepository {
     private readonly client;
     constructor(client: MarketDataSqlClient);
+    private validateContent;
     create(input: {
         snapshot: DatasetSnapshotRef;
         candles: Candle[];

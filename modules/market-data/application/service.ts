@@ -215,8 +215,8 @@ class MarketDataService implements MarketDataModulePublicApi {
     const serialization = snapshotSerialization(pair, timeframe, range, page.candles); const sha256 = createHash("sha256").update(serialization, "utf8").digest("hex");
     const existing = [...this.snapshots.values()].find((entry) => entry.snapshot.sha256 === sha256); if (existing) return existing.snapshot;
     const snapshot: DatasetSnapshotRef = { id: randomUUID(), pair, pairMetadata: await this.readPairMetadata(pair), timeframe, range, candleCount: page.candles.length, sha256, createdAt: this.now() };
+    if (this.deps.snapshotRepository) { const persisted = await this.deps.snapshotRepository.create({ snapshot, candles: page.candles }); this.snapshots.set(persisted.id, { snapshot: persisted, candles: page.candles.map((candle) => ({ ...candle })) }); return persisted; }
     this.snapshots.set(snapshot.id, { snapshot, candles: page.candles.map((candle) => ({ ...candle })) });
-    if (this.deps.snapshotRepository) { const persisted = await this.deps.snapshotRepository.create({ snapshot, candles: page.candles }); this.snapshots.set(persisted.id, { snapshot: persisted, candles: page.candles }); return persisted; }
     return snapshot;
   }
 
