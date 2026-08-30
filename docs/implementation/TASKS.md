@@ -38,7 +38,7 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 | RB-01 | DONE | E0 | YES | Manager | `MVP_IMPLEMENTATION` / containing INS-024 RB-01 checkpoint | Documentation-only DEC-007 reconciliation planning committed; no feature implementation started |
 | C-02 | DONE | E0 | YES | Manager / exactly one contract-and-schema worker `01a04d53-6ab4-70c1-a926-f68464b0fc6a` (INS-034) | `MVP_IMPLEMENTATION` / containing INS-034 closure checkpoint | Contract/schema review, 254/254 workspace tests, PostgreSQL up/constraints/down/remigrate, architecture, artifacts, scope, deferred-scope, typecheck, build, lint, and diff checks PASS; OpenSpec CLI and link/DAG automation UNVERIFIED |
 | C-03 | DONE | E1 contract reconciliation | YES | Manager closure under INS-063; source review under INS-055 / exactly one Search-contract worker Turing `01a04fed-36a2-76a2-b034-090c150c4873` | `MVP_IMPLEMENTATION` / this INS-063 closure checkpoint; source `51e98f9d5edd545831007dc6ce105701384bfd44` | `BLOCKED -> READY -> IN_PROGRESS -> REVIEW -> DONE`; focused Search/API/REST 9/9, current checker 13/13, full workspace 341 passed / 6 environment-gated skips, scope/arch/artifacts/typecheck/build/lint/diff checks PASS; OpenSpec CLI and PostgreSQL/Binance/News/real-provider/browser/demo evidence remain UNVERIFIED or BLOCKED |
-| M-03 | REVIEW | E1 | YES | INS-049 Manager `01a04f6d-329f-7d00-a1f2-43339c5bd3e6` + fresh Market Data worker Chandrasekhar `01a04f70-3324-77d3-bdf1-79e1c5b93a01` | `MVP_IMPLEMENTATION` / Manager checkpoint at stop boundary | `IN_PROGRESS -> REVIEW`; Market Data 31 passed / 1 skipped; root 318 passed / 6 skipped; architecture, artifacts, scope, typecheck, build, lint, diff checks PASS; real Binance and PostgreSQL evidence UNVERIFIED/BLOCKED |
+| M-03 | DONE | E1 | YES | INS-071 Manager `01a05094-bc71-7482-8107-dc654fcdff19` | `MVP_IMPLEMENTATION` / uncommitted INS-071 closure checkpoint | `REVIEW -> DONE`; Market Data 31 passed / 1 skipped plus market WebSocket contract 5/5; checker 13/13; scope, architecture, artifacts, typecheck, build, lint, diff checks PASS; real Binance UNVERIFIED; PostgreSQL BLOCKED/UNVERIFIED |
 | S-04 | BLOCKED | E1 | YES | Future Strategy application worker | — | Not started; controlled LLM draft/approval evidence required |
 | S-05 | DONE | E1 | YES | INS-036 fresh S-05 worker `01a04e66-d981-7e42-b75d-1bb3b7340c73` / Manager; INS-041 closure review | `MVP_IMPLEMENTATION` / containing INS-041 closure checkpoint | Focused 17/17 and Strategy 89/89 PASS; ENV-02 checker gate PASS; immutable weighted-composite evidence accepted |
 | S-06 | DONE | E1 | YES | INS-036 fresh S-06 worker `01a04e66-e691-7a50-af2f-b1eecd39053b` / Manager; INS-041 closure review | `MVP_IMPLEMENTATION` / containing INS-041 closure checkpoint | Focused 20/20 and Strategy 89/89 PASS; ENV-02 checker gate PASS; deterministic Lite-plugin evidence accepted |
@@ -58,12 +58,13 @@ The `RB-01` row records the completed governance checkpoint. `ENV-01` is the
 sole packet allocated by current `INS-030`; it is DONE at its authorized
 boundary after one worker completed and the Manager independently reviewed it.
 `C-02` is now DONE at its authorized contract/schema gate after one worker and
-Manager review. M-03 was recovered under INS-049 by one fresh worker and is now
-at `REVIEW`; its fixture/resilience evidence passes, but real Binance readiness
-and PostgreSQL integration remain unavailable. B-03 is now `DONE` under INS-069
+Manager review. M-03 was recovered under INS-049 by one fresh worker and closed
+`REVIEW -> DONE` under INS-071; its fixture/resilience evidence passes, while
+real Binance readiness and PostgreSQL integration remain unavailable. B-03 is now `DONE` under INS-069
 after one fresh worker and independent Manager review; its fixture evidence and
 current deferred-scope checker gate pass, while real-provider/database evidence
-remains blocked or unverified. `M-03` and `N-03` remain `REVIEW`; `ENV-03` is
+remains blocked or unverified. `N-03` remains `REVIEW`; `M-02` remains
+`REVIEW/UNVERIFIED`; `ENV-03` is
 `DONE` after its closure. `S-04`, `E-02`, `L-02`, `F-03`, and `I-03` remain
 `BLOCKED`. No downstream packet was authorized or started.
 The existing legacy rows, including
@@ -666,9 +667,8 @@ acceptance criteria and handoff requirements are in the linked packets in
 
 - **Requirement IDs:** `CSL-R-MD-02`, `CSL-R-MD-03`, `CSL-R-RP-02`, `CSL-R-FE-01`,
   `CSL-R-OB-01`.
-- **State / owner / wave:** REVIEW / fresh INS-049 Manager
-  `01a04f6d-329f-7d00-a1f2-43339c5bd3e6` + fresh Market Data worker Chandrasekhar
-  `01a04f70-3324-77d3-bdf1-79e1c5b93a01` / E1.
+- **State / owner / wave:** DONE / INS-071 Manager
+  `01a05094-bc71-7482-8107-dc654fcdff19` / E1.
 - **Dependencies:** `C-02=DONE`, `M-01=DONE`, and the `F-01` normalized chart
   input were verified. `M-02` remains `REVIEW/UNVERIFIED` and was not moved.
 - **Exact write scope:** `modules/market-data/api/**` excluding
@@ -704,10 +704,13 @@ acceptance criteria and handoff requirements are in the linked packets in
 - **Validation:** Market Data package — PASS, 31 passed / 1 skipped across 6
   passed / 1 skipped files. Root workspace — PASS, 318 passed / 6 skipped; skips
   are environment-gated and not PASS evidence. `npm run test:scope-check` — PASS,
-  7/7. `npm run arch:check`, `npm run artifacts:check`, `npm run scope:check`,
-  `npm run typecheck`, `npm run build`, `npm run lint`, and `git diff --check` —
-  PASS. The architecture check reported its expected nine forbidden-dependency
-  fixtures while exiting successfully.
+  7/7. The market WebSocket contract suite — PASS, 5/5. The current checker
+  suite — PASS, 13/13. `npm run scope:check`, `npm run arch:check`,
+  `npm run artifacts:check`, `npm run typecheck`, `npm run build`, `npm run lint`,
+  and `git diff --check` — PASS. The architecture check reported its expected
+  nine forbidden-dependency fixtures while exiting successfully. The contextual
+  root workspace record remains 341 passed / 6 environment-gated skips; skips
+  are not PASS evidence and were not used as live-provider evidence.
 - **Unavailable evidence:** Real configured Binance historical/realtime smoke is
   `UNVERIFIED`; no live Binance runtime configuration was present on this host,
   so fixture evidence is not promoted to real-provider PASS. Market Data
@@ -715,9 +718,11 @@ acceptance criteria and handoff requirements are in the linked packets in
   `infrastructure/postgres.integration.spec.ts` was skipped. OpenSpec CLI is
   `UNVERIFIED` because the command is unavailable. Browser/runtime and link/DAG
   automation were not run and remain `UNVERIFIED`; none is claimed as PASS.
-- **Stop boundary:** M-03 remains `REVIEW`, not `DONE`, because the required
-  real-provider evidence is unavailable. N-03 remains `REVIEW` at source/business
-  checkpoint `d4161ec458c869ff18fa89dd9732df260629c915`; M-02 remains
+- **Stop boundary:** Under INS-071, M-03 transitioned exactly `REVIEW -> DONE`;
+  unavailable real-provider and PostgreSQL evidence remains explicitly
+  `UNVERIFIED`/`BLOCKED` and is not promoted to PASS. N-03 remains `REVIEW` at
+  source/business checkpoint `d4161ec458c869ff18fa89dd9732df260629c915`,
+  including its `PARTIAL/UNVERIFIED` auto-refresh scheduler. M-02 remains
   `REVIEW/UNVERIFIED`; every other task state and evidence is preserved. No
   downstream packet was started, promoted, or auto-unlocked. The coherent
   Manager checkpoint commit is reported at the stop boundary.
@@ -1083,8 +1088,8 @@ and N-02 remain DONE. `RB-01` is DONE as the current governance checkpoint.
 `BLOCKED -> READY -> IN_PROGRESS -> REVIEW -> DONE`: the implementation and
 independent source review occurred under INS-036, the checker boundary was
 reconciled under ENV-02, and the closure promotion was authorized by INS-041.
-`M-03` is REVIEW after the INS-049 recovery, with real-provider evidence still
-UNVERIFIED. B-03 is DONE under INS-069 after exactly one fresh scoped worker
+`M-03` is DONE under INS-071 after the INS-049 recovery, with real-provider
+evidence still UNVERIFIED. B-03 is DONE under INS-069 after exactly one fresh scoped worker
 completed and the Manager reviewed/fixed the application wiring and final
 evidence; the current deferred-scope gate passes, while real-provider/database
 gates remain blocked or unverified. N-03 is REVIEW under INS-045 after exactly one fresh scoped worker
