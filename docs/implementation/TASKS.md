@@ -1173,7 +1173,8 @@ fresh checker-tooling worker completed, the Manager independently reviewed the
 exact Search profile allowlist and preserved deferred-scope rejection, and the
 committed implementation checkpoint `5032582` was reconciled.
 `E-02` and `L-02` are DONE under their exact authorized worker dispatches;
-`M-02` and `F-03` remain REVIEW, with F-03 requiring
-`NEEDS_INSTRUCTOR_REVIEW`; `AU-02`, `I-01`, `I-02`, and `I-03` remain BLOCKED.
+`M-02` remains `REVIEW/UNVERIFIED`; `F-03` is `DONE` under INS-091 at its
+approved packet-local frontend screen/test boundary. `AU-02`, `I-01`, `I-02`,
+and `I-03` remain BLOCKED.
 No downstream packet was authorized, started, or promoted; no legacy DONE
 packet is treated as evidence for an unrelated DEC-007 requirement.

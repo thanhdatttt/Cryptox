@@ -1,4 +1,131 @@
-# INS-091 Manager Checkpoint — F-03 Packet Closure and Checkpoint Reconciliation
+# INS-093 Manager Checkpoint — F-03 Checkpoint Consistency Reconciliation
+
+## Resume here
+
+- **Authorization:** `INS-093 / APPROVED_FOR_EXECUTION` is committed at
+  `e32dea4f320533d6b94e9fe6eee092b1364e4a3e` and supersedes
+  `INS-092 / HOLD` at `b50f8db`. It authorizes exactly one fresh,
+  governance-only Manager to reconcile this F-03 checkpoint. It authorizes no
+  worker, source implementation, retry, replacement, duplicate, downstream
+  packet, or change to any other task state.
+- **Canonical checkout and reviewed base:**
+  `D:/agy-cli-projects/AOS/Cryptox`, branch `MVP_IMPLEMENTATION`, starting at
+  the clean authorization HEAD `e32dea4f320533d6b94e9fe6eee092b1364e4a3e`.
+  The audited F-03 source/test checkpoint remains
+  `6a4e86e1011806f1e2e9f3017d343e00d1cf7971`; the INS-091 Manager checkpoint
+  was preserved by the Instructor at `9ed13bc`. There is no source or
+  business-state drift after `6a4e86e`; the intervening changes are control
+  records only. This checkpoint changes only `TASKS.md` and `HANDOFF.md`.
+- **Current task state:** `TASKS.md` consistently records F-03 as `DONE`; the
+  board is `38 DONE`, `1 REVIEW` (`M-02`), and `4 BLOCKED` (`AU-02`, `I-01`,
+  `I-02`, `I-03`). F-03 dependencies `M-03`, `S-04`, `S-05`, `S-06`, `Q-02`,
+  `B-03`, `N-03`, `E-02`, and `L-02` are `DONE`. No other task state moved;
+  no downstream packet was started or promoted.
+- **Prior execution identities and transitions:** The exact prior identity was
+  `INS-089 Manager` with exactly one fresh internal Frontend worker Darwin
+  (`01a05209-7eaa-7162-b10c-4cdf849258f2`). Darwin made no control-plane edit,
+  commit, branch, worktree, child-worker, retry, or replacement attempt. The
+  prior execution recorded `REVIEW -> READY -> IN_PROGRESS -> REVIEW`; the
+  INS-091 governance-only closure recorded only `REVIEW -> DONE` for F-03.
+  No worker was created under INS-091 or INS-093.
+- **INS-091 commit outcome:** The repository-recorded `INS-091 Manager` made
+  exactly one coherent staging/commit attempt for the two control files. It
+  failed before staging with the exact error:
+
+  `fatal: Unable to create 'D:/agy-cli-projects/AOS/Cryptox/.git/index.lock': Permission denied`
+
+  No retry occurred. The Instructor-preserved `9ed13bc` checkpoint is not an
+  INS-091 Manager commit, and the source/test checkpoint remains the committed
+  `6a4e86e` implementation.
+
+## Scope and source reconciliation
+
+- **Requirement IDs:** `CSL-R-MD-03`, `CSL-R-ST-05`–`07`, `CSL-R-SE-03`,
+  `CSL-R-BT-02`, `CSL-R-NW-02`, `CSL-R-RP-02`, `CSL-R-FE-01`, and
+  `CSL-R-DM-01`.
+- **Exact F-03 source/test paths:**
+  `apps/frontend/src/features/screens.tsx` and
+  `apps/frontend/src/features/screens.spec.tsx`, committed at
+  `6a4e86e1011806f1e2e9f3017d343e00d1cf7971`. The diff from the INS-089
+  starting commit `3945fb09286e062446cd95b55b6714bc1bbdda3b` to that checkpoint
+  contains exactly those two source/test paths plus the two Manager control
+  records; no backend, module, contract, migration, provider, manifest,
+  lockfile, generated artifact, transport, persistence, client-identity, or
+  browser path changed.
+- **No drift check:** From `6a4e86e` through the authorization HEAD, no
+  frontend source/test or business-state path changed. The only intervening
+  paths are `docs/control/INSTRUCTOR.md`, `docs/control/DECISIONS.md`,
+  `docs/implementation/TASKS.md`, and `docs/implementation/HANDOFF.md`.
+- **Accepted packet boundary:** The committed slice projects supplied DTO/state
+  for unavailable authoring, origin/descriptor/composite metadata, frozen
+  Search generator and seeded provenance state with honest unsupported starts,
+  supplied Experiment/Trade paper and visualization provenance, and News
+  extraction plus supplied Sentiment availability. It adds no transport,
+  persistence, browser provider call, frontend business calculation,
+  client-identity bypass, strategy-name branch, or deferred-scope behavior.
+
+### Read-only public/source inputs preserved from the audited checkpoint
+
+- Market observability and charts: `packages/contracts/rest/market-data.ts`,
+  `packages/contracts/websocket/market-data.ts`,
+  `modules/market-data/api/contracts.ts`, and the market bridge/projection at
+  `122569c`: `apps/frontend/src/market/chart-state.ts`,
+  `apps/frontend/src/market/remote-source.ts`,
+  `apps/frontend/src/market/types.ts`,
+  `apps/frontend/src/market/clients.ts`, and
+  `apps/frontend/src/components/MarketChart.tsx`.
+- Feature composition/state: `apps/frontend/src/features/state.ts`,
+  `apps/frontend/src/features/types.ts`, and
+  `apps/frontend/src/features/clients.ts`.
+- Strategy authoring/descriptors/composites: `packages/contracts/rest/strategy.ts`
+  and `modules/strategy/api/contracts.ts`.
+- Search/discovery: `packages/contracts/rest/search.ts`,
+  `modules/search/api/contracts.ts`, `modules/search/application/service.ts`,
+  `modules/search/application/memory.ts`, and
+  `modules/search/infrastructure/postgres.ts`.
+- Experiments/paper execution/evaluation/visualizations:
+  `packages/contracts/rest/backtesting.ts`,
+  `packages/contracts/rest/evaluation.ts`,
+  `modules/backtesting/api/contracts.ts`, and
+  `modules/evaluation/api/contracts.ts`.
+- Leaderboard/ranking: `packages/contracts/rest/leaderboard.ts` and
+  `modules/leaderboard/api/contracts.ts`.
+- News/Sentiment: `packages/contracts/rest/news.ts`,
+  `modules/news/api/contracts.ts`, and
+  `modules/sentiment/api/contracts.ts`.
+
+## Packet-local validation and limitations
+
+- **PASS:** Focused F-03 screen test —
+  `npm --workspace @cryptox/frontend test -- src/features/screens.spec.tsx` —
+  3/3; independently rerun for this reconciliation.
+- **PASS:** Full Frontend 33/33; root 385 passed with 6 environment-gated
+  skips; Frontend/root typecheck, build, and lint; architecture, artifacts,
+  deferred-scope, scope tests 13/13, runtime smoke, whitespace, and reviewed-
+  diff checks.
+- **PASS (limited):** Runtime smoke health evidence `/live=200`, `/ready=503`,
+  `/health=404`; this does not prove feature REST or WebSocket composition.
+- **BLOCKED:** Docker/PostgreSQL validation because Docker Compose/config access
+  is unavailable; no database evidence is claimed.
+- **UNVERIFIED:** OpenSpec CLI, live Binance/News/provider traffic, real feature
+  REST and market-WebSocket composition, and browser/demo evidence. Fixture
+  tests and environment-gated skips are not final integration/demo evidence.
+
+## Closure and explicit stop boundary
+
+- F-03 is `DONE` only at its approved packet-local frontend projection
+  boundary. The resulting board is `38 DONE`, `1 REVIEW` (`M-02`), and
+  `4 BLOCKED` (`AU-02`, `I-01`, `I-02`, `I-03`). This does not claim final MVP,
+  final integration, or instructor-demo completion.
+- INS-093 performs no task-state transition beyond reconciling the duplicated
+  current-state language. No downstream work is authorized or started:
+  `M-02`, `AU-02`, `I-01`, `I-02`, `I-03`, live-provider, database, and
+  browser/demo work remain outside this checkpoint.
+- **Checkpoint ownership:** This file and `TASKS.md` are the complete
+  Manager-owned INS-093 reconciliation scope. No implementation or task-state
+  transition is included.
+
+# Historical INS-091 Manager Checkpoint — F-03 Packet Closure and Checkpoint Reconciliation
 
 ## Resume here
 
@@ -143,10 +270,11 @@ backend, module, contract, or provider path changed under INS-091.
   `6a4e86e` and independently audited. No source file was edited here. Stop
   before I-03, I-01, AU-02, I-02, live-provider, database, or browser/demo work;
   do not start newly unlocked work.
-- **INS-091 Manager commit:** One coherent staging/commit attempt is reserved
-  for this reconciliation and will include only `docs/implementation/TASKS.md`
-  and `docs/implementation/HANDOFF.md`. Its result is recorded after the
-  attempt; no second attempt is permitted if Git rejects it.
+- **INS-091 Manager commit outcome:** The one coherent staging/commit attempt
+  for this reconciliation failed before staging with the exact error:
+  `fatal: Unable to create 'D:/agy-cli-projects/AOS/Cryptox/.git/index.lock': Permission denied`.
+  No retry occurred. The Instructor preserved the checkpoint in `9ed13bc`;
+  this was not an INS-091 Manager commit.
 
 # INS-087 Manager Checkpoint — F-03 Checkpoint Record Reconciliation
 
