@@ -2,13 +2,61 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-110`
+Instruction ID: `INS-111`
 
-Status: `APPROVED_FOR_EXECUTION`
+Status: `HOLD`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
-## INS-110 — Validation and architecture gate reconciliation
+## INS-111 — HOLD after ENV-05 architecture-gate review
+
+This signal supersedes `INS-110 / APPROVED_FOR_EXECUTION` after the Manager
+completed the one authorized ENV-05 attempt. It authorizes no implementation,
+retry, replacement, duplicate, downstream promotion, or task-state transition.
+
+### Verified checkpoint and current frontier
+
+- The canonical checkout is `D:/agy-cli-projects/AOS/Cryptox` on
+  `MVP_IMPLEMENTATION`, with the exact audited ENV-05 delta integrated at
+  `5fc0bb2` (`chore(control): integrate ENV-05 gate checkpoint`). The tracked
+  tree is clean at that commit; the app-generated `.codex/config.toml` remains
+  untracked, outside Cryptox scope, and must stay untouched, unstaged, and
+  undeleted.
+- The authoritative board has `41 DONE`, `3 REVIEW` (`I-01R`, `I-01`,
+  `ENV-05`), and `2 BLOCKED` (`I-02`, `I-03`) rows, `46` rows total. `ENV-05`
+  is `REVIEW / NEEDS_INSTRUCTOR_REVIEW`; no existing row was promoted or
+  changed by its Manager.
+- The fresh ENV-05 Manager and all three internal workers are idle/complete;
+  no Cryptox Manager, worker, retry, replacement, duplicate, or downstream
+  task is active.
+
+### Independent evidence
+
+- `npm run scope:check`: `PASS`; deferred-scope suite: `13/13 PASS`.
+- `npm run runtime:smoke`: `PASS` with `/live=200`, `/ready=503`, and
+  `/health=404`.
+- Workspace tests: `409 PASS`, `8` environment-gated skips; skips are not
+  PASS evidence. Typecheck, build, lint, artifacts, secret/log, whitespace,
+  exact-path, and diff checks passed.
+- `npm run arch:check`: `FAIL`, with `28` active
+  `application-does-not-import-own-api` / `application-depends-inward-only`
+  findings, including unchanged files outside the ENV-05 authorization. The
+  rules remain strict; no bypass or severity downgrade is accepted.
+- Docker/PostgreSQL is `BLOCKED`; OpenSpec CLI, configured live providers,
+  browser/demo, and final integrated runtime evidence remain `UNVERIFIED` or
+  `BLOCKED` where unavailable. Fixtures and skipped tests are not promoted to
+  live evidence.
+
+### Required next decision
+
+The next authorization, if any, must be a separately bounded architecture
+source/harness reconciliation for the exact `28` findings (or a justified
+smaller proven subset), with explicit file scopes, acceptance criteria, and
+stop boundary. ENV-05 does not authorize that work, I-01, I-02, I-03, or any
+downstream packet. Until then, preserve `ENV-05` at `REVIEW /
+NEEDS_INSTRUCTOR_REVIEW` and leave the system on `HOLD`.
+
+## Historical INS-110 — Validation and architecture gate reconciliation
 
 This signal supersedes `INS-109 / HOLD` after the Instructor's fresh review of
 the verified I-01R gate findings. It authorizes exactly one new validation

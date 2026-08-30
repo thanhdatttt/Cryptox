@@ -1122,3 +1122,39 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Task state](../implementation/TASKS.md),
 [Latest checkpoint](../implementation/HANDOFF.md), `INS-109`, `DEC-030`, and
 commit `b8c6f52`.
+
+## DEC-032 — ENV-05 held after independent architecture-gate review
+
+Status: `APPROVED`
+
+Authority: Independent Instructor review after the `INS-110` Manager checkpoint
+and exact integration at `5fc0bb2`.
+
+Decision: Preserve the exact bounded ENV-05 worker output and Manager
+checkpoint in commit `5fc0bb2`, but keep `ENV-05` at `REVIEW /
+NEEDS_INSTRUCTOR_REVIEW`. The current task board remains authoritative with
+`I-01R` and `I-01` in `REVIEW`, `ENV-05` in `REVIEW`, and `I-02`/`I-03` in
+`BLOCKED`. No packet is promoted or started by this decision. Any remaining
+architecture repair must receive a separate explicit Instructor authorization
+with exact source/tooling scope; it may not be inferred from ENV-05.
+
+Why: Independent validation confirmed the approved Search scope boundary and
+runtime readiness contract (`13/13` scope cases; `/live=200`, `/ready=503`,
+`/health=404`), behavior-preserving source plumbing, `409` workspace tests
+passed with `8` environment-gated skips, typecheck/build/lint/artifact and
+diff checks passed. The unchanged active architecture rules still report `28`
+application-to-own-API violations, including files outside ENV-05's authorized
+paths. That is a real gate failure, not evidence to weaken the checker. Local
+Docker/PostgreSQL is `BLOCKED`, and the unavailable OpenSpec CLI is
+`UNVERIFIED`.
+
+Affected: `ENV-05`, `I-01R`, `I-01`, `I-02`, `I-03`, `TASKS.md`,
+`HANDOFF.md`, and the next Instructor authorization. Requirements, approved
+functional image amendments, accepted ADRs, completed packet states, and
+deferred scope remain unchanged.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [Architecture](../architecture.md),
+[MVP plan](../implementation/MVP_PLAN.md), [Task state](../implementation/TASKS.md),
+[Latest checkpoint](../implementation/HANDOFF.md), `DEC-031`, `INS-110`, and
+commit `5fc0bb2`.
