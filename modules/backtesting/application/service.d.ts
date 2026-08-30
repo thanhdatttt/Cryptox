@@ -42,6 +42,11 @@ export declare class InMemoryBacktestingRepository implements BacktestingReposit
     readDispatch(jobId: string): Promise<BacktestDispatch | undefined>;
     listPendingDispatches(limit: number): Promise<BacktestDispatch[]>;
     listQueueRecoveryCandidates(limit: number): Promise<string[]>;
+    recoverAbandonedAttempt(input: {
+        candidateId: string;
+        now: string;
+        error: string;
+    }): Promise<boolean>;
     markDispatchDispatched(jobId: string, dispatchedAt: string): Promise<void>;
     markDispatchFailed(jobId: string, error: string, at: string): Promise<void>;
     markDispatchCancelled(jobId: string, at: string, unitOfWork?: import("../domain/contracts").CancellationUnitOfWork): Promise<void>;

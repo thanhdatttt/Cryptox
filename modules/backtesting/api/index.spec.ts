@@ -254,4 +254,48 @@ describe("backtesting runtime", () => {
     await expect(repository.listTrades(claim!.attempt.attemptId)).resolves.toHaveLength(1);
     await expect(repository.findExperimentByCandidate(candidate.candidateId)).resolves.toBeUndefined();
   });
+
+  it("reconciles an expired worker lease into one failed Attempt and a bounded retry", async () => {
+    const dependencies = createInMemoryBacktestingDependencies();
+    const repository = dependencies.repository;
+    const queue = dependencies.queue as InMemoryBacktestQueue;
+    const service = createBacktestingService(dependencies);
+    const now = "2025-01-01T00:00:00.000Z";
+    const candidate = {
+      candidateId: "expired-candidate", ownerUserId: "user-1", origin: "MANUAL" as const, selectionMode: "SINGLE" as const,
+      leaderboardScopeId: "scope-1", status: "QUEUED" as const, attempts: [], maxAttempts: 2, completionAttemptCount: 0,
+      completionMaxAttempts: 5, strategyDefinitions: [], compositeDefinition: { id: "composite-1", userId: "user-1", logicalFamilyKey: "test", version: 1, method: "WEIGHTED_SCORE" as const, components: [], createdAt: now },
+      queueJobId: "expired-candidate", createdAt: now, updatedAt: now,
+    };
+    const job = { schemaVersion: 1 as const, jobId: candidate.queueJobId, candidateId: candidate.candidateId, leaderboardScopeId: candidate.leaderboardScopeId, maxAttempts: candidate.maxAttempts, workerRuntimeVersion: "worker-1", workerRuntimeSha256: "a".repeat(64), enqueuedAt: now };
+    await repository.createQueuedSubmission({ candidate, dispatch: { job, state: "DISPATCHED", dispatchAttempts: 1, createdAt: now, updatedAt: now } });
+    const claim = await repository.claimWorkerAttempt({ candidateId: candidate.candidateId, queueJobId: candidate.queueJobId, deliveryAttempt: 1, attemptId: "expired-candidate:attempt:1", fenceToken: "fence-1", now, leaseExpiresAt: "2025-01-01T00:01:00.000Z", workerRuntimeVersion: "worker-1", workerRuntimeSha256: "a".repeat(64) });
+    expect(claim).toBeDefined();
+    await expect(service.reconcileQueue()).resolves.toMatchObject({ dispatched: 1, pending: 0 });
+    const recoveredCandidate = await repository.readCandidate(candidate.candidateId);
+    expect(recoveredCandidate?.status).toBe("RETRY_WAIT");
+    expect(recoveredCandidate).not.toHaveProperty("activeFenceToken");
+    await expect(repository.readAttempt(claim!.attempt.attemptId)).resolves.toMatchObject({ status: "FAILED", failureCategory: "INFRASTRUCTURE", failureCode: "BACKTEST_WORKER_LEASE_EXPIRED" });
+    expect(queue.jobs.has(candidate.queueJobId)).toBe(true);
+    await expect(repository.recoverAbandonedAttempt({ candidateId: candidate.candidateId, now: "2025-01-01T00:02:00.000Z", error: "duplicate" })).resolves.toBe(false);
+  });
+
+  it("creates one synthetic infrastructure Attempt when terminal queue evidence has no Attempt row", async () => {
+    const dependencies = createInMemoryBacktestingDependencies();
+    const repository = dependencies.repository;
+    const now = "2025-01-01T00:00:00.000Z";
+    const candidate = {
+      candidateId: "synthetic-candidate", ownerUserId: "user-1", origin: "MANUAL" as const, selectionMode: "SINGLE" as const,
+      leaderboardScopeId: "scope-1", status: "QUEUED" as const, attempts: [], maxAttempts: 1, completionAttemptCount: 0,
+      completionMaxAttempts: 5, strategyDefinitions: [], compositeDefinition: { id: "composite-1", userId: "user-1", logicalFamilyKey: "test", version: 1, method: "WEIGHTED_SCORE" as const, components: [], createdAt: now },
+      queueJobId: "synthetic-candidate", createdAt: now, updatedAt: now,
+    };
+    await repository.createCandidate(candidate);
+    await repository.repairTerminalQueueFailure({ candidateId: candidate.candidateId, error: "BACKTEST_QUEUE_TERMINAL_FAILURE", now });
+    await repository.repairTerminalQueueFailure({ candidateId: candidate.candidateId, error: "duplicate", now });
+    await expect(repository.readCandidate(candidate.candidateId)).resolves.toMatchObject({ status: "TERMINAL_FAILURE_PENDING", failureKind: "INFRASTRUCTURE" });
+    const attempts = await repository.listAttempts(candidate.candidateId);
+    expect(attempts).toHaveLength(1);
+    await expect(repository.readAttempt(`${candidate.candidateId}:recovery:attempt:1`)).resolves.toMatchObject({ status: "FAILED", failureCategory: "INFRASTRUCTURE", failureCode: "BACKTEST_QUEUE_TERMINAL_FAILURE" });
+  });
 });

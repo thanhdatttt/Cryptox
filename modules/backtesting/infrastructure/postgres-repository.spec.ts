@@ -109,4 +109,30 @@ describe("PostgresBacktestingRepository", () => {
     expect(statement).toContain("active_completion_lease_expires_at > $4");
     expect(values).toEqual(["candidate-1", "claim-1", 4, "2025-01-01T00:00:00.000Z", "experiment-1", "2025-01-01T00:00:00.000Z"]);
   });
+
+  it("transactionally closes an expired Attempt and returns it to the queue when budget remains", async () => {
+    const calls: Array<{ text: string; values: unknown[] }> = [];
+    const repository = new PostgresBacktestingRepository({ query: async <Row>(text: string, values: unknown[]) => {
+      calls.push({ text, values });
+      if (text.startsWith("SELECT status, active_attempt_number")) return { rows: [{ status: "BACKTESTING", active_attempt_number: 1, max_attempts: 2, queue_job_id: "candidate-1" }] as Row[] };
+      if (text.startsWith("SELECT id, attempt_number")) return { rows: [{ id: "attempt-1", attempt_number: 1 }] as Row[] };
+      return { rows: [] as Row[] };
+    } });
+    await expect(repository.recoverAbandonedAttempt({ candidateId: "candidate-1", now: "2025-01-01T00:02:00.000Z", error: "BACKTEST_WORKER_LEASE_EXPIRED" })).resolves.toBe(true);
+    expect(calls.some((call) => call.text.includes("failure_category = 'INFRASTRUCTURE'") && call.values.includes("BACKTEST_WORKER_LEASE_EXPIRED"))).toBe(true);
+    expect(calls.some((call) => call.text.includes("state = 'PENDING'") && call.values.includes("candidate-1"))).toBe(true);
+  });
+
+  it("records a synthetic failed Attempt when terminal recovery finds no Attempt row", async () => {
+    const calls: Array<{ text: string; values: unknown[] }> = [];
+    const repository = new PostgresBacktestingRepository({ query: async <Row>(text: string, values: unknown[]) => {
+      calls.push({ text, values });
+      if (text.startsWith("SELECT status, queue_job_id")) return { rows: [{ status: "QUEUED", queue_job_id: "candidate-1" }] as Row[] };
+      if (text.startsWith("SELECT COUNT(*)")) return { rows: [{ count: 0 }] as Row[] };
+      return { rows: [] as Row[] };
+    } });
+    await repository.repairTerminalQueueFailure({ candidateId: "candidate-1", now: "2025-01-01T00:00:00.000Z", error: "BACKTEST_QUEUE_TERMINAL_FAILURE" });
+    expect(calls.some((call) => call.text.startsWith("INSERT INTO backtest_attempts") && call.values.includes("candidate-1:recovery:attempt:1"))).toBe(true);
+    expect(calls.some((call) => call.text.includes("status = 'TERMINAL_FAILURE_PENDING'") && call.values.includes("candidate-1"))).toBe(true);
+  });
 });

@@ -15,6 +15,8 @@ const clone = (value) => JSON.parse(JSON.stringify(value));
 const invalid = (code) => { throw new Error(code); };
 const terminal = (status) => ["COMPLETED", "FAILED", "CANCELLED"].includes(status);
 const plusSeconds = (value, seconds) => new Date(Date.parse(value) + seconds * 1000).toISOString();
+const RECOVERY_RUNTIME_VERSION = "RECOVERY_SYNTHETIC_V1";
+const RECOVERY_RUNTIME_SHA256 = (0, node_crypto_1.createHash)("sha256").update(RECOVERY_RUNTIME_VERSION, "utf8").digest("hex");
 const attemptProgress = (attempt) => ({ attemptId: attempt.attemptId, attemptNumber: attempt.attemptNumber, status: attempt.status, startedAt: attempt.startedAt, completedAt: attempt.completedAt, deliveryAttemptCount: attempt.deliveryAttemptCount, failureCategory: attempt.failureCategory, failureCode: attempt.failureCode, errorMessage: attempt.errorMessage });
 const TRADE_PAGE_DEFAULT = 10;
 const TRADE_PAGE_MAX = 100;
@@ -87,6 +89,27 @@ class InMemoryBacktestingRepository {
     async readDispatch(jobId) { const value = this.dispatches.get(jobId); return value ? clone(value) : undefined; }
     async listPendingDispatches(limit) { return [...this.dispatches.values()].filter((item) => item.state === "PENDING").sort((left, right) => left.createdAt.localeCompare(right.createdAt)).slice(0, limit).map(clone); }
     async listQueueRecoveryCandidates(limit) { return [...this.candidates.values()].filter((candidate) => ["QUEUED", "BACKTESTING", "RETRY_WAIT"].includes(candidate.status)).sort((left, right) => left.updatedAt.localeCompare(right.updatedAt)).slice(0, limit).map((candidate) => candidate.candidateId); }
+    async recoverAbandonedAttempt(input) {
+        const candidate = this.candidates.get(input.candidateId);
+        if (!candidate || candidate.status !== "BACKTESTING" || !candidate.activeLeaseExpiresAt || Date.parse(candidate.activeLeaseExpiresAt) > Date.parse(input.now))
+            return false;
+        const attempts = [...this.attempts.values()].filter((attempt) => attempt.candidateId === candidate.candidateId);
+        const running = attempts.find((attempt) => attempt.status === "RUNNING" && attempt.attemptNumber === candidate.activeAttemptNumber) ?? attempts.find((attempt) => attempt.status === "RUNNING");
+        if (running) {
+            this.attempts.set(running.attemptId, clone({ ...running, status: "FAILED", completedAt: input.now, leaseExpiresAt: undefined, failureCategory: "INFRASTRUCTURE", failureCode: input.error, errorMessage: input.error }));
+        }
+        else if (attempts.length === 0) {
+            const attempt = { attemptId: `${candidate.candidateId}:recovery:attempt:1`, candidateId: candidate.candidateId, queueJobId: candidate.queueJobId, attemptNumber: 1, workerRuntimeVersion: RECOVERY_RUNTIME_VERSION, workerRuntimeSha256: RECOVERY_RUNTIME_SHA256, status: "FAILED", tradeCount: 0, auditOnly: false, deliveryAttemptCount: 0, failureCategory: "INFRASTRUCTURE", failureCode: input.error, errorMessage: input.error, startedAt: input.now, completedAt: input.now };
+            this.attempts.set(attempt.attemptId, attempt);
+        }
+        const attemptNumber = candidate.activeAttemptNumber ?? attempts.find((attempt) => attempt.status === "RUNNING")?.attemptNumber ?? candidate.maxAttempts;
+        const retrying = attemptNumber < candidate.maxAttempts;
+        this.candidates.set(candidate.candidateId, clone({ ...candidate, status: retrying ? "RETRY_WAIT" : "TERMINAL_FAILURE_PENDING", activeAttemptNumber: undefined, activeFenceToken: undefined, activeLeaseExpiresAt: undefined, failureKind: retrying ? undefined : "INFRASTRUCTURE", failureCode: retrying ? undefined : input.error, lastError: retrying ? undefined : input.error, updatedAt: input.now }));
+        const dispatch = this.dispatches.get(candidate.queueJobId);
+        if (retrying && dispatch && dispatch.state !== "CANCELLED")
+            this.dispatches.set(dispatch.job.jobId, { ...dispatch, state: "PENDING", lastError: input.error, updatedAt: input.now });
+        return true;
+    }
     async markDispatchDispatched(jobId, dispatchedAt) { const item = this.dispatches.get(jobId); if (item && item.state !== "CANCELLED")
         this.dispatches.set(jobId, { ...item, state: "DISPATCHED", dispatchAttempts: item.dispatchAttempts + 1, dispatchedAt, lastError: undefined, updatedAt: dispatchedAt }); }
     async markDispatchFailed(jobId, error, at) { const item = this.dispatches.get(jobId); if (item && item.state !== "CANCELLED")
@@ -137,9 +160,12 @@ class InMemoryBacktestingRepository {
         const candidate = this.candidates.get(input.candidateId);
         if (!candidate || terminal(candidate.status) || candidate.status === "TERMINAL_FAILURE_PENDING")
             return;
-        for (const [attemptId, attempt] of this.attempts)
-            if (attempt.candidateId === input.candidateId && attempt.status === "RUNNING")
-                this.attempts.set(attemptId, { ...attempt, status: "FAILED", completedAt: input.now, leaseExpiresAt: undefined, failureCategory: "INFRASTRUCTURE", failureCode: input.error, errorMessage: input.error });
+        const attempts = [...this.attempts.values()].filter((attempt) => attempt.candidateId === input.candidateId);
+        const running = attempts.find((attempt) => attempt.status === "RUNNING");
+        if (running)
+            this.attempts.set(running.attemptId, { ...running, status: "FAILED", completedAt: input.now, leaseExpiresAt: undefined, failureCategory: "INFRASTRUCTURE", failureCode: input.error, errorMessage: input.error });
+        else if (attempts.length === 0)
+            this.attempts.set(`${candidate.candidateId}:recovery:attempt:1`, { attemptId: `${candidate.candidateId}:recovery:attempt:1`, candidateId: candidate.candidateId, queueJobId: candidate.queueJobId, attemptNumber: 1, workerRuntimeVersion: RECOVERY_RUNTIME_VERSION, workerRuntimeSha256: RECOVERY_RUNTIME_SHA256, status: "FAILED", tradeCount: 0, auditOnly: false, deliveryAttemptCount: 0, failureCategory: "INFRASTRUCTURE", failureCode: input.error, errorMessage: input.error, startedAt: input.now, completedAt: input.now });
         this.candidates.set(candidate.candidateId, clone({ ...candidate, status: "TERMINAL_FAILURE_PENDING", activeAttemptNumber: undefined, activeFenceToken: undefined, activeLeaseExpiresAt: undefined, failureKind: "INFRASTRUCTURE", failureCode: input.error, lastError: input.error, updatedAt: input.now }));
     }
     async persistWorkerSuccess(input) {
@@ -317,7 +343,11 @@ class BacktestingService {
         return false;
     } }
     async reconcileQueue(limit = 100) { if (!Number.isInteger(limit) || limit < 1)
-        invalid("INVALID_QUEUE_RECOVERY_LIMIT"); const pending = await this.deps.repository.listPendingDispatches(limit); let dispatched = 0; for (const item of pending)
+        invalid("INVALID_QUEUE_RECOVERY_LIMIT"); const nowValue = this.now(); for (const candidateId of await this.deps.repository.listQueueRecoveryCandidates(limit)) {
+        const candidate = await this.deps.repository.readCandidate(candidateId);
+        if (candidate?.status === "BACKTESTING" && candidate.activeLeaseExpiresAt && Date.parse(candidate.activeLeaseExpiresAt) <= Date.parse(nowValue))
+            await this.deps.repository.recoverAbandonedAttempt({ candidateId, now: nowValue, error: "BACKTEST_WORKER_LEASE_EXPIRED" });
+    } const pending = await this.deps.repository.listPendingDispatches(limit); let dispatched = 0; for (const item of pending)
         if (await this.dispatchOne(item))
             dispatched += 1; return { dispatched, pending: pending.length - dispatched }; }
     async listQueueRecoveryCandidates(limit = 100) { if (!Number.isInteger(limit) || limit < 1)
