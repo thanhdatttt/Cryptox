@@ -1,89 +1,114 @@
-# INS-061 Execution Checkpoint — ENV-04 Q-02 Approved-Profile Checker Boundary Reconciliation
+# INS-063 Execution Checkpoint — C-03 Contract Reconciliation Closure
 
 ## Resume here
 
-- **Authorization:** `INS-061 / APPROVED_FOR_EXECUTION` authorized exactly one
-  Manager-owned closure packet, `ENV-04`. It did not reopen Q-02 source, C-03,
-  ENV-01/ENV-02/ENV-03, or authorize downstream work.
-- **Manager:** This Manager operated directly in the canonical same-directory
-  checkout `D:/agy-cli-projects/AOS/Cryptox` on branch `MVP_IMPLEMENTATION`.
-- **Reviewed checkpoint:** `5032582` (`checkpoint(env-04): reconcile Q-02 checker
-  boundary`) contains the exact checker implementation and test changes. The
-  current authorization commit is `398075e` (`docs(control): authorize ENV-04
-  closure review`). Q-02 remains `REVIEW` at source checkpoint
-  `95cb98463f60c35f71dda2f7832f0aa9ad22a30c`.
-- **Start conditions:** The worktree was clean and the source/business tree was
-  unchanged from `5032582` except for the authorized Instructor signal. Q-02 was
-  `REVIEW`, ENV-03 was `REVIEW` with accepted checker evidence at ENV-03
-  checkpoint `0bc215f5781a7a2860d439b3b4953104a99d9e3a`, and all ENV-04
-  dependencies were verified. Active task inspection found only the parent
+- **Authorization:** `INS-063 / APPROVED_FOR_EXECUTION` authorized exactly one
+  Manager-owned closure packet: C-03. It authorized no worker, source
+  implementation, Q-02 closure, downstream work, retry, replacement, branch,
+  or worktree.
+- **Manager:** This closure was performed directly in the canonical
+  same-directory checkout `D:/agy-cli-projects/AOS/Cryptox` on branch
+  `MVP_IMPLEMENTATION`.
+- **Instruction checkpoint:** `daad9f4994d904735006f542678618b4a0b0bcb6`
+  (`docs(control): authorize C-03 closure review`), reviewed base `987eb98`
+  (`docs(control): hold after ENV-04 closure`). The C-03 source/checkpoint is
+  `51e98f9d5edd545831007dc6ce105701384bfd44`; Q-02 remains at source
+  checkpoint `95cb98463f60c35f71dda2f7832f0aa9ad22a30c`; ENV-04 remains DONE
+  with implementation checkpoint `5032582` and closure `4c964f6`.
+- **Start gates:** The branch, authorization, and HEAD were verified; the
+  worktree was clean before edits. `git diff 987eb98..HEAD` contained only the
+  current Instructor signal. Active-task inspection found only the parent
   Instructor task and this Manager in the Cryptox checkout; no other Cryptox
-  Manager or worker was running. Historical tasks were not resumed, replaced,
-  retried, or duplicated.
+  Manager or worker was running. Historical tasks were not resumed, retried,
+  replaced, or duplicated.
 
-## State and worker
+## C-03 closure result
 
-- **ENV-04 transition:** `BLOCKED -> READY -> IN_PROGRESS -> REVIEW -> DONE`.
-- **Unchanged state:** Q-02 remains `REVIEW`; no other task state changed.
-- **Worker status:** No worker was created under `INS-061`. The already completed
-  implementation packet under `INS-059` used exactly one worker, Mencius
-  `01a05033-dd87-71d3-ac70-f0817286fc1b`, with the requested checker-only scope.
-  It created no commit, branch, worktree, or worker and did not edit control
-  artifacts. The worker was closed after completion.
+- **Transition:** C-03 moved exactly
+  `BLOCKED -> READY -> IN_PROGRESS -> REVIEW -> DONE`.
+- **Unchanged state:** Q-02 remains `REVIEW`; ENV-04 remains `DONE`; every
+  other task row/state remains unchanged. No newly unlocked or downstream
+  packet was started, promoted, or inferred from this closure.
+- **Workers/tasks used:** None under INS-063. This was the explicitly
+  authorized Manager-owned closure review. The prior INS-055 source packet
+  used exactly one Search-contract worker, Turing
+  `01a04fed-36a2-76a2-b034-090c150c4873`; no worker was created or retried for
+  the closure.
 
-## Implementation and independent review
+## Reviewed C-03 source scope and behavior
 
-The accepted implementation/test paths are exactly:
+The original C-03 source contribution is exactly these eight paths:
 
+- `modules/search/api/contracts.ts`
+- `modules/search/api/contracts.spec.ts`
+- `modules/search/application/ports.ts`
+- `modules/search/application/ports.spec.ts`
+- `packages/contracts/rest/search.ts`
+- `packages/contracts/rest/search.spec.ts`
 - `scripts/check-deferred-scope.cjs`
 - `scripts/check-deferred-scope.test.cjs`
 
-The checker now allows `DOMAIN_GUIDED_V1` only in the four existing canonical
-Search boundaries plus `modules/search/application/service.ts` and
-`modules/search/domain/generators/domain-guided/`. It allows `GENETIC_V1` in the
-same canonical boundaries plus `modules/search/application/service.ts` and
-`modules/search/domain/generators/genetic/`. File and directory matching remains
-path-aware and exact; broad `modules/search/**`, broad
-`modules/search/application/**`, near-match files/directories, and unrelated
-paths remain rejected.
+The six Search contract/port/REST files have no diff after the C-03 source
+checkpoint. The only later source/business changes from that checkpoint are the
+separately reviewed Q-02 Search implementation paths (`modules/search/application/
+memory.ts`, `profile.spec.ts`, `service.ts`, the exact `domain/generators/
+domain-guided/` and `genetic/` paths, and the two Search infrastructure paths)
+and the separately reviewed ENV-04 changes to the two checker paths above.
 
-The Manager independently reviewed the complete diff and confirmed that the
-worker changed only the two authorized files. Focused tests cover both Q-02
-profiles in every approved boundary, exact implementation paths, broad and
-near-match negatives, all prior approved-profile cases, forbidden active paths,
-and deferred enterprise identity, queue/distributed, live-trading/generalized-
-risk, autonomous/unconfigured LLM, strict-replay, and operational-risk
-rejections. Q-02 source, Search contracts/lifecycle, migrations, product
-behavior, and all unrelated source remain unchanged.
+C-03 preserves the approved contract boundary:
 
-## Validation and limitations
+- Generator types are exactly `RANDOM`, `DOMAIN_GUIDED`, and `GENETIC`; seeded
+  profile IDs are exactly `RANDOM_V1`, `DOMAIN_GUIDED_V1`, and `GENETIC_V1`.
+- Seeded provenance retains profile, bounded algorithm configuration, dataset
+  identity, code version, seed, and the fixed default budget of 500 candidates
+  or 300 seconds. The typed registry provides optional future slots for the two
+  seeded modes while retaining the existing one-candidate form and current
+  RANDOM behavior.
+- Search Run state and stop reasons remain finite and observable, including
+  `SEARCH_SPACE_EXHAUSTED`; client start commands remain owner-free while
+  trusted owner identity remains at the application boundary.
+- REST parsing accepts only the three approved generator/profile values and
+  rejects profile/generator mismatches, unsupported seeded budgets, nested or
+  unsupported algorithm-configuration values, missing finite stop conditions,
+  duplicate components, non-positive in-flight bounds, and client-supplied
+  `userId`/`ownerUserId` identity fields.
+- The deferred-scope checker recognizes the canonical Search contract/REST
+  boundaries with exact path matching and retains negative coverage for broad,
+  near-match, unrelated, forbidden active, and deferred-scope paths. ENV-04's
+  later exact Q-02 implementation-path additions remain separately reviewed.
+- No C-03 work implemented a generator algorithm, changed Search lifecycle
+  behavior, added persistence or migrations, or changed frontend, provider,
+  queue/distributed, LLM, or unrelated source.
 
-- `npm run test:scope-check`: **PASS**, 13/13.
-- `npm run scope:check`: **PASS**; the four Q-02 findings are resolved.
+## Validation
+
+- Focused C-03 Search API/port/REST tests: **PASS**, 9/9.
+- Current deferred-scope checker tests: **PASS**, 13/13.
+- `npm run scope:check`: **PASS**.
 - `npm run arch:check`: **PASS**.
 - `npm run artifacts:check`: **PASS**.
 - `npm run typecheck`: **PASS**.
 - `npm run build`: **PASS**.
 - `npm run lint`: **PASS**.
-- `npm test`: **PASS**, 341 passed; 6 environment-gated tests skipped.
+- `npm test`: **PASS**, 341 passed; 6 environment-gated tests skipped. The
+  skips are not PASS evidence.
 - `git diff --check`: **PASS**.
-- OpenSpec CLI: **UNVERIFIED**; the executable is unavailable in this
+
+## Limitations and stop boundary
+
+- OpenSpec CLI remains **UNVERIFIED** because it is unavailable in this
   environment.
-- PostgreSQL-dependent tests: **UNVERIFIED/BLOCKED**; `DATABASE_URL` is absent,
-  so six environment-gated tests were skipped. No real PostgreSQL, Binance, or
-  final/demo provider evidence is claimed by this tooling packet.
-
-## Checkpoint and stop boundary
-
-- The final diff is limited to the two checker files plus Manager-owned
-  `docs/implementation/TASKS.md` and this `HANDOFF.md`.
-- ENV-04 is `DONE` after the INS-061 closure review. The audited implementation
-  checkpoint is the committed `5032582`; this Manager closure checkpoint is
-  limited to `docs/implementation/TASKS.md` and
-  `docs/implementation/HANDOFF.md`. Q-02 remains `REVIEW` pending a separate
-  Instructor closure review after this clean checker gate.
-- No Q-02 closure, E-02, L-02, B-03, S-04, M-03, N-03, I-01/I-02/I-03, AU-02,
-  or any downstream/newly unlocked packet was started or promoted.
-- `INS-061` is exhausted. Renewed Instructor review is required before Q-02
-  closure or any downstream authorization; no additional implementation is
-  required.
+- PostgreSQL evidence remains **UNVERIFIED/BLOCKED**: `DATABASE_URL` is absent,
+  so PostgreSQL/integration-gated tests were skipped; no real database evidence
+  is claimed.
+- Real configured Binance historical/realtime, real configured News, and final
+  real-provider runtime evidence remain **UNVERIFIED/BLOCKED**; fixture tests
+  are not promoted to live-provider evidence.
+- Browser/runtime/demo evidence and link/DAG automation remain
+  **UNVERIFIED/BLOCKED** where unavailable; no unavailable check is converted
+  to PASS.
+- This closure checkpoint contains only the Manager-owned
+  `docs/implementation/TASKS.md` and `docs/implementation/HANDOFF.md` changes.
+  The coherent Manager commit is this INS-063 closure checkpoint.
+- INS-063 is exhausted. Renewed Instructor review is required before Q-02
+  closure or any downstream implementation authorization.
