@@ -125,5 +125,5 @@ export declare class PostgresBacktestingRepository implements BacktestingReposit
     }, ownerUserId?: string): Promise<StoredExperiment | undefined>;
     private experiment;
 }
-export declare const createPostgresBacktestingDependencies: (pool: TransactionPool, dependencies: Omit<import("../application/ports").BacktestingModuleDependencies, "repository">) => import("../application/ports").BacktestingModuleDependencies;
+export declare const createPostgresBacktestingDependencies: (pool: TransactionPool, dependencies: Omit<import("../application/ports").BacktestingModuleDependencies, "repository" | "evaluation"> & Partial<Pick<import("../application/ports").BacktestingModuleDependencies, "evaluation">>) => import("../application/ports").BacktestingModuleDependencies;
 export {};

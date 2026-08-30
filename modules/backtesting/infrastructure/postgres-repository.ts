@@ -3,6 +3,7 @@ import type { Candle, DatasetSnapshotRef } from "modules/market-data/api";
 import type { BacktestAttemptAudit, BacktestAttemptProgress, CancellationUnitOfWork, CompletedBacktestResult, Trade } from "../domain/contracts";
 import type { BacktestDispatch, BacktestingRepository, CompletionProcessingClaim, StoredBenchmarkScope, StoredCandidate, StoredExperiment, WorkerAttemptClaim } from "../application/ports";
 import type { BacktestQueueJob } from "@cryptox/contracts/queue";
+import { createEvaluationModule } from "../../evaluation/api/bootstrap";
 
 export interface BacktestingSqlClient { query<Row>(text: string, values: unknown[]): Promise<{ rows: Row[] }>; }
 interface TransactionClient extends BacktestingSqlClient { release(): void; }
@@ -123,4 +124,4 @@ export class PostgresBacktestingRepository implements BacktestingRepository {
   private async experiment(row: ExperimentRow): Promise<StoredExperiment> { const candidate = await this.readCandidate(row.candidate_id); const benchmark = await this.readScope(row.leaderboard_scope_id); if (!candidate || !benchmark) throw new Error("BACKTEST_PERSISTENCE_INTEGRITY_ERROR"); const trades = await this.listTrades(row.backtest_attempt_id); return { id: row.id, ownerUserId: candidate.ownerUserId, candidateId: row.candidate_id, searchRunId: candidate.searchRunId, leaderboardScopeId: row.leaderboard_scope_id, scoreFormulaId: row.score_formula_id, overallScore: number(row.overall_score), rankEligible: row.rank_eligible, backtestAttemptId: row.backtest_attempt_id, compositeDefinitionId: candidate.compositeDefinition.id, compositeDefinition: candidate.compositeDefinition, datasetSnapshot: benchmark.datasetSnapshot, sentimentDatasetSnapshot: benchmark.sentimentDatasetSnapshot, strategyDefinitions: candidate.strategyDefinitions, metrics: value<EvaluationMetrics>(row.metrics), trades, createdAt: date(row.created_at) }; }
 }
 
-export const createPostgresBacktestingDependencies = (pool: TransactionPool, dependencies: Omit<import("../application/ports").BacktestingModuleDependencies, "repository">): import("../application/ports").BacktestingModuleDependencies => ({ ...dependencies, repository: new PostgresBacktestingRepository(pool) });
+export const createPostgresBacktestingDependencies = (pool: TransactionPool, dependencies: Omit<import("../application/ports").BacktestingModuleDependencies, "repository" | "evaluation"> & Partial<Pick<import("../application/ports").BacktestingModuleDependencies, "evaluation">>): import("../application/ports").BacktestingModuleDependencies => ({ ...dependencies, evaluation: dependencies.evaluation ?? createEvaluationModule(), repository: new PostgresBacktestingRepository(pool) });

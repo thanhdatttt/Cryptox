@@ -7,7 +7,7 @@ async function bootstrap(): Promise<void> {
   const worker = modules.start();
   await worker.waitUntilReady();
   console.log("backtest worker ready");
-  const stop = async (): Promise<void> => { await worker.close(); process.exit(0); };
+  const stop = async (): Promise<void> => { await modules.stop(); process.exit(0); };
   process.once("SIGINT", () => { void stop(); });
   process.once("SIGTERM", () => { void stop(); });
 }

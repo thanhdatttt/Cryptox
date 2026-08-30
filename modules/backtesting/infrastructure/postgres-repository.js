@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.createPostgresBacktestingDependencies = exports.PostgresBacktestingRepository = void 0;
 const DEFAULT_WARMUP_CAPACITY_CANDLES = 500;
+const bootstrap_1 = require("../../evaluation/api/bootstrap");
 const value = (input) => typeof input === "string" ? JSON.parse(input) : input;
 const date = (input) => new Date(input).toISOString();
 const number = (input) => typeof input === "number" ? input : Number(input);
@@ -154,5 +155,5 @@ class PostgresBacktestingRepository {
         throw new Error("BACKTEST_PERSISTENCE_INTEGRITY_ERROR"); const trades = await this.listTrades(row.backtest_attempt_id); return { id: row.id, ownerUserId: candidate.ownerUserId, candidateId: row.candidate_id, searchRunId: candidate.searchRunId, leaderboardScopeId: row.leaderboard_scope_id, scoreFormulaId: row.score_formula_id, overallScore: number(row.overall_score), rankEligible: row.rank_eligible, backtestAttemptId: row.backtest_attempt_id, compositeDefinitionId: candidate.compositeDefinition.id, compositeDefinition: candidate.compositeDefinition, datasetSnapshot: benchmark.datasetSnapshot, sentimentDatasetSnapshot: benchmark.sentimentDatasetSnapshot, strategyDefinitions: candidate.strategyDefinitions, metrics: value(row.metrics), trades, createdAt: date(row.created_at) }; }
 }
 exports.PostgresBacktestingRepository = PostgresBacktestingRepository;
-const createPostgresBacktestingDependencies = (pool, dependencies) => ({ ...dependencies, repository: new PostgresBacktestingRepository(pool) });
+const createPostgresBacktestingDependencies = (pool, dependencies) => ({ ...dependencies, evaluation: dependencies.evaluation ?? (0, bootstrap_1.createEvaluationModule)(), repository: new PostgresBacktestingRepository(pool) });
 exports.createPostgresBacktestingDependencies = createPostgresBacktestingDependencies;
