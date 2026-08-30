@@ -54,19 +54,24 @@ class Hs256JwtCodec {
         }
     }
 }
-const defaultSecret = () => process.env.JWT_SECRET?.trim() || "cryptox-local-development-secret-change-me";
 const isDuplicateError = (error) => error instanceof errors_1.AuthException && error.code === "EMAIL_ALREADY_EXISTS" || typeof error === "object" && error !== null && "code" in error && error.code === "23505";
-function createInMemoryAuthDependencies() {
-    return { userRepository: new MemoryUserRepository(), jwtSecret: defaultSecret(), clock: { now }, passwordHasher: bcryptHasher, idGenerator: node_crypto_1.randomUUID };
+function createInMemoryAuthDependencies(options = {}) {
+    const jwtSecret = options.jwtSecret?.trim() ?? (process.env.NODE_ENV?.toLowerCase() === "test" ? "cryptox-test-only-secret" : undefined);
+    if (!jwtSecret)
+        throw new errors_1.AuthException("CONFIGURATION_ERROR", "JWT secret is required for an in-memory Auth runtime.");
+    return { userRepository: new MemoryUserRepository(), jwtSecret, clock: { now }, passwordHasher: bcryptHasher, idGenerator: node_crypto_1.randomUUID };
 }
-function createAuthModule(dependencies = createInMemoryAuthDependencies()) {
-    const defaults = createInMemoryAuthDependencies();
-    const repository = dependencies.userRepository ?? defaults.userRepository;
-    const jwtSecret = dependencies.jwtSecret?.trim() || defaults.jwtSecret;
-    const clock = dependencies.clock ?? defaults.clock;
-    const passwordHasher = dependencies.passwordHasher ?? defaults.passwordHasher;
-    const tokenCodec = dependencies.tokenCodec ?? new Hs256JwtCodec(jwtSecret);
-    const idGenerator = dependencies.idGenerator ?? defaults.idGenerator;
+function createAuthModule(dependencies) {
+    const provided = dependencies ?? {};
+    const defaults = dependencies ?? createInMemoryAuthDependencies();
+    const repository = provided.userRepository ?? defaults.userRepository;
+    const jwtSecret = provided.jwtSecret?.trim() ?? defaults.jwtSecret;
+    if (!jwtSecret)
+        throw new errors_1.AuthException("CONFIGURATION_ERROR", "JWT secret is required.");
+    const clock = provided.clock ?? defaults.clock;
+    const passwordHasher = provided.passwordHasher ?? defaults.passwordHasher;
+    const tokenCodec = provided.tokenCodec ?? new Hs256JwtCodec(jwtSecret);
+    const idGenerator = provided.idGenerator ?? defaults.idGenerator;
     return {
         async register(email, password) {
             const normalizedEmail = (0, rules_1.normalizeEmail)(email);

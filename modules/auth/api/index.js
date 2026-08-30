@@ -4,7 +4,7 @@ exports.createInMemoryAuthDependencies = exports.createAuthModule = exports.veri
 const service_1 = require("../application/service");
 var errors_1 = require("../domain/errors");
 Object.defineProperty(exports, "AuthException", { enumerable: true, get: function () { return errors_1.AuthException; } });
-const defaultService = (0, service_1.createAuthModule)((0, service_1.createInMemoryAuthDependencies)());
+const defaultService = (0, service_1.createAuthModule)((0, service_1.createInMemoryAuthDependencies)({ jwtSecret: "cryptox-test-profile-secret" }));
 const register = (email, password) => defaultService.register(email, password);
 exports.register = register;
 const login = (email, password) => defaultService.login(email, password);
