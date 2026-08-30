@@ -44,7 +44,8 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 | S-06 | DONE | E1 | YES | INS-036 fresh S-06 worker `01a04e66-e691-7a50-af2f-b1eecd39053b` / Manager; INS-041 closure review | `MVP_IMPLEMENTATION` / containing INS-041 closure checkpoint | Focused 20/20 and Strategy 89/89 PASS; ENV-02 checker gate PASS; deterministic Lite-plugin evidence accepted |
 | Q-02 | DONE | E1 | YES | Fresh Search worker `01a0500c-2fa8-7a82-a4f0-0badf7479b01` under INS-057; Manager closure under INS-065 | `MVP_IMPLEMENTATION` / Q-02 source `95cb98463f60c35f71dda2f7832f0aa9ad22a30c`, ENV-04 checker `5032582`, containing this INS-065 closure checkpoint | `BLOCKED -> READY -> IN_PROGRESS -> REVIEW -> DONE`; focused Q-02 12/12 and Search workspace 32 passed / 1 environment-gated skip; root workspace 341 passed / 6 environment-gated skips; scope, arch, artifacts, typecheck, build, lint, and diff checks PASS; OpenSpec CLI and real PostgreSQL/Binance/News/provider/browser/demo evidence remain UNVERIFIED or BLOCKED |
 | B-03 | DONE | E1 | YES | Fresh Backtesting worker Pascal `01a04fa2-b515-74d3-a448-0ab605dfabab` under INS-051; Manager closure under INS-069 | `MVP_IMPLEMENTATION` / source checkpoint `692754051f2c43bf7ab70a453adb1b9c9d3ca6d4`; closure checkpoint under INS-069 | `BLOCKED -> READY -> IN_PROGRESS -> REVIEW -> DONE`; Backtesting 43/43 and current checker 13/13; scope, architecture, artifacts, typecheck, build, lint, and diff checks PASS; contextual root evidence 341 passed / 6 environment-gated skips (skips are not PASS); real Binance UNVERIFIED and PostgreSQL/Docker BLOCKED |
-| N-03 | REVIEW | E1 | YES | INS-045 Manager `01a04f09-60b5-7113-8901-bfb50ff23ecd` + exactly one fresh News-Sentiment boundary worker Singer `01a04f0e-de55-78a2-bf64-88b2ac7eb4db` (completed) | `MVP_IMPLEMENTATION` / N-03 source checkpoint `d4161ec458c869ff18fa89dd9732df260629c915` | `BLOCKED -> READY -> IN_PROGRESS -> REVIEW`; News 30/30 and Sentiment 19/19 PASS; root 310 passed / 6 skipped (exit success; six skips are environment-gated PostgreSQL/integration/E2E checks and are not PASS); PostgreSQL, real News, auto-refresh scheduler, browser/runtime, OpenSpec, and link/DAG evidence UNVERIFIED or BLOCKED |
+| N-03 | DONE | E1 | YES | INS-045 Manager `01a04f09-60b5-7113-8901-bfb50ff23ecd` + exactly one fresh News-Sentiment boundary worker Singer `01a04f0e-de55-78a2-bf64-88b2ac7eb4db` (completed); INS-073 closure review | `MVP_IMPLEMENTATION` / N-03 source checkpoint `d4161ec458c869ff18fa89dd9732df260629c915`; containing INS-073 checkpoint | `BLOCKED -> READY -> IN_PROGRESS -> REVIEW -> DONE`; original News 30/30 and Sentiment 19/19 PASS; N-03A scheduler 5/5 and News total 35/35; root 346 passed / 6 skipped (environment-gated PostgreSQL/integration/E2E skips are not PASS); scope, architecture, artifacts, typecheck, build, lint, checker, and diff checks PASS; real-provider/PostgreSQL/runtime/OpenSpec/link-DAG evidence remains UNVERIFIED/BLOCKED |
+| N-03A | DONE | E1 residual | YES | INS-073 Manager + exactly one fresh News application worker `01a050be-e4f6-7c71-b289-8f12758b273c` | `MVP_IMPLEMENTATION` / containing INS-073 checkpoint | `READY -> IN_PROGRESS -> REVIEW -> DONE`; `CSL-R-NW-02`, `CSL-R-RP-02`, `CSL-R-OB-01`; News scheduler 5/5, News total 35/35, Sentiment 19/19, API 3/3, root 346 passed / 6 environment-gated skips; scope, architecture, artifacts, typecheck, build, lint, checker, and diff checks PASS; real-provider/PostgreSQL/runtime/OpenSpec/link-DAG evidence remains UNVERIFIED/BLOCKED |
 | E-02 | BLOCKED | E2 | Integration | Future Evaluation worker | — | Not started; decimal-boundary evaluation evidence required |
 | L-02 | BLOCKED | E2 | YES | Future Leaderboard worker | — | Not started; extension-aware ranking/provenance evidence required |
 | F-03 | BLOCKED | E3 | YES | Future Frontend worker | — | Not started; DEC-007 functional-state projections required |
@@ -988,7 +989,7 @@ acceptance criteria and handoff requirements are in the linked packets in
 
 - **Requirement IDs:** `CSL-R-NW-02`, `CSL-R-RP-02`, `CSL-R-SN-01`, `CSL-R-ST-05`,
   `CSL-R-OB-01`.
-- **State / owner / wave:** REVIEW / INS-045 Manager `01a04f09-60b5-7113-8901-bfb50ff23ecd` + exactly one fresh News/Sentiment boundary worker Singer `01a04f0e-de55-78a2-bf64-88b2ac7eb4db` / E1.
+- **State / owner / wave:** DONE / INS-045 Manager `01a04f09-60b5-7113-8901-bfb50ff23ecd` + exactly one fresh News/Sentiment boundary worker Singer `01a04f0e-de55-78a2-bf64-88b2ac7eb4db`; INS-073 closure review / E1.
 - **Dependencies:** `C-02`, N-01, N-02; downstream S-04/F-03/I-03.
 - **Exact write scope:** News and narrowly joined Sentiment API/application/
   infrastructure implementations and focused tests excluding canonical contracts,
@@ -1010,15 +1011,63 @@ acceptance criteria and handoff requirements are in the linked packets in
   workspace tests PASS (310 passed, 6 skipped; exit success). The six skipped
   tests are environment-gated PostgreSQL/integration/E2E checks and are not PASS
   evidence. Frozen contracts and migrations were unchanged.
-- **Limitations:** Local PostgreSQL validation is BLOCKED because this host has
-  no working Docker Compose command; real configured News, PostgreSQL runtime,
-  browser/runtime, OpenSpec, and link/DAG evidence are UNVERIFIED/BLOCKED.
-  Auto-refresh is PARTIAL/UNVERIFIED: the 1–5 minute setting and five-minute
-  default are validated and exposed, but no scheduler is in this packet.
-- **Stop boundary:** N-03 is REVIEW after the retention correction was validated;
-  no downstream packet was started or promoted at that checkpoint. The later
-  INS-049 M-03 recovery is recorded in the current frontier above.
+- **Residual closure evidence:** Under INS-073, the single fresh News application
+  worker `01a050be-e4f6-7c71-b289-8f12758b273c` added the provider-neutral
+  application scheduler and focused 5/5 tests. The scheduler uses the public
+  News collection, validates the one-to-five-minute interval with a five-minute
+  default, prevents overlap, continues after failure, and shuts down
+  idempotently. The unchanged original N-03 implementation/application and
+  infrastructure paths remain byte-identical to `d4161ec`; only the authorized
+  bootstrap re-export plus the two new application paths were added.
+- **Limitations:** Local PostgreSQL validation is BLOCKED/UNVERIFIED because
+  `DATABASE_URL` is absent and Docker Compose is unavailable; real configured
+  News, browser/runtime, OpenSpec, and link/DAG evidence remain
+  `UNVERIFIED`/`BLOCKED`. Fixture tests and skipped tests are not live-provider
+  evidence.
+- **Stop boundary:** N-03A transitioned exactly
+  `IN_PROGRESS -> REVIEW -> DONE`, then N-03 transitioned exactly
+  `REVIEW -> DONE` under INS-073 after the original News/Sentiment,
+  retention, provenance, and safety evidence remained sound. No downstream
+  packet was started or promoted.
 - **Full packet:** [`MVP_PLAN.md#n-03--safe-url-import-and-versioned-news-extraction-refinement`](MVP_PLAN.md#n-03--safe-url-import-and-versioned-news-extraction-refinement)
+
+### N-03A — Residual News Auto-Refresh Scheduler Completion
+
+- **Requirement IDs:** `CSL-R-NW-02`, `CSL-R-RP-02`, `CSL-R-OB-01`.
+- **State / owner / wave:** DONE / INS-073 Manager + exactly one fresh News
+  application worker / E1 residual completion.
+- **Start dependencies:** At dispatch, existing `N-03` was `REVIEW`; `C-02`,
+  `N-01`, and `N-02` were `DONE`. This is completion work, not a retry, replacement, or
+  reopening of the completed N-03 worker implementation.
+- **Integration dependencies:** The scheduler must be consumable through the
+  existing public News API. No downstream packet is authorized or promoted.
+- **Objective:** Complete configurable News auto-refresh without changing the
+  canonical contracts, persistence schema, provider security, or module
+  boundaries.
+- **Exact write scope:** `modules/news/api/**` excluding `contracts.ts` and
+  contract-only tests; `modules/news/application/**`; and focused News
+  scheduler tests in those boundaries. No infrastructure, Sentiment, Strategy,
+  frontend, backend composition, contract, migration, dependency, credential,
+  arbitrary-fetch, queue, distributed, OpenSpec, or unrelated source change.
+- **Evidence expectations:** A provider-neutral application-owned scheduler
+  accepts the configured 1–5 minute interval with a five-minute default,
+  invokes the existing public News collection on each interval, prevents
+  overlapping runs, isolates failed refreshes so later ticks remain possible,
+  and shuts down idempotently so no future tick runs. It must not fetch
+  remotely, persist timer state, log secrets, or introduce queue/distributed
+  behavior. Injected timer/clock seams must prove cadence, default and invalid
+  intervals, non-overlap, failure continuation, and shutdown.
+- **Validation:** Focused N-03/N-03A News/Sentiment and applicable public API
+  tests; current checker and `scope:check`; architecture, artifacts, typecheck,
+  build, lint, and `git diff --check`. Real configured News, PostgreSQL,
+  browser/runtime, OpenSpec CLI, and link/DAG automation remain
+  `UNVERIFIED`/`BLOCKED` when unavailable; fixtures and skipped tests are not
+  live-provider evidence.
+- **Stop boundary:** `N-03A` transitioned exactly
+  `IN_PROGRESS -> REVIEW -> DONE` after independent review. Existing `N-03`
+  then transitioned exactly `REVIEW -> DONE` after its full original evidence
+  was independently re-reviewed. Stop before every other packet.
+- **Full packet:** [`MVP_PLAN.md#n-03a--residual-news-auto-refresh-scheduler-completion`](MVP_PLAN.md#n-03a--residual-news-auto-refresh-scheduler-completion)
 
 ### E-02 — Extension Evaluation and Decimal-Boundary Reconciliation
 
@@ -1092,9 +1141,9 @@ reconciled under ENV-02, and the closure promotion was authorized by INS-041.
 evidence still UNVERIFIED. B-03 is DONE under INS-069 after exactly one fresh scoped worker
 completed and the Manager reviewed/fixed the application wiring and final
 evidence; the current deferred-scope gate passes, while real-provider/database
-gates remain blocked or unverified. N-03 is REVIEW under INS-045 after exactly one fresh scoped worker
-completed and the Manager reviewed the retention correction and final
-evidence;
+gates remain blocked or unverified. N-03 is DONE under INS-073 after exactly
+  one fresh scoped worker completed N-03A and the Manager re-reviewed the
+  retention, provenance, safety, News/Sentiment, and scheduler evidence;
 `S-04` remains BLOCKED. `Q-02` is DONE under INS-065 after the Manager
 independently verified its exact eleven implementation/test paths, the unchanged
 six C-03 contract/port/REST files, the ENV-04 checker gate, and the recorded

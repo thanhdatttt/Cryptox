@@ -19,10 +19,30 @@ export type {
 import type { NewsModuleDependencies } from "../application/ports";
 import type { NewsModulePublicApi } from "./index";
 import { NewsApplicationService } from "../application/service";
+import {
+  createNewsRefreshScheduler as createApplicationNewsRefreshScheduler,
+  NewsRefreshScheduler,
+} from "../application/scheduler";
+import type { NewsRefreshSchedulerOptions } from "../application/scheduler";
 
 export function createNewsModule(deps: NewsModuleDependencies): NewsApplicationService & NewsModulePublicApi {
   return new NewsApplicationService(deps);
 }
+
+export function createNewsRefreshScheduler(
+  news: Pick<NewsModulePublicApi, "collect">,
+  options: NewsRefreshSchedulerOptions = {},
+): NewsRefreshScheduler {
+  return createApplicationNewsRefreshScheduler(news, options);
+}
+
+export { NewsRefreshScheduler } from "../application/scheduler";
+export type {
+  NewsRefreshClock,
+  NewsRefreshFailure,
+  NewsRefreshSchedulerOptions,
+  NewsRefreshTimer,
+} from "../application/scheduler";
 
 export { NewsApplicationError, NewsApplicationService } from "../application/service";
 export {

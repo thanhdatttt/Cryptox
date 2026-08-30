@@ -124,3 +124,106 @@
   control files. Git staging was blocked by the environment with
   `fatal: Unable to create 'D:/agy-cli-projects/AOS/Cryptox/.git/index.lock': Permission denied`;
   no commit was created and no staging/commit retry was attempted.
+
+# INS-073 Execution Checkpoint — N-03A Completion and N-03 Closure
+
+## Resume here
+
+- **Authorization:** `INS-073 / APPROVED_FOR_EXECUTION` authorized exactly one
+  residual `N-03A` News scheduler completion and the subsequent closure review
+  of existing `N-03`. It authorized no retry, replacement, duplicate,
+  downstream start, or other packet.
+- **Manager:** `01a050a6-bc83-70a3-9030-6f6f8435a4f7` in the canonical
+  same-directory checkout `D:/agy-cli-projects/AOS/Cryptox` on
+  `MVP_IMPLEMENTATION`.
+- **Starting checkpoint:** Reviewed base `1fda6ad` and authorization commit
+  `1256b667d7bbfd0b4aca699752a3f891a382e8a5`; the working tree was clean before
+  the Manager added the N-03A row. The existing N-03 source/business checkpoint
+  is `d4161ec458c869ff18fa89dd9732df260629c915`.
+- **Authority checks:** `INS-073` was exact and current; `DEC-014` and the
+  `N-03A` packet in `MVP_PLAN.md` matched the residual scope. `N-03` was
+  `REVIEW`; `C-02`, `N-01`, and `N-02` were `DONE`. Pre-dispatch inspection
+  found only the delegating parent task and this Manager active in the
+  canonical checkout; no competing Cryptox worker or Manager was resumed.
+
+## N-03A execution and transitions
+
+- The Manager added exactly one `N-03A` operational row to `TASKS.md` in
+  `READY`, with requirement IDs `CSL-R-NW-02`, `CSL-R-RP-02`, and
+  `CSL-R-OB-01`, dependencies, exact write scope, and evidence expectations.
+- Only `N-03A` moved `READY -> IN_PROGRESS` before dispatch. Existing `N-03`
+  remained `REVIEW` during implementation.
+- Exactly one fresh worker was used: `01a050be-e4f6-7c71-b289-8f12758b273c`,
+  same-directory, no worker commit, branch, worktree, thread creation, or
+  control-plane edit. No retry, replacement, duplicate, or second worker was
+  created.
+- The worker changed only:
+  `modules/news/application/scheduler.ts`,
+  `modules/news/application/scheduler.spec.ts`, and
+  `modules/news/api/bootstrap.ts`. The bootstrap change is limited to the
+  scheduler factory/class/type re-export; `api/index.ts`, `contracts.ts`, and
+  contract-only tests are unchanged. No infrastructure path changed.
+- Independent review accepted the provider-neutral application scheduler and
+  its injected timer/clock seams. It validates the one-to-five-minute interval
+  with a five-minute default, calls the existing public News `collect` seam,
+  prevents overlap, contains refresh failures so later ticks continue, and
+  shuts down idempotently without remote fetch, timer persistence, secret
+  logging, or queue/distributed behavior.
+- The exact tracked News application/infrastructure and Sentiment paths from
+  the N-03 checkpoint remain unchanged since `d4161ec`; only the authorized
+  bootstrap seam and the two new application paths were added.
+- N-03A moved exactly `IN_PROGRESS -> REVIEW -> DONE`. After that proof, the
+  Manager re-reviewed the complete original N-03 News/Sentiment, retention,
+  provenance, and safe-fetch evidence and moved N-03 exactly `REVIEW -> DONE`.
+
+## Validation and evidence
+
+- **N-03A focused scheduler:** **PASS** — 5/5 tests.
+- **News:** **PASS** — `npm test --workspace @cryptox/news`, 35/35. This
+  includes the original N-03 News evidence (30/30) plus the five scheduler
+  tests; the unchanged API entrypoint contract test still passes.
+- **Sentiment:** **PASS** — `npm test --workspace @cryptox/sentiment`, 19/19.
+- **Public News API:** **PASS** — focused `api/index.spec.ts` and
+  `api/contracts.spec.ts`, 3/3.
+- **Workspace:** **PASS** — root `npm test`, 346 passed / 6 environment-gated
+  skips, exit success. The six skips are not PASS evidence.
+- **Checker and repository gates:** **PASS** — `npm run test:scope-check`
+  13/13, `npm run scope:check`, `npm run arch:check` (76 modules/198
+  dependencies with the expected nine forbidden-dependency fixtures),
+  `npm run artifacts:check`, `npm run typecheck`, `npm run build`,
+  `npm run lint`, and `git diff --check`.
+- **Original N-03 re-review:** **PASS at the approved fixture/test boundary**
+  — the accepted N-03 checkpoint's 30/30 News, 19/19 Sentiment, retention,
+  provenance, safety, and neutral failure-isolation evidence remains intact;
+  current focused and workspace gates also pass.
+
+## Unavailable evidence and limitations
+
+- **Real configured News:** **UNVERIFIED** — no live configured provider/demo
+  run was available; fixture/provider tests are not live-provider evidence.
+- **PostgreSQL:** **BLOCKED/UNVERIFIED** — `DATABASE_URL` is absent and Docker
+  Compose is unavailable; skipped PostgreSQL/integration checks are not PASS.
+- **Browser/demo runtime, OpenSpec CLI, and link/DAG automation:**
+  **UNVERIFIED** — the CLI is unavailable and those runtime/automation checks
+  were not run. No unavailable check, fixture, or skip was promoted to PASS.
+- Real Binance historical/realtime evidence remains **UNVERIFIED** as recorded
+  by the prior checkpoint; it is outside this News residual packet.
+
+## Stop boundary
+
+- Manager-owned changes are limited to `docs/implementation/TASKS.md` and
+  `docs/implementation/HANDOFF.md`; worker changes remain the three scoped
+  News paths listed above. No Instructor, decision, requirements, ADR,
+  architecture, data-model, OpenSpec, contract, migration, dependency,
+  frontend, Sentiment, Strategy, backend composition, or infrastructure file
+  was edited by this execution.
+- `M-02` remains `REVIEW/UNVERIFIED`; `AU-02`, `S-04`, `E-02`, `L-02`, `F-03`,
+  `I-01`, `I-02`, and `I-03` remain `BLOCKED`. No downstream task was started,
+  promoted, or automatically unlocked.
+- `INS-073` is exhausted. Renewed Instructor review is required before any
+  other packet, retry, implementation, closure review, or downstream promotion.
+- **Checkpoint commit:** Exactly one coherent Manager checkpoint commit was
+  attempted with only `TASKS.md` and `HANDOFF.md`. Staging failed with
+  `fatal: Unable to create 'D:/agy-cli-projects/AOS/Cryptox/.git/index.lock': Permission denied`;
+  no commit was created, and no staging/commit retry was attempted. The
+  accepted worker paths remain uncommitted for the next authorized recovery.
