@@ -2,13 +2,49 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-093`
+Instruction ID: `INS-094`
 
-Status: `APPROVED_FOR_EXECUTION`
+Status: `HOLD`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
-## INS-093 — F-03 Checkpoint Consistency Reconciliation
+## INS-094 — HOLD after F-03 closure review
+
+This current signal supersedes `INS-093 / APPROVED_FOR_EXECUTION` and grants no
+execution authority. The F-03 checkpoint reconciliation was independently
+audited and committed at `b73d014`.
+
+### Reviewed checkpoint
+
+- The canonical checkout is `D:/agy-cli-projects/AOS/Cryptox`, branch
+  `MVP_IMPLEMENTATION`, clean at `b73d014` (`docs(control): reconcile F-03
+  checkpoint state`). The only INS-093 delta was the Manager-owned
+  `TASKS.md`/`HANDOFF.md` reconciliation; no source or business-state drift
+  was present.
+- `TASKS.md` is now internally consistent: F-03 is `DONE` at its approved
+  packet-local frontend projection boundary, and the board is `38 DONE`,
+  `1 REVIEW` (`M-02`), and `4 BLOCKED` (`AU-02`, `I-01`, `I-02`, `I-03`).
+  No other task moved and no downstream packet started.
+- F-03 evidence is accepted only for its local scope: focused 3/3, frontend and
+  root suites/static checks recorded PASS, runtime smoke is limited, Docker/
+  PostgreSQL is `BLOCKED`, and OpenSpec CLI, live providers, real feature
+  transport, and browser/demo evidence remain `UNVERIFIED` or `BLOCKED`.
+  Final MVP/integration/demo completion is not claimed.
+- The INS-093 Manager is idle, created no worker, and made no source change.
+  Its single Git attempt was denied before staging; the Instructor preserved
+  and audited the exact two-file result in `b73d014` without retrying the
+  Manager.
+
+### Current boundary
+
+- This HOLD authorizes nothing: no worker, implementation packet, M-02, AU-02,
+  I-01, I-02, I-03, downstream promotion, or final-demo claim.
+- The next review must independently inspect M-02's current checkpoint and
+  determine whether a separate bounded review/closure authorization is safe.
+  M-02 must not start merely because its state is `REVIEW`; no live-provider
+  evidence may be silently promoted to PASS.
+
+## Historical INS-093 — F-03 Checkpoint Consistency Reconciliation
 
 This current signal supersedes `INS-092 / HOLD` at `b50f8db` and authorizes
 exactly one fresh governance-only Manager. It authorizes no worker, source
