@@ -552,3 +552,34 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 [INS-092 HOLD](./INSTRUCTOR.md), and commit `9ed13bc`.
+
+## DEC-017 — M-02 live-evidence closure boundary
+
+Status: `APPROVED`
+
+Authority: Instructor frontier review after the accepted F-03 checkpoint at
+`b73d014`
+
+Decision: M-02 may be reviewed for closure only through the existing Market
+Data implementation and its bounded resilience evidence plus one truthful
+public Binance realtime smoke. No source rework, transport/configuration
+change, frontend change, or downstream promotion is included. If the live
+provider is unavailable or the smoke cannot prove the required behavior, M-02
+remains `REVIEW` with `UNVERIFIED` or `BLOCKED` evidence; fixtures and failed
+connections are never promoted to PASS.
+
+Why: M-02's implementation checkpoint and deterministic recovery tests are
+present, but its task record still lacks accepted real-provider evidence. The
+real Binance requirement is a final/runtime gate, while this bounded review
+must keep that limitation explicit and preserve the later I-01 integration
+boundary.
+
+Affected: M-02 review closure, `TASKS.md`, `HANDOFF.md`, and the next
+Instructor checkpoint. M-03, F-03, AU-02, I-01, I-02, I-03, and all deferred
+scope remain unchanged and separately authorized.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [Market Data spec](../../openspec/specs/market-data/spec.md),
+[MVP plan](../implementation/MVP_PLAN.md), [Task state](../implementation/TASKS.md),
+[Latest checkpoint](../implementation/HANDOFF.md), [INS-095 authorization](./INSTRUCTOR.md),
+and commit `5160c1c`.

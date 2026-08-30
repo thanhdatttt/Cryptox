@@ -2,13 +2,63 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-094`
+Instruction ID: `INS-095`
 
-Status: `HOLD`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
-## INS-094 — HOLD after F-03 closure review
+## INS-095 — M-02 Realtime Evidence Closure Review
+
+This current signal supersedes `INS-094 / HOLD` at `8556c43` and authorizes
+exactly one fresh Manager for a bounded M-02 review/evidence attempt. It is an
+evidence-only authorization: no source rework is permitted, and no downstream
+task may start.
+
+### Reviewed authority and applicability
+
+- The canonical checkout is `D:/agy-cli-projects/AOS/Cryptox`, branch
+  `MVP_IMPLEMENTATION`, clean at `8556c43` (`docs(control): hold after F-03
+  closure`). F-03 is accepted at its packet-local boundary in `b73d014`; the
+  current operational board is `38 DONE`, `1 REVIEW` (`M-02`), and `4 BLOCKED`
+  (`AU-02`, `I-01`, `I-02`, `I-03`).
+- M-02 is the only current REVIEW task. Its existing implementation checkpoint
+  is `5160c1c`; focused resilience and package evidence are recorded PASS, but
+  the required real Binance realtime smoke remains `UNVERIFIED` after the
+  prior bounded attempt. M-01 and F-01 dependencies are DONE; I-01 remains a
+  later integration dependency.
+- The source, contracts, architecture, and market-data spec require normalized
+  market-only realtime delivery, bounded reconnect/gap behavior, and truthful
+  real-provider final/demo evidence. Fixture evidence alone must not promote
+  M-02 past its current review state.
+- No competing Cryptox Manager or worker is active. The fresh Manager must run
+  in the same canonical checkout with model `gpt-5.6-luna` and reasoning `max`,
+  without a worktree, alternate checkout, branch, cloud task, or duplicate.
+
+### Exact Manager-only scope
+
+- The Manager may inspect the current M-02 source/tests and run the focused
+  resilience suite, applicable package/global checks, and one bounded live
+  Binance WebSocket smoke using the existing configured provider boundary.
+  Public Binance access only; no secrets or credentials may be requested or
+  logged.
+- No source, test, contract, module, frontend, backend, migration, provider,
+  configuration, dependency, or generated-file change is authorized. No worker
+  is authorized because this packet has no independent write scope; the
+  Manager owns review and the two control artifacts.
+- The Manager may update only `docs/implementation/TASKS.md` and
+  `docs/implementation/HANDOFF.md`. It may transition M-02 only when the
+  packet-local implementation/recovery evidence and the live smoke are both
+  genuinely evidenced; otherwise it must retain `REVIEW` and record
+  `UNVERIFIED` or `BLOCKED` with the exact observed limitation. It must not
+  convert fixture tests or a failed/absent provider connection into PASS.
+- The checkpoint must preserve all other task states, record the exact live
+  attempt/transcript and provider outcome, and stop before AU-02, I-01, I-02,
+  I-03, or any downstream work. Make at most one coherent checkpoint
+  staging/commit attempt; on Git rejection, do not retry and report the exact
+  error.
+
+## Historical INS-094 — HOLD after F-03 closure review
 
 This current signal supersedes `INS-093 / APPROVED_FOR_EXECUTION` and grants no
 execution authority. The F-03 checkpoint reconciliation was independently
