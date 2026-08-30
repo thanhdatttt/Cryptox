@@ -583,3 +583,34 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [MVP plan](../implementation/MVP_PLAN.md), [Task state](../implementation/TASKS.md),
 [Latest checkpoint](../implementation/HANDOFF.md), [INS-095 authorization](./INSTRUCTOR.md),
 and commit `5160c1c`.
+
+## DEC-018 — Human continuation decision for the AU-02 blocker
+
+Status: `APPROVED`
+
+Authority: Explicit user governance direction in the active Instructor task on
+2026-08-30: continue the Level 2 loop autonomously until the MVP is complete,
+with full decision authority within repository rules.
+
+Decision: The Instructor may issue one fresh, bounded AU-02 security-integration
+authorization after independently revalidating its dependencies, local
+PostgreSQL/Auth environment, absence of active writers, and safe write scope.
+This decision satisfies the previously recorded human-decision gate for
+considering a new AU-02 attempt; it does not itself change task state, authorize
+source edits, relax deferred scope, or permit a retry beyond the next explicit
+authorization.
+
+Why: AU-02 is the only predecessor blocking the remaining integration chain,
+while the prior INS-021 bounded attempt produced no accepted ownership matrix
+evidence and correctly stopped with `NEEDS_HUMAN_DECISION`. The user explicitly
+directed the Instructor to continue rather than leave the program at that
+checkpoint.
+
+Affected: AU-02, I-01, I-02, I-03, and the next Instructor checkpoint. Existing
+requirements, ownership rules, deferred scope, and all current task states
+remain unchanged until a separately authorized Manager execution proves them.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [ADR-008](../adr/ADR_008_simple_auth_and_per_user_ownership.md),
+[MVP plan](../implementation/MVP_PLAN.md), [Task state](../implementation/TASKS.md),
+[Latest checkpoint](../implementation/HANDOFF.md), and [INS-096 HOLD](./INSTRUCTOR.md).

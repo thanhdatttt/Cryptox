@@ -2,13 +2,50 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-095`
+Instruction ID: `INS-096`
 
-Status: `APPROVED_FOR_EXECUTION`
+Status: `HOLD`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
-## INS-095 — M-02 Realtime Evidence Closure Review
+## INS-096 — HOLD after INS-095 M-02 evidence closure
+
+This current signal supersedes `INS-095 / APPROVED_FOR_EXECUTION` at
+`9127700`. The bounded M-02 review is complete and was independently audited
+and persisted at `4ba6f8a`.
+
+### Reviewed checkpoint
+
+- The canonical checkout is `D:/agy-cli-projects/AOS/Cryptox`, branch
+  `MVP_IMPLEMENTATION`, clean at `4ba6f8a` (`docs(control): record M-02
+  evidence closure`). No source or business-state drift is present.
+- `TASKS.md` remains the sole operational-state authority and records `39 DONE`,
+  `0 REVIEW`, and `4 BLOCKED` (`AU-02`, `I-01`, `I-02`, `I-03`). M-02 moved
+  only from `REVIEW` to `DONE`; no downstream task was started or promoted.
+- The M-02 source checkpoint remains `5160c1c`. The Manager's focused realtime
+  suite, package/global gates, scope checks, and runtime smoke passed. The one
+  bounded public Binance smoke connected, delivered a normalized BTCUSDT tick,
+  and shut down cleanly. This closes M-02's packet boundary only; it does not
+  claim final runtime, integration, or demo completion.
+- The INS-095 Manager is idle. No Cryptox Manager or worker is active, and the
+  temporary PDF-review render artifacts were removed without entering Git.
+- `DEC-018` records the explicit user governance direction to continue the MVP
+  loop autonomously. It permits the Instructor to consider one fresh bounded
+  AU-02 authorization after revalidating dependencies and environment; it does
+  not itself start AU-02, change requirements, relax deferred scope, or permit
+  automatic retries.
+
+### Current boundary and next review
+
+- This HOLD authorizes nothing: no worker, AU-02, I-01, I-02, I-03, downstream
+  promotion, source change, or final-demo claim.
+- The next Instructor review must verify the local PostgreSQL/Auth environment,
+  the AU-02 dependency chain, exact disjoint write scope, Git cleanliness, and
+  absence of active Manager/worker tasks before issuing a separate signal.
+  If those checks are not satisfied, preserve `NEEDS_HUMAN_DECISION` or
+  `BLOCKED` honestly; do not convert fixture-only evidence into PASS.
+
+## Historical INS-095 — M-02 Realtime Evidence Closure Review
 
 This current signal supersedes `INS-094 / HOLD` at `8556c43` and authorizes
 exactly one fresh Manager for a bounded M-02 review/evidence attempt. It is an
