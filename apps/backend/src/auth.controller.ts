@@ -18,15 +18,17 @@ import {
 } from "@cryptox/contracts/rest";
 import type { AuthModulePublicApi } from "@cryptox/auth";
 import { AUTH_RUNTIME_TOKEN, type BackendAuthRuntime } from "./auth.runtime";
+import {
+  AUTH_SESSION_COOKIE as SESSION_COOKIE,
+  type BackendRequest,
+  readSessionToken,
+} from "./auth-context";
 
-export const AUTH_SESSION_COOKIE = "cryptox_session";
+export { AUTH_SESSION_COOKIE } from "./auth-context";
+
 export const AUTH_SESSION_MAX_AGE_SECONDS = 24 * 60 * 60;
 
-interface AuthRequest {
-  readonly headers?: Record<string, string | string[] | undefined>;
-  readonly protocol?: string;
-  readonly secure?: boolean;
-}
+type AuthRequest = BackendRequest;
 
 interface AuthResponse {
   setHeader(name: string, value: string): void;
@@ -40,19 +42,6 @@ interface RestErrorBody {
 function firstHeader(request: AuthRequest, name: string): string | undefined {
   const value = request.headers?.[name];
   return Array.isArray(value) ? value[0] : value;
-}
-
-function sessionToken(request: AuthRequest): string | undefined {
-  const header = firstHeader(request, "cookie");
-  if (!header) return undefined;
-  for (const part of header.split(";")) {
-    const separator = part.indexOf("=");
-    if (separator < 0) continue;
-    if (part.slice(0, separator).trim() !== AUTH_SESSION_COOKIE) continue;
-    const value = part.slice(separator + 1).trim();
-    return value || undefined;
-  }
-  return undefined;
 }
 
 function isLocalHost(host: string | undefined): boolean {
@@ -80,7 +69,7 @@ function sessionCookieHeader(
   expiresAt: string | undefined,
 ): string {
   const attributes = [
-    `${AUTH_SESSION_COOKIE}=${token ?? ""}`,
+    `${SESSION_COOKIE}=${token ?? ""}`,
     "HttpOnly",
     "SameSite=Lax",
     "Path=/",
@@ -137,6 +126,8 @@ export function mapAuthError(error: unknown): HttpException {
         return httpError(HttpStatus.UNAUTHORIZED, code, "Authentication is required.");
       case "NOT_FOUND":
         return httpError(HttpStatus.NOT_FOUND, code, "Authenticated user was not found.");
+      case "AUTH_PERSISTENCE_UNAVAILABLE":
+        return httpError(HttpStatus.SERVICE_UNAVAILABLE, "AUTH_UNAVAILABLE", "Authentication is temporarily unavailable.");
       default:
         break;
     }
@@ -195,7 +186,7 @@ export class AuthController {
   @Get("current-user")
   async currentUser(@Req() request: AuthRequest) {
     try {
-      const opaqueToken = sessionToken(request);
+      const opaqueToken = readSessionToken(request);
       if (!opaqueToken) throw authenticatedError();
       const identity = await this.runtime.auth.resolveSession(opaqueToken);
       if (!identity) throw authenticatedError();
@@ -216,7 +207,7 @@ export class AuthController {
     @Res({ passthrough: true }) response: AuthResponse,
   ) {
     try {
-      const opaqueToken = sessionToken(request);
+      const opaqueToken = readSessionToken(request);
       if (opaqueToken) await this.runtime.auth.logout(opaqueToken);
       setSessionCookie(response, request, undefined, undefined);
       return { schemaVersion: REST_SCHEMA_VERSION, authenticated: false as const };

@@ -22,13 +22,17 @@ describe("backend runtime truth", () => {
 
     expect(readiness.status).toBe("not-ready");
     expect(readiness.unavailableRequired.map(({ name }) => name)).toEqual([
+      "auth-persistence",
+      "persistence-adapters",
       "market-data-provider",
       "backtest-runner",
-      "persistence-adapters",
+      "leaderboard-persistence",
+      "strategy-persistence",
+      "search-composition",
     ]);
     expect(readiness.degradedOptional.map(({ name }) => name)).toEqual([
       "news-provider",
-      "sentiment-provider",
+      "sentiment-persistence",
     ]);
   });
 

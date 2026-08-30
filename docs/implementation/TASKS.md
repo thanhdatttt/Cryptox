@@ -33,7 +33,7 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 | F-01 | DONE | 2 | Integration | Manager / Frontend worker | `MVP_IMPLEMENTATION` / `901065a` | Independent review, frontend/global gates, and browser interaction PASS |
 | F-AUTH | DONE | 3 | Integration | Manager / Descartes (`01a04b84-de45-74a2-8b9e-cab4a0d6ff48`) | `MVP_IMPLEMENTATION` / `04bf234` | Frontend 25/25, typecheck/build/lint, real AU-01 PostgreSQL 3/3, backend 1/1, and local browser flow PASS; deployed HTTPS/private business endpoint evidence remains UNVERIFIED |
 | F-02 | DONE | 3 | Integration | Mendel (`01a04bab-a123-7bd2-855b-c02a6ab30f1c`) | `MVP_IMPLEMENTATION` / `84209b0` | Fixture-first Strategy/Search/result/auxiliary views and typed clients; frontend 31/31 across 12 files, typecheck/lint/build and global gates PASS; real API/browser integration remains I-01 |
-| I-01 | REVIEW | 5 | YES | INS-103 Manager / exactly one fresh sequential internal worker Socrates `01a05344-02cf-7930-9226-a3ec1be46522` | `MVP_IMPLEMENTATION` / authorization checkpoint `2a85c82711bb2e78e52e3a02e44f015d8c20a83f` | `BLOCKED → READY → IN_PROGRESS → REVIEW`; worker returned `NEEDS_INSTRUCTOR_REVIEW` with no source changes: backend composition lacks an approved public Strategy factory registry; resolving it requires an excluded module export/seam or prohibited deep import/duplication; single staging attempt denied by `.git/index.lock` permission error, no commit |
+| I-01 | REVIEW | 5 | YES | INS-106 Manager / exactly one fresh sequential internal worker Volta `01a0539c-3372-71e3-acb6-d27a0239f4b6` | `MVP_IMPLEMENTATION` / uncommitted I-01 source and checkpoint delta from authorization `984a4bd`; single staging attempt denied by `.git/index.lock` permission error; no retry | `REVIEW → READY → IN_PROGRESS → REVIEW`; backend HTTP/WS composition tests, backend 15 passed / 1 environment-gated skip, root build/typecheck/lint/tests, artifacts, deferred-scope, scope tests, secret/log, and whitespace checks PASS; real DB/provider/demo evidence BLOCKED or UNVERIFIED, architecture has 71 existing violations, runtime smoke expects stale readiness, so I-01 is `NEEDS_INSTRUCTOR_REVIEW` and not DONE |
 | I-01S | DONE | 5R | YES | INS-104 Manager / exactly one fresh sequential internal worker Mendel `01a0536c-7ff6-7713-bbd7-839e1b535d10` | `MVP_IMPLEMENTATION` / authorized source and checkpoint delta remains uncommitted after the single Manager staging attempt was denied by `.git/index.lock` permission error; no retry | `BLOCKED → READY → IN_PROGRESS → REVIEW → DONE`; worker changed only the authorized Strategy registry/public-entrypoint paths; independent Strategy 119/119, workspace 389 passed / 6 environment-gated skips, build/typecheck/lint, architecture, artifacts, scope, runtime-smoke, secret scan, whitespace, and exact-path review PASS; OpenSpec CLI UNVERIFIED |
 | I-02 | BLOCKED | 6 | YES | Manager plus independent reviewers | — | Not started |
 | RB-01 | DONE | E0 | YES | Manager | `MVP_IMPLEMENTATION` / containing INS-024 RB-01 checkpoint | Documentation-only DEC-007 reconciliation planning committed; no feature implementation started |
@@ -487,7 +487,7 @@ started and no worker was created for closure.
 
 - **Requirement IDs:** All capability integration IDs plus `CSL-R-AU-01`,
   `CSL-R-OW-01`, `CSL-R-RD-01`, `CSL-R-OB-01`, and `CSL-R-AR-01`–`CSL-R-AR-03`
-- **State / owner / wave:** BLOCKED / Manager or integration worker / Wave 5
+- **State / owner / wave:** REVIEW / INS-106 Manager and exactly one fresh sequential internal worker Volta `01a0539c-3372-71e3-acb6-d27a0239f4b6` / Wave 5
 - **Critical / parallelism:** YES / NO
 - **Start dependencies:** AU-01, AU-02, B-02; completed M-01/M-02, S-02/S-03
   registration, Q-01 integration, N-01/N-02, and F-01/F-AUTH/F-02
@@ -496,8 +496,8 @@ started and no worker was created for closure.
   transports, final/demo provider configuration, readiness, degradation, and projections.
 - **Write scope:** `apps/backend/**`, example configuration, thin transport mappers;
   module fixes only through owner review.
-- **Latest branch / commit:** —; record when work starts.
-- **Validation:** Not started.
+- **Latest branch / commit:** `MVP_IMPLEMENTATION` / uncommitted source and Manager checkpoint delta from authorization checkpoint `984a4bd`; the single Manager staging attempt was denied by `.git/index.lock` permission error and was not retried.
+- **Validation:** Backend HTTP/WS composition suite and backend package checks pass; root build/typecheck/lint/tests, artifacts, deferred-scope, scope tests, secret/log, and whitespace checks pass. Real PostgreSQL/Auth/application, live Binance, configured News, manual Backtest/SearchRun, and browser/demo evidence are BLOCKED or UNVERIFIED. `arch:check` reports 71 existing module violations; `runtime:smoke` fails on its stale readiness expectation. I-01 remains REVIEW / NEEDS_INSTRUCTOR_REVIEW.
 - **Full packet:** [`MVP_PLAN.md#i-01--runtime-transports-and-observability-integration`](MVP_PLAN.md#i-01--runtime-transports-and-observability-integration)
 
 ### I-01S — Strategy Public Composition Seam Reconciliation

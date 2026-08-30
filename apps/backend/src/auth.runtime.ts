@@ -19,6 +19,7 @@ export class AuthPersistenceUnavailableError extends Error {
 export interface BackendAuthRuntime {
   readonly auth: AuthModulePublicApi;
   readonly configured: boolean;
+  readonly probe?: () => Promise<void>;
   close(): Promise<void>;
 }
 
@@ -42,6 +43,9 @@ export function createBackendAuthRuntime(
     return {
       auth: unavailableAuth(),
       configured: false,
+      probe: async () => {
+        throw new AuthPersistenceUnavailableError();
+      },
       close: async () => undefined,
     };
   }
@@ -52,6 +56,9 @@ export function createBackendAuthRuntime(
   return {
     auth: createAuthModule(dependencies),
     configured: true,
+    probe: async () => {
+      await dependencies.pool.query("SELECT 1");
+    },
     close: dependencies.close,
   };
 }

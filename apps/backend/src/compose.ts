@@ -35,31 +35,56 @@ export function composeRuntimeState(): RuntimeCompositionState {
     activeModules: ACTIVE_MVP_MODULES,
     requiredDependencies: [
       {
-        name: "market-data-provider",
+        name: "auth-persistence",
         available: false,
-        detail: "No provider adapter is implemented in Stage 4A.",
-      },
-      {
-        name: "backtest-runner",
-        available: false,
-        detail: "The real backtest simulator is intentionally not implemented.",
+        detail: "DATABASE_URL is not configured.",
       },
       {
         name: "persistence-adapters",
         available: false,
-        detail: "Auth PostgreSQL is available only when configured; remaining MVP repositories are not implemented.",
+        detail: "PostgreSQL application adapters are not configured.",
+      },
+      {
+        name: "market-data-provider",
+        available: false,
+        detail: "The real Binance market provider is not configured.",
+      },
+      {
+        name: "backtest-runner",
+        available: false,
+        detail: "The bounded executor is not exposed by the Backtesting public bootstrap.",
+      },
+      {
+        name: "leaderboard-persistence",
+        available: false,
+        detail: "The PostgreSQL Leaderboard adapter is not configured.",
+      },
+      {
+        name: "strategy-persistence",
+        available: false,
+        detail: "Strategy has no public PostgreSQL bootstrap in the current source tree.",
+      },
+      {
+        name: "search-composition",
+        available: false,
+        detail: "Search's required generator implementation is not exported by its public bootstrap.",
       },
     ],
     optionalDependencies: [
       {
         name: "news-provider",
         available: false,
-        detail: "News is optional and no provider adapter is implemented.",
+        detail: "No explicitly configured real News provider is available.",
       },
       {
         name: "sentiment-provider",
+        available: true,
+        detail: "LEXICON_V1 is provided by the public local Sentiment facade.",
+      },
+      {
+        name: "sentiment-persistence",
         available: false,
-        detail: "Sentiment is optional and no model provider is implemented.",
+        detail: "Sentiment PostgreSQL persistence is not exposed by the public package bootstrap.",
       },
     ],
   };
