@@ -41,6 +41,7 @@ export class ChartController {
       timeframe,
       candles: [],
       connection: "LOADING_HISTORY",
+      recoveryStatus: "NOT_NEEDED",
       stale: true,
     };
   }
@@ -56,7 +57,14 @@ export class ChartController {
     const generation = ++this.generation;
     this.unsubscribeMarket?.();
     this.unsubscribeMarket = undefined;
-    this.publish({ ...this.state, candles: [], connection: "LOADING_HISTORY", stale: true });
+    this.publish({
+      ...this.state,
+      candles: [],
+      connection: "LOADING_HISTORY",
+      recoveryStatus: "NOT_NEEDED",
+      observability: undefined,
+      stale: true,
+    });
     try {
       const history = await this.source.readHistory(this.historyRequest());
       if (generation !== this.generation) return;
@@ -64,6 +72,7 @@ export class ChartController {
         ...this.state,
         candles: history.candles,
         connection: "CONNECTING",
+        recoveryStatus: "NOT_NEEDED",
         stale: true,
         error: undefined,
       });
@@ -101,6 +110,9 @@ export class ChartController {
   private onRealtime(event: MarketRealtimeEvent, generation: number): void {
     if (generation !== this.generation) return;
     if (event.type === "CANDLE") {
+      if (event.candle.pair !== this.state.pair || event.candle.timeframe !== this.state.timeframe) {
+        return;
+      }
       if (this.recovery) {
         this.bufferedCandles.push(event.candle);
       } else {
@@ -109,27 +121,55 @@ export class ChartController {
       return;
     }
 
-    if (event.status.status === "CONNECTED") {
+    if (event.type === "MARKET_OBSERVABILITY") {
+      if (event.observability.pair !== this.state.pair) return;
+      const observability = {
+        ...event.observability,
+        latestTicks: event.observability.latestTicks.slice(-100),
+      };
+      this.publish({ ...this.state, observability });
+      this.applyConnectionStatus(observability.connection.status, generation);
+      return;
+    }
+
+    this.applyConnectionStatus(event.status.status, generation);
+  }
+
+  private applyConnectionStatus(
+    status: "CONNECTED" | "RECONNECTING" | "DISCONNECTED",
+    generation: number,
+  ): void {
+    if (generation !== this.generation) return;
+
+    if (status === "CONNECTED") {
       if (
         this.state.connection === "DISCONNECTED" ||
         this.state.connection === "RECONNECTING"
       ) {
+        this.publish({ ...this.state, recoveryStatus: "PENDING" });
         const recoveryToken = ++this.recoveryToken;
         this.recovery = this.recoverHistory(generation, recoveryToken);
       } else {
-        this.publish({ ...this.state, connection: "LIVE", stale: false, error: undefined });
+        this.publish({
+          ...this.state,
+          connection: "LIVE",
+          recoveryStatus: this.state.recoveryStatus,
+          stale: false,
+          error: undefined,
+        });
       }
     } else {
       this.publish({
         ...this.state,
-        connection: event.status.status,
+        connection: status,
+        recoveryStatus: "PENDING",
         stale: true,
       });
     }
   }
 
   private async recoverHistory(generation: number, recoveryToken: number): Promise<void> {
-    this.publish({ ...this.state, connection: "RECOVERING", stale: true });
+    this.publish({ ...this.state, connection: "RECOVERING", recoveryStatus: "PENDING", stale: true });
     this.bufferedCandles = [];
     try {
       const history = await this.source.readHistory(this.historyRequest());
@@ -140,6 +180,7 @@ export class ChartController {
         ...this.state,
         candles: reconciled,
         connection: "LIVE",
+        recoveryStatus: "RECOVERED",
         stale: false,
         error: undefined,
       });
@@ -148,6 +189,7 @@ export class ChartController {
       this.publish({
         ...this.state,
         connection: "DISCONNECTED",
+        recoveryStatus: "FAILED",
         stale: true,
         error: error instanceof Error ? error.message : "Market recovery failed",
       });

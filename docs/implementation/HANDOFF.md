@@ -1,3 +1,133 @@
+# INS-085 Execution Checkpoint — F-03 DEC-007 Functional-State Frontend Projections
+
+## Resume here
+
+- **Authorization:** `INS-085 / APPROVED_FOR_EXECUTION` authorizes exactly one
+  fresh Manager and exactly one internal Frontend worker for F-03 only. No
+  retry, replacement, duplicate, second worker, user-facing task, worktree,
+  branch, worker commit, downstream promotion, or other packet is authorized.
+- **Manager:** `01a051be-7874-7c12-bad0-d37404f7b89c` in the canonical
+  same-directory checkout `D:/agy-cli-projects/AOS/Cryptox` on branch
+  `MVP_IMPLEMENTATION`.
+- **Starting checkpoint:** `abc868c115c84b0a6a7e0afb619ff8904fe463e8`
+  (`docs(control): authorize F-03 frontend projections`), with reviewed base
+  `1c5b1cf9c250526990c1b4bc0da0b5d9bbec403d`. The base is an ancestor and the
+  only pre-execution delta was the committed `docs/control/INSTRUCTOR.md`
+  authorization. The source/business tree and task DAG were clean and
+  applicable before the Manager-owned state transition.
+- **Dependencies:** `M-03`, `S-04`, `S-05`, `S-06`, `Q-02`, `B-03`, `N-03`,
+  `E-02`, and `L-02` were verified `DONE`. `M-02` remains `REVIEW`, while
+  `AU-02`, baseline `I-01`, `I-02`, and `I-03` remain blocked. No downstream
+  packet was started or promoted.
+- **Concurrency:** The repository/app task inspection found no competing
+  Cryptox Manager or Frontend worker. Exactly one internal worker was
+  dispatched: Descartes (`01a051c9-fe30-7a32-8b24-a3878e278323`).
+- **State transition:** Only F-03 moved exactly
+  `BLOCKED -> READY -> IN_PROGRESS -> REVIEW`. The worker stopped safely with
+  partial uncommitted edits; the Manager independently reviewed the result.
+  F-03 is not `DONE` and requires `NEEDS_INSTRUCTOR_REVIEW`.
+
+## Execution boundary
+
+- **Requirement IDs:** `CSL-R-MD-03`, `CSL-R-ST-05`–`07`, `CSL-R-SE-03`,
+  `CSL-R-BT-02`, `CSL-R-NW-02`, `CSL-R-RP-02`, `CSL-R-FE-01`, and
+  `CSL-R-DM-01`.
+- **Worker scope:** `apps/frontend/**` only, excluding generated/build output
+  and dependencies. Frozen REST/WebSocket contracts, backend/module source,
+  migrations, providers, manifests/lockfiles, policy documents, and control
+  files were protected. The worker made no commit and no control-plane edit.
+- **Manager scope:** Review/integration safety work plus the Manager-owned
+  `docs/implementation/TASKS.md` and this `HANDOFF.md`. No frontend feature
+  slice was reimplemented by the Manager.
+
+## Worker result and independent review
+
+- **Worker result:** Descartes began market observability, recovery-state, and
+  private-cache projection changes, then stopped safely after its feature
+  screen rewrite was incomplete. Its attempted `features/screens.tsx` deletion
+  and new `features/projections.ts` helper were not accepted: the Manager
+  restored `features/screens.tsx` byte-for-byte from the reviewed base and
+  removed the unreferenced partial helper as review-safety cleanup. The initial
+  transient `App.tsx` prop change also has no effective diff.
+- **Effective frontend source paths:**
+  `apps/frontend/src/auth/cache.ts`,
+  `apps/frontend/src/components/MarketChart.tsx`,
+  `apps/frontend/src/features/state.ts`,
+  `apps/frontend/src/features/types.ts`,
+  `apps/frontend/src/market/chart-state.ts`,
+  `apps/frontend/src/market/clients.ts`,
+  `apps/frontend/src/market/fixture-source.ts`,
+  `apps/frontend/src/market/remote-source.ts`, and
+  `apps/frontend/src/market/types.ts`.
+- **Accepted bounded behavior:** The effective diff adds typed
+  `MARKET_OBSERVABILITY` delivery handling for the existing public WebSocket
+  payload, pair filtering, an at-most-100 latest-tick projection, provider
+  event/received time and latency display, explicit ephemeral/restart-loss
+  wording, and recovery-state labels while preserving history-before-realtime
+  chart flow. It also adds a cache revision seam that prevents stale async
+  feature writes after the shared private cache is cleared, and an explicit
+  unavailable authoring state for the absent public draft transport.
+- **Acceptance gaps:** The restored feature screens do not consume the new
+  authoring state or provide the required distinct LLM draft/validation/error/
+  Save/Approve presentation. They also do not provide the DEC-007 weighted/Lite
+  descriptor projection, RANDOM/DOMAIN_GUIDED/GENETIC seeded provenance and
+  stop presentation, synthetic Long/Short paper/SL-TP/fee/slippage/decimal
+  projection, News extraction/template state, or explicit supplied
+  Sentiment `AVAILABLE`/`MISSING`/`DEGRADED` reasons. No F-03 packet-specific
+  tests were added. The frozen public REST contracts expose no dedicated LLM
+  draft/Save/Approve transport and no typed SL/TP stop-policy fields, while
+  the current backend composition has no feature REST/market-WebSocket routes;
+  these limitations cannot be repaired within F-03 without Instructor review
+  or the separately blocked integration boundary. No fabricated client state,
+  browser network call, new contract field, or client identity bypass was
+  introduced.
+- **Scope review:** PASS. The final source diff is confined to the nine
+  `apps/frontend` paths above; `packages/contracts/**`, `apps/backend/**`,
+  `modules/**`, migrations, dependencies, policy documents, and generated
+  source artifacts are unchanged. The deferred-scope checker passes after the
+  unreferenced partial helper and fixture-only observability literal were
+  removed; this does not convert the incomplete F-03 behavior into acceptance.
+
+## Validation evidence
+
+- **PASS (regression boundary):** `npm test --workspace @cryptox/frontend` —
+  12 files, 31 tests. These are the existing frontend tests; no new packet
+  tests exist, so this is not full F-03 acceptance evidence.
+- **PASS:** Frontend typecheck, build, and lint; root typecheck, build, and
+  lint.
+- **PASS:** Root `npm test` — 383 tests passed and 6 environment-gated tests
+  skipped. Skips are not PASS evidence.
+- **PASS:** `npm run arch:check` (76 modules / 199 dependencies, with the
+  expected nine forbidden-dependency fixtures), `npm run artifacts:check`,
+  `npm run scope:check`, `npm run test:scope-check` (13/13), and
+  `git diff --check`.
+- **PASS (limited):** `npm run runtime:smoke` — `/live=200`, `/ready=503`,
+  `/health=404`. This is health-only evidence, not feature API or provider
+  evidence.
+- **BLOCKED:** `npm run db:local:validate` because Docker Compose is not
+  available and Docker config access is denied (`docker: unknown command:
+  docker compose`). PostgreSQL and database integration remain unverified.
+- **UNVERIFIED:** The OpenSpec CLI is unavailable (`openspec` is not
+  recognized). Live Binance/News/provider traffic, real feature REST/market
+  WebSocket composition, and browser/demo evidence were not available and are
+  not claimed. Fixture/regression evidence is not final real-provider/demo
+  evidence.
+
+## Stop boundary
+
+- F-03 remains at `REVIEW` with `NEEDS_INSTRUCTOR_REVIEW`; it must not be
+  promoted to `DONE` from this partial worker result. No other task moved:
+  `M-02` remains `REVIEW`; `AU-02`, `I-01`, `I-02`, and `I-03` remain blocked.
+- The sole worker and its authorized execution are exhausted. Do not start a
+  second worker, retry or resume this worker, implement another packet, or
+  promote newly unlocked work. Instructor review is required before any
+  further F-03 implementation or integration decision.
+- **Commit attempt:** The single coherent Manager staging/commit attempt was
+  made once and failed before staging with `fatal: Unable to create
+  'D:/agy-cli-projects/AOS/Cryptox/.git/index.lock': Permission denied`. It was
+  not retried. The source/control delta remains uncommitted for Instructor
+  audit and commit.
+
 # INS-083 Execution Checkpoint — L-02 Extension-Aware Ranking and Provenance Admission
 
 ## Resume here

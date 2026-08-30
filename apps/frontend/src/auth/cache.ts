@@ -9,6 +9,7 @@ export interface PrivateCache {
  */
 export class InMemoryPrivateCache implements PrivateCache {
   private readonly entries = new Map<string, unknown>();
+  private revisionNumber = 0;
 
   public set(key: string, value: unknown): void {
     this.entries.set(key, value);
@@ -26,7 +27,12 @@ export class InMemoryPrivateCache implements PrivateCache {
     return this.entries.size;
   }
 
+  public get revision(): number {
+    return this.revisionNumber;
+  }
+
   public clear(): void {
     this.entries.clear();
+    this.revisionNumber += 1;
   }
 }

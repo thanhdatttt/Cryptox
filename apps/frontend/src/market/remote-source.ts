@@ -27,6 +27,11 @@ export class RemoteMarketDataSource implements MarketDataSource {
       } else if (message.type === "CONNECTION_STATUS") {
         listener({ type: "CONNECTION_STATUS", status: message.payload });
       } else if (
+        message.type === "MARKET_OBSERVABILITY" &&
+        message.payload.pair === subscription.pair
+      ) {
+        listener({ type: "MARKET_OBSERVABILITY", observability: message.payload });
+      } else if (
         message.type === "SUBSCRIPTION_ACK" &&
         message.payload.action === "SUBSCRIBE" &&
         message.payload.accepted.some(

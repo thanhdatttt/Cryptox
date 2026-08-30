@@ -1,10 +1,11 @@
 import { useSyncExternalStore } from "react";
 import { REST_SCHEMA_VERSION, type DefineCompositeRequestDto, type DefineStrategyRequestDto, type StartManualBacktestRequestDto, type StartSearchRequestDto } from "@cryptox/contracts/rest";
 import type { FeatureClient, FeaturePrivateCache, FeatureWorkspaceCache, FeatureWorkspaceState } from "./types";
-import { FEATURE_PRIVATE_CACHE_KEY } from "./types";
+import { FEATURE_PRIVATE_CACHE_KEY, UNAVAILABLE_AUTHORING_STATE } from "./types";
 
 const EMPTY_STATE: FeatureWorkspaceState = {
   status: "idle",
+  authoring: UNAVAILABLE_AUTHORING_STATE,
   descriptors: [],
   strategyDefinitions: [],
   compositeDefinitions: [],
@@ -21,6 +22,7 @@ function errorMessage(error: unknown, fallback: string): string {
 
 function cacheable(state: FeatureWorkspaceState): FeatureWorkspaceCache {
   return {
+    authoring: state.authoring,
     descriptors: state.descriptors,
     strategyDefinitions: state.strategyDefinitions,
     compositeDefinitions: state.compositeDefinitions,
@@ -40,11 +42,14 @@ export class FeatureWorkspaceStore {
   private state: FeatureWorkspaceState = EMPTY_STATE;
   private readonly listeners = new Set<() => void>();
   private loadPromise?: Promise<void>;
+  private readonly cacheRevision?: number;
 
   public constructor(
     private readonly client: FeatureClient,
     private readonly privateCache: FeaturePrivateCache,
-  ) {}
+  ) {
+    this.cacheRevision = privateCache.revision;
+  }
 
   public snapshot = (): FeatureWorkspaceState => this.state;
 
@@ -201,7 +206,7 @@ export class FeatureWorkspaceStore {
         newsMessage: news.status === "rejected" ? errorMessage(news.reason, "News is temporarily unavailable.") : undefined,
         trades: trades.status === "fulfilled" ? trades.value.items : [],
       });
-      this.privateCache.set(FEATURE_PRIVATE_CACHE_KEY, cacheable(this.state));
+      this.setCacheIfCurrent(this.state);
     } catch (error) {
       this.publish({ ...this.state, status: "error", newsStatus: "unavailable", message: errorMessage(error, "Private workspace is unavailable.") });
     }
@@ -209,8 +214,15 @@ export class FeatureWorkspaceStore {
 
   private publish(state: FeatureWorkspaceState): void {
     this.state = state;
-    if (state.status === "ready") this.privateCache.set(FEATURE_PRIVATE_CACHE_KEY, cacheable(state));
+    if (state.status === "ready") this.setCacheIfCurrent(state);
     for (const listener of this.listeners) listener();
+  }
+
+  private setCacheIfCurrent(state: FeatureWorkspaceState): void {
+    if (this.privateCache.revision !== undefined && this.privateCache.revision !== this.cacheRevision) {
+      return;
+    }
+    this.privateCache.set(FEATURE_PRIVATE_CACHE_KEY, cacheable(state));
   }
 }
 

@@ -66,8 +66,34 @@ export interface FeatureClient {
 export type FeatureWorkspaceStatus = "idle" | "loading" | "ready" | "error";
 export type NewsPanelStatus = "loading" | "ready" | "unavailable";
 
+/**
+ * The frozen public contracts do not include an LLM draft workflow. Keep that
+ * absence explicit instead of making a client-side draft look persisted.
+ */
+export interface FeatureAuthoringState {
+  readonly status: "UNAVAILABLE";
+  readonly reason: "NO_FROZEN_PUBLIC_TRANSPORT";
+  readonly draft: "NOT_SUPPLIED";
+  readonly validation: "NOT_SUPPLIED";
+  readonly save: "DISABLED";
+  readonly approve: "DISABLED";
+  readonly message: string;
+}
+
+export const UNAVAILABLE_AUTHORING_STATE: FeatureAuthoringState = {
+  status: "UNAVAILABLE",
+  reason: "NO_FROZEN_PUBLIC_TRANSPORT",
+  draft: "NOT_SUPPLIED",
+  validation: "NOT_SUPPLIED",
+  save: "DISABLED",
+  approve: "DISABLED",
+  message:
+    "Controlled LLM authoring is not yet composed: the frozen public REST contracts expose no draft, validation, Save, or Approve transport.",
+};
+
 export interface FeatureWorkspaceState {
   readonly status: FeatureWorkspaceStatus;
+  readonly authoring: FeatureAuthoringState;
   readonly descriptors: readonly StrategyPluginDescriptorDto[];
   readonly strategyDefinitions: readonly StrategyDefinitionDto[];
   readonly compositeDefinitions: readonly CompositeStrategyDefinitionDto[];
@@ -87,11 +113,14 @@ export interface FeatureWorkspaceState {
 export interface FeaturePrivateCache {
   get<T>(key: string): T | undefined;
   set(key: string, value: unknown): void;
+  /** Optional monotonic revision used to reject stale async writes after logout. */
+  readonly revision?: number;
 }
 
 export const FEATURE_PRIVATE_CACHE_KEY = "feature-workspace";
 
 export interface FeatureWorkspaceCache {
+  readonly authoring: FeatureAuthoringState;
   readonly descriptors: readonly StrategyPluginDescriptorDto[];
   readonly strategyDefinitions: readonly StrategyDefinitionDto[];
   readonly compositeDefinitions: readonly CompositeStrategyDefinitionDto[];

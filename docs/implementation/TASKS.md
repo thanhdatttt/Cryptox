@@ -48,7 +48,7 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 | N-03A | DONE | E1 residual | YES | INS-073 Manager `01a050a6-bc83-70a3-9030-6f6f8435a4f7` + exactly one fresh News application worker `01a050be-e4f6-7c71-b289-8f12758b273c` | `MVP_IMPLEMENTATION` / integrated at `f320b5f1d7731d121db27e788cffa4a8033dc7fd` (`feat(news): complete N-03A refresh scheduler`); source paths `modules/news/application/scheduler.ts`, `modules/news/application/scheduler.spec.ts`, and `modules/news/api/bootstrap.ts` | `READY -> IN_PROGRESS -> REVIEW -> DONE`; `CSL-R-NW-02`, `CSL-R-RP-02`, `CSL-R-OB-01`; News scheduler 5/5, News total 35/35, Sentiment 19/19, API 3/3, root 346 passed / 6 environment-gated skips; scope, architecture, artifacts, typecheck, build, lint, checker, and diff checks PASS; real-provider/PostgreSQL/runtime/OpenSpec/link-DAG evidence remains UNVERIFIED/BLOCKED |
 | E-02 | DONE | E2 | Integration | INS-081 Manager `01a05141-3fce-7ff3-bceb-eded75852526` / Evaluation worker Bacon `01a05145-6769-7100-b367-e3173484ce8c` | `MVP_IMPLEMENTATION` / containing INS-081 checkpoint | DONE under INS-081; independent decimal-boundary review and required validation complete; no downstream packet started |
 | L-02 | DONE | E2 | YES | INS-083 Manager `01a05171-cd4c-73e2-aa50-0d2b12073856` / exactly one internal Leaderboard worker Harvey `01a05179-85a0-7570-b59a-4b0ebca94fc6` | `MVP_IMPLEMENTATION` / Instructor-audited exact twelve-path checkpoint `32ed9321f9f22f858fdd2458351b531e8807db7d` | `BLOCKED -> READY -> IN_PROGRESS -> REVIEW -> DONE`; dependencies verified DONE; Manager review accepted the bounded implementation; no downstream packet started |
-| F-03 | BLOCKED | E3 | YES | Future Frontend worker | — | Not started; DEC-007 functional-state projections required |
+| F-03 | REVIEW | E3 | YES | INS-085 Manager + exactly one internal Frontend worker Descartes `01a051c9-fe30-7a32-8b24-a3878e278323` | `MVP_IMPLEMENTATION` / uncommitted source review at `abc868c115c84b0a6a7e0afb619ff8904fe463e8`; reviewed base `1c5b1cf9c250526990c1b4bc0da0b5d9bbec403d` | `BLOCKED -> READY -> IN_PROGRESS -> REVIEW`; worker stopped safely; frontend/global gates pass, but screen-level projections and packet tests are incomplete; `NEEDS_INSTRUCTOR_REVIEW` |
 | I-03 | BLOCKED | E4 | YES | Manager / future integration worker | — | Not started; final extension integration/reproducibility proof required |
 | ENV-01 | DONE | E0a | YES | Manager / Infrastructure-and-tooling worker `01a04d08-19c8-76e1-ad32-57471e75f430` | `MVP_IMPLEMENTATION` / containing INS-030 ENV-01 checkpoint commit | Independent review PASS; Docker/migration/checker/root validation PASS; OpenSpec CLI UNVERIFIED |
 | ENV-02 | DONE | E1 closure | YES | Manager `01a04ea7-b1bd-73c2-972a-7d67e6f551c9` / checker-tooling worker `01a04eae-367c-7fc3-8961-dccb9e760cf9` (Confucius) under `INS-039`; INS-041 closure review | `MVP_IMPLEMENTATION` / `d8c5bf3324cbee349e272cb177537fa6ed062df0` plus INS-041 closure checkpoint | `BLOCKED -> READY -> IN_PROGRESS -> REVIEW -> DONE`; immutable checker evidence accepted; no worker created for closure |
@@ -67,8 +67,8 @@ current deferred-scope checker gate pass, while real-provider/database evidence
 remains blocked or unverified. `N-03` and `N-03A` are `DONE`; `M-02` remains
 `REVIEW/UNVERIFIED`; `ENV-03` is
 `DONE` after its closure. `S-04` is `DONE` under `INS-077`; `E-02` and `L-02`
-are `DONE`, while `F-03` and `I-03` remain `BLOCKED`. No downstream packet
-was authorized or started.
+are `DONE`; `F-03` is in `REVIEW` with incomplete worker evidence and `I-03`
+remains `BLOCKED`. No downstream packet was authorized or started.
 The existing legacy rows, including
 `M-02` at `REVIEW`, `AU-02` at `BLOCKED`, and `I-01`/`I-02` at `BLOCKED`, retain
 their states and evidence. DEC-007 feature behavior remains unimplemented in
@@ -1112,7 +1112,10 @@ acceptance criteria and handoff requirements are in the linked packets in
 
 - **Requirement IDs:** `CSL-R-MD-03`, `CSL-R-ST-05`–`07`, `CSL-R-SE-03`,
   `CSL-R-BT-02`, `CSL-R-NW-02`, `CSL-R-RP-02`, `CSL-R-FE-01`, `CSL-R-DM-01`.
-- **State / owner / wave:** BLOCKED / Frontend worker / E3.
+- **State / owner / wave:** REVIEW / INS-085 Manager + exactly one internal Frontend worker Descartes `01a051c9-fe30-7a32-8b24-a3878e278323` / E3.
+- **Execution note:** Descartes was the sole authorized worker in the canonical same-directory checkout; it made no control-plane edit, commit, branch, worktree, child worker, retry, or second-worker attempt. The Manager recorded `BLOCKED -> READY -> IN_PROGRESS -> REVIEW`.
+- **Review note:** Descartes stopped safely after partial frontend edits. The Manager restored the incomplete `features/screens.tsx` from the reviewed base and removed the unreferenced partial projection helper; the effective source diff remains frontend-only. Review found market observability plumbing and cache-revision protection, but no screen-level F-03 projection integration or packet-specific tests. F-03 is not accepted as DONE and requires `NEEDS_INSTRUCTOR_REVIEW`.
+- **Validation note:** Frontend 31/31, root 383 passed / 6 environment-gated skips, typecheck/build/lint, architecture, artifacts, deferred-scope, scope tests 13/13, runtime smoke, and whitespace checks passed. OpenSpec, Docker/PostgreSQL, live providers, real feature transport, and browser/demo evidence remain UNVERIFIED or BLOCKED.
 - **Dependencies:** M-03, S-04, S-05, S-06, Q-02, B-03, N-03, E-02, L-02;
   downstream I-03 and baseline I-01.
 - **Exact write scope:** `apps/frontend/**` only; no backend/module/contract/

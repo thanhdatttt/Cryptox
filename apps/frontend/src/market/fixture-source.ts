@@ -96,12 +96,13 @@ export class FixtureMarketDataSource implements MarketDataSource {
     this.subscribers.set(id, { subscription, listener });
     queueMicrotask(() => {
       if (!this.subscribers.has(id)) return;
+      const now = new Date().toISOString();
       listener({
         type: "CONNECTION_STATUS",
         status: {
           provider: "FIXTURE",
           status: this.disconnected.has(marketKey) ? "DISCONNECTED" : "CONNECTED",
-          lastEventAt: new Date().toISOString(),
+          lastEventAt: now,
         },
       });
     });

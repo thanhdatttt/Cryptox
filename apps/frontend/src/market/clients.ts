@@ -180,9 +180,13 @@ export class MarketWebSocketClient {
     }
     for (const { subscription, listener } of this.listeners.values()) {
       if (
-        message.type !== "CANDLE" ||
+        (message.type !== "CANDLE" &&
+          message.type !== "MARKET_TICK" &&
+          message.type !== "MARKET_OBSERVABILITY") ||
         (message.payload.pair === subscription.pair &&
-          message.payload.timeframe === subscription.timeframe)
+          (message.type === "MARKET_OBSERVABILITY" ||
+            message.type === "MARKET_TICK" ||
+            message.payload.timeframe === subscription.timeframe))
       ) {
         listener(message);
       }
