@@ -862,3 +862,46 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Task state](../implementation/TASKS.md),
 [Latest checkpoint](../implementation/HANDOFF.md), `INS-103`, and commit
 `7d686b6`.
+
+## DEC-026 — INS-104 I-01S composition seam accepted at DONE
+
+Status: `APPROVED`
+
+Authority: Independent Instructor review after the completed `INS-104`
+Manager checkpoint, with the exact audited source/checkpoint delta integrated
+at `7d574e6`.
+
+Decision: The bounded `INS-104` packet `I-01S` is accepted as `DONE`. The
+Strategy public composition seam is now available through a typed immutable
+`STRATEGY_FACTORIES` collection, preserves the approved factory descriptors,
+profile identifiers, and function identity, and is proven compatible with
+`createStrategyModule`. `I-01` remains `REVIEW / NEEDS_INSTRUCTOR_REVIEW` and
+requires a separate fresh authorization; `I-02`, `I-03`, all extensions,
+retries, replacements, duplicates, and downstream packets remain
+unauthorized.
+
+Why: The Manager used exactly one fresh same-directory Manager and exactly one
+fresh sequential internal worker, changed only the four authorized Strategy
+source/test paths plus the two Manager checkpoint files, and stopped at the
+authorized boundary. The Manager's single staging attempt was denied by the
+Git ACL; the Instructor independently reviewed the exact six-path delta and
+integrated it once at `7d574e6`. Focused Strategy tests passed `119/119`, and
+the independent workspace `verify:stage4a` passed build, typecheck, `389`
+workspace tests, architecture/dependency, artifact/source-sidecar,
+deferred-scope, runtime-smoke, lint, test-scope `13/13`, secret/log,
+whitespace, and exact-path checks. OpenSpec CLI, six environment-gated
+PostgreSQL/integration/E2E tests, and real provider/browser/demo/final
+integration evidence remain `UNVERIFIED` or `BLOCKED` and were not treated as
+PASS.
+
+Affected: `I-01S`, `I-01`, `TASKS.md`, `HANDOFF.md`, `INS-104`, and the
+integration DAG. Requirements, approved functional image amendments, accepted
+architecture, contracts, and all deferred-scope rules remain unchanged.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [Architecture](../architecture.md),
+[Strategy specification](../../openspec/specs/strategy/spec.md),
+[MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md),
+[Latest checkpoint](../implementation/HANDOFF.md), `INS-104`, and commit
+`7d574e6`.

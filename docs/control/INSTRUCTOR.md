@@ -2,13 +2,68 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-104`
+Instruction ID: `INS-105`
 
-Status: `APPROVED_FOR_EXECUTION`
+Status: `HOLD`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
-## INS-104 — Strategy public composition seam reconciliation
+## INS-105 — HOLD after I-01S acceptance
+
+This signal supersedes `INS-104 / APPROVED_FOR_EXECUTION` after the Instructor's
+independent audit of the completed I-01S Manager checkpoint. `I-01S` is
+accepted at `DONE`; this signal authorizes no implementation, retry,
+replacement, duplicate, downstream packet, extension, or resumed I-01.
+
+### Reviewed checkpoint and acceptance
+
+- The canonical checkout is `D:/agy-cli-projects/AOS/Cryptox` on
+  `MVP_IMPLEMENTATION`, at `7d574e6` (`feat(strategy): expose public factory
+  composition seam`). The parent Instructor integrated exactly the Manager's
+  audited six-path source/checkpoint delta after the Manager's one staging
+  attempt was denied by the repository `.git/index.lock` permission error.
+  The unrelated app-generated `.codex/config.toml` remains untouched,
+  unstaged, and untracked.
+- The authoritative task board is `41 DONE`, `1 REVIEW` (`I-01`), and
+  `2 BLOCKED` (`I-02`, `I-03`). `I-01S` completed exactly
+  `BLOCKED -> READY -> IN_PROGRESS -> REVIEW -> DONE` under `INS-104`.
+- The accepted source boundary is exactly
+  `modules/strategy/application/registry.ts`,
+  `modules/strategy/api/index.ts`,
+  `modules/strategy/api/index.spec.ts`, and
+  `modules/strategy/api/composition.spec.ts`; the Manager-owned checkpoint
+  delta is in `docs/implementation/TASKS.md` and
+  `docs/implementation/HANDOFF.md`. No contract, plugin algorithm,
+  persistence, migration, transport, backend, frontend, dependency,
+  generated-artifact, or unrelated path changed.
+- The Strategy-owned public factory collection reuses the approved four
+  baseline registrations followed by `SMC_LITE_V1` and `WYCKOFF_LITE_V1`,
+  preserves exact descriptors/profile IDs and factory identity, is immutable,
+  and composes successfully through `createStrategyModule` without algorithm
+  duplication or backend domain deep imports.
+- Independent validation passed focused Strategy `119/119` and the complete
+  workspace `verify:stage4a` run: build, typecheck, workspace tests (`389`
+  passed), architecture/dependency, artifact/source-sidecar,
+  deferred-scope, runtime-smoke, lint, test-scope (`13/13`), secret/log,
+  whitespace, and exact-path checks. OpenSpec CLI is `UNVERIFIED`; six
+  environment-gated PostgreSQL/integration/E2E tests and real provider,
+  browser/demo, and final integration evidence remain `UNVERIFIED` or
+  `BLOCKED`, never promoted to `PASS`.
+- The `INS-104` Manager and its sole worker Mendel are idle/closed. No
+  competing Cryptox Manager, Orchestrator, worker, retry, replacement,
+  duplicate, or downstream execution is active.
+
+### Current hold and next safe state
+
+- No implementation is authorized by `INS-105`. `I-01` remains
+  `REVIEW / NEEDS_INSTRUCTOR_REVIEW` until a fresh signal explicitly resumes
+  it; `I-02` and `I-03` remain `BLOCKED`.
+- A later Instructor review may authorize only a separately bounded fresh
+  `I-01` Manager attempt after verifying that the public `STRATEGY_FACTORIES`
+  seam at `7d574e6` resolves the previous composition blocker and that the
+  current Git/checkpoint/DAG and active-writer preconditions still hold.
+
+## Historical INS-104 — Strategy public composition seam reconciliation
 
 This signal supersedes `INS-103 / APPROVED_FOR_EXECUTION` after the fresh
 Instructor review of its completed Manager checkpoint. It authorizes exactly
