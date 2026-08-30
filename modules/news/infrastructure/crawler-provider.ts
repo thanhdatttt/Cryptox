@@ -175,7 +175,7 @@ const assertPublicUrl = async (value: string, resolveHost: ((hostname: string) =
 };
 
 const contentTypeIsHtml = (contentType: string | null | undefined): boolean => {
-  if (!contentType) return true;
+  if (!contentType) return false;
   const normalized = contentType.split(";", 1)[0]!.trim().toLowerCase();
   return normalized === "text/html" || normalized === "application/xhtml+xml";
 };

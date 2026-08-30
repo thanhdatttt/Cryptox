@@ -50,7 +50,7 @@ describe("createCrawlerNewsProvider", () => {
     const failures: Array<{ stage: string; reason: string }> = [];
     const provider = createCrawlerNewsProvider({
       sourceUrls: [sourceUrl],
-      fetchPage: async () => ({ finalUrl: sourceUrl, html: page }),
+      fetchPage: async () => ({ finalUrl: sourceUrl, html: page, contentType: "text/html" }),
       interpreter: { interpret: async () => [{ ...candidate, canonicalUrl: "https://other.example.test/fabricated", leakedModelField: "secret" } as never] },
       observability: { recordProviderFailure: ({ stage, reason }) => failures.push({ stage, reason }) },
     });
@@ -64,7 +64,7 @@ describe("createCrawlerNewsProvider", () => {
     const provider = createCrawlerNewsProvider({
       sourceUrls: [sourceUrl],
       timeoutMs: 5,
-      fetchPage: async () => ({ finalUrl: sourceUrl, html: page }),
+      fetchPage: async () => ({ finalUrl: sourceUrl, html: page, contentType: "text/html" }),
       interpreter: { interpret: async () => new Promise<never>(() => undefined) },
       observability: { recordProviderFailure: ({ stage, reason }) => failures.push({ stage, reason }) },
     });
@@ -97,6 +97,21 @@ describe("createCrawlerNewsProvider", () => {
       maxHtmlBytes: 4,
       fetch: async () => new Response("too large", { status: 200, headers: { "content-type": "text/html" } }),
       resolveHost: async () => ["93.184.216.34"],
+      interpreter: { interpret: async () => { interpreted = true; return [candidate]; } },
+      observability: { recordProviderFailure: ({ stage, reason }) => failures.push({ stage, reason }) },
+    });
+
+    await expect(provider.fetch()).resolves.toEqual([]);
+    expect(interpreted).toBe(false);
+    expect(failures).toEqual([{ stage: "FETCH", reason: "ERROR" }]);
+  });
+
+  it("rejects pages whose content type is absent instead of treating them as HTML", async () => {
+    let interpreted = false;
+    const failures: Array<{ stage: string; reason: string }> = [];
+    const provider = createCrawlerNewsProvider({
+      sourceUrls: [sourceUrl],
+      fetchPage: async () => ({ finalUrl: sourceUrl, html: page }),
       interpreter: { interpret: async () => { interpreted = true; return [candidate]; } },
       observability: { recordProviderFailure: ({ stage, reason }) => failures.push({ stage, reason }) },
     });
