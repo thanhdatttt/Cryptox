@@ -676,3 +676,35 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [MVP plan](../implementation/MVP_PLAN.md), [Task state](../implementation/TASKS.md),
 [Latest checkpoint](../implementation/HANDOFF.md), `INS-098`, and commit
 `8e73cb9`.
+
+## DEC-021 — INS-099 AU-02 attempt held after concrete Search failure
+
+Status: `APPROVED`
+
+Authority: Fresh Instructor review after the completed `INS-099` Manager
+checkpoint persisted at `49ca52e`
+
+Decision: `INS-099` is exhausted at `AU-02 = REVIEW`, not `DONE`. The current
+Instructor signal is `INS-100 / HOLD`. No automatic retry, replacement,
+duplicate worker, downstream packet, or I-01/I-02/I-03 authorization follows
+from this checkpoint. A later AU-02 remediation requires its own explicit
+authorization after fresh review.
+
+Why: The sole worker made no source/test changes. Real Auth PostgreSQL
+integration passed `3/3`, but real Search reached PostgreSQL and failed at
+`modules/search/application/integration.spec.ts:377` with
+`completedCandidateCount = 0` instead of `1`. The complete cross-module
+two-user ownership matrix remains unproven. Workspace and policy gates passed
+with environment-gated skips, while Docker Compose, standalone `psql`, and
+OpenSpec CLI remain `UNVERIFIED`; none of these facts supports an AU-02 `DONE`
+claim.
+
+Affected: AU-02, `TASKS.md`, `HANDOFF.md`, `INS-100`, and the remaining
+integration DAG. All requirements, ownership rules, deferred scope, and other
+task states remain unchanged.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [ADR-008](../adr/ADR_008_simple_auth_and_per_user_ownership.md),
+[MVP plan](../implementation/MVP_PLAN.md), [Task state](../implementation/TASKS.md),
+[Latest checkpoint](../implementation/HANDOFF.md), `INS-099`, and commit
+`49ca52e`.

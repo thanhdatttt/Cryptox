@@ -2,13 +2,71 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-099`
+Instruction ID: `INS-100`
 
-Status: `APPROVED_FOR_EXECUTION`
+Status: `HOLD`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
-## INS-099 — AU-02 Completion Ownership Matrix
+## INS-100 — HOLD after INS-099 AU-02 completion attempt
+
+This is the current Instructor checkpoint. `INS-099 / APPROVED_FOR_EXECUTION`
+is exhausted and is not an active authorization. The exact Manager checkpoint
+was persisted at `49ca52e` after the Manager's one staging attempt was denied;
+that commit contains only the Manager-produced `TASKS.md` and `HANDOFF.md`
+content and no feature implementation.
+
+### Independent review and applicability
+
+- The canonical checkout is `D:/agy-cli-projects/AOS/Cryptox` on
+  `MVP_IMPLEMENTATION`, at `49ca52e`. The tracked working tree has no source,
+  business-state, or task-DAG drift. The only remaining working-tree delta is
+  the app-generated untracked `.codex/config.toml`, which is outside Cryptox
+  scope and remains untouched, unstaged, and undeleted.
+- `TASKS.md` remains authoritative at `39 DONE`, `1 REVIEW` (`AU-02`), and
+  `3 BLOCKED` (`I-01`, `I-02`, `I-03`). AU-02 recorded exactly
+  `REVIEW -> READY -> IN_PROGRESS -> REVIEW`; no other task moved.
+- The fresh INS-099 Manager and sole worker Dirac are idle/closed. Independent
+  task inspection found no active Cryptox Manager, Orchestrator, or worker, no
+  duplicate, and no competing writer.
+- The Manager's source/diff review found no changed source or test path. The
+  current checkpoint therefore proves neither a new ownership implementation
+  nor the complete AU-02 matrix.
+
+### Review result and validation
+
+- Real Auth PostgreSQL integration passed `3/3` against the documented local
+  `cryptox_development` database. The redacted process-local `pg` connectivity
+  checks passed for both documented database names and ports.
+- Real Search integration reached PostgreSQL but failed at
+  `modules/search/application/integration.spec.ts:377` because
+  `completedCandidateCount` was `0` instead of `1`. This is a concrete
+  `BLOCKED` result, not a PASS; no source fix or test retry was authorized.
+- The complete resource-by-resource two-user A/B matrix remains
+  `UNVERIFIED`, including cross-module Strategy/Composite, SearchRun/Candidate,
+  Experiment/Trade, Leaderboard admission/ranking, spoof resistance, and
+  shared-data visibility. Existing isolated package tests are retained as
+  partial evidence only.
+- Workspace build/typecheck/tests, architecture/artifact/deferred-scope and
+  runtime smoke, lint, scope tests `13/13`, sensitive-log review, and diff
+  checks passed (`385` tests with `6` environment-gated skips). Those skips do
+  not substitute for AU-02 acceptance. Docker daemon/Compose, standalone
+  `psql`, and OpenSpec CLI remain `UNVERIFIED`.
+- The Manager's single staging/commit attempt failed with
+  `fatal: Unable to create 'D:/agy-cli-projects/AOS/Cryptox/.git/index.lock':
+  Permission denied`; it did not retry. The parent persisted the exact
+  Manager checkpoint once at `49ca52e`, without changing its content.
+
+### HOLD boundary
+
+- AU-02 is not accepted as `DONE`. No retry, replacement, duplicate, worker,
+  downstream packet, or I-01/I-02/I-03 work is authorized by this HOLD.
+- A future authorization may address the concrete Search integration failure
+  and the missing matrix only after a fresh Instructor review verifies the
+  current Git checkpoint, task DAG, environment, and safe write scope. It must
+  be a new explicit signal, not an automatic continuation of INS-099.
+
+## Historical INS-099 — AU-02 Completion Ownership Matrix
 
 This current signal supersedes `INS-098 / HOLD` at `8e73cb9` and is issued
 after a fresh Instructor review found that the previously blocked host database
