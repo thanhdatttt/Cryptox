@@ -2,13 +2,108 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-105`
+Instruction ID: `INS-106`
 
-Status: `HOLD`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
-## INS-105 — HOLD after I-01S acceptance
+## INS-106 — Runtime, transports and observability integration
+
+This signal supersedes `INS-105 / HOLD` after the Instructor's fresh review
+of the accepted I-01S seam. It authorizes exactly one fresh same-directory
+Manager in the canonical checkout, configured as `gpt-5.6-luna` with
+reasoning `max`, and exactly one fresh sequential internal worker for the sole
+packet `I-01`. No I-02, I-03, extension, retry, replacement, duplicate,
+worktree, or downstream execution is authorized.
+
+### Reviewed checkpoint and applicability
+
+- The canonical checkout is `D:/agy-cli-projects/AOS/Cryptox` on
+  `MVP_IMPLEMENTATION`, at `f656274` (`chore(control): hold after I-01S
+  acceptance`). The tracked tree is clean at this checkpoint; the only
+  working-tree item is the untouched app-generated `.codex/config.toml`,
+  outside Cryptox scope, which must remain unstaged and undeleted.
+- The authoritative task board is `41 DONE`, `1 REVIEW` (`I-01`), and
+  `2 BLOCKED` (`I-02`, `I-03`). `I-01S` is independently accepted `DONE` at
+  `7d574e6`; the public `STRATEGY_FACTORIES` seam is now available through the
+  Strategy package entrypoint and is proven compatible with
+  `createStrategyModule`.
+- I-01 start dependencies are verified `DONE`: `AU-01`, `AU-02`, `B-02`,
+  `M-01`, `M-02`, `S-02`, `S-03`, `Q-01`, `N-01`, `N-02`, `F-01`, `F-AUTH`,
+  and `F-02`. The prior I-01 attempt remains a historical
+  `REVIEW / NEEDS_INSTRUCTOR_REVIEW` checkpoint, not a retry; this is a fresh
+  resumption after the separately authorized I-01S reconciliation.
+- The prior I-01 composition blocker is resolved without changing canonical
+  contracts or Strategy algorithms. No competing Cryptox Manager,
+  Orchestrator, worker, retry, replacement, duplicate, or downstream task is
+  active. The Manager must revalidate all of these premises from Git and the
+  control plane before assigning work.
+
+### Exact Manager/worker scope
+
+- Create exactly one fresh sequential internal worker. All bounded
+  implementation work with an independent write scope must be delegated under
+  `AGENTS.md`; the Manager may perform governance, review, integration glue,
+  and checkpoint work only. Do not use a worktree or reuse any historical
+  Manager/worker.
+- The implementation boundary is `apps/backend/**`, including backend tests,
+  thin REST and market-only WebSocket transport mappers, composition,
+  readiness/failure projections, and a narrowly necessary example
+  configuration. A single root `package-lock.json` update and matching
+  `apps/backend/package.json` dependency entry are allowed only if one
+  genuinely necessary market-WebSocket server runtime dependency is required;
+  no other dependency expansion is allowed.
+- Compose the approved public Auth and capability APIs through the backend,
+  deriving trusted identity only from the server-side Auth session context.
+  Preserve the frozen REST and market-WebSocket contracts and cover the
+  existing Auth, market-history, Strategy, Search, Backtesting, Leaderboard,
+  News, and local Sentiment surface with correct unauthenticated rejection and
+  authenticated cross-owner no-leak behavior. Consume Strategy through the
+  public `STRATEGY_FACTORIES` seam; do not deep-import Strategy domain plugins.
+- Compose market history and realtime through the approved Binance adapters
+  and narrow market-only WebSocket contract, including normalized candles,
+  bounded connection/failure state, and `MARKET_OBSERVABILITY_V1`. Compose
+  real configured PostgreSQL Auth/application state, the bounded local
+  Backtest execution path, application-generated Leaderboard results, and a
+  configured real News source with local `LEXICON_V1` sentiment. Fixtures are
+  test/development inputs only and must never silently become final/demo
+  runtime configuration.
+- Keep readiness truthful: liveness is independent; missing required
+  persistence/providers yields not-ready; provider failure remains visible;
+  News/Sentiment failure does not break core market/strategy/backtest paths;
+  mock-only final/demo configuration is rejected.
+
+### Acceptance, validation, prohibitions and stop condition
+
+- Prove the frozen backend contracts and market-only WebSocket behavior with
+  Auth/session, 401 and 404 ownership, trusted-identity/spoof-resistance,
+  manual Backtest, bounded SearchRun, Candidate/Experiment/Trade,
+  application-generated Leaderboard, market history, News/Sentiment,
+  readiness, provider-failure, and observability evidence.
+- Run backend HTTP/WS integration tests; real process-local PostgreSQL Auth
+  and application checks where configured; live Binance historical/realtime
+  and a configured real News-source smoke; then build, typecheck, lint, full
+  workspace tests, architecture/dependency, source-sidecar, artifact,
+  deferred-scope, test-scope, runtime, secret/log, whitespace, and exact-diff
+  gates. Every unavailable tool, provider, database, browser, or skipped test
+  remains `UNVERIFIED`/`BLOCKED`, never `PASS`.
+- Do not change `packages/contracts/**`, any `modules/**` source,
+  migrations/schema, `infra/**`, `apps/frontend/**`, architecture,
+  requirements, ADRs, OpenSpec artifacts, or unrelated routes. Controllers
+  remain thin mappers/delegators; no business logic, general event bus,
+  non-market WebSocket, fake-ready status, mock fallback, Redis/BullMQ,
+  distributed protocol, live trading, generalized risk, or deferred feature.
+  If an essential fix requires an excluded path or contract change, stop at
+  `REVIEW / NEEDS_INSTRUCTOR_REVIEW` and report the exact blocker.
+- The Manager may move only `I-01` through `BLOCKED -> READY ->
+  IN_PROGRESS -> REVIEW`, and to `DONE` only after all applicable scoped
+  evidence passes. Make one coherent commit attempt for the authorized source
+  and Manager checkpoint files; if Git denies it, record the exact error and do
+  not retry. Stop when I-01 is exhausted and do not start or promote I-02,
+  I-03, or any downstream packet.
+
+## Historical INS-105 — HOLD after I-01S acceptance
 
 This signal supersedes `INS-104 / APPROVED_FOR_EXECUTION` after the Instructor's
 independent audit of the completed I-01S Manager checkpoint. `I-01S` is

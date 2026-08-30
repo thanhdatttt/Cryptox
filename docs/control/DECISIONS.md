@@ -905,3 +905,42 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Task state](../implementation/TASKS.md),
 [Latest checkpoint](../implementation/HANDOFF.md), `INS-104`, and commit
 `7d574e6`.
+
+## DEC-027 — Fresh explicit I-01 resumption after I-01S acceptance
+
+Status: `APPROVED`
+
+Authority: Fresh Instructor review after `INS-105 / HOLD` at `f656274`, with
+the accepted I-01S implementation at `7d574e6`.
+
+Decision: The Instructor authorizes exactly one fresh `INS-106 /
+APPROVED_FOR_EXECUTION` attempt for `I-01 — Runtime, Transports and
+Observability Integration`. The attempt is limited to one fresh same-directory
+Manager in the canonical checkout, using `gpt-5.6-luna` with reasoning `max`,
+and exactly one fresh sequential internal worker. The complete boundary,
+acceptance gates, validation, prohibitions, and stop condition are recorded in
+`INSTRUCTOR.md`. No I-02, I-03, extension, retry, replacement, duplicate,
+worktree, or downstream packet is authorized.
+
+Why: I-01S is independently accepted at `DONE`; its Strategy-owned immutable
+`STRATEGY_FACTORIES` seam resolves the previous I-01 composition blocker while
+preserving the approved contracts, algorithms, and dependency direction. The
+task board shows `41 DONE`, `1 REVIEW` (`I-01`), and `2 BLOCKED` (`I-02`,
+`I-03`); every I-01 start dependency is `DONE`; the tracked tree is clean at
+the `INS-105` checkpoint; and active-task inspection found no competing
+Cryptox Manager or worker. I-01 must still prove real backend composition,
+ownership, persistence, provider, readiness, REST/market-WebSocket, and
+observability behavior; unavailable environment evidence remains
+`UNVERIFIED`/`BLOCKED`.
+
+Affected: `I-01`, `TASKS.md`, `HANDOFF.md`, `INS-106`, and the integration DAG.
+I-02, I-03, all extensions, deferred scope, requirements, contracts, accepted
+architecture, and all other task states remain unchanged until separately
+reviewed and authorized.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [Architecture](../architecture.md),
+[Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md),
+[Latest checkpoint](../implementation/HANDOFF.md), `INS-105`, `DEC-026`, and
+commits `f656274` and `7d574e6`.
