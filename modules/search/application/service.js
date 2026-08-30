@@ -52,7 +52,7 @@ function createInMemorySearchDependencies() {
         backtestCoordinator: {
             readBenchmarkScope: async (_auth, scopeId) => ({ id: scopeId }),
             submitSearchCandidate: async (_auth, command) => {
-                const candidateId = `in-memory-search-candidate-${++sequence}`;
+                const candidateId = `search-candidate-${++sequence}`;
                 candidates.set(candidateId, { candidateId, origin: "SEARCH", selectionMode: "COMPOSITE", searchRunId: command.searchRunId, iterationNumber: command.iterationNumber, leaderboardScopeId: command.leaderboardScopeId, status: "QUEUED", attempts: [], maxAttempts: command.maxAttempts, completionAttemptCount: 0, completionMaxAttempts: 5, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
                 return { candidateId, jobId: candidateId, status: "QUEUED" };
             },
