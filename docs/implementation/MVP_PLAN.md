@@ -184,7 +184,7 @@ P-00 DONE -> C-01 DONE -> A-00 DONE -> C-01A READY
          +-------------------------------> I-01 <-----------------------+
 
 E-01 READY --------------------------------> B-02
-F-01 READY -> F-AUTH --(AU-01 integrate)--> F-02 ---------------------> I-01 -> I-02
+F-01 READY -> F-AUTH --(AU-01 integrate)--> F-02 -----------------> I-01S -> I-01 -> I-02
 ```
 
 The revised critical join is:
@@ -193,7 +193,7 @@ The revised critical join is:
 A-00 -> C-01A
   -> { S-01 -> B-01 | D-01 -> L-01 } -> B-02 -> Q-01 integration
   -> { AU-01 | Q-01 integration } -> AU-02
-  -> { AU-02 | F-01 -> F-AUTH -> F-02 | real-provider lanes } -> I-01 -> I-02
+  -> { AU-02 | F-01 -> F-AUTH -> F-02 | real-provider lanes } -> I-01S -> I-01 -> I-02
 ```
 
 E-01 and F-01 remain independently READY after A-00 but are not started by A-00.
@@ -290,7 +290,8 @@ provider, provenance, and no-secret evidence for this extension frontier.
 | 3 | Manager freezes S-01 and D-01 seams | B-01, S-02, S-03, M-01/M-02, N-01/N-02, L-01, AU-01 DB integration; max three workers | Pure capabilities and repositories pass |
 | 4 | F-01 checkpoint and C-01A | F-AUTH then F-02; Q-01 pure lifecycle | Authenticated fixture workflows and bounded Search pass |
 | 5 | B-02 then Q-01 real integration | AU-02 only after affected owners checkpoint | Persisted owner-scoped Search/Experiment/Leaderboard passes |
-| 6 | I-01 | Independent architecture/security/coverage review | Runnable integrated backend/frontend with real-provider preflight |
+| 5R | I-01 review identifies a missing public Strategy composition seam | `I-01S` only | Strategy-owned public registry/composition seam is reviewed and available to the runtime boundary |
+| 6 | I-01S plus the existing I-01/AU-02 prerequisites | Fresh reviewed I-01 resumption | Runnable integrated backend/frontend with real-provider preflight |
 | 7 | I-02 | Independent test/reviewer agents | Full MVP DoD, two-user isolation, and real demo evidence |
 
 The DEC-007 extension sequence is a later controlled frontier, not an automatic
@@ -787,6 +788,59 @@ strict artifact repositories; unrelated cleanup.
 - **Risks:** Frozen DTO drift requires Manager gate. **DoD:** complete fixture demo.
   **Parallel:** YES. **Critical:** final integration.
 
+### I-01S — Strategy Public Composition Seam Reconciliation
+
+- **Requirement IDs / authority:** `CSL-R-ST-01`, `CSL-R-ST-07`,
+  `CSL-R-AR-01`–`03`, and the Strategy registry boundary required by the
+  accepted architecture and `INS-103` review; BLOCKED pending a fresh
+  Instructor authorization; source-reconciliation prerequisite for I-01.
+- **State / owner / wave:** BLOCKED / Strategy boundary worker under a fresh
+  Manager / 5R.
+- **Start dependencies:** Completed `C-02`, `S-01`, `S-02`, `S-03`, `S-04`,
+  `S-05`, and `S-06`; the `INS-103` I-01 checkpoint at `REVIEW` with
+  `NEEDS_INSTRUCTOR_REVIEW`; no I-01 implementation was accepted.
+- **Integration dependencies:** The resumed I-01 packet; this packet does not
+  authorize I-01, I-02, I-03, or any other downstream work.
+- **Objective:** Reconcile the missing runtime composition seam by exposing a
+  Strategy-owned, provider-neutral public factory registry for the already
+  approved Strategy implementations. Backend composition must be able to use
+  the public Strategy boundary without deep-importing domain plugins or
+  duplicating algorithm implementations.
+- **Exact write scope:** `modules/strategy/api/**` and
+  `modules/strategy/application/**`, including focused tests, limited to the
+  public bootstrap/barrel and registry/composition helper needed for the
+  approved factories. Existing canonical contracts in `api/contracts.ts`,
+  plugin algorithm files, persistence, and all other module paths are not
+  writable under this packet. The Manager may update only the operational
+  `TASKS.md` and `HANDOFF.md` checkpoint files.
+- **Required behavior:** The public Strategy boundary exposes a typed,
+  immutable factory collection or equivalent composition helper using the
+  existing `StrategyFactory` contract. It includes the already approved
+  baseline Strategy registrations and the completed deterministic Lite
+  registrations without inventing or duplicating implementations. Registry
+  ownership remains in Strategy, descriptors and behavior-profile provenance
+  remain unchanged, and consumers can inject the result into
+  `createStrategyModule` through a public package entrypoint.
+- **Forbidden:** Changes to `modules/strategy/api/contracts.ts`, REST or
+  WebSocket contracts, plugin algorithms, migrations, persistence, Auth,
+  Backtesting, Search, Evaluation, Leaderboard, News, Sentiment, frontend,
+  backend composition, dependencies, general event buses, deferred scope,
+  or any deep import from `apps/**` into Strategy internals. No new product
+  behavior, contract drift, or visual/UI work is authorized.
+- **Acceptance/tests:** Public-entrypoint tests prove the factory registry
+  contains the approved registrations, preserves exact descriptors/profile
+  IDs, is deterministic and immutable, and has no duplicate algorithm source.
+  A composition test proves the public result is accepted by the existing
+  Strategy bootstrap and that no backend import is needed. Architecture,
+  scope, artifact, typecheck, build, lint, focused Strategy, workspace, and
+  whitespace checks must pass. Any required change outside this scope stops
+  with `NEEDS_INSTRUCTOR_REVIEW`.
+- **Stop condition:** The Manager moves only `I-01S` through the normal state
+  sequence, records `DONE` only with the focused evidence, and stops. A fresh
+  Instructor review must accept this seam before a new authorization can
+  resume I-01. No retry, duplicate, replacement worker, or downstream packet
+  may start automatically. **Parallel:** NO. **Critical:** YES to I-01.
+
 ### I-01 — Runtime, Transports and Observability Integration
 
 - **Requirements / baseline state / planned owner:** AU-01, OW-01, RD-01, all capability integrations,
@@ -799,6 +853,9 @@ strict artifact repositories; unrelated cleanup.
   registration, Q-01 integration, N-01/N-02, F-01/F-AUTH/F-02.
 - **Integration dependencies:** Live Binance/CoinDesk availability for final smoke.
 - **Unblocks:** I-02.
+- **Current reconciliation:** `INS-103` reached `REVIEW` with a concrete
+  missing Strategy composition seam. `I-01S` is a separately authorized
+  prerequisite; its completion does not itself resume or complete I-01.
 - **Reading:** Entire authority chain and latest checkpoint.
 - **Allowed:** `apps/backend/**`, example configuration, thin transport mappers;
   module fixes only through owner review.

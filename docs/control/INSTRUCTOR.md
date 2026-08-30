@@ -2,13 +2,90 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-103`
+Instruction ID: `INS-104`
 
 Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
-## INS-103 — Runtime, transport and observability integration
+## INS-104 — Strategy public composition seam reconciliation
+
+This signal supersedes `INS-103 / APPROVED_FOR_EXECUTION` after the fresh
+Instructor review of its completed Manager checkpoint. It authorizes exactly
+one new source-reconciliation packet, `I-01S`, in one fresh same-directory
+Manager and exactly one fresh sequential internal worker. `I-01S` is the only
+authorized task. It does not authorize resumed I-01, I-02, I-03, any extension
+packet, retry, replacement, duplicate, worktree, or downstream execution.
+
+### Reviewed checkpoint and applicability
+
+- The canonical checkout is `D:/agy-cli-projects/AOS/Cryptox` on
+  `MVP_IMPLEMENTATION`, at `7d686b6` (`chore(control): record INS-103 I-01
+  review blocker`). The tracked tree is clean after that checkpoint commit;
+  the only remaining working-tree delta is the untouched app-generated
+  untracked `.codex/config.toml`, outside Cryptox scope; it must remain
+  untouched, unstaged, and undeleted.
+- The current operational board is `40 DONE`, `1 REVIEW` (`I-01`), and
+  `2 BLOCKED` (`I-02`, `I-03`). The Manager's checkpoint records the exact
+  `I-01` transition `BLOCKED -> READY -> IN_PROGRESS -> REVIEW` and no source
+  implementation. The new `I-01S` packet is now durable in `MVP_PLAN.md`; the
+  Manager must add and operate its row in `TASKS.md`, the sole operational
+  state authority, before execution.
+- The completed Strategy packets `C-02`, `S-01`, `S-02`, `S-03`, `S-04`,
+  `S-05`, and `S-06` are the verified prerequisites for this seam review.
+  `I-01` remains `REVIEW / NEEDS_INSTRUCTOR_REVIEW` until this packet is
+  independently accepted and a later signal explicitly resumes it.
+- The fresh `INS-103` Manager is idle/closed, its sole worker Socrates is
+  complete, and no competing Cryptox Manager, Orchestrator, worker, retry, or
+  duplicate is active.
+
+### Exact Manager/worker scope
+
+- Create exactly one fresh sequential internal worker. All bounded Strategy
+  implementation work must be delegated under `AGENTS.md`; the Manager may
+  perform only governance/checkpoint work and narrow review/integration glue.
+- The implementation boundary is `modules/strategy/api/**` and
+  `modules/strategy/application/**`, including focused tests, limited to the
+  public bootstrap/barrel and the Strategy-owned registry/composition helper
+  needed to expose the already approved factories. The Manager may update
+  only `docs/implementation/TASKS.md` and `docs/implementation/HANDOFF.md` for
+  operational state and checkpoint evidence.
+- Expose a typed, immutable public factory collection or equivalent helper
+  using the existing `StrategyFactory` contract. It must provide the approved
+  baseline registrations and the completed deterministic Lite registrations,
+  preserve their exact descriptors/profile identifiers, avoid duplicate
+  algorithm implementations, and be consumable by the existing
+  `createStrategyModule` bootstrap through a public package entrypoint.
+- Preserve the synchronous modular-monolith direction: registry ownership
+  stays in Strategy, and backend consumers must not deep-import Strategy
+  domain plugins. This is a composition seam for already approved behavior,
+  not a new functional or UI requirement.
+
+### Acceptance, validation, prohibitions and stop condition
+
+- Focused public-entrypoint and composition tests must prove deterministic
+  registration, exact descriptor/profile preservation, immutability, no
+  duplicate algorithm source, and compatibility with the existing Strategy
+  bootstrap. No REST or WebSocket contract changes are needed or authorized.
+- Run focused Strategy tests, workspace tests, build, typecheck, lint,
+  architecture/dependency, source-sidecar, artifact, deferred-scope,
+  test-scope, runtime-smoke, secret-log, whitespace, and exact-diff checks.
+  OpenSpec CLI or other unavailable checks remain `UNVERIFIED`/`BLOCKED`,
+  never `PASS`.
+- Do not change `modules/strategy/api/contracts.ts`, plugin algorithm files,
+  persistence, migrations, REST/WebSocket contracts, Auth, Backtesting,
+  Search, Evaluation, Leaderboard, News, Sentiment, backend composition,
+  dependencies, frontend, architecture/requirements/ADR/OpenSpec artifacts,
+  or any deferred scope. If the seam requires an excluded path or a contract
+  change, stop with `NEEDS_INSTRUCTOR_REVIEW`.
+- The Manager may transition only `I-01S` through the normal operational
+  states and may mark it `DONE` only with complete scoped evidence. Make one
+  coherent commit attempt for the authorized source and checkpoint files; if
+  Git denies it, record the exact error and do not retry. Stop when `I-01S`
+  is exhausted. A later Instructor review must accept it before I-01 can be
+  freshly authorized.
+
+## Historical INS-103 — Runtime, transport and observability integration
 
 This signal supersedes `INS-102 / HOLD` after a fresh Instructor review. It
 authorizes exactly one new I-01 attempt: one fresh Manager in the canonical

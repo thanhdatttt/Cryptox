@@ -814,3 +814,51 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `INS-102`, `DEC-007`, and commit `9f0841a`.
+
+## DEC-025 — Strategy public composition seam after INS-103 review
+
+Status: `APPROVED`
+
+Authority: Fresh Instructor review after the completed `INS-103` Manager
+checkpoint, independently audited and recorded at `7d686b6`
+
+Decision: The `INS-103` I-01 attempt is accepted as an honest `REVIEW /
+NEEDS_INSTRUCTOR_REVIEW` checkpoint, not as implementation completion. A new,
+separate packet `I-01S` may be authorized to reconcile the missing
+Strategy-owned public composition seam. The seam may expose a typed immutable
+factory registry/composition helper from the public Strategy package entrypoint,
+implemented through the Strategy API/application boundary and backed by the
+already approved Strategy implementations. It must let backend composition
+inject the existing `createStrategyModule` without deep-importing
+`modules/strategy/domain/**` or duplicating algorithm code.
+
+Why: The current public Strategy bootstrap accepts injected factories, while
+the public entrypoint's default registry is empty and exposes no approved way
+for the backend composition root to obtain the built-in and completed Lite
+factories. The only concrete factories are under Strategy domain plugin paths,
+which were intentionally excluded from `INS-103`. Deep imports or copies would
+violate the synchronous modular-monolith dependency direction, Strategy's
+registry ownership, and the exact I-01 scope. This is a source-reconciliation
+boundary needed to realize already approved behavior, not a new product
+feature, contract change, UI requirement, or authorization for downstream work.
+
+Scope guard: `I-01S` is limited to `modules/strategy/api/**` and
+`modules/strategy/application/**` plus focused tests, with no canonical REST/
+WebSocket contract, plugin algorithm, persistence, migration, backend,
+frontend, dependency, or deferred-scope change. `I-01` remains incomplete and
+requires a separate fresh authorization after `I-01S` is independently
+accepted. `I-02`, `I-03`, all extensions, retries, replacements, duplicates,
+and downstream promotion remain unauthorized.
+
+Affected: `I-01`, the new `I-01S` prerequisite, `TASKS.md`, `HANDOFF.md`,
+`INS-104`, and the integration DAG. Requirements, approved functional image
+amendments, accepted architecture, and all deferred-scope rules remain
+unchanged.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [Architecture](../architecture.md),
+[Strategy specification](../../openspec/specs/strategy/spec.md),
+[MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md),
+[Latest checkpoint](../implementation/HANDOFF.md), `INS-103`, and commit
+`7d686b6`.
