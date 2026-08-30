@@ -2,15 +2,58 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-075`
+Instruction ID: `INS-076`
 
-Status: `APPROVED_FOR_EXECUTION`
+Status: `HOLD`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
-## INS-075 — Reconcile the audited INS-073 checkpoint
+## INS-076 — Post-INS-075 independent audit hold
 
-This current signal supersedes `INS-074 / HOLD` and authorizes exactly one
+This current signal records the independent Instructor review after `INS-075`.
+It authorizes no Manager, worker, implementation, retry, replacement, closure
+review, downstream promotion, or other task-state transition.
+
+### Reviewed checkpoint
+
+- Branch: `MVP_IMPLEMENTATION`; the reviewed HEAD is
+  `19164a65d89b51215f031dd99619726f34271353` (`docs(control): reconcile
+  INS-073 checkpoint`). The working tree was clean before this signal, and no
+  competing Cryptox Manager or worker was active.
+- `INS-075` completed its control-only authorization. Its Manager changed only
+  `docs/implementation/TASKS.md` and `docs/implementation/HANDOFF.md`;
+  independent review confirmed the diff and `git diff --check`. The Manager's
+  own staging failure remains recorded as historical evidence; the parent
+  Instructor persisted the reviewed control delta at `19164a6` after the
+  environment denied the Manager's Git staging attempt.
+- `TASKS.md` remains the sole operational-state authority: 43 rows total,
+  `34 DONE`, `1 REVIEW` (`M-02`), and `8 BLOCKED` (`AU-02`, `S-04`, `E-02`,
+  `L-02`, `F-03`, `I-01`, `I-02`, `I-03`). `N-03A` and its existing `N-03`
+  closure are `DONE` and point to the integrated News checkpoint
+  `f320b5f1d7731d121db27e788cffa4a8033dc7fd`.
+- The `MVP_PLAN.md` DAG still requires the remaining E1/E2/E3 work and the
+  baseline/security gates before `I-03` and final `I-02`. `AU-02` retains its
+  `NEEDS_HUMAN_DECISION` boundary, and no unavailable PostgreSQL, real-provider,
+  browser/demo, OpenSpec CLI, or link/DAG evidence is promoted to `PASS`.
+
+### HOLD conditions and next review
+
+- Keep the repository at this safe checkpoint. Do not infer authorization from
+  any `READY` row or from the fact that `N-03`/`N-03A` are now `DONE`.
+- The next Instructor review must re-read the current `MVP_PLAN.md`,
+  `TASKS.md`, `HANDOFF.md`, requirements, accepted ADRs, architecture, data
+  model, active specs, and the source/tests for a selected frontier. It must
+  verify Git cleanliness, the absence of active Manager/worker tasks, current
+  dependencies, and a disjoint write scope before issuing a new signal.
+- Any future implementation authorization must name its packet, requirement
+  IDs, exact write scope, acceptance evidence, validation, dependencies,
+  prohibitions, and stop condition. A fresh same-directory Manager must use
+  `gpt-5.6-luna` with `max` reasoning, and any independent implementation must
+  be delegated to an authorized worker.
+
+## Historical INS-075 — Reconcile the audited INS-073 checkpoint
+
+This historical signal superseded `INS-074 / HOLD` and authorized exactly one
 fresh Manager for a control-plane-only reconciliation. It does not authorize a
 worker, feature implementation, retry, replacement, duplicate, or downstream
 start.
