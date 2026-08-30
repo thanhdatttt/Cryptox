@@ -2,15 +2,71 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-083`
+Instruction ID: `INS-084`
 
-Status: `APPROVED_FOR_EXECUTION`
+Status: `HOLD`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
-## INS-083 — Extension-Aware Ranking and Provenance Admission
+## INS-084 — Post-L-02 Independent Audit HOLD
 
-This current signal supersedes `INS-082 / HOLD` and authorizes exactly one fresh
+This current signal supersedes `INS-083 / APPROVED_FOR_EXECUTION`. The L-02
+authorization is exhausted and the repository is deliberately held pending a
+fresh Instructor review before any new Manager or worker is created. No packet,
+retry, replacement, duplicate, downstream promotion, or source change is
+authorized by this signal.
+
+### Reviewed checkpoint and current frontier
+
+- Branch is `MVP_IMPLEMENTATION`; the reviewed source/control checkpoint is
+  `32ed9321f9f22f858fdd2458351b531e8807db7d` (`feat(leaderboard): reconcile
+  provenance-aware ranking`), whose parent is the INS-083 authorization commit
+  `a201afe001b22bab8bc018f73ca5bb3485a424dc`. The working tree is clean after
+  the parent Instructor independently audited and committed the exact twelve
+  path L-02 delta following the Manager's single denied staging attempt.
+- `TASKS.md` is internally reconciled and records `37 DONE`, `1 REVIEW`
+  (`M-02`), and `5 BLOCKED` (`AU-02`, `F-03`, `I-01`, `I-02`, `I-03`). L-02
+  alone moved under INS-083 through `BLOCKED -> READY -> IN_PROGRESS -> REVIEW
+  -> DONE`; no downstream packet was promoted or started.
+- L-02 source scope was limited to Leaderboard. The frozen
+  `modules/leaderboard/api/contracts.ts` hash remains
+  `702130a2c2469024668f77493f832993d005d916`; no migration, dependency, other
+  module, frontend, backend-composition, or deferred-scope file entered the
+  checkpoint. The Manager and exactly one internal worker are idle; no active
+  Cryptox Manager or worker remains.
+- Independent evidence is PASS for the Leaderboard suite (`22/22`), root
+  tests, workspace typecheck/build/lint, architecture, artifacts,
+  deferred-scope, 13-test scope suite, runtime smoke, exact-scope review, and
+  `git diff --check`. Docker/Compose PostgreSQL validation is BLOCKED on this
+  host; OpenSpec CLI, live Binance/News, browser/demo, and final cross-module
+  runtime evidence remain UNVERIFIED. These limitations do not become PASS by
+  fixture or fake-pool coverage.
+- L-02 explicitly records that Leaderboard retains Experiment and
+  ranking-configuration references and reads the frozen optional extension
+  provenance without duplicating upstream strategy/Search/Backtesting storage
+  or claiming exact replay. PostgreSQL's existing delete-on-eviction schema has
+  no tombstone; that persistence limitation is outside the exhausted L-02
+  authorization and is documented in `HANDOFF.md`.
+
+### HOLD conditions and next review
+
+- The next nominal technical frontier is `F-03`, whose start dependencies are
+  now satisfied according to `MVP_PLAN.md` and `TASKS.md`. It remains BLOCKED
+  until this Instructor reviews the exact frontend packet, current REST/public
+  contracts, backend-derived projection boundaries, and safe write scope, then
+  issues a separate `INS-* / APPROVED_FOR_EXECUTION`.
+- `M-02` remains `REVIEW/UNVERIFIED`; `AU-02` remains blocked pending its
+  required human decision; `I-01`, `I-02`, and `I-03` remain blocked. No new
+  Manager, worker, or parallel packet may be created while this HOLD is current.
+- Before any next authorization, re-check clean Git/source-business state,
+  active-task status, the current task DAG, the F-03 authority chain, and the
+  unavailable evidence above. The next authorized Manager must use
+  `gpt-5.6-luna` with reasoning `max`, same-directory canonical checkout, and
+  internal subagents only for its bounded worker delegation.
+
+## Historical INS-083 — Extension-Aware Ranking and Provenance Admission
+
+This historical signal superseded `INS-082 / HOLD` and authorized exactly one fresh
 Manager to execute and close only packet `L-02`. It authorizes no other packet,
 worker thread, retry, replacement, duplicate, downstream promotion, or
 unrelated control/source change.

@@ -114,8 +114,9 @@ distinguished without a history schema change, which is outside INS-083.
   started.
 - The single coherent Manager staging/commit attempt failed with `fatal: Unable
   to create 'D:/agy-cli-projects/AOS/Cryptox/.git/index.lock': Permission
-  denied`; it was not retried. The exact source/control delta is awaiting
-  Instructor independent audit and commit. Renewed Instructor authorization is
+  denied`; it was not retried. The exact source/control delta was independently
+  audited and committed by the Instructor at `32ed9321f9f22f858fdd2458351b531e8807db7d`
+  (`32ed932`). INS-083 remains exhausted; renewed Instructor authorization is
   required for any further packet, retry, integration, or downstream promotion.
 
 # INS-081 Execution Checkpoint — E-02 Extension Evaluation and Decimal-Boundary Reconciliation
