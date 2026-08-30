@@ -614,3 +614,33 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Requirements](../requirements.md), [ADR-008](../adr/ADR_008_simple_auth_and_per_user_ownership.md),
 [MVP plan](../implementation/MVP_PLAN.md), [Task state](../implementation/TASKS.md),
 [Latest checkpoint](../implementation/HANDOFF.md), and [INS-096 HOLD](./INSTRUCTOR.md).
+
+## DEC-019 — AU-02 attempt exhausted without acceptance
+
+Status: `APPROVED`
+
+Authority: Instructor review after the single bounded `INS-097` Manager/worker
+attempt and the parent-audited checkpoint `6f83d3c`
+
+Decision: The `INS-097` AU-02 attempt is closed at `REVIEW`, not `DONE`. Its
+existing per-module evidence is retained as packet context, but the complete
+cross-module two-user ownership matrix and applicable real PostgreSQL/Auth/Search
+integration evidence remain unproven. No automatic retry, replacement,
+duplicate worker, or downstream I-01/I-02/I-03 authorization follows from this
+checkpoint.
+
+Why: The sole authorized worker returned no source/test changes, while the
+documented host database credential still failed authentication and Docker
+Compose remained unavailable. Fixture or in-memory evidence cannot satisfy the
+AU-02 acceptance boundary, and the repository rules require unavailable checks
+to remain `BLOCKED`/`UNVERIFIED`.
+
+Affected: AU-02, `TASKS.md`, `HANDOFF.md`, `INS-098 / HOLD`, and the remaining
+integration DAG. Requirements, ownership rules, deferred scope, and all other
+task states are unchanged.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [ADR-008](../adr/ADR_008_simple_auth_and_per_user_ownership.md),
+[MVP plan](../implementation/MVP_PLAN.md), [Task state](../implementation/TASKS.md),
+[Latest checkpoint](../implementation/HANDOFF.md), `INS-097`, and commit
+`6f83d3c`.

@@ -2,15 +2,64 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-097`
+Instruction ID: `INS-098`
 
-Status: `APPROVED_FOR_EXECUTION`
+Status: `HOLD`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
-## INS-097 — AU-02 Per-User Ownership Security Integration
+## INS-098 — HOLD after AU-02 ownership-integration attempt
 
-This current signal supersedes `INS-096 / HOLD` at `389db3b` and authorizes
+This current signal supersedes `INS-097 / APPROVED_FOR_EXECUTION` at
+`7febd0f`. The exact Manager checkpoint is independently audited and persisted
+at `6f83d3c`. This HOLD authorizes no worker, retry, replacement, downstream
+packet, or final-MVP claim.
+
+### Reviewed checkpoint and result
+
+- The canonical checkout is `D:/agy-cli-projects/AOS/Cryptox`, branch
+  `MVP_IMPLEMENTATION`, with the tracked repository state at `6f83d3c`
+  (`docs(control): record AU-02 review checkpoint`). The only current
+  untracked delta is the 33-byte app-generated `.codex/config.toml`
+  (`model_reasoning_summary = "auto"`); it is outside Cryptox scope and
+  remains untouched, unstaged, and undeleted. No source, business-state, or
+  task-DAG drift is present.
+- `TASKS.md` remains the sole operational authority and records `39 DONE`,
+  `1 REVIEW` (`AU-02`), and `3 BLOCKED` (`I-01`, `I-02`, `I-03`). The Manager
+  correctly recorded `BLOCKED → READY → IN_PROGRESS → REVIEW` for AU-02 and
+  changed no other task state.
+- Fresh Manager `01a05289-9805-72a3-b811-fda8a7d89eed` used the required
+  same-directory checkout and `gpt-5.6-luna / max`. Bacon
+  `01a0528f-4f6b-7ee3-be7f-5787c2b40005` was the sole internal worker. The
+  worker returned no changed paths, no source/test implementation, and no
+  commit; no replacement, duplicate, or retry occurred. Both are now idle or
+  completed, with no active Cryptox Manager/worker remaining.
+- Parent Instructor audit confirms the Manager diff contains only
+  `docs/implementation/TASKS.md` and `docs/implementation/HANDOFF.md`, and
+  the Manager's single staging/commit attempt was denied by `.git/index.lock`
+  permission. The exact checkpoint was then committed once by the parent;
+  there was no Manager commit retry.
+
+### Acceptance decision and blockers
+
+- AU-02 is **not accepted as DONE**. Existing per-module/fixture evidence
+  passes, but the required complete two-user cross-module A/B matrix and
+  applicable real PostgreSQL/Auth/Search integration are not proven. The
+  documented host database credential failed authentication and Docker
+  Compose is unavailable; these remain `BLOCKED`/`UNVERIFIED`, never PASS.
+- Independent validation remains truthful: workspace build/typecheck/tests,
+  architecture/artifact/deferred-scope/runtime checks, lint, scope `13/13`,
+  and `git diff --check` passed; environment-gated tests and unavailable
+  OpenSpec CLI remain `UNVERIFIED` or `BLOCKED`. These gates do not substitute
+  for AU-02 acceptance.
+- No authorization is active. I-01, I-02, and I-03 remain blocked by the
+  task DAG; no downstream work may start. A future authorization requires a
+  fresh Instructor review of the missing matrix and real integration gate and
+  must not treat this exhausted attempt as a retry permission.
+
+## Historical INS-097 — AU-02 Per-User Ownership Security Integration
+
+This historical signal superseded `INS-096 / HOLD` at `389db3b` and authorized
 exactly one fresh Manager and exactly one internal worker for a bounded AU-02
 implementation-and-evidence attempt. It is the fresh attempt permitted by
 `DEC-018`; it does not authorize I-01, I-02, I-03, any downstream packet, or an
