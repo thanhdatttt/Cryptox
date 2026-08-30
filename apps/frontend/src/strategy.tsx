@@ -23,7 +23,7 @@ function iconFor(descriptor: Pick<StrategyDescriptor, "category"> | Pick<Strateg
 function displayDate(value: string): string { const date = new Date(value); return Number.isNaN(date.valueOf()) ? value : date.toLocaleString(); }
 function parameterSummary(definition?: StrategyDefinition): string { if (!definition) return "No backend definition yet"; const entries = Object.entries(definition.parameters); return entries.length ? entries.map(([key, value]) => `${key}: ${value}`).join(" · ") : "No parameters returned"; }
 
-function StrategyHeader() { return <div className="strategy-header"><div><h1>Create Strategy from Prompt / URL</h1><p>Generate, review, validate, and save definitions returned by the authenticated Strategy backend.</p></div><div className="strategy-header-actions"><span className="strategy-source-pill"><i />Source: Backend API</span><button className="strategy-header-action" aria-label="Help">?</button><button className="strategy-header-action" aria-label="Notifications">♧<i /></button></div></div>; }
+function StrategyHeader() { return <div className="strategy-header"><div><h1>Create Strategy from Prompt / URL</h1><p>Generate, review, validate, and save definitions returned by the authenticated Strategy backend.</p></div><div className="strategy-header-actions"><span className="strategy-source-pill"><i />Source: Backend API</span></div></div>; }
 
 function GenerationError({ error }: { error: unknown }) {
   if (!error) return null;

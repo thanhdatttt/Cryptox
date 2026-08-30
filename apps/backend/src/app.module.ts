@@ -282,6 +282,23 @@ export class MarketController extends ProtectedController {
     } catch (error) { return auxiliaryHttpError(error); }
   }
 
+  @Get("signal")
+  async signal(@Headers("authorization") authorization: string | undefined, @Query("pair") pair: string | undefined, @Query("timeframe") timeframe: string | undefined, @Query("strategyDefinitionId") strategyDefinitionId: string | undefined) {
+    const userId = await this.authenticate(authorization);
+    if (!nonEmptyString(pair) || !nonEmptyString(timeframe) || !nonEmptyString(strategyDefinitionId)) throw new BadRequestException("pair, timeframe, and strategyDefinitionId are required.");
+    try {
+      const definitions = await this.modules.strategy.readDefinitions(userId, [strategyDefinitionId.trim()]);
+      const definition = definitions[0];
+      if (!definition) throw new Error("STRATEGY_DEFINITION_NOT_FOUND");
+      const candles = await this.modules.marketData.readCandles({ pair: pair.trim(), timeframe: timeframe as Timeframe, limit: 500, includeForming: false, completeness: "REQUIRE_COMPLETE" });
+      const latest = candles.candles.at(-1);
+      if (!latest) throw new Error("NO_MARKET_CANDLES");
+      const strategy = await this.modules.strategy.resolveStrategy(definition);
+      const signal = strategy.analyze({ pair: candles.pair, timeframe: candles.timeframe, candles: candles.candles.map((candle) => ({ timestamp: candle.timestamp, open: candle.open, high: candle.high, low: candle.low, close: candle.close, volume: candle.volume })), currentPrice: latest.close, indicators: {} });
+      return { pair: candles.pair, timeframe: candles.timeframe, strategyDefinitionId: definition.id, strategyName: definition.strategyName, signal, asOf: latest.timestamp, candleCount: candles.candles.length, implementationVersion: definition.implementationVersion, implementationSha256: definition.implementationSha256 };
+    } catch (error) { return auxiliaryHttpError(error); }
+  }
+
   @Get("candles")
   async candles(
     @Headers("authorization") authorization: string | undefined,

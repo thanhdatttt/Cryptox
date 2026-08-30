@@ -55,6 +55,12 @@ describe("backend composition", () => {
     await expect(new MarketController(modules).pairs("Bearer token")).resolves.toEqual({ provider: "BINANCE", pairs: ["BTCUSDT"], timeframes: ["1h"], policyDefaults: { initialCapital: 2500, feeRatePercent: 0.1, slippageBps: 8, maxAttempts: 3 } });
   });
 
+  it("projects the latest signal through the retained backend strategy implementation", async () => {
+    const definition = { id: "definition-1", userId: "user-1", logicalFamilyKey: "strategy:MA", strategyName: "MA", implementationVersion: "1.0.0", implementationSha256: "a".repeat(64), version: 1, parameters: { fastPeriod: 2, slowPeriod: 3 }, createdAt: "2025-01-01T00:00:00.000Z" };
+    const modules = { auth: { verify: async () => ({ userId: "user-1" }) }, marketData: { readCandles: async () => ({ pair: "BTCUSDT", timeframe: "1h", candles: [{ timestamp: "2025-01-01T01:00:00.000Z", open: 100, high: 101, low: 99, close: 100, volume: 1, isClosed: true }], range: { from: "2025-01-01T01:00:00.000Z", to: "2025-01-01T02:00:00.000Z" }, complete: true, missingRanges: [], formingIncluded: false, asOf: "2025-01-01T02:00:00.000Z" }) }, strategy: { readDefinitions: async () => [definition], resolveStrategy: async () => ({ analyze: () => "BUY" }) } } as unknown as BackendModules;
+    await expect(new MarketController(modules).signal("Bearer token", "BTCUSDT", "1h", "definition-1")).resolves.toMatchObject({ pair: "BTCUSDT", timeframe: "1h", strategyDefinitionId: "definition-1", strategyName: "MA", signal: "BUY", candleCount: 1, implementationVersion: "1.0.0" });
+  });
+
   it("creates reviewable strategy and composite definitions from the authenticated owner", async () => {
     const auth = createAuthModule(createInMemoryAuthDependencies());
     await auth.register("student@example.com", "correct-horse-battery-staple");

@@ -71,6 +71,13 @@ describe("frontend backend transport", () => {
     await expect(api.marketCapabilities()).resolves.toMatchObject({ policyDefaults: { initialCapital: 2500, feeRatePercent: 0.1, slippageBps: 8, maxAttempts: 3 } });
   });
 
+  it("renders only validated backend-owned live signal projections", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(response({ pair: "BTCUSDT", timeframe: "1h", strategyDefinitionId: "definition-1", strategyName: "MA", signal: "BUY", asOf: "2025-01-01T01:00:00.000Z", candleCount: 100, implementationVersion: "1.0.0", implementationSha256: "a".repeat(64) }));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(api.marketSignal("BTCUSDT", "1h", "definition-1")).resolves.toMatchObject({ signal: "BUY", candleCount: 100 });
+    expect(fetchMock.mock.calls[0]?.[0]).toContain("/market/signal?pair=BTCUSDT&timeframe=1h&strategyDefinitionId=definition-1");
+  });
+
   it("leaves candle limit omitted so the backend default is exercised", async () => {
     const fetchMock = vi.fn().mockResolvedValue(response({ pair: "BTCUSDT", timeframe: "1h", candles: [], range: { from: "2025-01-01T00:00:00.000Z", to: "2025-01-01T01:00:00.000Z" }, complete: true, asOf: "2025-01-01T01:00:00.000Z" }));
     vi.stubGlobal("fetch", fetchMock);
