@@ -2,16 +2,100 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-100`
+Instruction ID: `INS-101`
 
-Status: `HOLD`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
-## INS-100 — HOLD after INS-099 AU-02 completion attempt
+## INS-101 — AU-02 Search remediation and ownership matrix completion
 
-This is the current Instructor checkpoint. `INS-099 / APPROVED_FOR_EXECUTION`
-is exhausted and is not an active authorization. The exact Manager checkpoint
+This signal supersedes `INS-100 / HOLD` at `9d2d6d9` after a fresh Instructor
+review. It authorizes exactly one new bounded AU-02 remediation/completion
+attempt: exactly one fresh Manager and exactly one fresh internal worker. This
+is an explicit new authorization after a concrete failure was identified, not
+an automatic retry of `INS-099`; no duplicate, replacement, second worker,
+downstream packet, or I-01/I-02/I-03 work is authorized.
+
+### Reviewed checkpoint and applicability
+
+- The canonical checkout is `D:/agy-cli-projects/AOS/Cryptox` on
+  `MVP_IMPLEMENTATION`, at `9d2d6d9` (`docs(control): hold after INS-099 AU-02
+  review`). The tracked tree has no source, business-state, or task-DAG drift.
+  The only working-tree delta is the app-generated untracked
+  `.codex/config.toml`; it is outside Cryptox scope and must remain untouched,
+  unstaged, and undeleted.
+- `TASKS.md` is authoritative at `39 DONE`, `1 REVIEW` (`AU-02`), and
+  `3 BLOCKED` (`I-01`, `I-02`, `I-03`). AU-02's prior transition was exactly
+  `REVIEW -> READY -> IN_PROGRESS -> REVIEW`; no other task state changes are
+  part of this authorization.
+- AU-02 dependencies AU-01, D-01, S-01, L-01, B-02, Q-01 real integration,
+  and F-AUTH are recorded `DONE`. I-01/I-02/I-03 remain blocked and are not
+  authorized. No Cryptox Manager, Orchestrator, or worker is active.
+- The concrete blocker is the real Search integration at
+  `modules/search/application/integration.spec.ts:377`: PostgreSQL was
+  reached, but `completedCandidateCount` was `0` instead of `1`. Real Auth
+  PostgreSQL integration passed `3/3`; no source/test change was made by
+  `INS-099`.
+- Fresh redacted process-local Node `pg` checks pass against the documented
+  `cryptox_development` (`55432`) and `cryptox_test` (`55433`) databases using
+  `infra/db/local.env` without exposing its password. Docker daemon/Compose
+  and standalone `psql` remain `UNVERIFIED`; no elevation, install, secret
+  request, credential change, or volume reset is allowed.
+
+### Exact Manager/worker scope
+
+- Create exactly one fresh internal worker and run it sequentially. The worker
+  may diagnose and fix the concrete Search integration lifecycle defect and
+  add the complete AU-02 cross-module ownership/security evidence under only
+  `modules/auth/**`, `modules/strategy/**`, `modules/search/**`,
+  `modules/backtesting/**`, `modules/leaderboard/**`, and
+  `apps/backend/src/**`.
+- Use public module APIs across boundaries. The worker must cover Strategy
+  Definition/Composite Definition, SearchRun/Candidate, Experiment/Trade, and
+  Leaderboard Scope/Entry, including unauthenticated rejection, cross-user
+  404/no-leak, same-owner success, trusted server identity, spoof resistance,
+  SearchRun-to-Candidate propagation, same-owner admission, cross-owner
+  rejection, approved shared-data visibility, and sensitive-log absence.
+- The Search failure must be diagnosed from the implementation; do not weaken
+  assertions, merely increase a timeout, make a test pass by changing the
+  expected count, or replace real PostgreSQL evidence with fixtures. Preserve
+  Auth independence for pure Strategy, Backtest, Evaluation, and ranking
+  calculations.
+- Contracts (including `packages/contracts/**`), migrations, dependencies,
+  generated artifacts, News, Market Data, frontend, unrelated backend routes,
+  architecture/data-model/policy files, pure algorithms, and every other
+  packet are forbidden. If an essential fix requires an excluded path, stop
+  with `NEEDS_INSTRUCTOR_REVIEW`.
+- The Manager may edit only `docs/implementation/TASKS.md` and
+  `docs/implementation/HANDOFF.md`, may transition only AU-02 through
+  `REVIEW -> READY -> IN_PROGRESS -> REVIEW` (and `DONE` only if every gate
+  passes), and must independently review the worker diff. The worker may not
+  edit control files, stage, or commit.
+
+### Acceptance, validation, and stop condition
+
+- AU-02 may become `DONE` only when the full resource-by-resource two-user
+  matrix passes and the real Auth/Search/PostgreSQL path passes, including the
+  SearchRun -> Candidate -> Backtesting -> Leaderboard flow and the concrete
+  candidate completion invariant. Fixture-only or isolated package evidence
+  cannot close the packet.
+- Run focused changed-package tests, the real Auth/Search integration where
+  configured, typecheck, build, lint, architecture/dependency,
+  generated-artifact, deferred-scope, test-scope, runtime, whitespace, and
+  exact-diff gates. Record every result as `PASS`, `BLOCKED`, or `UNVERIFIED`;
+  skipped or unavailable checks are never PASS. Docker/Compose, standalone
+  `psql`, and OpenSpec CLI remain explicitly `UNVERIFIED` if unavailable.
+- Make one coherent Manager staging/commit attempt for the reviewed source/
+  test changes and the two Manager-owned checkpoint files. If Git denies it,
+  record the exact error and do not retry. Stop when this authorization is
+  exhausted; do not start, promote, retry, replace, or duplicate any other
+  work.
+
+## Historical INS-100 — HOLD after INS-099 AU-02 completion attempt
+
+This was the Instructor checkpoint after `INS-099 / APPROVED_FOR_EXECUTION`
+was exhausted and was not an active authorization. The exact Manager checkpoint
 was persisted at `49ca52e` after the Manager's one staging attempt was denied;
 that commit contains only the Manager-produced `TASKS.md` and `HANDOFF.md`
 content and no feature implementation.
@@ -68,7 +152,7 @@ content and no feature implementation.
 
 ## Historical INS-099 — AU-02 Completion Ownership Matrix
 
-This current signal supersedes `INS-098 / HOLD` at `8e73cb9` and is issued
+This signal superseded `INS-098 / HOLD` at `8e73cb9` and was issued
 after a fresh Instructor review found that the previously blocked host database
 premise has changed. It authorizes exactly one fresh Manager and exactly one
 fresh internal worker for one bounded AU-02 completion attempt. This is an

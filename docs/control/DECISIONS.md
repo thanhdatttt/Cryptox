@@ -708,3 +708,34 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [MVP plan](../implementation/MVP_PLAN.md), [Task state](../implementation/TASKS.md),
 [Latest checkpoint](../implementation/HANDOFF.md), `INS-099`, and commit
 `49ca52e`.
+
+## DEC-022 — Fresh explicit AU-02 remediation authorization
+
+Status: `APPROVED`
+
+Authority: Fresh Instructor review after `INS-100 / HOLD` at `9d2d6d9`
+
+Decision: The Instructor may issue exactly one new, bounded AU-02 remediation
+authorization, recorded as `INS-101 / APPROVED_FOR_EXECUTION`, for the concrete
+real Search integration failure and the still-missing cross-module ownership
+matrix. This is not an automatic retry of `INS-099`; it does not authorize any
+other packet, duplicate, replacement, second worker, or downstream work.
+
+Why: The prior sole worker made no source/test changes, real Auth PostgreSQL
+integration passed `3/3`, and real Search reached PostgreSQL but failed at
+`modules/search/application/integration.spec.ts:377` with
+`completedCandidateCount = 0` instead of `1`. Fresh redacted process-local
+connectivity checks still pass for both documented local databases, so the
+remediation has a safe application-level environment premise. The complete
+two-user ownership matrix remains unproven and must not be inferred from
+fixture-only evidence.
+
+Affected: AU-02 and `INS-101`. I-01, I-02, I-03, all deferred scope, the
+requirements baseline, ownership rules, and all other task states remain
+unchanged until the new explicit attempt is independently reviewed.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [ADR-008](../adr/ADR_008_simple_auth_and_per_user_ownership.md),
+[MVP plan](../implementation/MVP_PLAN.md), [Task state](../implementation/TASKS.md),
+[Latest checkpoint](../implementation/HANDOFF.md), `INS-100`, and commit
+`9d2d6d9`.
