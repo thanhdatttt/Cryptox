@@ -220,7 +220,9 @@ post-implementation reconciliation packet `ENV-02` closes the checker boundary
 before `S-05`/`S-06` can leave `REVIEW`; it is not a retry or reopening of
 `ENV-01`. B-03 then exposes a separate approved Backtesting vocabulary boundary
 that is reconciled by `ENV-03`; `ENV-03` is not a retry or reopening of
-`ENV-02`.
+`ENV-02`. The approved Q-02 implementation then exposes a separate Search
+generator boundary that is reconciled by `ENV-04`; `ENV-04` is not a retry or
+reopening of `ENV-02` or `ENV-03`.
 
 ```text
 RB-01/RB-02 DONE
@@ -246,6 +248,10 @@ B-03 REVIEW + ENV-02 DONE
 ENV-03 REVIEW + C-02 DONE
   -> C-03 BLOCKED: seeded-discovery canonical contract reconciliation
        -> Q-02 implementation; no generator behavior is claimed by C-03
+
+Q-02 REVIEW + ENV-03 REVIEW
+  -> ENV-04 BLOCKED: Q-02 approved-profile checker-boundary reconciliation
+       -> Q-02 closure review; only then may E-02/L-02 consume its clean gate
 
 {C-02 | M-03 | S-04 | S-05 | S-06 | Q-02 | N-03 | B-03}
   -> E-02 BLOCKED: extension evaluation/decimal-boundary reconciliation
@@ -1235,6 +1241,45 @@ Instructor signal can authorize one safe frontier without treating the legacy
 - **Definition of Done:** Both profiles are independently reviewed; no old Q-01
   completion claim is expanded. **Parallel:** YES after `C-02`; **Critical:**
   `L-02`/`I-03`.
+
+### ENV-04 — Q-02 Approved-Profile Checker Boundary Reconciliation
+
+- **Requirement IDs / authority:** `CSL-R-RP-02`, `CSL-R-SE-03`, DEC-007,
+  DEC-012, ADR-010; this is a post-Q-02 validation/tooling gate and creates no
+  product behavior, new profile, contract, migration, or lifecycle.
+- **State / owner / wave:** BLOCKED / Manager with exactly one checker-tooling
+  worker / E1 validation gate.
+- **Start dependencies:** Q-02 is `REVIEW` with source checkpoint
+  `95cb98463f60c35f71dda2f7832f0aa9ad22a30c`; `ENV-03` is `REVIEW` with its
+  accepted checker evidence; the current Instructor signal must explicitly
+  authorize `ENV-04`.
+- **Objective:** Reconcile the canonical deferred-scope checker to recognize
+  the exact approved Q-02 implementation paths without weakening deferred
+  scope enforcement or reopening Q-02 source.
+- **Exact write scope:** `scripts/check-deferred-scope.cjs` and its focused
+  checker tests/helpers only. The narrow additions are the exact Q-02 paths
+  `modules/search/application/service.ts`,
+  `modules/search/domain/generators/domain-guided/`, and
+  `modules/search/domain/generators/genetic/` for their respective approved
+  profile identifiers. The Manager alone may update `TASKS.md` and
+  `HANDOFF.md` for this packet. No `modules/**` business source, contracts,
+  REST DTOs, migrations, frontend, provider, queue, or unrelated file may
+  change.
+- **Acceptance/tests:** `DOMAIN_GUIDED_V1` and `GENETIC_V1` are allowed only
+  in the named Q-02 paths and existing canonical contract boundaries;
+  near-match Search paths remain rejected; all deferred enterprise identity,
+  queue/distributed, risk/live-trading, autonomous or unconfigured LLM, and
+  strict-replay patterns remain rejected. Preserve all prior ENV-01/ENV-02/
+  ENV-03 positive and negative cases.
+- **Validation:** Focused checker tests (`npm run test:scope-check`), root
+  `npm run scope:check`, architecture/artifact/deferred-scope checks,
+  applicable typecheck/build/lint checks, and `git diff --check`. OpenSpec CLI
+  and unavailable environments remain `UNVERIFIED`/`BLOCKED`, never `PASS`.
+- **Definition of Done:** One fresh Manager delegates exactly one disjoint
+  checker worker, independently reviews the exact allowlist/test diff, commits
+  one coherent `ENV-04` checkpoint, and stops at `REVIEW`; Q-02 remains
+  `REVIEW` for a separate Instructor closure review. No downstream packet is
+  started. **Parallel:** NO. **Critical:** YES to Q-02 closure.
 
 ### B-03 — Synthetic Directional Paper Execution and Provenance
 

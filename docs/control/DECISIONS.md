@@ -398,3 +398,50 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [MVP plan](../implementation/MVP_PLAN.md), [Task state](../implementation/TASKS.md),
 [Search capability spec](../../openspec/specs/search/spec.md), and
 [INS-054](./INSTRUCTOR.md).
+
+## DEC-013 — Q-02 approved-profile checker boundary reconciliation
+
+Status: `APPROVED`
+
+Authority: Instructor operational decision after the independent `INS-058`
+review of the Q-02 source checkpoint
+`95cb98463f60c35f71dda2f7832f0aa9ad22a30c`
+
+Decision: A distinct `ENV-04` packet is approved to reconcile the canonical
+deferred-scope checker for the already approved Q-02 implementation. The
+checker may recognize `DOMAIN_GUIDED_V1` in
+`modules/search/application/service.ts` and under
+`modules/search/domain/generators/domain-guided/`, and may recognize
+`GENETIC_V1` in `modules/search/application/service.ts` and under
+`modules/search/domain/generators/genetic/`. These are exact additions for
+the reviewed implementation paths; they must not become a broad
+`modules/search/**` allowance.
+
+`ENV-04` may change only the checker and its focused tests/helpers. It must
+preserve all existing positive and negative cases and continue rejecting
+deferred enterprise identity, queue/distributed, live-trading/generalized
+risk, autonomous or unconfigured LLM, strict-replay, and near-match path
+scope. It does not reopen Q-02 source, C-03 contracts, migrations, product
+behavior, or downstream task state. Q-02 remains `REVIEW` until a separate
+Instructor closure review after the checker gate.
+
+Why: Q-02 source was independently reviewed and all applicable local code
+gates pass, but `npm run scope:check` reports the four exact approved-profile
+occurrences as outside the stale checker boundary. This is an executable
+policy mismatch that must be repaired separately so the checker remains an
+enforceable safeguard rather than being hidden or bypassed.
+
+Affected: `ENV-04`, `scripts/check-deferred-scope.cjs`, its focused tests/helpers,
+and the Q-02 closure review. Q-02 implementation, C-03, ENV-01/ENV-02/ENV-03,
+migrations, and downstream feature task state are not reopened or promoted by
+this decision.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md),
+[DEC-007](#dec-007--controlled-academic-functional-extension-profiles),
+[DEC-010](#dec-010--post-extension-deferred-scope-boundary-reconciliation),
+[DEC-012](#dec-012--q-02-seeded-discovery-contract-boundary-reconciliation),
+[MVP plan](../implementation/MVP_PLAN.md), [Task state](../implementation/TASKS.md),
+[scope checker](../../scripts/check-deferred-scope.cjs),
+[Q-02 checkpoint](../implementation/HANDOFF.md), and
+[INS-058](./INSTRUCTOR.md).
