@@ -184,7 +184,7 @@ P-00 DONE -> C-01 DONE -> A-00 DONE -> C-01A READY
          +-------------------------------> I-01 <-----------------------+
 
 E-01 READY --------------------------------> B-02
-F-01 READY -> F-AUTH --(AU-01 integrate)--> F-02 -----------------> I-01S -> I-01R -> I-01 -> I-02
+F-01 READY -> F-AUTH --(AU-01 integrate)--> F-02 -----------------> I-01S -> I-01R -> ENV-05 -> I-01 -> I-02
 ```
 
 The revised critical join is:
@@ -193,7 +193,7 @@ The revised critical join is:
 A-00 -> C-01A
   -> { S-01 -> B-01 | D-01 -> L-01 } -> B-02 -> Q-01 integration
   -> { AU-01 | Q-01 integration } -> AU-02
-  -> { AU-02 | F-01 -> F-AUTH -> F-02 | real-provider lanes } -> I-01S -> I-01R -> I-01 -> I-02
+  -> { AU-02 | F-01 -> F-AUTH -> F-02 | real-provider lanes } -> I-01S -> I-01R -> ENV-05 -> I-01 -> I-02
 ```
 
 E-01 and F-01 remain independently READY after A-00 but are not started by A-00.
@@ -292,6 +292,7 @@ provider, provenance, and no-secret evidence for this extension frontier.
 | 5 | B-02 then Q-01 real integration | AU-02 only after affected owners checkpoint | Persisted owner-scoped Search/Experiment/Leaderboard passes |
 | 5R | I-01 review identifies a missing public Strategy composition seam | `I-01S` only | Strategy-owned public registry/composition seam is reviewed and available to the runtime boundary |
 | 6R | I-01 review identifies missing public module bootstrap/persistence seams | `I-01R` only | Public module composition and owned persistence seams are reviewed and available to the runtime boundary |
+| 6V | I-01R review identifies validator, architecture, and runtime-smoke boundary drift | `ENV-05` only | Required gates enforce the accepted architecture and current truthful readiness boundary |
 | 6 | I-01S and I-01R plus the existing I-01/AU-02 prerequisites | Fresh reviewed I-01 resumption | Runnable integrated backend/frontend with real-provider preflight |
 | 7 | I-02 | Independent test/reviewer agents | Full MVP DoD, two-user isolation, and real demo evidence |
 
@@ -911,9 +912,101 @@ strict artifact repositories; unrelated cleanup.
 - **Stop condition:** The Manager moves only `I-01R` through the normal state
   sequence, records `DONE` only with the scoped seam evidence, and stops. A
   fresh Instructor review must accept it before a new authorization can resume
-  `I-01`; no retry, duplicate, replacement, I-01/I-02/I-03, or downstream
+  `I-01`. `ENV-05` is a separate validation/architecture reconciliation gate;
+  completion of ENV-05 does not itself mark I-01R done or resume I-01. No retry, duplicate, replacement, I-01/I-02/I-03, or downstream
   packet may start automatically. **Parallel:** YES, maximum three workers;
   **Critical:** YES to I-01.
+
+### ENV-05 — Validation and Architecture Gate Reconciliation
+
+- **Requirement IDs / authority:** `CSL-R-AR-01`–`03`, `CSL-R-RP-02`,
+  `CSL-R-RD-01`, `CSL-R-DL-01`, `DEC-007`, the accepted modular-monolith
+  architecture/ADR-005 bootstrap-facade rule, and the explicit `INS-109`
+  review findings; BLOCKED pending a fresh Instructor authorization; validation
+  prerequisite for accepting `I-01R` and resuming `I-01`.
+- **State / owner / wave:** BLOCKED / fresh Manager plus up to three disjoint
+  internal workers / 6V.
+- **Start dependencies:** `I-01R` is `REVIEW / NEEDS_INSTRUCTOR_REVIEW`
+  after `INS-108`, with its exact source delta integrated at `9bbbfda`; the
+  current Instructor checkpoint is `INS-109 / HOLD` at `b8c6f52`; no
+  implementation writer is active.
+- **Integration dependencies:** A fresh Instructor review of ENV-05 and the
+  resulting I-01R evidence. This packet does not authorize I-01R closure,
+  I-01, I-02, I-03, extensions, or final/demo claims.
+- **Objective:** Make the repository's validation gates truthful and aligned
+  with the already approved public module/bootstrap architecture and current
+  backend readiness projection, without weakening coverage or changing product
+  behavior. Repair only the explicitly observed Search profile allowlist
+  boundary, readiness assertion drift, architecture-rule configuration/fixtures,
+  and the concrete module import/cycle edges listed below.
+- **Worker A — scope and smoke gates:** only
+  `scripts/check-deferred-scope.cjs`,
+  `scripts/check-deferred-scope.test.cjs`, and
+  `scripts/smoke-backend.cjs`. Permit `DOMAIN_GUIDED_V1` and `GENETIC_V1`
+  in the exact approved `modules/search/api/registry.ts` public boundary while
+  preserving all unrelated rejection rules and fixtures. Make smoke assert the
+  exact current `composeRuntimeState` required-dependency order while preserving
+  `/live=200`, truthful `/ready=503`, and obsolete `/health=404` behavior.
+- **Worker B — architecture harness:** only `.dependency-cruiser.js` and
+  `scripts/check-architecture-rules.mjs`. Configure resolution for the
+  repository's TypeScript path aliases; represent the accepted allowlisted
+  `api/bootstrap` composition facade without permitting `api/index` or other
+  non-bootstrap infrastructure imports; keep cross-module, domain, application,
+  unresolved, and circular dependency enforcement active. Update only the
+  corresponding architecture fixtures. No severity downgrade, broad ignore,
+  known-violation baseline, generated artifact, or coverage bypass is allowed.
+- **Worker C — concrete source boundary cleanup:** only the following existing
+  source/test paths and narrowly required new file:
+  `modules/backtesting/application/service.ts`,
+  `modules/backtesting/api/contracts.ts`,
+  `modules/search/application/service.ts`,
+  `modules/search/api/contracts.ts`,
+  `modules/search/domain/random-generator.ts`,
+  `modules/search/domain/generators/domain-guided/domain-guided-generator.ts`,
+  `modules/search/domain/generators/genetic/genetic-generator.ts`,
+  `modules/leaderboard/application/service.ts`,
+  `modules/leaderboard/domain/ranking.ts`,
+  `modules/leaderboard/api/contracts.ts`,
+  `modules/market-data/application/service.ts`,
+  `modules/market-data/api/contracts.ts`,
+  `modules/news/application/service.ts`,
+  `modules/news/api/contracts.ts`,
+  `modules/sentiment/application/lexicon.ts`,
+  `modules/sentiment/api/contracts.ts`,
+  `modules/news/infrastructure/postgres.ts`,
+  `modules/news/infrastructure/extraction-postgres.ts`,
+  `modules/news/infrastructure/postgres-types.ts` (new), and focused tests
+  in those same module directories only. Preserve all public contracts and
+  runtime behavior; remove only illegal runtime outward imports and the
+  News infrastructure cycle, using lower-layer-owned immutable constants/types
+  or public module boundaries as appropriate. If any required repair falls
+  outside this list, stop with `NEEDS_INSTRUCTOR_REVIEW`.
+- **Manager-owned scope:** only the new `ENV-05` row and latest
+  `HANDOFF.md` checkpoint in `docs/implementation/`; the Manager alone moves
+  ENV-05 through the operational state sequence and may not change I-01R,
+  I-01, I-02, I-03, or any other row.
+- **Forbidden:** feature/UI behavior, REST/WebSocket contracts, migrations,
+  application use-case semantics beyond behavior-preserving import/constant
+  plumbing explicitly listed above, provider algorithms, backend composition,
+  frontend, dependencies, infra root, OpenSpec artifacts, requirements, ADRs,
+  deferred scope, queues, distributed protocols, retries, replacements,
+  duplicates, worktrees, or downstream execution. Do not hide failures by
+  changing expected results or treating unavailable PostgreSQL/provider/demo
+  evidence as PASS.
+- **Acceptance/tests:** `npm run scope:check`,
+  `node --test scripts/check-deferred-scope.test.cjs`,
+  `npm run arch:check`, `npm run runtime:smoke`, focused tests for every changed
+  module, workspace test/build/typecheck/lint, artifact/source-sidecar,
+  secret/log, whitespace, exact-path, and `git diff --check` all pass. The
+  architecture command must pass with its real rules intact; live PostgreSQL,
+  Docker, OpenSpec CLI, configured providers, browser/demo, and final runtime
+  evidence remain explicitly `BLOCKED`/`UNVERIFIED` when unavailable.
+- **Stop condition:** The Manager moves only ENV-05 through
+  `BLOCKED -> READY -> IN_PROGRESS -> REVIEW`, records `DONE` only when every
+  bounded gate and source cleanup is proven, and stops for fresh Instructor
+  review. It must not close I-01R, resume I-01, start I-02/I-03, or promote any
+  downstream packet. **Parallel:** YES, maximum three workers;
+  **Critical:** YES to I-01R.
 
 ### I-01 — Runtime, Transports and Observability Integration
 
@@ -930,8 +1023,9 @@ strict artifact repositories; unrelated cleanup.
 - **Current reconciliation:** `INS-103` reached `REVIEW` with a concrete
   missing Strategy composition seam. `I-01S` is accepted, while `I-01R` is a
   separately authorized public bootstrap/persistence prerequisite after the
-  `INS-106` review; completion of either prerequisite does not itself resume
-  or complete I-01.
+  `INS-106` review. `ENV-05` is now a separately planned validation/architecture
+  gate after the `INS-108` review; completion of any prerequisite does not
+  itself resume or complete I-01.
 - **Reading:** Entire authority chain and latest checkpoint.
 - **Allowed:** `apps/backend/**`, example configuration, thin transport mappers;
   module fixes only through owner review.

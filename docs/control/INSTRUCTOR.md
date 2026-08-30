@@ -2,13 +2,116 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-109`
+Instruction ID: `INS-110`
 
-Status: `HOLD`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
-## INS-109 — HOLD after INS-108 I-01R review
+## INS-110 — Validation and architecture gate reconciliation
+
+This signal supersedes `INS-109 / HOLD` after the Instructor's fresh review of
+the verified I-01R gate findings. It authorizes exactly one new validation
+reconciliation packet, `ENV-05`, and no other task.
+
+### Reviewed checkpoint and applicability
+
+- The canonical checkout is `D:/agy-cli-projects/AOS/Cryptox` on
+  `MVP_IMPLEMENTATION`, at `b8c6f52` (`chore(control): hold after I-01R seam
+  review`). The tracked tree is clean at this checkpoint; the untouched
+  app-generated `.codex/config.toml` remains untracked, outside Cryptox scope,
+  and must stay unstaged and undeleted.
+- The authoritative task board has `41 DONE`, `2 REVIEW` (`I-01R`, `I-01`),
+  and `2 BLOCKED` (`I-02`, `I-03`), `45` rows total. The Manager must add
+  exactly one `ENV-05` row and own its state transitions. Existing rows must
+  remain unchanged.
+- `I-01R` source is independently integrated at `9bbbfda`; its public seams
+  are reviewable, but the current scope checker, architecture checker, and
+  runtime smoke expose concrete reconciliation findings. No Cryptox Manager,
+  worker, retry, replacement, duplicate, or downstream task is active.
+- Governing requirements/authority for this packet are `CSL-R-AR-01`–`03`,
+  `CSL-R-RP-02`, `CSL-R-RD-01`, `CSL-R-DL-01`, `DEC-007`, and the accepted
+  ADR-005 bootstrap-facade rule. OpenSpec CLI remains `UNVERIFIED`; the active
+  change/spec artifacts and durable plan have been read directly.
+
+### Exact Manager and worker authorization
+
+- Create exactly one fresh Manager in the canonical checkout, same directory,
+  no worktree and no historical Manager reuse, with model `gpt-5.6-luna` and
+  reasoning `max`. The Manager must read `AGENTS.md`,
+  `docs/control/prompts/ORCHESTRATOR_START.md`, the current signal, checkpoint,
+  task DAG, requirements, accepted ADRs, architecture, data model, relevant
+  specs, and the complete ENV-05 plan before acting.
+- The Manager may create at most three fresh internal workers, with the three
+  disjoint scopes below, and no user-visible child tasks. No duplicate,
+  replacement, retry, unapproved parallel writer, branch, or worktree is
+  allowed. Workers must not edit control-plane artifacts or commit.
+- Worker A may edit only `scripts/check-deferred-scope.cjs`,
+  `scripts/check-deferred-scope.test.cjs`, and `scripts/smoke-backend.cjs`.
+  It may add only the exact public Search registry boundary for the two
+  already approved profiles and align the readiness assertion with the
+  current truthful composition list; all unrelated rejection and smoke
+  behavior must remain enforced.
+- Worker B may edit only `.dependency-cruiser.js` and
+  `scripts/check-architecture-rules.mjs`. It may configure the repository's
+  TypeScript path resolution and represent the documented allowlisted
+  `api/bootstrap` facade, while retaining enforcement for non-bootstrap
+  infrastructure imports, cross-module internals, domain/application
+  direction, unresolved dependencies, and cycles. No severity downgrade,
+  broad ignore, known-violation baseline, or coverage bypass is authorized.
+- Worker C may edit only the exact module source/test paths listed in the
+  `ENV-05` plan: `modules/backtesting/application/service.ts`,
+  `modules/backtesting/api/contracts.ts`,
+  `modules/search/application/service.ts`,
+  `modules/search/api/contracts.ts`,
+  `modules/search/domain/random-generator.ts`,
+  `modules/search/domain/generators/domain-guided/domain-guided-generator.ts`,
+  `modules/search/domain/generators/genetic/genetic-generator.ts`,
+  `modules/leaderboard/application/service.ts`,
+  `modules/leaderboard/domain/ranking.ts`,
+  `modules/leaderboard/api/contracts.ts`,
+  `modules/market-data/application/service.ts`,
+  `modules/market-data/api/contracts.ts`,
+  `modules/news/application/service.ts`,
+  `modules/news/api/contracts.ts`,
+  `modules/sentiment/application/lexicon.ts`,
+  `modules/sentiment/api/contracts.ts`,
+  `modules/news/infrastructure/postgres.ts`,
+  `modules/news/infrastructure/extraction-postgres.ts`,
+  `modules/news/infrastructure/postgres-types.ts` (new), and focused tests
+  in those same module directories only. This is limited to
+  behavior-preserving import/constant plumbing and the News PostgreSQL
+  infrastructure cycle fix; it may not alter contract behavior, algorithms,
+  use-case semantics, schema, or provider behavior.
+- The Manager alone may update the new `ENV-05` row and replace
+  `docs/implementation/HANDOFF.md`. It may perform only governance, review,
+  integration glue, conflict resolution, or a tiny review fix within the
+  authorized paths; all independent implementation must be delegated.
+
+### Acceptance, validation, prohibitions and stop condition
+
+- The Manager must prove `npm run scope:check`, the 13-case deferred-scope
+  suite, `npm run arch:check`, and `npm run runtime:smoke` pass. Architecture
+  must pass with the real rules intact; no failure may be hidden by weakening
+  a rule or changing expected product behavior.
+- Run focused tests for every changed module, workspace test/build/typecheck/
+  lint, artifact/source-sidecar, secret/log, whitespace, exact-path, and
+  `git diff --check` validation. Docker/PostgreSQL, OpenSpec CLI, configured
+  real providers, browser/demo, and final integrated runtime evidence remain
+  `BLOCKED`/`UNVERIFIED` unless actually observed.
+- Do not change `packages/contracts/**`, migrations, backend/frontend,
+  `infra/**`, dependencies, OpenSpec/requirements/ADR artifacts, deferred
+  features, queues, distributed protocols, or any unrelated source. Do not
+  close `I-01R`, resume `I-01`, start `I-02`/`I-03`, or promote downstream.
+  If an architecture repair requires a path outside the listed scope, stop at
+  `REVIEW / NEEDS_INSTRUCTOR_REVIEW` and report it exactly.
+- The Manager may move only `ENV-05` through
+  `BLOCKED -> READY -> IN_PROGRESS -> REVIEW`, and to `DONE` only when the
+  bounded evidence passes. It must stop after one coherent checkpoint commit
+  attempt; if Git denies staging/commit, record the exact error once and do
+  not retry. A fresh Instructor review must follow.
+
+## Historical INS-109 — HOLD after INS-108 I-01R review
 
 This signal supersedes `INS-108 / APPROVED_FOR_EXECUTION` after the Instructor's
 independent review of the exact I-01R source delta integrated at `9bbbfda`. It

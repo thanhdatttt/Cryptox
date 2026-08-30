@@ -1085,3 +1085,40 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Task state](../implementation/TASKS.md),
 [Latest checkpoint](../implementation/HANDOFF.md), `INS-108`, `DEC-029`, and
 commit `9bbbfda`.
+
+## DEC-031 — Fresh explicit ENV-05 validation and architecture reconciliation authorization
+
+Status: `APPROVED`
+
+Authority: Fresh Instructor review after `INS-109 / HOLD` at `b8c6f52`, with
+the exact I-01R source delta independently integrated at `9bbbfda`.
+
+Decision: The Instructor authorizes exactly one fresh `INS-110 /
+APPROVED_FOR_EXECUTION` attempt for `ENV-05 — Validation and Architecture Gate
+Reconciliation`. It is limited to one fresh same-directory Manager using
+`gpt-5.6-luna` with reasoning `max`, and at most three fresh disjoint internal
+workers with the scopes recorded in `INSTRUCTOR.md`. It authorizes no I-01R
+closure, I-01 resumption, I-02, I-03, extension, retry, replacement, duplicate,
+worktree, or downstream execution.
+
+Why: Independent I-01R review found a false-positive Search profile boundary,
+a stale readiness assertion, a checker configuration mismatch with the
+documented allowlisted bootstrap facade, and concrete source dependency/cycle
+findings. The approved architecture and `DEC-007` profiles require those
+gates to remain strict and truthful; the reconciliation can be bounded to
+the validation files, the explicitly named architecture/source paths, and
+behavior-preserving plumbing. Live PostgreSQL/Docker, OpenSpec CLI, and real
+provider/browser/demo evidence remain environmental limitations and must not be
+masked by this packet.
+
+Affected: `ENV-05`, `I-01R`, `I-01`, `MVP_PLAN.md`, `TASKS.md`, `HANDOFF.md`,
+`INS-110`, and the integration DAG. Requirements, approved functional image
+amendments, accepted architecture, contracts, completed packets, `I-02`,
+`I-03`, and deferred scope remain unchanged.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [Architecture](../architecture.md),
+[Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md),
+[Latest checkpoint](../implementation/HANDOFF.md), `INS-109`, `DEC-030`, and
+commit `b8c6f52`.
