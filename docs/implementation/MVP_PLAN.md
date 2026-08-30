@@ -253,6 +253,10 @@ Q-02 REVIEW + ENV-03 REVIEW
   -> ENV-04 BLOCKED: Q-02 approved-profile checker-boundary reconciliation
        -> Q-02 closure review; only then may E-02/L-02 consume its clean gate
 
+N-03 REVIEW
+  -> N-03A BLOCKED: residual News auto-refresh scheduler completion
+       -> N-03 closure review; N-03A is completion work, not a retry
+
 {C-02 | M-03 | S-04 | S-05 | S-06 | Q-02 | N-03 | B-03}
   -> E-02 BLOCKED: extension evaluation/decimal-boundary reconciliation
 {Q-02 | B-03 | E-02}
@@ -296,7 +300,7 @@ continuation of the legacy waves:
 |---|---|---|---|
 | E0a | `RB-01`/`RB-02` accepted; C-02 blocked checkpoint reviewed | `ENV-01` only | Local Docker PostgreSQL and DEC-007 scope-checker evidence are accepted |
 | E0 | `ENV-01` accepted and separately reviewed | `C-02` only | Contracts/data model/migrations are reconciled and validated |
-| E1 | `C-02` DONE; `ENV-02` DONE; `ENV-03` REVIEW; B-03 review available | `M-03`, `S-04`, `S-05`, `S-06`, `C-03`, `Q-02`, `B-03`, `N-03`, `ENV-03` | Pure/provider-boundary extension behavior, approved checker boundaries, reconciled public contracts, and provenance pass |
+| E1 | `C-02` DONE; `ENV-02` DONE; `ENV-03` REVIEW; B-03 review available | `M-03`, `S-04`, `S-05`, `S-06`, `C-03`, `Q-02`, `B-03`, `N-03`, residual `N-03A`, `ENV-03` | Pure/provider-boundary extension behavior, approved checker boundaries, reconciled public contracts, and provenance pass |
 | E2 | E1 packet reviews | `E-02` then `L-02` | Decimal evaluation and extension-aware ranking are proven |
 | E3 | E2 plus all E1 packets | `F-03` | Functional-state frontend projections pass without business logic |
 | E4 | E3 plus baseline `I-01` and `AU-02` | `I-03` | Shared-boundary joins, real-provider readiness, and reproducibility proof pass |
@@ -1343,6 +1347,50 @@ Instructor signal can authorize one safe frontier without treating the legacy
 - **Definition of Done:** Reviewed handoff proves no unsafe remote contact,
   automatic template promotion, or secret/provenance leak. **Parallel:** YES
   after `C-02`; **Critical:** `S-04`/`F-03`/`I-03`.
+
+### N-03A — Residual News Auto-Refresh Scheduler Completion
+
+- **Requirement IDs:** `CSL-R-NW-02`, `CSL-R-RP-02`, `CSL-R-OB-01`.
+- **State / owner / wave:** BLOCKED / News application worker / E1 residual
+  completion.
+- **Start dependencies:** The original `N-03` implementation is at `REVIEW`;
+  `C-02`, `N-01`, and `N-02` are `DONE`. This is a separately authorized
+  completion packet for the missing required scheduler behavior, not a retry,
+  replacement, or reopening of the completed N-03 worker implementation.
+- **Integration dependencies:** The scheduler must be consumable through the
+  public News API by later runtime integration; it does not authorize `S-04`,
+  `F-03`, `I-01`, `I-03`, or any other downstream packet.
+- **Objective:** Complete the approved configurable News auto-refresh behavior
+  without changing canonical contracts, persistence schema, provider security,
+  or module boundaries.
+- **Exact write scope:** `modules/news/api/**` excluding `contracts.ts` and
+  contract-only tests; `modules/news/application/**`; and focused News tests
+  for the scheduler. No `modules/news/infrastructure/**` change is expected;
+  if an infrastructure change becomes necessary, stop for Instructor review.
+  No Sentiment, Strategy, frontend, backend composition root, migration,
+  dependency, credential, arbitrary-fetch, queue, or distributed change is
+  authorized.
+- **Acceptance/tests:** A provider-neutral application scheduler accepts the
+  existing configured 1–5 minute interval and five-minute default, invokes the
+  existing public News collection at each interval, prevents overlapping
+  collection runs, isolates a failed refresh so later ticks remain possible,
+  and has idempotent bounded shutdown that prevents future ticks. The scheduler
+  must not fetch remotely itself, persist timer state, log secrets, or create a
+  queue/distributed worker protocol. Tests must cover cadence, default and
+  invalid intervals, non-overlap, failure continuation, and shutdown with an
+  injected timer/clock seam.
+- **Validation:** Focused N-03 and N-03A News/Sentiment tests, applicable public
+  API tests, architecture/artifact/deferred-scope/scope checks, typecheck,
+  build, lint, and `git diff --check`. Real configured News, PostgreSQL,
+  browser/runtime, OpenSpec CLI, and link/DAG automation remain
+  `UNVERIFIED`/`BLOCKED` when unavailable; fixtures and skipped tests are not
+  live-provider evidence.
+- **Definition of Done:** The Manager independently reviews one fresh worker's
+  disjoint scheduler diff, moves `N-03A` through the normal operational states,
+  and may then close the existing `N-03` `REVIEW -> DONE` only when the full
+  original N-03 evidence remains sound and the residual scheduler acceptance is
+  proven. No downstream task is promoted automatically. **Parallel:** NO with
+  other News writers; **Critical:** `S-04`/`F-03`/`I-03`.
 
 ### E-02 — Extension Evaluation and Decimal-Boundary Reconciliation
 

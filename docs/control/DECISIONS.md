@@ -445,3 +445,49 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [scope checker](../../scripts/check-deferred-scope.cjs),
 [Q-02 checkpoint](../implementation/HANDOFF.md), and
 [INS-058](./INSTRUCTOR.md).
+
+## DEC-014 — N-03 residual auto-refresh scheduler completion
+
+Status: `APPROVED`
+
+Authority: Instructor operational decision after the `INS-072` frontier review
+and the accepted M-03 closure checkpoint `280b280`
+
+Decision: A distinct residual packet, `N-03A`, is approved to complete the
+missing auto-refresh scheduler behavior required by `CSL-R-NW-02` in the
+already approved N-03 News boundary. N-03A is completion work, not a retry,
+replacement, or reopening of the completed N-03 worker implementation. It may
+add a provider-neutral, application-owned, testable scheduler that invokes the
+existing public News collection at a configured one-to-five-minute interval
+with a five-minute default, prevents overlapping runs, isolates refresh failure,
+and shuts down idempotently. The scheduler must not perform direct remote
+fetching, persist timer state, log credentials, or introduce a queue/distributed
+protocol.
+
+The exact implementation scope is limited to `modules/news/api/**` excluding
+canonical contracts and contract-only tests, `modules/news/application/**`, and
+focused News scheduler tests. The worker may not change infrastructure,
+Sentiment, Strategy, frontend, backend composition, contracts, migrations,
+dependencies, credentials, arbitrary URL behavior, OpenSpec artifacts, or any
+other source. A separate `INS-* / APPROVED_FOR_EXECUTION` must authorize the
+worker and Manager; this decision does not itself start work or promote N-03.
+
+Why: N-03's safe-fetch, extraction, retention, provenance, and neutral
+Sentiment evidence is present, but its checkpoint explicitly records that only
+the interval setting/default is exposed and no scheduler is implemented.
+Closing N-03 without this bounded completion would claim an approved
+auto-refresh requirement that the source does not prove.
+
+Affected: `N-03A`, the residual N-03 closure review, the E1-to-E2 News
+dependency, and the relevant News application/test boundary. Existing N-03
+source history, contracts, migrations, Sentiment behavior, downstream task
+state, and all deferred scope remain unchanged until a separately authorized
+Manager checkpoint proves the packet.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md),
+[ADR-009](../adr/ADR_009_controlled_llm_and_external_content.md),
+[News capability spec](../../openspec/specs/news/spec.md),
+[MVP plan](../implementation/MVP_PLAN.md), [Task state](../implementation/TASKS.md),
+[N-03 checkpoint](../implementation/HANDOFF.md), and
+[INS-072](./INSTRUCTOR.md).
