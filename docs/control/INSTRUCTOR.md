@@ -2,13 +2,66 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-112`
+Instruction ID: `INS-113`
 
-Status: `APPROVED_FOR_EXECUTION`
+Status: `HOLD`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
-## INS-112 — Remaining application contract boundary reconciliation
+## INS-113 — HOLD after ENV-06 review and live PostgreSQL Strategy blocker
+
+This signal supersedes `INS-112 / APPROVED_FOR_EXECUTION` after the Instructor
+independently reviewed the exact ENV-06 integration and newly available local
+PostgreSQL evidence. It authorizes no implementation, retry, replacement,
+duplicate, downstream promotion, or task-state transition.
+
+### Reviewed checkpoint and current frontier
+
+- The canonical checkout is `D:/agy-cli-projects/AOS/Cryptox` on
+  `MVP_IMPLEMENTATION`, at `d274f52` (`chore(control): integrate ENV-06
+  boundary reconciliation`). The tracked tree is clean at this checkpoint;
+  the app-generated `.codex/config.toml` remains untracked, outside Cryptox
+  scope, and must stay untouched, unstaged, and undeleted.
+- The authoritative board has `42 DONE`, `3 REVIEW` (`ENV-05`, `I-01R`,
+  `I-01`), and `2 BLOCKED` (`I-02`, `I-03`) rows, `47` rows total. ENV-06 is
+  the only newly completed row; no existing row was changed by its Manager.
+- The ENV-06 Manager and all three internal workers are idle/complete. No
+  competing Cryptox Manager, worker, retry, replacement, duplicate, or
+  downstream task is active.
+
+### Independent review evidence
+
+- ENV-06 changed exactly its 23 authorized source files plus its `TASKS.md`
+  row and `HANDOFF.md`; no Strategy source path was changed. The strict
+  `npm run arch:check` passes with 0 violations, `npm run scope:check`,
+  artifacts, runtime smoke, build, typecheck, lint, whitespace, exact-path,
+  and focused affected-module tests pass.
+- Local Docker Compose is reachable as `v2.40.3`; migration validation passes
+  for up, constraints, down, and remigrate. With a process-local test URL,
+  Auth PostgreSQL persistence is `3/3`, Market Data persistence `1/1`, Search
+  Q-01 integration `1/1`, and backend Auth E2E `1/1`.
+- A targeted Strategy PostgreSQL integration rerun reproducibly fails one
+  test at `modules/strategy/infrastructure/postgres.ts:637` with `NOT_FOUND`
+  during a valid same-owner composite insert. The existing
+  `componentPayload` emits camelCase JSON keys while
+  `jsonb_to_recordset` reads snake_case fields. This is an independent
+  Strategy persistence defect and is not evidence to broaden ENV-06.
+- The full database-enabled workspace run therefore has one real Strategy
+  integration failure and must not be reported as PASS. OpenSpec CLI remains
+  `UNVERIFIED`; configured live Binance/News traffic, browser/demo, and final
+  integrated runtime evidence remain `UNVERIFIED`.
+
+### Required next decision
+
+The next authorization, if any, must be a new bounded `ENV-07` packet exactly
+as recorded in `MVP_PLAN.md`: one fresh same-directory Manager using
+`gpt-5.6-luna` with reasoning `max`, one fresh internal worker, and write scope
+limited to `modules/strategy/infrastructure/postgres.ts` plus its focused
+integration test only. It may repair only the JSON key mapping and prove the
+real PostgreSQL composite persistence behavior. It must not close ENV-06,
+I-01R, resume I-01, start I-02/I-03, or promote downstream work.
+
+## Historical INS-112 — Remaining application contract boundary reconciliation
 
 This signal supersedes `INS-111 / HOLD` after the Instructor verified the
 integrated ENV-05 checkpoint and its remaining architecture findings. It

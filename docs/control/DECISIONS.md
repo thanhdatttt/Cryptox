@@ -1193,3 +1193,43 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [MVP plan](../implementation/MVP_PLAN.md), [Task state](../implementation/TASKS.md),
 [Latest checkpoint](../implementation/HANDOFF.md), `DEC-032`, `INS-111`, and
 commit `17db62f`.
+
+## DEC-034 — ENV-06 accepted; HOLD after live PostgreSQL review
+
+Status: `APPROVED`
+
+Authority: Independent Instructor review of the `INS-112` Manager checkpoint,
+the exact ENV-06 integration commit `d274f52`, and newly available local
+Docker/PostgreSQL evidence.
+
+Decision: Preserve ENV-06 as `DONE` with its exact audited 23-file source
+boundary reconciliation and Manager checkpoint in `d274f52`. Keep the current
+Instructor signal at `HOLD`; do not close I-01R or resume I-01. A live
+PostgreSQL run exposed one reproducible Strategy persistence defect outside the
+ENV-06 changed paths: the existing Strategy integration test fails at
+`modules/strategy/infrastructure/postgres.ts:637` with `NOT_FOUND` when a valid
+same-owner composite is inserted. This requires a separately authorized,
+single-purpose ENV-07 packet.
+
+Why: ENV-06 independently passes the strict architecture checker (0
+violations), deferred-scope checker (13/13), scope/artifact/runtime-smoke,
+focused affected-module tests, build, typecheck, lint, whitespace, exact-path,
+and source review. Docker Compose `v2.40.3` is now reachable and local
+migration validation passes (`up`, constraints, `down`, remigrate). With a
+process-local test URL, Auth persistence (3/3), Market Data persistence (1/1),
+Search Q-01 integration (1/1), and backend Auth E2E (1/1) pass. The Strategy
+failure is reproducible in a targeted rerun and no Strategy path is changed by
+ENV-06; it is therefore a separate validation blocker, not permission to
+expand ENV-06 or to treat the full suite as PASS.
+
+Affected: `ENV-06`, `ENV-07`, `I-01R`, `I-01`, `MVP_PLAN.md`, `TASKS.md`,
+`HANDOFF.md`, `INS-113`, and the integration DAG. Requirements, approved
+functional image amendments, accepted ADRs, public contracts, completed packet
+states, `I-02`, `I-03`, and deferred scope remain unchanged.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [Architecture](../architecture.md),
+[Data model](../data-model.md), [ADR-005](../adr/ADR_005_module_first_structure.md),
+[MVP plan](../implementation/MVP_PLAN.md), [Task state](../implementation/TASKS.md),
+[Latest checkpoint](../implementation/HANDOFF.md), `DEC-033`, `INS-112`, and
+commit `d274f52`.

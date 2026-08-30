@@ -184,7 +184,7 @@ P-00 DONE -> C-01 DONE -> A-00 DONE -> C-01A READY
          +-------------------------------> I-01 <-----------------------+
 
 E-01 READY --------------------------------> B-02
-F-01 READY -> F-AUTH --(AU-01 integrate)--> F-02 -----------------> I-01S -> I-01R -> ENV-05 -> ENV-06 -> I-01 -> I-02
+F-01 READY -> F-AUTH --(AU-01 integrate)--> F-02 -----------------> I-01S -> I-01R -> ENV-05 -> ENV-06 -> ENV-07 -> I-01 -> I-02
 ```
 
 The revised critical join is:
@@ -193,14 +193,16 @@ The revised critical join is:
 A-00 -> C-01A
   -> { S-01 -> B-01 | D-01 -> L-01 } -> B-02 -> Q-01 integration
   -> { AU-01 | Q-01 integration } -> AU-02
-  -> { AU-02 | F-01 -> F-AUTH -> F-02 | real-provider lanes } -> I-01S -> I-01R -> ENV-05 -> ENV-06 -> I-01 -> I-02
+  -> { AU-02 | F-01 -> F-AUTH -> F-02 | real-provider lanes } -> I-01S -> I-01R -> ENV-05 -> ENV-06 -> ENV-07 -> I-01 -> I-02
 ```
 
 E-01 and F-01 remain independently READY after A-00 but are not started by A-00.
 M-01/M-02, real built-ins, News/Sentiment, Search integration, Auth/frontend, and
 real-provider evidence complete before I-01/I-02, not before unrelated pure work.
 The ENV-05 gate must be reviewed before the separately authorized ENV-06
-application-boundary reconciliation; neither gate authorizes I-01 by itself.
+application-boundary reconciliation; ENV-06 must be followed by the separately
+authorized ENV-07 live Strategy persistence reconciliation before I-01R can be
+accepted and I-01 can resume. Neither gate authorizes I-01 by itself.
 
 The legacy diagram and wave rows above preserve the original program shape at
 the A-00 checkpoint. The current operational states are owned by `TASKS.md` and
@@ -296,6 +298,7 @@ provider, provenance, and no-secret evidence for this extension frontier.
 | 6R | I-01 review identifies missing public module bootstrap/persistence seams | `I-01R` only | Public module composition and owned persistence seams are reviewed and available to the runtime boundary |
 | 6V | I-01R review identifies validator, architecture, and runtime-smoke boundary drift | `ENV-05` only | Required gates enforce the accepted architecture and current truthful readiness boundary |
 | 6A | ENV-05 review identifies remaining application-to-own-API violations | `ENV-06` only | Strict architecture rules pass with application boundaries reconciled |
+| 6B | Live PostgreSQL review exposes a pre-existing Strategy composite persistence defect | `ENV-07` only | Strategy versioned composite persistence passes real PostgreSQL integration evidence |
 | 6 | I-01S and I-01R plus the existing I-01/AU-02 prerequisites | Fresh reviewed I-01 resumption | Runnable integrated backend/frontend with real-provider preflight |
 | 7 | I-02 | Independent test/reviewer agents | Full MVP DoD, two-user isolation, and real demo evidence |
 
@@ -1098,6 +1101,54 @@ strict artifact repositories; unrelated cleanup.
   stops for fresh Instructor review. It must not close ENV-05/I-01R, resume
   I-01, start I-02/I-03, or promote downstream work. **Parallel:** YES,
   exactly three disjoint workers; **Critical:** YES to I-01R.
+
+### ENV-07 — Strategy PostgreSQL Composite Persistence Reconciliation
+
+- **Requirement IDs / authority:** `CSL-R-ST-03`–`04`, `CSL-R-OW-01`,
+  `CSL-R-RP-02`, the accepted Strategy persistence contract, and the live
+  PostgreSQL failure discovered during the independent ENV-06 review; a
+  validation prerequisite for accepting `I-01R` and resuming `I-01`.
+- **State / owner / wave:** BLOCKED / fresh Manager plus one disjoint internal
+  worker / 6B.
+- **Start dependencies:** ENV-06 is `DONE` and its exact delta is integrated
+  at `d274f52`; the current Instructor checkpoint is `INS-113 / HOLD`; the
+  Strategy PostgreSQL integration failure is reproducible with the local test
+  database; and no Cryptox implementation writer is active.
+- **Integration dependencies:** A fresh Instructor review of ENV-07 and the
+  resulting I-01R evidence. This packet does not authorize I-01R closure, I-01,
+  I-02, I-03, extensions, or final/demo claims.
+- **Objective:** Repair the single Strategy PostgreSQL composite-insert
+  persistence defect where the JSON payload emitted by
+  `componentPayload` uses camelCase keys while `jsonb_to_recordset` reads
+  snake_case columns, causing a valid same-owner composite insert to return
+  `NOT_FOUND`. Preserve the approved schema, public contracts, version and
+  ownership semantics, component-version provenance, and all other behavior.
+- **Worker scope:** only `modules/strategy/infrastructure/postgres.ts` and
+  `modules/strategy/infrastructure/postgres.integration.spec.ts`, with the
+  test path changed only if a focused regression assertion is strictly needed.
+  The worker must not edit control-plane files, contracts, migrations, ADRs,
+  OpenSpec, backend/frontend, other modules, or commit/stage.
+- **Manager-owned scope:** only the new `ENV-07` row and latest
+  `HANDOFF.md` checkpoint in `docs/implementation/`; the Manager alone moves
+  ENV-07 through the operational state sequence and may not change ENV-06,
+  I-01R, I-01, I-02, I-03, or any other existing row.
+- **Forbidden:** schema/migration changes, API or DTO redesign, strategy
+  algorithm changes, ownership weakening, broad test skips, checker changes,
+  unrelated cleanup, retries, replacements, duplicates, worktrees, or
+  downstream execution.
+- **Acceptance/tests:** the targeted Strategy PostgreSQL integration must pass
+  with the local test database and prove same-owner composite persistence,
+  exact component versions, owner filtering, and cross-owner rejection. Run
+  focused Strategy tests plus workspace test/build/typecheck/lint,
+  `npm run arch:check`, `npm run scope:check`, the 13-case deferred-scope suite,
+  artifacts/source-sidecar, runtime smoke, secret/log, whitespace,
+  exact-path, and `git diff --check`. Any unavailable environment is
+  `BLOCKED`/`UNVERIFIED`, never PASS.
+- **Stop condition:** The Manager moves only ENV-07 through
+  `BLOCKED -> READY -> IN_PROGRESS -> REVIEW`, records `DONE` only when the
+  exact regression and all bounded gates pass, and stops for fresh Instructor
+  review. It must not close ENV-06/I-01R, resume I-01, start I-02/I-03, or
+  promote downstream work. **Parallel:** NO; **Critical:** YES to I-01R.
 
 ### I-01 — Runtime, Transports and Observability Integration
 
