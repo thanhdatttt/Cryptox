@@ -1,117 +1,152 @@
-# INS-089 Manager Checkpoint — F-03 Residual Screen Projections
+# INS-091 Manager Checkpoint — F-03 Packet Closure and Checkpoint Reconciliation
 
 ## Resume here
 
-- **Authorization:** `INS-089 / APPROVED_FOR_EXECUTION` authorizes exactly one
-  fresh Manager and exactly one fresh internal Frontend worker for the F-03
-  residual screen-level slice. The current Instructor signal is committed at
-  `3945fb09286e062446cd95b55b6714bc1bbdda3b`; its reviewed base is
-  `29464d3f52858f687ded90818757628b7c9b671f`.
+- **Authorization:** `INS-091 / APPROVED_FOR_EXECUTION` at
+  `cb0f8fc88f371a7fcfc98930f01b37469523f2e1` supersedes
+  `INS-090 / HOLD` at `1926142aaa20b4c0576002e66e859fef40a60566`. It authorizes
+  exactly one fresh Manager for governance-only F-03 closure reconciliation:
+  no worker, source implementation, retry, replacement, duplicate, or
+  downstream packet.
 - **Canonical checkout:** `D:/agy-cli-projects/AOS/Cryptox` on branch
-  `MVP_IMPLEMENTATION`; no worktree, alternate checkout, branch, or cloud task
-  was used.
-- **Reviewed starting state:** The audited market/cache source slice is
-  `122569c8f10e39dcbd31ec74d032dde73187bd2c`, and the reconciled Manager
-  checkpoint is `43ae5d2a5a2aa116d328120f832bd6cc4a446bc0`. Both are ancestors
-  of the starting signal. Source/business state was clean before execution;
-  the only subsequent implementation paths are the two authorized screen
-  paths below.
-- **Control-plane preconditions:** `TASKS.md` was verified at `37 DONE`,
-  `2 REVIEW` (`M-02`, `F-03`), and `4 BLOCKED` (`AU-02`, `I-01`, `I-02`,
-  `I-03`). F-03 was `REVIEW / NEEDS_INSTRUCTOR_REVIEW`. Dependencies `M-03`,
-  `S-04`, `S-05`, `S-06`, `Q-02`, `B-03`, `N-03`, `E-02`, and `L-02` were
-  `DONE`. No competing active Cryptox Manager or worker was found; historical
-  workers were idle and were not resumed.
-- **Worker:** Exactly one fresh internal Frontend worker, Darwin
-  (`01a05209-7eaa-7162-b10c-4cdf849258f2`), was dispatched with
-  `gpt-5.6-luna` at maximum supported reasoning in the canonical checkout.
-  No child agent, worktree, branch, commit, retry, replacement, or control-plane
-  edit was used or permitted.
-- **State transition:** F-03 moved exactly
-  `REVIEW -> READY -> IN_PROGRESS -> REVIEW`. No other task moved and no
-  downstream packet was authorized or started.
+  `MVP_IMPLEMENTATION`; the authorization base was clean. The committed F-03
+  source checkpoint is `6a4e86e1011806f1e2e9f3017d343e00d1cf7971`, and the
+  current HEAD is its control-plane descendant. No alternate checkout,
+  worktree, branch, cloud task, or user-facing child task was used.
+- **Control-plane preconditions:** Before this reconciliation, `TASKS.md` was
+  `37 DONE`, `2 REVIEW` (`M-02`, `F-03`), and `4 BLOCKED` (`AU-02`, `I-01`,
+  `I-02`, `I-03`). F-03 dependencies `M-03`, `S-04`, `S-05`, `S-06`, `Q-02`,
+  `B-03`, `N-03`, `E-02`, and `L-02` were `DONE`; no competing active
+  Cryptox Manager or worker was found.
+- **Prior execution identity:** The exact repository-recorded INS-089 identity
+  was `INS-089 Manager` with exactly one fresh internal Frontend worker Darwin
+  (`01a05209-7eaa-7162-b10c-4cdf849258f2`). Darwin made no commit or
+  control-plane edit; that bounded execution and its independent audit are
+  closed. No historical worker was resumed or reused.
+- **State transition:** Prior execution recorded exactly
+  `REVIEW -> READY -> IN_PROGRESS -> REVIEW`. Under INS-091, and only for this
+  packet, F-03 now transitions `REVIEW -> DONE`. No other task moved.
 
-## Execution boundary
+## Scope and source reconciliation
 
 - **Requirement IDs:** `CSL-R-MD-03`, `CSL-R-ST-05`–`07`, `CSL-R-SE-03`,
   `CSL-R-BT-02`, `CSL-R-NW-02`, `CSL-R-RP-02`, `CSL-R-FE-01`, and
   `CSL-R-DM-01`.
-- **Worker write scope:** Only
-  `apps/frontend/src/features/screens.tsx` and
-  `apps/frontend/src/features/screens.spec.tsx` were changed. The permitted
-  fixture files and `apps/frontend/src/style.css` were untouched. Frozen
-  contracts, clients, state/types, market observability/cache seams,
-  backend/modules, migrations, providers, manifests/lockfiles, policy docs,
-  and generated artifacts were protected.
-- **Manager scope:** The Manager owned review, the two Manager control files,
-  and narrow acceptance cleanup in the same two worker-owned screen paths.
-  No new transport, endpoint, field, persistence, provider call, business
-  calculation, client identity path, or unrelated redesign was introduced.
+- **Committed delta:** `git diff --name-status` from the INS-089 starting
+  commit `3945fb09286e062446cd95b55b6714bc1bbdda3b` to the F-03 source
+  checkpoint `6a4e86e` contains exactly four paths: the two Manager control
+  records and only `apps/frontend/src/features/screens.tsx` plus
+  `apps/frontend/src/features/screens.spec.tsx`. `git diff --check` passes.
+  The source/test paths are committed at `6a4e86e`; the F-03 implementation is
+  not uncommitted. From `6a4e86e` through the authorization HEAD, the only
+  changes are the Instructor-owned `INSTRUCTOR.md` and `DECISIONS.md`; there
+  is no source or business-state drift.
+- **Approved boundary:** The two screen paths remain within the
+  `apps/frontend/**` projection/test scope. No backend, module, contract,
+  migration, provider, manifest, lockfile, generated artifact, transport,
+  persistence, client-identity, browser, or business-calculation change is
+  included.
 
-## Worker result and independent review
+### Projection and backend source ledger
 
-- **Worker result:** Darwin completed the residual screen projection and packet
-  regression tests, reported focused tests 3/3 passing, and made no commit or
-  control-plane edit. The Manager read the diff path-by-path. The resulting
-  screen UI projects the unavailable/disabled `FeatureWorkspaceState.authoring`
-  state; saved origin metadata; generic descriptor and visualization metadata;
-  composite method/profile/component and weighted metadata; all frozen Search
-  generator types; supplied seeded discovery provenance, finite bounds,
-  lifecycle/count/timing/error/ranking data; supplied Experiment/Trade
-  provenance, paper fields and visualization; and News extraction/template plus
-  supplied Sentiment availability states.
-- **Acceptance safety review:** LLM draft/validation/Save/Approve controls stay
-  visibly unavailable because no frozen transport exists. Seeded non-random
-  starts stay disabled because the current client has no composed seeded-start
-  method. Seeded profiles are shown only when supplied by the DTO; absent
-  values say `not supplied/not yet composed`. Opaque paper provenance is
-  rendered generically without profile-name branches, and the result view only
-  displays supplied metrics/P&L/execution values with explicit paper/no-live-
-  order wording. News remains readable without Sentiment; no URL fetch or LLM
-  call was added.
-- **Scope review:** PASS. `git diff --name-status` contains only the two
-  screen paths and these Manager-owned control records. No forbidden path,
-  client identity/cache bypass, strategy-name branch, browser generation, or
-  deferred-scope literal remains in the screen slice. Fixtures remain
-  fixture-only.
+The following are read-only authoritative inputs for the projections. No
+backend, module, contract, or provider path changed under INS-091.
+
+- **Market observability and charts:**
+  `packages/contracts/rest/market-data.ts`,
+  `packages/contracts/websocket/market-data.ts`,
+  `modules/market-data/api/contracts.ts`, and the previously audited market
+  bridge/projection at `122569c`:
+  `apps/frontend/src/market/chart-state.ts`,
+  `apps/frontend/src/market/remote-source.ts`,
+  `apps/frontend/src/market/types.ts`,
+  `apps/frontend/src/market/clients.ts`, and
+  `apps/frontend/src/components/MarketChart.tsx`. The market observability
+  payload is ephemeral/latest-100 and is not history or backtest data.
+- **Feature composition and state:**
+  `apps/frontend/src/features/state.ts`,
+  `apps/frontend/src/features/types.ts`, and
+  `apps/frontend/src/features/clients.ts` supply the typed workspace state
+  consumed by `apps/frontend/src/features/screens.tsx`.
+- **Strategy authoring, descriptors, and composites:**
+  `packages/contracts/rest/strategy.ts` and
+  `modules/strategy/api/contracts.ts`. The screen renders supplied origin,
+  descriptor, composite, weighted, and visualization metadata; LLM draft,
+  validation, Save, and Approve remain explicitly unavailable because no
+  frozen transport is composed.
+- **Search and discovery:**
+  `packages/contracts/rest/search.ts`,
+  `modules/search/api/contracts.ts`,
+  `modules/search/application/service.ts`,
+  `modules/search/application/memory.ts`, and
+  `modules/search/infrastructure/postgres.ts`. The screen renders supplied
+  run status and seeded provenance; only the existing composed RANDOM start is
+  enabled, while unsupported seeded starts remain explicit.
+- **Experiments, paper execution, evaluation, and visualizations:**
+  `packages/contracts/rest/backtesting.ts`,
+  `packages/contracts/rest/evaluation.ts`,
+  `modules/backtesting/api/contracts.ts`, and
+  `modules/evaluation/api/contracts.ts`. The screen displays supplied paper
+  direction, exits, SL/TP, fee, slippage, decimal, trade, visualization,
+  metric, and provenance values; it performs no business calculation and
+  submits no live orders.
+- **Leaderboard and ranking:**
+  `packages/contracts/rest/leaderboard.ts` and
+  `modules/leaderboard/api/contracts.ts`. Scope, ranking configuration/formula,
+  entries, and provenance are supplied read-only values.
+- **News extraction and Sentiment:**
+  `packages/contracts/rest/news.ts`,
+  `modules/news/api/contracts.ts`, and
+  `modules/sentiment/api/contracts.ts`. The screen renders extraction source,
+  canonical URL/hash/time/retention/template status and keeps News usable for
+  supplied `AVAILABLE`, `MISSING`, or `DEGRADED` Sentiment states.
+
+## INS-089 execution review carried into closure
+
+- Darwin changed only `apps/frontend/src/features/screens.tsx` and
+  `apps/frontend/src/features/screens.spec.tsx`; the Manager’s prior narrow
+  acceptance review stayed within those paths. The accepted slice projects
+  unavailable authoring, origin and descriptor metadata, generic composites
+  and weighted values, Search generator/provenance/status data, supplied
+  paper/Trade/result provenance, and News extraction plus Sentiment states.
+- Seeded profiles are shown only when supplied; absent values are
+  `not supplied/not yet composed`. Opaque paper provenance is rendered
+  generically. The result view displays supplied values with explicit paper and
+  no-live-order wording. There is no URL fetch, LLM call, transport addition,
+  persistence change, client-identity bypass, strategy-name branch, deferred
+  scope leak, or browser-generated evidence.
 
 ## Validation evidence
 
-- **PASS:** Focused packet test
-  `npm --workspace @cryptox/frontend test -- src/features/screens.spec.tsx` —
-  3/3.
-- **PASS:** Full Frontend test suite — 12 files, 33/33; Frontend typecheck,
-  build, and lint.
-- **PASS:** Root test suite — 385 passed, 6 environment-gated skips; root
-  typecheck, build, and lint.
-- **PASS:** `npm run arch:check` (expected nine forbidden-dependency fixtures),
-  `npm run artifacts:check`, `npm run scope:check`,
-  `npm run test:scope-check` (13/13), and `git diff --check`.
-- **PASS (limited):** `npm run runtime:smoke` — `/live=200`, `/ready=503`,
-  `/health=404`; this is health-only evidence, not feature transport evidence.
-- **BLOCKED:** `npm run db:local:validate` because Docker Compose is unavailable
-  and Docker config access is denied (`docker: unknown command: docker compose`).
-  PostgreSQL/database evidence is not claimed.
-- **UNVERIFIED:** The OpenSpec CLI is unavailable (`openspec` is not
-  recognized). Live Binance/News/provider traffic, real feature REST and
-  market-WebSocket composition, and browser/demo evidence were unavailable and
-  are not claimed.
+- **PASS:** Focused F-03 test — `npm --workspace @cryptox/frontend test --
+  src/features/screens.spec.tsx` — 3/3 (rerun during this reconciliation).
+- **PASS:** Full Frontend suite 33/33; root suite 385 passed with 6
+  environment-gated skips; Frontend/root typecheck, build, and lint.
+- **PASS:** Architecture, artifacts, deferred-scope, and scope checks
+  (13/13); whitespace and reviewed-diff checks.
+- **PASS (limited):** Runtime smoke health evidence (`/live=200`, `/ready=503`,
+  `/health=404`); this does not prove feature REST/WebSocket composition.
+- **BLOCKED:** Docker/PostgreSQL validation because Docker Compose/config access
+  is unavailable. No database evidence is claimed.
+- **UNVERIFIED:** OpenSpec CLI, live Binance/News/provider traffic, real feature
+  REST and market-WebSocket composition, and browser/demo evidence. Fixture
+  tests and environment-gated skips do not become final integration/demo PASS.
 
-## Stop boundary
+## Closure and stop boundary
 
-- F-03 remains `REVIEW / NEEDS_INSTRUCTOR_REVIEW`; it was not promoted to
-  `DONE` in this authorization. The board remains `37 DONE`, `2 REVIEW`, and
-  `4 BLOCKED`; `M-02` remains `REVIEW`, and `AU-02`, `I-01`, `I-02`, and `I-03`
-  remain blocked.
-- The sole worker and authorized residual execution are exhausted. Do not start
-  another worker, retry or resume Darwin, implement another packet, or promote
-  newly unlocked work. Instructor review is required before any further F-03
-  or integration decision.
-- **INS-089 Manager staging/commit attempt:** The single coherent attempt failed
-  before staging with the exact error `fatal: Unable to create
-  'D:/agy-cli-projects/AOS/Cryptox/.git/index.lock': Permission denied`. It was
-  not retried. The validated four-file delta remains uncommitted at starting
-  HEAD `3945fb09286e062446cd95b55b6714bc1bbdda3b` for Instructor audit.
+- F-03 is `DONE` only at its approved packet-local frontend projection
+  boundary under INS-091. The resulting board is `38 DONE`, `1 REVIEW` (`M-02`),
+  and `4 BLOCKED` (`AU-02`, `I-01`, `I-02`, `I-03`). This does not claim that
+  the MVP, final integration, or instructor demo is complete.
+- No worker was created under INS-091 because the authorization was explicitly
+  governance-only and the prior Darwin implementation was committed at
+  `6a4e86e` and independently audited. No source file was edited here. Stop
+  before I-03, I-01, AU-02, I-02, live-provider, database, or browser/demo work;
+  do not start newly unlocked work.
+- **INS-091 Manager commit:** One coherent staging/commit attempt is reserved
+  for this reconciliation and will include only `docs/implementation/TASKS.md`
+  and `docs/implementation/HANDOFF.md`. Its result is recorded after the
+  attempt; no second attempt is permitted if Git rejects it.
 
 # INS-087 Manager Checkpoint — F-03 Checkpoint Record Reconciliation
 
