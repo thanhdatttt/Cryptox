@@ -2,13 +2,70 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-085`
+Instruction ID: `INS-086`
 
-Status: `APPROVED_FOR_EXECUTION`
+Status: `HOLD`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
-## INS-085 — DEC-007 Functional-State Frontend Projections
+## INS-086 — Post-INS-085 F-03 Partial Review HOLD
+
+This current signal supersedes `INS-085 / APPROVED_FOR_EXECUTION` and grants no
+execution authority. The F-03 execution is exhausted at a safe review
+checkpoint; no Manager, worker, downstream packet, retry, replacement, or
+duplicate is currently authorized.
+
+### Review evidence
+
+- The canonical checkout is `D:/agy-cli-projects/AOS/Cryptox`, branch
+  `MVP_IMPLEMENTATION`, clean after the Instructor-audited checkpoint commit
+  `122569c` (`feat(frontend): add market observability projection seams`). The
+  prior authorization commit is `abc868c`; the reviewed base was
+  `1c5b1cf9c250526990c1b4bc0da0b5d9bbec403d`.
+- INS-085 used exactly one fresh Manager and exactly one internal Frontend
+  worker, Descartes. Both are complete/closed; no active Cryptox Manager or
+  worker remains, and no retry or replacement occurred. The Manager's single
+  staging/commit attempt failed with `.git/index.lock: Permission denied`; the
+  Instructor independently audited and committed the exact 11-path delta.
+- `TASKS.md` is authoritative and now records `37 DONE`, `2 REVIEW`
+  (`M-02`, `F-03`), and `4 BLOCKED` (`AU-02`, `I-01`, `I-02`, `I-03`). F-03
+  remains `REVIEW / NEEDS_INSTRUCTOR_REVIEW`; it is not DONE. No downstream
+  packet was started or promoted.
+- The accepted bounded source slice is frontend-only: existing frozen
+  `MARKET_OBSERVABILITY_V1` delivery is consumed and rendered with pair
+  filtering, an at-most-100 ephemeral tick buffer, provider/received times,
+  latency, recovery labels, and restart-loss wording. The private feature
+  cache revision seam prevents stale async writes after logout, and the
+  absent LLM transport is represented honestly as unavailable/disabled.
+- Independent validation is PASS for frontend 31/31, root 383 with 6
+  environment-gated skips, root/frontend typecheck, build, lint, architecture,
+  artifacts, deferred-scope, scope tests 13/13, runtime health smoke, and
+  whitespace. No frozen contract, backend/module source, migration, or
+  deferred-scope path changed. Docker/PostgreSQL is BLOCKED; OpenSpec CLI,
+  live Binance/News/provider, real feature transport, and browser/demo
+  evidence are UNVERIFIED or BLOCKED and are not treated as PASS.
+
+### Unresolved F-03 coverage
+
+- The restored screens do not consume the new state or provide the required
+  Search `RANDOM_V1`/`DOMAIN_GUIDED_V1`/`GENETIC_V1` provenance and stop
+  presentation, weighted/Lite descriptor views, synthetic paper
+  Long/Short/SL-TP/fee/slippage/decimal projections, News extraction/template
+  state, explicit Sentiment `AVAILABLE`/`MISSING`/`DEGRADED` reasons, or
+  distinct LLM draft/validation/Save/Approve presentation.
+- The frozen public contracts expose only the states they currently model and
+  expose no dedicated browser-safe LLM draft transport or typed SL/TP stop
+  policy fields. No agent may invent fields, endpoints, persistence, browser
+  network calls, or client-side business truth. Any residual implementation
+  must remain an explicitly bounded frontend projection and report absent
+  state honestly.
+- A future residual F-03 authorization may be considered only after this HOLD
+  review and a fresh applicability check. It must use a fresh Manager and
+  fresh internal worker, with a narrower disjoint screen/test write scope;
+  this HOLD itself authorizes nothing. M-02, AU-02, I-01, I-02, and I-03
+  remain unauthorized.
+
+## Historical INS-085 — DEC-007 Functional-State Frontend Projections
 
 This current signal supersedes `INS-084 / HOLD` and authorizes exactly one fresh
 Manager and exactly one internal Frontend worker to execute only packet `F-03`.
