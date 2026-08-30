@@ -2,13 +2,62 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-091`
+Instruction ID: `INS-093`
 
 Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
-## INS-092 — HOLD after INS-091 checkpoint consistency review
+## INS-093 — F-03 Checkpoint Consistency Reconciliation
+
+This current signal supersedes `INS-092 / HOLD` at `b50f8db` and authorizes
+exactly one fresh governance-only Manager. It authorizes no worker, source
+implementation, retry, replacement, duplicate, downstream packet, or change
+to any task other than reconciling the already-recorded F-03 checkpoint.
+
+### Reviewed authority and applicability
+
+- The canonical checkout is `D:/agy-cli-projects/AOS/Cryptox`, branch
+  `MVP_IMPLEMENTATION`, clean at `b50f8db` (`docs(control): hold for F-03
+  checkpoint consistency`). The audited F-03 source/test implementation remains
+  committed at `6a4e86e`; the INS-091 Manager checkpoint is preserved at
+  `9ed13bc`.
+- The top `TASKS.md` table records F-03 as `DONE` and the board as `38 DONE`,
+  `1 REVIEW` (`M-02`), and `4 BLOCKED` (`AU-02`, `I-01`, `I-02`, `I-03`). The
+  current “State derivation at this checkpoint” paragraph still says F-03 is
+  `REVIEW / NEEDS_INSTRUCTOR_REVIEW`. This is a control-plane inconsistency,
+  not permission to start downstream work.
+- The packet-local evidence and its limitations are already independently
+  reviewed: focused F-03 3/3, frontend/root suites and static checks pass;
+  Docker/PostgreSQL is `BLOCKED`; OpenSpec CLI, live providers, real feature
+  REST/market-WebSocket composition, and browser/demo evidence remain
+  `UNVERIFIED` or `BLOCKED`.
+- No competing Cryptox Manager or worker is active. The fresh Manager must run
+  in the same canonical checkout with model `gpt-5.6-luna` and reasoning `max`,
+  without a worktree, alternate checkout, branch, cloud task, or worker.
+
+### Exact Manager-only scope
+
+- The Manager may read the full repository authority, INS-091 checkpoint, and
+  current task DAG, then edit only `docs/implementation/TASKS.md` and
+  `docs/implementation/HANDOFF.md`.
+- It must reconcile every current F-03 state statement in both files to one
+  consistent result. If the approved packet-local evidence is accepted, F-03
+  may remain `DONE` and all current summaries/derivation text must agree; the
+  handoff must explicitly record source checkpoint `6a4e86e`, the INS-091
+  Manager commit denial, and that no retry occurred. If consistency or packet
+  acceptance cannot be proven, it must set/retain F-03 as `REVIEW` and report
+  `NEEDS_INSTRUCTOR_REVIEW` rather than claiming closure.
+- It must not edit `INSTRUCTOR.md` or `DECISIONS.md`, source/contracts/modules/
+  backend/migrations/providers, requirements/ADRs/OpenSpec policy, or any
+  other task state. It must not start M-02, AU-02, I-01, I-02, I-03, or any
+  downstream work. No worker, retry, replacement, duplicate, or implementation
+  expansion is authorized.
+- It must make at most one coherent staging/commit attempt for these two files.
+  If Git rejects it, it must not retry and must report the exact error, then
+  stop after the checkpoint reconciliation.
+
+## Historical INS-092 — HOLD after INS-091 checkpoint consistency review
 
 This current signal supersedes `INS-091 / APPROVED_FOR_EXECUTION` and grants no
 execution authority. The INS-091 Manager checkpoint was preserved in commit
