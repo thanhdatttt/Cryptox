@@ -21,3 +21,7 @@ var service_2 = require("../application/service");
 Object.defineProperty(exports, "createMarketDataService", { enumerable: true, get: function () { return service_2.createMarketDataService; } });
 var snapshot_reader_1 = require("./snapshot-reader");
 Object.defineProperty(exports, "createMarketDataSnapshotReader", { enumerable: true, get: function () { return snapshot_reader_1.createMarketDataSnapshotReader; } });
+var rules_1 = require("../domain/rules");
+Object.defineProperty(exports, "TIMEFRAME_SECONDS", { enumerable: true, get: function () { return rules_1.TIMEFRAME_SECONDS; } });
+Object.defineProperty(exports, "missingRanges", { enumerable: true, get: function () { return rules_1.missingRanges; } });
+Object.defineProperty(exports, "snapshotSerialization", { enumerable: true, get: function () { return rules_1.snapshotSerialization; } });

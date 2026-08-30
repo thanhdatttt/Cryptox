@@ -2,7 +2,9 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.createPostgresBacktestingDependencies = exports.PostgresBacktestingRepository = void 0;
 const DEFAULT_WARMUP_CAPACITY_CANDLES = 500;
+const node_crypto_1 = require("node:crypto");
 const bootstrap_1 = require("../../evaluation/api/bootstrap");
+const api_1 = require("../../market-data/api");
 const value = (input) => typeof input === "string" ? JSON.parse(input) : input;
 const date = (input) => new Date(input).toISOString();
 const number = (input) => typeof input === "number" ? input : Number(input);
@@ -17,6 +19,21 @@ const positiveNullable = (input) => {
 const validateTradeRisk = (trade) => {
     positiveNullable(trade.stopLoss);
     positiveNullable(trade.takeProfit);
+};
+const invalidSnapshot = () => { throw new Error("BACKTEST_INPUT_SNAPSHOT_INTEGRITY_FAILURE"); };
+const validateInputSnapshot = (input, candles) => {
+    const interval = api_1.TIMEFRAME_SECONDS[input.timeframe] * 1000;
+    const from = Date.parse(input.range.from);
+    const to = Date.parse(input.range.to);
+    if (!input.id || !Number.isFinite(from) || !Number.isFinite(to) || to <= from || !Number.isInteger(input.candleCount) || input.candleCount <= 0 || input.candleCount !== candles.length || !/^[a-f0-9]{64}$/i.test(input.sha256))
+        invalidSnapshot();
+    if (candles.some((item, index) => !item.isClosed || item.pair !== input.pair || item.timeframe !== input.timeframe || !Number.isFinite(Date.parse(item.timestamp)) || (index > 0 && Date.parse(item.timestamp) <= Date.parse(candles[index - 1].timestamp))) || new Set(candles.map((item) => item.timestamp)).size !== candles.length)
+        invalidSnapshot();
+    if (candles[0].timestamp !== input.range.from || candles.at(-1).timestamp !== new Date(to - interval).toISOString() || (0, api_1.missingRanges)(candles, input.range, input.timeframe).length > 0)
+        invalidSnapshot();
+    const expectedHash = (0, node_crypto_1.createHash)("sha256").update((0, api_1.snapshotSerialization)(input.pair, input.timeframe, input.range, candles), "utf8").digest("hex");
+    if (expectedHash !== input.sha256)
+        invalidSnapshot();
 };
 const snapshot = (row) => ({ id: row.id, pair: row.pair, pairMetadata: value(row.pair_metadata), timeframe: row.timeframe, range: { from: date(row.dataset_from), to: date(row.dataset_to) }, candleCount: row.candle_count, sha256: row.sha256, createdAt: date(row.created_at) });
 const candle = (row, metadata) => ({ pair: metadata.pair, timeframe: metadata.timeframe, timestamp: date(row.timestamp), open: number(row.open), high: number(row.high), low: number(row.low), close: number(row.close), volume: number(row.volume), isClosed: row.is_closed });
@@ -43,11 +60,11 @@ class PostgresBacktestingRepository {
     finally {
         client.release();
     } }
-    async createInputSnapshot(input, candles) { return this.transaction(async (client) => { const existing = await client.query("SELECT id, pair, pair_metadata, timeframe, dataset_from, dataset_to, candle_count, sha256, created_at FROM backtest_input_snapshots WHERE sha256 = $1", [input.sha256]); const saved = existing.rows[0] ? snapshot(existing.rows[0]) : input; if (!existing.rows[0])
-        await client.query("INSERT INTO backtest_input_snapshots (id, pair, pair_metadata, timeframe, dataset_from, dataset_to, candle_count, sha256, created_at) VALUES ($1, $2, $3::jsonb, $4, $5, $6, $7, $8, $9)", [saved.id, saved.pair, JSON.stringify(saved.pairMetadata), saved.timeframe, saved.range.from, saved.range.to, saved.candleCount, saved.sha256, saved.createdAt]); for (const item of candles)
-        await client.query("INSERT INTO backtest_input_candles (snapshot_id, timestamp, open, high, low, close, volume, is_closed) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT (snapshot_id, timestamp) DO NOTHING", [saved.id, item.timestamp, item.open, item.high, item.low, item.close, item.volume, item.isClosed]); return saved; }); }
+    async createInputSnapshot(input, candles) { validateInputSnapshot(input, candles); return this.transaction(async (client) => { const existing = await client.query("SELECT id, pair, pair_metadata, timeframe, dataset_from, dataset_to, candle_count, sha256, created_at FROM backtest_input_snapshots WHERE sha256 = $1 FOR UPDATE", [input.sha256]); if (existing.rows[0]) { const saved = snapshot(existing.rows[0]); const rows = await client.query("SELECT timestamp, open, high, low, close, volume, is_closed FROM backtest_input_candles WHERE snapshot_id = $1 ORDER BY timestamp ASC", [saved.id]); validateInputSnapshot(saved, rows.rows.map((row) => candle(row, saved))); return saved; } await client.query("INSERT INTO backtest_input_snapshots (id, pair, pair_metadata, timeframe, dataset_from, dataset_to, candle_count, sha256, created_at) VALUES ($1, $2, $3::jsonb, $4, $5, $6, $7, $8, $9)", [input.id, input.pair, JSON.stringify(input.pairMetadata), input.timeframe, input.range.from, input.range.to, input.candleCount, input.sha256, input.createdAt]); for (const item of candles)
+        await client.query("INSERT INTO backtest_input_candles (snapshot_id, timestamp, open, high, low, close, volume, is_closed) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)", [input.id, item.timestamp, item.open, item.high, item.low, item.close, item.volume, item.isClosed]); const count = await client.query("SELECT COUNT(*)::int AS count FROM backtest_input_candles WHERE snapshot_id = $1", [input.id]); if (!count.rows[0] || Number(count.rows[0].count) !== input.candleCount)
+        invalidSnapshot(); return input; }); }
     async readInputSnapshot(snapshotId) { const head = await this.pool.query("SELECT id, pair, pair_metadata, timeframe, dataset_from, dataset_to, candle_count, sha256, created_at FROM backtest_input_snapshots WHERE id = $1", [snapshotId]); if (!head.rows[0])
-        return undefined; const metadata = snapshot(head.rows[0]); const rows = await this.pool.query("SELECT timestamp, open, high, low, close, volume, is_closed FROM backtest_input_candles WHERE snapshot_id = $1 ORDER BY timestamp ASC", [snapshotId]); return { snapshot: metadata, candles: rows.rows.map((row) => candle(row, metadata)) }; }
+        return undefined; const metadata = snapshot(head.rows[0]); const rows = await this.pool.query("SELECT timestamp, open, high, low, close, volume, is_closed FROM backtest_input_candles WHERE snapshot_id = $1 ORDER BY timestamp ASC", [snapshotId]); const candles = rows.rows.map((row) => candle(row, metadata)); validateInputSnapshot(metadata, candles); return { snapshot: metadata, candles }; }
     async createScope(input, idempotencyKey) { await this.pool.query("INSERT INTO backtest_benchmark_scopes (id, owner_user_id, idempotency_key, name, version, dataset_snapshot_id, sentiment_dataset_snapshot, worker_runtime_version, worker_runtime_sha256, evaluation_runtime_version, evaluation_runtime_sha256, warmup_capacity_candles, initial_capital, fee_rate_percent, slippage_bps, risk_policy, decimal_policy_id, evaluation_policy_id, score_formula_id, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9, $10, $11, $12, $13, $14, $15, $16::jsonb, $17, $18, $19, $20)", [input.id, input.ownerUserId, idempotencyKey, input.name, input.version, input.datasetSnapshotId, JSON.stringify(input.sentimentDatasetSnapshot ?? null), input.workerRuntimeVersion, input.workerRuntimeSha256, input.evaluationRuntimeVersion, input.evaluationRuntimeSha256, input.warmupCapacityCandles, input.initialCapital, input.feeRatePercent, input.slippageBps, JSON.stringify(input.riskPolicy ?? null), input.decimalPolicyId, input.evaluationPolicyId, input.scoreFormulaId, input.createdAt]); return input; }
     scopeRows(where) { return `SELECT s.id, s.owner_user_id, s.idempotency_key, s.name, s.version, s.sentiment_dataset_snapshot, s.worker_runtime_version, s.worker_runtime_sha256, s.evaluation_runtime_version, s.evaluation_runtime_sha256, s.warmup_capacity_candles, s.initial_capital, s.fee_rate_percent, s.slippage_bps, s.risk_policy, s.decimal_policy_id, s.evaluation_policy_id, s.score_formula_id, s.created_at, i.id AS snapshot_id, i.created_at AS snapshot_created_at, i.pair, i.pair_metadata, i.timeframe, i.dataset_from, i.dataset_to, i.candle_count, i.sha256 FROM backtest_benchmark_scopes s JOIN backtest_input_snapshots i ON i.id = s.dataset_snapshot_id ${where}`; }
     async findScopeByIdempotency(ownerUserId, idempotencyKey) { const result = await this.pool.query(this.scopeRows("WHERE s.owner_user_id = $1 AND s.idempotency_key = $2"), [ownerUserId, idempotencyKey]); return result.rows[0] ? scope(result.rows[0]) : undefined; }

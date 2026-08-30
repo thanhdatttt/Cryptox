@@ -22,3 +22,4 @@ export const subscribeMarketData: MarketDataModulePublicApi["subscribeMarketData
 export const shutdown: MarketDataModulePublicApi["shutdown"] = () => defaultService.shutdown();
 export { createMarketDataService } from "../application/service";
 export { createMarketDataSnapshotReader } from "./snapshot-reader";
+export { TIMEFRAME_SECONDS, missingRanges, snapshotSerialization } from "../domain/rules";

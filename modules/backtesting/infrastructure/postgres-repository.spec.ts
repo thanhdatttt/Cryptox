@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
+import { createHash } from "node:crypto";
+import { snapshotSerialization } from "../../market-data/api";
 import { PostgresBacktestingRepository } from "./postgres-repository";
 
 describe("PostgresBacktestingRepository", () => {
   it("persists scope inputs, candidates, attempts, trades, and results with parameterized SQL", async () => {
     const calls: Array<{ text: string; values: unknown[] }> = [];
-    const repository = new PostgresBacktestingRepository({ query: async <Row>(text: string, values: unknown[]) => { calls.push({ text, values }); return { rows: [] as Row[] }; } });
-    const snapshot = { id: "snapshot-1", pair: "BTCUSDT", pairMetadata: { pair: "BTCUSDT", baseAsset: "BTC", quoteAsset: "USDT", settlementAsset: "USDT" }, timeframe: "1h" as const, range: { from: "2025-01-01T00:00:00.000Z", to: "2025-01-01T03:00:00.000Z" }, candleCount: 1, sha256: "a".repeat(64), createdAt: "2025-01-01T00:00:00.000Z" };
+    const repository = new PostgresBacktestingRepository({ query: async <Row>(text: string, values: unknown[]) => { calls.push({ text, values }); return { rows: (text.startsWith("SELECT COUNT") ? [{ count: 1 }] : []) as Row[] }; } });
+    const snapshotCandle = { pair: "BTCUSDT", timeframe: "1h" as const, timestamp: "2025-01-01T00:00:00.000Z", open: 100, high: 100, low: 100, close: 100, volume: 1, isClosed: true };
+    const snapshot = { id: "snapshot-1", pair: "BTCUSDT", pairMetadata: { pair: "BTCUSDT", baseAsset: "BTC", quoteAsset: "USDT", settlementAsset: "USDT" }, timeframe: "1h" as const, range: { from: "2025-01-01T00:00:00.000Z", to: "2025-01-01T01:00:00.000Z" }, candleCount: 1, sha256: createHash("sha256").update(snapshotSerialization("BTCUSDT", "1h", { from: "2025-01-01T00:00:00.000Z", to: "2025-01-01T01:00:00.000Z" }, [snapshotCandle]), "utf8").digest("hex"), createdAt: "2025-01-01T00:00:00.000Z" };
     const scope = { id: "scope-1", ownerUserId: "00000000-0000-0000-0000-000000000001", name: "fixture", version: 1, datasetSnapshot: snapshot, workerRuntimeVersion: "1", workerRuntimeSha256: "b".repeat(64), evaluationRuntimeVersion: "1", evaluationRuntimeSha256: "c".repeat(64), pair: "BTCUSDT", timeframe: "1h" as const, datasetRange: snapshot.range, datasetSnapshotId: snapshot.id, datasetSnapshotSha256: snapshot.sha256, warmupCapacityCandles: 500, initialCapital: 1000, feeRatePercent: 0, slippageBps: 0, decimalPolicyId: "MVP_DECIMAL_HALF_UP_V1" as const, evaluationPolicyId: "MVP_EVALUATION_V1" as const, scoreFormulaId: "MVP_MANUAL_V1", createdAt: snapshot.createdAt };
     const candidate = { candidateId: "candidate-1", ownerUserId: scope.ownerUserId, origin: "MANUAL" as const, selectionMode: "COMPOSITE" as const, leaderboardScopeId: scope.id, status: "COMPLETED" as const, attempts: [], maxAttempts: 1, completionAttemptCount: 1, completionMaxAttempts: 1, strategyDefinitions: [], compositeDefinition: { id: "composite-1", userId: scope.ownerUserId, logicalFamilyKey: "composite", version: 1, method: "MAJORITY_VOTE" as const, components: [], createdAt: snapshot.createdAt }, queueJobId: "candidate-1", experimentResultId: "experiment-1", createdAt: snapshot.createdAt, updatedAt: snapshot.createdAt };
     const attempt = { attemptId: "attempt-1", candidateId: candidate.candidateId, queueJobId: candidate.queueJobId, attemptNumber: 1, workerRuntimeVersion: "1", workerRuntimeSha256: "d".repeat(64), status: "COMPLETED" as const, tradeCount: 1, auditOnly: false, startedAt: snapshot.createdAt, completedAt: "2025-01-01T03:00:00.000Z" };
@@ -13,7 +16,7 @@ describe("PostgresBacktestingRepository", () => {
     const metrics = { candidateId: candidate.candidateId, totalReturnPercent: 10, winRatePercent: 100, numberOfTrades: 1, maxDrawdownPercent: 0, profitFactor: null, profitFactorStatus: "NO_LOSSES" as const, sharpeRatio: 0, sharpeRatioStatus: "INSUFFICIENT_OBSERVATIONS" as const, evaluationPolicyId: "MVP_EVALUATION_V1" as const, evaluationRuntimeVersion: "1", evaluationRuntimeSha256: "e".repeat(64) };
     const experiment = { id: "experiment-1", ownerUserId: scope.ownerUserId, candidateId: candidate.candidateId, leaderboardScopeId: scope.id, scoreFormulaId: scope.scoreFormulaId, overallScore: 0, rankEligible: true, backtestAttemptId: attempt.attemptId, compositeDefinitionId: candidate.compositeDefinition.id, compositeDefinition: candidate.compositeDefinition, datasetSnapshot: snapshot, strategyDefinitions: [], metrics, trades: [trade], createdAt: attempt.completedAt };
 
-    await repository.createInputSnapshot(snapshot, [{ pair: "BTCUSDT", timeframe: "1h", timestamp: snapshot.createdAt, open: 100, high: 100, low: 100, close: 100, volume: 1, isClosed: true }]);
+    await repository.createInputSnapshot(snapshot, [snapshotCandle]);
     await repository.createScope(scope, "scope-key");
     await repository.createQueuedSubmission({ candidate, submissionIdempotencyKey: "submission-key", dispatch: { job: { schemaVersion: 1, jobId: candidate.candidateId, candidateId: candidate.candidateId, leaderboardScopeId: scope.id, maxAttempts: 1, workerRuntimeVersion: "1", workerRuntimeSha256: "d".repeat(64), enqueuedAt: snapshot.createdAt }, state: "PENDING", dispatchAttempts: 0, createdAt: snapshot.createdAt, updatedAt: snapshot.createdAt } });
     await repository.createAttempt(attempt);
@@ -75,5 +78,25 @@ describe("PostgresBacktestingRepository", () => {
     row.stop_loss = "95";
     row.take_profit = "-1";
     await expect(repository.listTrades("attempt-1")).rejects.toThrow("BACKTEST_INVALID_TRADE_RISK_FIELD");
+  });
+
+  it("rejects forming, incomplete, and hash-mismatched input snapshots before persistence", async () => {
+    const calls: string[] = [];
+    const repository = new PostgresBacktestingRepository({ query: async <Row>(text: string) => { calls.push(text); return { rows: [] as Row[] }; } });
+    const snapshot = { id: "snapshot-integrity", pair: "BTCUSDT", pairMetadata: { pair: "BTCUSDT", baseAsset: "BTC", quoteAsset: "USDT", settlementAsset: "USDT" }, timeframe: "1h" as const, range: { from: "2025-01-01T00:00:00.000Z", to: "2025-01-01T02:00:00.000Z" }, candleCount: 2, sha256: "a".repeat(64), createdAt: "2025-01-01T00:00:00.000Z" };
+    const candles = [
+      { pair: "BTCUSDT", timeframe: "1h" as const, timestamp: "2025-01-01T00:00:00.000Z", open: 100, high: 101, low: 99, close: 100, volume: 1, isClosed: true },
+      { pair: "BTCUSDT", timeframe: "1h" as const, timestamp: "2025-01-01T01:00:00.000Z", open: 100, high: 101, low: 99, close: 100, volume: 1, isClosed: false },
+    ];
+    await expect(repository.createInputSnapshot(snapshot, candles)).rejects.toThrow("BACKTEST_INPUT_SNAPSHOT_INTEGRITY_FAILURE");
+    expect(calls).toHaveLength(0);
+    const closed = candles.map((item) => ({ ...item, isClosed: true }));
+    await expect(repository.createInputSnapshot({ ...snapshot, range: { from: "2025-01-01T00:00:00.000Z", to: "2025-01-01T02:00:00.000Z" }, sha256: "a".repeat(64) }, closed)).rejects.toThrow("BACKTEST_INPUT_SNAPSHOT_INTEGRITY_FAILURE");
+  });
+
+  it("rejects a tampered persisted snapshot on read", async () => {
+    const snapshot = { id: "snapshot-read", pair: "BTCUSDT", pair_metadata: { pair: "BTCUSDT", baseAsset: "BTC", quoteAsset: "USDT", settlementAsset: "USDT" }, timeframe: "1h" as const, dataset_from: "2025-01-01T00:00:00.000Z", dataset_to: "2025-01-01T01:00:00.000Z", candle_count: 1, sha256: "a".repeat(64), created_at: "2025-01-01T00:00:00.000Z" };
+    const repository = new PostgresBacktestingRepository({ query: async <Row>(text: string) => ({ rows: (text.includes("FROM backtest_input_snapshots") ? [snapshot] : [{ timestamp: "2025-01-01T00:00:00.000Z", open: 100, high: 100, low: 100, close: 99, volume: 1, is_closed: true }]) as unknown as Row[] }) });
+    await expect(repository.readInputSnapshot(snapshot.id)).rejects.toThrow("BACKTEST_INPUT_SNAPSHOT_INTEGRITY_FAILURE");
   });
 });
