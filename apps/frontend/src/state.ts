@@ -19,6 +19,20 @@ export interface ChartPanelState {
 export const MARKET_LAYOUT_STORAGE_KEY = "cryptox.market-layout";
 export const MARKET_LAYOUT_VERSION = 1;
 export const SEARCH_RUN_STORAGE_KEY = "cryptox.search-run-id";
+export type AppScreen = "market" | "strategy" | "backtest" | "search" | "leaderboard" | "news" | "settings";
+export type AppRoute = { screen: AppScreen; resourceId?: string; register?: boolean };
+
+export const parseAppRoute = (pathname: string): AppRoute => {
+  const parts = pathname.split("/").filter(Boolean).map((part) => decodeURIComponent(part));
+  if (parts[0] === "login") return { screen: "market" };
+  if (parts[0] === "register") return { screen: "market", register: true };
+  if (parts[0] === "experiments" && parts[1]) return { screen: "backtest", resourceId: parts[1] };
+  if (parts[0] === "search-runs" && parts[1]) return { screen: "search", resourceId: parts[1] };
+  if (["dashboard", "market", "strategy", "backtest", "search", "leaderboard", "news", "settings"].includes(parts[0] ?? "")) return { screen: (parts[0] === "dashboard" ? "market" : parts[0]) as AppScreen };
+  return { screen: "market" };
+};
+
+export const appRoutePath = (route: AppRoute): string => route.register ? "/register" : route.resourceId ? `/${route.screen === "backtest" ? "experiments" : "search-runs"}/${encodeURIComponent(route.resourceId)}` : route.screen === "market" ? "/dashboard" : `/${route.screen}`;
 export interface MarketLayoutState {
   version: typeof MARKET_LAYOUT_VERSION;
   panels: ChartPanelState[];

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canAddChart, defaultMarketLayout, equalWeights, initialChartPanels, MARKET_LAYOUT_STORAGE_KEY, marketConnectionSummary, mergeCandle, nextChartId, parameterDefaults, persistMarketLayout, persistSearchRunId, readMarketLayout, readSearchRunId, SEARCH_RUN_STORAGE_KEY, validateMarketLayout } from "./state";
+import { appRoutePath, canAddChart, defaultMarketLayout, equalWeights, initialChartPanels, MARKET_LAYOUT_STORAGE_KEY, marketConnectionSummary, mergeCandle, nextChartId, parameterDefaults, parseAppRoute, persistMarketLayout, persistSearchRunId, readMarketLayout, readSearchRunId, SEARCH_RUN_STORAGE_KEY, validateMarketLayout } from "./state";
 
 describe("frontend presentation state", () => {
   it("keeps four independent initial chart selections and caps additional panels", () => {
@@ -61,5 +61,12 @@ describe("frontend presentation state", () => {
     expect(readSearchRunId(storage)).toBe("run-42");
     persistSearchRunId(undefined, storage);
     expect(readSearchRunId(storage)).toBeUndefined();
+  });
+
+  it("parses and serializes authenticated deep-link routes without putting tokens in URLs", () => {
+    expect(parseAppRoute("/experiments/experiment-7")).toEqual({ screen: "backtest", resourceId: "experiment-7" });
+    expect(parseAppRoute("/search-runs/run-7")).toEqual({ screen: "search", resourceId: "run-7" });
+    expect(parseAppRoute("/register")).toEqual({ screen: "market", register: true });
+    expect(appRoutePath({ screen: "backtest", resourceId: "experiment/7" })).toBe("/experiments/experiment%2F7");
   });
 });
