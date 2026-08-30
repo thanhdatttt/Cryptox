@@ -944,3 +944,54 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Task state](../implementation/TASKS.md),
 [Latest checkpoint](../implementation/HANDOFF.md), `INS-105`, `DEC-026`, and
 commits `f656274` and `7d574e6`.
+
+## DEC-028 — INS-106 I-01 integration held after independent review
+
+Status: `APPROVED`
+
+Authority: Independent Instructor review after the fresh `INS-106` Manager
+checkpoint, with the exact audited source and checkpoint delta integrated at
+`0bab722`.
+
+Decision: The bounded `INS-106` I-01 attempt is accepted as an honest
+`REVIEW / NEEDS_INSTRUCTOR_REVIEW` checkpoint, not as `DONE`. The backend
+runtime, REST transport, market-only WebSocket transport, readiness projection,
+and observability boundary are reviewable and remain committed at `0bab722`.
+The current Instructor signal is `INS-107 / HOLD`; no new implementation,
+I-02, I-03, extension, retry, replacement, duplicate, or downstream packet is
+authorized by this decision.
+
+Why: The Manager used exactly one fresh same-directory Manager and exactly one
+fresh sequential internal worker, stopped at the authorized `apps/backend/**`
+and checkpoint boundary, and made no excluded-path or contract change. The
+Instructor independently verified the exact 16-path delta, corrected one
+trailing blank line before integration, and confirmed backend tests `15 passed /
+1 skipped`; workspace build, typecheck, lint, and tests passed (`396 passed /
+6 environment-gated skips`); artifacts, deferred-scope, test-scope `13/13`,
+secret/log, whitespace, and exact-scope checks passed. The Manager's single
+staging attempt was denied by the Git ACL and was not retried.
+
+The packet cannot be promoted to `DONE` because real PostgreSQL/Docker,
+configured Binance/CoinDesk, and browser/demo evidence remain
+`BLOCKED`/`UNVERIFIED`; the current public module surface does not expose the
+Backtesting bounded executor, Search generator composition, Strategy
+PostgreSQL bootstrap, or Sentiment PostgreSQL bootstrap needed for truthful
+production composition. `arch:check` still fails on 71 pre-existing
+violations, and `runtime:smoke` fails because its legacy assertion expects the
+old three-name readiness list while the implementation truthfully reports
+seven required dependencies. OpenSpec CLI evidence remains `UNVERIFIED`.
+These are explicit reconciliation/environment blockers, not permission to
+expand I-01 into excluded `modules/**`, contracts, migrations, infrastructure,
+frontend, or deferred scope.
+
+Affected: `I-01`, `TASKS.md`, `HANDOFF.md`, `INS-107`, and the remaining
+integration DAG. Requirements, approved functional image amendments, accepted
+architecture, contracts, all completed packets, `I-02`, `I-03`, and deferred
+scope remain unchanged.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [Architecture](../architecture.md),
+[Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md),
+[Latest checkpoint](../implementation/HANDOFF.md), `INS-106`, `DEC-027`, and
+commit `0bab722`.

@@ -2,13 +2,74 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-106`
+Instruction ID: `INS-107`
 
-Status: `APPROVED_FOR_EXECUTION`
+Status: `HOLD`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
-## INS-106 — Runtime, transports and observability integration
+## INS-107 — HOLD after INS-106 I-01 review
+
+This signal supersedes `INS-106 / APPROVED_FOR_EXECUTION` after the
+Instructor's independent review. It records the current safe checkpoint and
+authorizes no implementation until the public composition/bootstrap blockers
+and unavailable final-environment evidence are separately reconciled.
+
+### Reviewed checkpoint and current state
+
+- The canonical checkout is `D:/agy-cli-projects/AOS/Cryptox` on
+  `MVP_IMPLEMENTATION`, with the exact audited I-01 source/checkpoint delta
+  integrated at `0bab722` (`feat(backend): compose MVP runtime boundary`).
+  The tracked tree is clean after that commit; the untouched app-generated
+  `.codex/config.toml` remains untracked, outside Cryptox scope, and must stay
+  unstaged and undeleted.
+- The authoritative task board is `41 DONE`, `1 REVIEW` (`I-01`), and
+  `2 BLOCKED` (`I-02`, `I-03`). `I-01` remains `REVIEW`, not `DONE`; no task
+  moved to `IN_PROGRESS` or `READY` under this HOLD.
+- `INS-106` used exactly one fresh same-directory Manager and exactly one
+  fresh sequential internal worker Volta. Both are idle/closed; no competing
+  Cryptox Manager, worker, retry, replacement, duplicate, or downstream task
+  is active.
+- The accepted I-01 boundary is limited to `apps/backend/**` plus the two
+  Manager-owned checkpoint files. No contracts, modules, migrations,
+  infrastructure, frontend, dependency, generated, architecture,
+  requirements, ADR, OpenSpec, or unrelated path changed. The backend
+  exposes the approved Auth/capability REST and market-only WebSocket
+  transport boundary with trusted server-side session identity and truthful
+  readiness/failure projection.
+
+### Independent review and blockers
+
+- `PASS`: backend tests `15 passed / 1 skipped`; workspace tests `396 passed /
+  6 environment-gated skips`; build; typecheck; lint; source-sidecar and
+  artifact checks; deferred-scope; test-scope `13/13`; secret/log scan;
+  whitespace; and exact changed-path review.
+- `FAIL`: `arch:check` reports 71 existing dependency violations, with no
+  I-01 backend path implicated. `runtime:smoke` reaches `/live=200` and
+  truthful `/ready=503` but has a stale assertion for the prior three required
+  dependency names; the smoke script is outside the authorized I-01 boundary.
+- `BLOCKED`/`UNVERIFIED`: Docker/local PostgreSQL and real application
+  persistence; configured Binance historical/realtime and CoinDesk evidence;
+  manual production Backtest/SearchRun/Candidate/Experiment/Trade and
+  application-generated Leaderboard composition; browser/final-demo evidence;
+  and OpenSpec CLI evidence. The missing public Backtesting executor, Search
+  generator, Strategy PostgreSQL, and Sentiment PostgreSQL bootstraps require
+  explicit source-reconciliation authorization before any excluded module or
+  bootstrap path is changed.
+
+### Hold condition and next authorization gate
+
+- No implementation is authorized by `INS-107`. The Manager must not start,
+  promote, retry, or split any packet under this signal. `I-02` and `I-03`
+  remain `BLOCKED`, and no deferred or excluded scope may be opened.
+- A later Instructor review may issue a fresh bounded authorization only after
+  reconciling the public module/bootstrap seams in the plan and decision ledger,
+  proving disjoint write scope and dependencies, and rechecking Git,
+  checkpoint consistency, and active writers. Real database/provider/browser
+  evidence must remain explicitly `PASS`, `UNVERIFIED`, or `BLOCKED` according
+  to actual evidence.
+
+## Historical INS-106 — Runtime, transports and observability integration
 
 This signal supersedes `INS-105 / HOLD` after the Instructor's fresh review
 of the accepted I-01S seam. It authorizes exactly one fresh same-directory
