@@ -51,7 +51,7 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 | I-03 | BLOCKED | E4 | YES | Manager / future integration worker | — | Not started; final extension integration/reproducibility proof required |
 | ENV-01 | DONE | E0a | YES | Manager / Infrastructure-and-tooling worker `01a04d08-19c8-76e1-ad32-57471e75f430` | `MVP_IMPLEMENTATION` / containing INS-030 ENV-01 checkpoint commit | Independent review PASS; Docker/migration/checker/root validation PASS; OpenSpec CLI UNVERIFIED |
 | ENV-02 | DONE | E1 closure | YES | Manager `01a04ea7-b1bd-73c2-972a-7d67e6f551c9` / checker-tooling worker `01a04eae-367c-7fc3-8961-dccb9e760cf9` (Confucius) under `INS-039`; INS-041 closure review | `MVP_IMPLEMENTATION` / `d8c5bf3324cbee349e272cb177537fa6ed062df0` plus INS-041 closure checkpoint | `BLOCKED -> READY -> IN_PROGRESS -> REVIEW -> DONE`; immutable checker evidence accepted; no worker created for closure |
-| ENV-03 | REVIEW | E1 validation gate | YES | Fresh Manager under `INS-053` / exactly one fresh checker-tooling worker Tesla `01a04fd3-2a76-7132-a7f7-abdcbbe0c01b` | `MVP_IMPLEMENTATION` / containing this ENV-03 checkpoint commit | `BLOCKED -> READY -> IN_PROGRESS -> REVIEW`; scope tests 9/9, scope, architecture, artifacts, typecheck, build, lint, diff checks PASS; OpenSpec UNVERIFIED |
+| ENV-03 | DONE | E1 validation gate | YES | Fresh Manager under `INS-053` / exactly one fresh checker-tooling worker Tesla `01a04fd3-2a76-7132-a7f7-abdcbbe0c01b`; closure under `INS-067` | `MVP_IMPLEMENTATION` / containing this INS-067 closure checkpoint; implementation `0bc215f5781a7a2860d439b3b4953104a99d9e3a` | `BLOCKED -> READY -> IN_PROGRESS -> REVIEW -> DONE`; current checker tests 13/13, scope, architecture, artifacts, typecheck, build, lint, and diff checks PASS; OpenSpec UNVERIFIED; PostgreSQL/Docker, Binance/News, real-provider, browser/demo, and link/DAG evidence remain UNVERIFIED or BLOCKED where unavailable |
 | ENV-04 | DONE | E1 validation gate | YES | Manager closure review under `INS-061`; prior implementation under `INS-059` with exactly one fresh checker-tooling worker Mencius `01a05033-dd87-71d3-ac70-f0817286fc1b` | `MVP_IMPLEMENTATION` / `5032582` implementation checkpoint plus this INS-061 closure checkpoint | `BLOCKED -> READY -> IN_PROGRESS -> REVIEW -> DONE`; scope tests 13/13, scope, architecture, artifacts, typecheck, build, lint, workspace tests, and diff checks PASS; OpenSpec UNVERIFIED; PostgreSQL-gated tests skipped |
 
 The `RB-01` row records the completed governance checkpoint. `ENV-01` is the
@@ -63,8 +63,9 @@ at `REVIEW`; its fixture/resilience evidence passes, but real Binance readiness
 and PostgreSQL integration remain unavailable. B-03 is at `REVIEW` after one
 fresh worker and independent Manager review; its fixture evidence passes, but
 the deferred-scope checker and real-provider/database evidence remain blocked or
-unverified. All other extension feature packets other than the now-completed
-`S-05`/`S-06`/`Q-02` remain `BLOCKED`; no downstream packet was authorized or started.
+unverified. `M-03`, `B-03`, and `N-03` remain `REVIEW`; `ENV-03` is now `DONE`
+after this closure. `S-04`, `E-02`, `L-02`, `F-03`, and `I-03` remain
+`BLOCKED`. No downstream packet was authorized or started.
 The existing legacy rows, including
 `M-02` at `REVIEW`, `AU-02` at `BLOCKED`, and `I-01`/`I-02` at `BLOCKED`, retain
 their states and evidence. DEC-007 feature behavior remains unimplemented in

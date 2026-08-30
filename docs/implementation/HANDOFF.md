@@ -1,130 +1,98 @@
-# INS-065 Execution Checkpoint — Q-02 Seeded Discovery Closure
+# INS-067 Execution Checkpoint — ENV-03 Checker Closure
 
 ## Resume here
 
-- **Authorization:** `INS-065 / APPROVED_FOR_EXECUTION` authorized exactly one
-  Manager-owned closure packet: review and close `Q-02`. It authorized no
-  worker, source implementation, checker retry, B-03, downstream work,
+- **Authorization:** `INS-067 / APPROVED_FOR_EXECUTION` authorized exactly one
+  Manager-owned closure/reconciliation packet: `ENV-03`. It authorized no
+  worker, source implementation, B-03 promotion, downstream work, retry,
   replacement, branch, worktree, or duplicate.
 - **Manager:** This closure was performed directly in the canonical
   same-directory checkout `D:/agy-cli-projects/AOS/Cryptox` on branch
   `MVP_IMPLEMENTATION`.
-- **Instruction checkpoint:** `7a8a4482df969776012a9249e5b5f7b70359f264`
-  (`docs(control): authorize Q-02 closure review`), reviewed base `1efe938`
-  (`docs(control): hold after C-03 closure`). The Q-02 source/checkpoint is
-  `95cb98463f60c35f71dda2f7832f0aa9ad22a30c` (`feat(search): implement seeded
-  discovery profiles`). C-03 is DONE at `a115025`; its six Search
-  contract/port/REST files are unchanged after
-  `51e98f9d5edd545831007dc6ce105701384bfd44`. ENV-04 is DONE at `4c964f6`,
-  with implementation checkpoint `5032582`.
-- **Start gates:** Branch, authorization, reviewed base, and HEAD were
-  verified; the working tree was clean before edits. The active-task inspection
-  found only the parent Instructor task and this Manager in the Cryptox
-  checkout; no other Cryptox Manager or worker was running. Historical tasks
-  were not resumed, retried, replaced, or duplicated.
+- **Instruction checkpoint:** `8452b6d63a4f07ad913dce77b55f26e3fa45d018`
+  (`docs(control): authorize ENV-03 closure`), with reviewed base `ca0e120`
+  (`docs(control): hold after Q-02 closure`). The reviewed ENV-03 checker
+  implementation/checkpoint is
+  `0bc215f5781a7a2860d439b3b4953104a99d9e3a`; later ENV-04 checker
+  reconciliation is `50325826e488fad63e30ce70b2c0e20736b86cb1` and remains
+  unchanged. Q-02 is DONE at `bd9dd86`; C-03 is DONE at `a115025`.
+- **Start gates:** Branch, current signal, reviewed base, and clean working
+  tree were verified. The current HEAD contained `8452b6d`. Active-task
+  inspection found only the parent Instructor task and this Manager in the
+  Cryptox checkout; no other Cryptox Manager or worker was running. Historical
+  tasks were not resumed, retried, replaced, or duplicated.
 
-## Q-02 closure result
+## ENV-03 closure result
 
-- **Transition:** Q-02 moved exactly
-  `BLOCKED -> READY -> IN_PROGRESS -> REVIEW -> DONE` across its authorized
-  implementation and closure checkpoints. This INS-065 checkpoint performs
-  only the final `REVIEW -> DONE` reconciliation.
-- **Workers/tasks used:** No worker was authorized or created by INS-065. The
-  prior INS-057 source packet used exactly one fresh Search worker,
-  `01a0500c-2fa8-7a82-a4f0-0badf7479b01`; it created no source commit,
-  branch, worktree, worker, or control-plane change. The Manager independently
+- **Transition:** ENV-03 moved exactly `REVIEW -> DONE` under INS-067. Its
+  earlier operational sequence was `BLOCKED -> READY -> IN_PROGRESS -> REVIEW`.
+- **Workers/tasks used:** No worker was authorized or created by INS-067. The
+  prior INS-053 implementation used exactly one fresh checker-tooling worker,
+  Tesla `01a04fd3-2a76-7132-a7f7-abdcbbe0c01b`; it created no source commit,
+  branch, worktree, or control-plane change. The Manager independently
   reviewed that result and the later ENV-04 checker gate.
-- **Unchanged state:** C-03 remains DONE, ENV-04 remains DONE, B-03 remains
-  REVIEW, ENV-03 remains REVIEW, and every other task row/state remains
-  unchanged. No downstream or newly unlocked packet was started, promoted, or
-  inferred from Q-02 closure.
+- **Unchanged state:** B-03 remains REVIEW, Q-02/C-03/ENV-04 remain DONE, and
+  every other task row/state remains unchanged. No downstream or newly unlocked
+  packet was started, promoted, or inferred from this closure.
+- **Control-plane scope:** The only edits in this checkpoint are the Manager-
+  owned `docs/implementation/TASKS.md` and `docs/implementation/HANDOFF.md`.
+  The TASKS narrative was corrected only to distinguish the current REVIEW
+  rows from the BLOCKED extension rows.
 
-## Reviewed Q-02 source scope and behavior
+## Reviewed checker scope and evidence
 
-The accepted Q-02 implementation/test contribution is exactly these eleven
-paths:
-
-- `modules/search/application/memory.ts`
-- `modules/search/application/profile.spec.ts`
-- `modules/search/application/service.ts`
-- `modules/search/domain/generators/domain-guided/domain-guided-generator.spec.ts`
-- `modules/search/domain/generators/domain-guided/domain-guided-generator.ts`
-- `modules/search/domain/generators/domain-guided/index.ts`
-- `modules/search/domain/generators/genetic/genetic-generator.spec.ts`
-- `modules/search/domain/generators/genetic/genetic-generator.ts`
-- `modules/search/domain/generators/genetic/index.ts`
-- `modules/search/infrastructure/postgres.spec.ts`
-- `modules/search/infrastructure/postgres.ts`
-
-The authorized scope is limited to the two generator implementation
-directories/indexes/tests, Search application profile wiring and in-memory
-projection, Search application focused tests, and the Search infrastructure
-projection/tests. Canonical contracts and REST/port contracts are not part of
-Q-02. No migration, Backtesting simulation, scoring, LLM, frontend, external
-provider, queue/distributed, or unrelated source is part of Q-02.
-
-The implementation and tests establish the following packet-boundary behavior:
-
-- Domain-guided generation uses explicitly declared category membership only,
-  rejects invalid/unavailable category configuration, emits canonical
-  one-candidate representations, and does not infer categories or use an LLM.
-- Genetic generation is deterministic and bounded with the approved defaults:
-  population `50`, maximum `10` generations, elite `10%`, and mutation `20%`.
-  It avoids duplicate candidates and reports finite search-space exhaustion.
-- Search selects the approved profile slots, persists seed, normalized
-  algorithm configuration, dataset identity, and code version, and retains the
-  fixed seeded default budget of `500` candidates or `300` seconds, whichever
-  occurs first. Candidate validity, capacity, lifecycle state, stop reason,
-  failure count, processing timing, cancellation, and ranking progress remain
-  observable and bounded.
-- The in-memory and PostgreSQL SearchRun projections round-trip seeded
-  provenance and lifecycle fields with owner-filtered reads and owner-bound
-  writes, without a migration or a second lifecycle.
-- Profile wiring exercises the public Strategy composite, Backtesting
-  candidate-submission/progress/cancellation, and Leaderboard scope/ranking
-  boundaries. It does not claim real-provider or real-PostgreSQL runtime
-  evidence.
-
-The source-scope audit compares the Q-02 checkpoint with current Git: its
-eleven source/test paths remain unchanged; the only later source/business
-changes are the separately authorized ENV-04 changes to
-`scripts/check-deferred-scope.cjs` and
-`scripts/check-deferred-scope.test.cjs`. The six C-03 Search contract/port/REST
-files have no diff after `51e98f9d5edd545831007dc6ce105701384bfd44`.
+- **Requirements/authority:** `CSL-R-RP-02`, DEC-007, DEC-011, and ADR-010.
+- **Approved identifiers:** `SYNTHETIC_SHORT_PAPER_V1` and
+  `STOP_LOSS_WINS_V1` are recognized only at the existing canonical
+  Backtesting contract, port, REST, and migration boundaries, plus the exact
+  `modules/backtesting/domain/`, `modules/backtesting/application/`, and
+  `modules/backtesting/infrastructure/` directories.
+- **Directional vocabulary:** Directional paper vocabulary is recognized only
+  at those same exact boundaries. Matching is path-aware with exact
+  trailing-slash directory boundaries; the generic Backtesting root,
+  near-match/legacy directories, and unrelated paths remain rejected.
+- **Policy preservation:** No path-wide exclusion, generic Backtesting bypass,
+  generic profile bypass, checker disablement, contract/migration change, or
+  product behavior was introduced. Rejection of deferred enterprise identity,
+  distributed/queue, live-trading/generalized-risk, autonomous/unconfigured
+  LLM, strict-replay, operational-risk, forbidden active paths, and other
+  unapproved scope remains intact.
+- **Source audit:** The ENV-03 implementation checkpoint changed only
+  `scripts/check-deferred-scope.cjs` and
+  `scripts/check-deferred-scope.test.cjs` on the source side. The later ENV-04
+  implementation changed only those same checker files plus its Manager
+  control documents. No module/business source, canonical contract, migration,
+  provider, frontend, or dependency drift, and no unauthorized task-DAG drift,
+  was found from the reviewed base.
 
 ## Validation
 
-- Focused Q-02 generator, profile-wiring, and Search-persistence tests:
-  **PASS**, 12/12.
-- Full Search workspace tests: **PASS**, 32 passed; 1 PostgreSQL-gated
-  integration test skipped because `DATABASE_URL` is absent.
-- Root workspace tests: **PASS**, 341 passed; 6 environment-gated tests
-  skipped. Skips are not PASS evidence.
-- Current deferred-scope checker tests: **PASS**, 13/13.
-- `npm run scope:check`: **PASS** after the separately authorized ENV-04
-  exact-path reconciliation.
-- `npm run arch:check`: **PASS**.
-- `npm run artifacts:check`: **PASS**.
-- `npm run typecheck`: **PASS**.
-- `npm run build`: **PASS**.
-- `npm run lint`: **PASS**.
-- `git diff --check`: **PASS**.
+- Focused checker tests: **PASS**, `npm run test:scope-check`, 13/13.
+- Deferred-scope gate: **PASS**, `npm run scope:check`.
+- Architecture: **PASS**, `npm run arch:check`.
+- Generated-artifact check: **PASS**, `npm run artifacts:check`.
+- Typecheck: **PASS**, `npm run typecheck`.
+- Build: **PASS**, `npm run build`.
+- Lint: **PASS**, `npm run lint`.
+- Whitespace: **PASS**, `git diff --check`.
+- The recorded ENV-03/B-03 and later ENV-04 broader workspace evidence remains
+  applicable because the reviewed source/business state is unchanged; the
+  current checker evidence is stronger at 13/13 after ENV-04.
+- OpenSpec CLI remains **UNVERIFIED** because it is unavailable. Checked-in
+  active specifications/change and governing documents were read directly.
 
 ## Limitations and stop boundary
 
-- OpenSpec CLI remains **UNVERIFIED** because it is unavailable in this
-  environment.
-- PostgreSQL runtime/integration evidence remains **UNVERIFIED/BLOCKED**:
-  `DATABASE_URL` is absent, so the PostgreSQL-gated Search test was skipped;
-  no real database evidence is claimed.
-- Real configured Binance historical/realtime, real configured News, and final
-  real-provider runtime evidence remain **UNVERIFIED/BLOCKED**; fixture/fake
-  provider tests are not promoted to live-provider evidence.
-- Browser/runtime/demo evidence and link/DAG automation remain
-  **UNVERIFIED/BLOCKED** where unavailable. No unavailable check is converted
-  to PASS.
-- This checkpoint contains only the Manager-owned updates to
-  `docs/implementation/TASKS.md` and `docs/implementation/HANDOFF.md`.
-- INS-065 is exhausted. Renewed Instructor review is required before B-03,
-  ENV-03, E-02, L-02, F-03, I-01, I-02, I-03, AU-02, M-02, M-03, N-03, S-04,
-  or any other implementation, closure, retry, or downstream authorization.
+- PostgreSQL/Docker runtime and migration evidence remain **UNVERIFIED** or
+  **BLOCKED** where unavailable; absent configuration or skipped environment
+  tests are not promoted to PASS.
+- Real configured Binance historical/realtime, real configured News,
+  real-provider runtime, and final browser/demo evidence remain
+  **UNVERIFIED/BLOCKED** where unavailable; fixture/fake-provider evidence is
+  not promoted to live-provider evidence.
+- Link/DAG automation evidence remains **UNVERIFIED/BLOCKED** where
+  unavailable. No unavailable check is converted to PASS.
+- This is one coherent Manager checkpoint under INS-067. The authorization is
+  exhausted. Renewed Instructor review is required before B-03 closure or
+  promotion, M-02/M-03/N-03/S-04/E-02/L-02/F-03/I-01/I-02/I-03/AU-02, or any
+  other implementation, closure, retry, or downstream authorization.
