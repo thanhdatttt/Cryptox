@@ -37,6 +37,7 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 | I-02 | BLOCKED | 6 | YES | Manager plus independent reviewers | — | Not started |
 | RB-01 | DONE | E0 | YES | Manager | `MVP_IMPLEMENTATION` / containing INS-024 RB-01 checkpoint | Documentation-only DEC-007 reconciliation planning committed; no feature implementation started |
 | C-02 | DONE | E0 | YES | Manager / exactly one contract-and-schema worker `01a04d53-6ab4-70c1-a926-f68464b0fc6a` (INS-034) | `MVP_IMPLEMENTATION` / containing INS-034 closure checkpoint | Contract/schema review, 254/254 workspace tests, PostgreSQL up/constraints/down/remigrate, architecture, artifacts, scope, deferred-scope, typecheck, build, lint, and diff checks PASS; OpenSpec CLI and link/DAG automation UNVERIFIED |
+| C-03 | REVIEW | E1 contract reconciliation | YES | Fresh Manager under INS-055 / exactly one Search-contract worker Turing `01a04fed-36a2-76a2-b034-090c150c4873` | `MVP_IMPLEMENTATION` / containing this C-03 checkpoint commit | `BLOCKED -> READY -> IN_PROGRESS -> REVIEW`; focused 9/9, checker 10/10, full workspace 332 passed / 6 environment-gated skips, scope/arch/artifacts/typecheck/build/lint/diff checks PASS; OpenSpec CLI UNVERIFIED |
 | M-03 | REVIEW | E1 | YES | INS-049 Manager `01a04f6d-329f-7d00-a1f2-43339c5bd3e6` + fresh Market Data worker Chandrasekhar `01a04f70-3324-77d3-bdf1-79e1c5b93a01` | `MVP_IMPLEMENTATION` / Manager checkpoint at stop boundary | `IN_PROGRESS -> REVIEW`; Market Data 31 passed / 1 skipped; root 318 passed / 6 skipped; architecture, artifacts, scope, typecheck, build, lint, diff checks PASS; real Binance and PostgreSQL evidence UNVERIFIED/BLOCKED |
 | S-04 | BLOCKED | E1 | YES | Future Strategy application worker | — | Not started; controlled LLM draft/approval evidence required |
 | S-05 | DONE | E1 | YES | INS-036 fresh S-05 worker `01a04e66-d981-7e42-b75d-1bb3b7340c73` / Manager; INS-041 closure review | `MVP_IMPLEMENTATION` / containing INS-041 closure checkpoint | Focused 17/17 and Strategy 89/89 PASS; ENV-02 checker gate PASS; immutable weighted-composite evidence accepted |
@@ -604,6 +605,50 @@ acceptance criteria and handoff requirements are in the linked packets in
   authorized or started; INS-034 is exhausted pending the next Instructor
   review signal.
 - **Full packet:** [`MVP_PLAN.md#c-02--dec-007-contract-data-model-and-migration-reconciliation-gate`](MVP_PLAN.md#c-02--dec-007-contract-data-model-and-migration-reconciliation-gate)
+
+### C-03 — Seeded-Discovery Canonical Contract Reconciliation
+
+- **Requirement IDs / authority:** `CSL-R-SE-03`, `CSL-R-RP-02`,
+  `CSL-R-LB-01`, `CSL-R-OB-01`, DEC-007, DEC-012, and the existing C-02
+  contract boundary.
+- **State / owner / wave:** REVIEW / Fresh Manager under INS-055 with exactly
+  one Search-contract worker Turing `01a04fed-36a2-76a2-b034-090c150c4873` / E1
+  contract reconciliation gate.
+- **Start dependencies:** `C-02` DONE and `ENV-03` REVIEW with its clean
+  deferred-scope gate; the current Instructor signal explicitly authorizes C-03.
+  C-03 is not a retry or reopening of C-02.
+- **Exact write scope:** Search API contracts/tests, Search application ports/
+  focused tests, the canonical Search REST contract/focused tests, and the
+  minimal deferred-scope checker recognition/tests for the actual Search REST
+  path. The Manager may update only this task board and `HANDOFF.md`.
+  No Search lifecycle, generator implementation, persistence, migration,
+  frontend, provider, queue, or unrelated source is in scope.
+- **Acceptance/validation:** Public generator types and registry shape represent
+  `RANDOM`, `DOMAIN_GUIDED`, and `GENETIC`; seeded provenance and finite bounded
+  stop concepts remain explicit; client commands remain owner-free; REST parsing
+  accepts only the explicit approved values/profile IDs and rejects unsupported
+  values and client identity fields; current RANDOM behavior remains unchanged;
+  the checker recognizes the canonical Search REST file without broadening its
+  policy; no Q-02 algorithm or Search lifecycle behavior is implemented.
+- **Definition of Done:** Move only through
+  `BLOCKED -> READY -> IN_PROGRESS -> REVIEW`; exactly one fresh worker is
+  delegated and independently reviewed; one coherent C-03 checkpoint is
+  committed; Q-02 and all other packets remain unchanged and blocked as
+  applicable.
+- **Worker result / Manager review:** Turing changed only the eight authorized
+  Search contract/REST/checker paths, created no commit or control-plane edit,
+  and added no generator algorithm or lifecycle behavior. Independent review
+  confirmed the three generator modes, typed future registry slots, bounded
+  seeded provenance, strict REST unions/parser validation, owner-field
+  rejection, and exact canonical REST checker boundary; Search runtime,
+  persistence, migrations, and Q-02 paths remain unchanged.
+- **Validation:** Focused Search/API/REST tests 9/9 PASS; checker tests 10/10
+  PASS; `npm run scope:check`, `npm run arch:check`,
+  `npm run artifacts:check`, `npm run typecheck`, `npm run build`,
+  `npm run lint`, full workspace tests (332 passed / 6 environment-gated
+  skips), and `git diff --check` PASS. OpenSpec CLI is UNVERIFIED because it
+  is unavailable.
+- **Full packet:** [`MVP_PLAN.md#c-03--seeded-discovery-canonical-contract-reconciliation`](MVP_PLAN.md#c-03--seeded-discovery-canonical-contract-reconciliation)
 
 ### M-03 — Amended Realtime Market Delivery and `MARKET_OBSERVABILITY_V1`
 

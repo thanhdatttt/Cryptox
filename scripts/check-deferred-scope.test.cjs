@@ -22,11 +22,28 @@ function withFixture(files, callback) {
 test("permits approved DEC-007 profiles only in named contract boundaries", () => {
   withFixture({
     "modules/search/api/contracts.ts": "export const profiles = ['DOMAIN_GUIDED_V1', 'GENETIC_V1'];",
+    "packages/contracts/rest/search.ts": "export const profiles = ['DOMAIN_GUIDED_V1', 'GENETIC_V1'];",
     "modules/backtesting/api/contracts.ts": "export const profile = { id: 'SYNTHETIC_SHORT_PAPER_V1', positionPolicy: { leverage: 'PROHIBITED' }, excluded: ['MARGIN', 'FUNDING', 'LIQUIDATION', 'GENERALIZED_RISK_MANAGEMENT'] }; export const exit = 'STOP_LOSS_WINS_V1'; export const direction = 'LONG'; export const stopLoss = true;",
     "modules/strategy/api/contracts.ts": "export const authoring = 'LLM_AUTHORING_V1'; export const vote = 'WEIGHTED_VOTE_V1'; export const lite = ['SMC_LITE_V1', 'WYCKOFF_LITE_V1'];",
     "modules/strategy/application/ports.ts": "export const extensions = ['WEIGHTED_VOTE_V1', 'SMC_LITE_V1', 'WYCKOFF_LITE_V1'];",
     "modules/market-data/api/contracts.ts": "export const observability = 'MARKET_OBSERVABILITY_V1';",
   }, (fixture) => assert.deepEqual(scanDeferredScope(fixture), []));
+});
+
+test("rejects approved Search profiles outside the exact canonical REST file", () => {
+  const files = {
+    "packages/contracts/rest/search/legacy.ts": "export const profiles = ['DOMAIN_GUIDED_V1', 'GENETIC_V1'];",
+    "packages/contracts/rest/search-legacy.ts": "export const profiles = ['DOMAIN_GUIDED_V1', 'GENETIC_V1'];",
+    "packages/contracts/rest/search.tsx": "export const profiles = ['DOMAIN_GUIDED_V1', 'GENETIC_V1'];",
+  };
+  withFixture(files, (fixture) => {
+    const findings = scanDeferredScope(fixture).join("\n");
+    for (const relativePath of Object.keys(files)) {
+      const escapedPath = relativePath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      assert.match(findings, new RegExp(`${escapedPath}: approved profile DOMAIN_GUIDED_V1 is outside its supported boundary`));
+      assert.match(findings, new RegExp(`${escapedPath}: approved profile GENETIC_V1 is outside its supported boundary`));
+    }
+  });
 });
 
 test("permits approved Strategy extension profiles in their exact implementation directories", () => {

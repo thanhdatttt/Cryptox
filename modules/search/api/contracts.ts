@@ -6,7 +6,7 @@ import type {
   AuthenticatedUserId,
 } from "modules/auth/api";
 
-export const SEARCH_GENERATOR_TYPES = ["RANDOM"] as const;
+export const SEARCH_GENERATOR_TYPES = ["RANDOM", "DOMAIN_GUIDED", "GENETIC"] as const;
 export type GeneratorType = (typeof SEARCH_GENERATOR_TYPES)[number];
 export const SEEDED_DISCOVERY_PROFILE_IDS = ["RANDOM_V1", "DOMAIN_GUIDED_V1", "GENETIC_V1"] as const;
 export type SeededDiscoveryProfileId = (typeof SEEDED_DISCOVERY_PROFILE_IDS)[number];
@@ -130,6 +130,8 @@ export interface StartSearchCommand {
   leaderboardScopeId: string;
   candidateTemplate: SearchCandidateTemplate;
   maxInFlight: number;
+  /** Optional bounded provenance supplied when a seeded profile is selected. */
+  seededDiscovery?: SeededDiscoveryProvenance;
 }
 
 export interface SearchRunPageRequest {

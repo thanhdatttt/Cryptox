@@ -1,91 +1,91 @@
-# INS-053 Execution Checkpoint — ENV-03 B-03 Checker Boundary Reconciliation
+# INS-055 Execution Checkpoint — C-03 Search Contract Reconciliation
 
 ## Resume here
 
-- **Authorization:** `INS-053 / APPROVED_FOR_EXECUTION`; exactly one bounded
-  tooling/review packet, `ENV-03`, was authorized. No feature packet or
-  downstream join was started, promoted, reopened, retried, or duplicated.
-- **Fresh Manager:** Current fresh Manager, operating directly in the canonical
+- **Authorization:** `INS-055 / APPROVED_FOR_EXECUTION` authorized exactly one
+  bounded packet, `C-03`. No Q-02 algorithm or other feature packet was
+  started, promoted, reopened, retried, or duplicated.
+- **Fresh Manager:** This Manager operated directly in the canonical
   same-directory checkout `D:/agy-cli-projects/AOS/Cryptox` on branch
-  `MVP_IMPLEMENTATION`. Parent Instructor task:
-  `01a04d93-13a4-7d91-b010-f2b800f696df`.
-- **Fresh worker:** Tesla, `01a04fd3-2a76-7132-a7f7-abdcbbe0c01b`, exactly one
-  new checker-tooling worker. It used the canonical checkout, created no
-  thread/worker, branch, worktree, or commit, and edited no control-plane file.
-- **Reviewed checkpoint:** `0c4bbb7e540bc93afa113992cfa0aa882912394a` is the
-  reviewed source/business checkpoint named by `INS-053`. The current HEAD at
-  dispatch was `8c7185223847367868000346406dd394b94afa60`, a governance-only
-  Instructor authorization delta changing only `INSTRUCTOR.md`; no source,
-  business state, task DAG, contracts, migrations, or B-03 premise drift was
-  found.
-- **Starting conditions:** `ENV-02` was `DONE`; B-03 was `REVIEW` at source
-  checkpoint `692754051f2c43bf7ab70a453adb1b9c9d3ca6d4`; the working tree was
-  clean before the Manager added the required ENV-03 row.
+  `MVP_IMPLEMENTATION`.
+- **Reviewed base:** Instructor control records `d6bd0a6870b2f3d60c04d1dd4cd57a91e8589919`
+  as the reviewed source/business checkpoint. Current dispatch HEAD was
+  `07f460dcbb7877b928d070c9d3aa46724b6d0481`; its only diff from the reviewed
+  base was the governance-only `docs/control/INSTRUCTOR.md` authorization, so
+  no source, business state, task DAG, contract, migration, or C-03 premise
+  drift was found.
+- **Starting conditions:** The working tree was clean; `C-02` was `DONE`,
+  `ENV-03` was `REVIEW` with its deferred-scope gate passing, and `Q-02` was
+  `BLOCKED`. Active-task inspection found only the parent Instructor task and
+  this Manager task; no separate Cryptox Manager or worker was running.
 
-## Applicability and state transitions
+## State and worker
 
-- `ENV-03` was absent from the task board at bootstrap and was added as
-  `BLOCKED`, then moved exactly `BLOCKED -> READY -> IN_PROGRESS -> REVIEW`.
-  `ENV-02` was not reopened, and B-03 was not promoted.
-- Start dependencies were verified: `ENV-02` `DONE` and B-03 `REVIEW` with its
-  accepted source checkpoint available. No competing active Cryptox Manager or
-  worker was found in the repository control state; historical tasks/workers
-  were not resumed, replaced, retried, or duplicated.
-- Manager-owned changes are limited to `docs/implementation/TASKS.md` and this
-  handoff. Worker-owned changes are limited to the two checker files below.
+- `C-03` was added to `TASKS.md` as `BLOCKED`, then moved exactly
+  `BLOCKED -> READY -> IN_PROGRESS -> REVIEW`. No unrelated task state changed.
+- Exactly one fresh worker, Turing
+  (`01a04fed-36a2-76a2-b034-090c150c4873`), worked in the canonical checkout.
+  It created no commit, branch, worktree, or worker and edited no control-plane
+  file. The Manager independently reviewed its result.
 
-## Worker implementation and Manager review
+## Implementation and review
 
-- **Requirements/authority:** `CSL-R-RP-02`, DEC-007, DEC-011, and ADR-010.
-- **Worker paths:**
-  `scripts/check-deferred-scope.cjs` and
-  `scripts/check-deferred-scope.test.cjs` only.
-- **Implementation:** `SYNTHETIC_SHORT_PAPER_V1` and
-  `STOP_LOSS_WINS_V1` retain their existing canonical Backtesting
-  contract/port/REST/migration boundaries and additionally permit only the
-  exact directories `modules/backtesting/domain/`,
-  `modules/backtesting/application/`, and
-  `modules/backtesting/infrastructure/`. Directional paper vocabulary uses the
-  same exact boundary set.
-- **Tests:** Existing coverage was preserved. Focused positive coverage now
-  exercises all three approved implementation directories, and focused
-  negative coverage exercises near-match legacy directories, the generic
-  Backtesting root, and an unrelated Evaluation path for both identifiers and
-  directional vocabulary. Existing deferred enterprise identity,
-  distributed/queue, live-trading/generalized-risk,
-  autonomous/unconfigured LLM, strict-replay, operational-risk, and other
-  rejection cases remain present.
-- **Independent review:** The Manager reviewed the diff and confirmed exact
-  trailing-slash directory boundaries, no generic Backtesting-root exclusion,
-  no broad path prefix, no generic profile bypass, no checker disablement, and
-  no wording-only weakening. B-03 source, frozen Backtesting contracts,
-  migrations, and unrelated files remain unchanged.
+Worker-owned changed paths:
 
-## Validation and evidence
+- `modules/search/api/contracts.ts`
+- `modules/search/api/contracts.spec.ts`
+- `modules/search/application/ports.ts`
+- `modules/search/application/ports.spec.ts`
+- `packages/contracts/rest/search.ts`
+- `packages/contracts/rest/search.spec.ts`
+- `scripts/check-deferred-scope.cjs`
+- `scripts/check-deferred-scope.test.cjs`
 
-- **Focused checker tests:** PASS — `npm run test:scope-check`, 9/9.
-- **Deferred-scope gate:** PASS — `npm run scope:check` against the current
-  B-03 source.
-- **Repository gates:** PASS — `npm run arch:check`,
-  `npm run artifacts:check`, `npm run typecheck`, `npm run build`,
-  `npm run lint`, and `git diff --check`.
-- **OpenSpec:** UNVERIFIED — the `openspec` CLI is unavailable; checked-in
-  active change/spec and governing documents were read directly.
-- **Real providers/databases:** Outside this tooling packet. No real
-  PostgreSQL or Binance evidence is claimed or fabricated.
-- **Path audit:** Before commit, the only changed paths are the two worker
-  checker files plus Manager-owned `TASKS.md` and this `HANDOFF.md`.
+The canonical Search contracts now represent `RANDOM`, `DOMAIN_GUIDED`, and
+`GENETIC`, preserve the one-candidate form and current Random implementation,
+and expose optional typed registry slots for future Q-02 implementations.
+SearchRun commands remain free of owner identity; status and seeded provenance
+retain finite stop conditions, profile/configuration, seed, dataset identity,
+code version, and the bounded 500-candidate/300-second default budget.
 
-## State and stop boundary
+The REST contract/parser accepts only the three generator values and the three
+matching seeded profile IDs, validates bounded provenance and existing search
+space/stop/in-flight rules, rejects unsupported or mismatched values and
+client-supplied identity fields, and adds no endpoint or lifecycle behavior.
+The deferred-scope checker recognizes the exact canonical
+`packages/contracts/rest/search.ts` file while retaining negative checks for
+near-match and unrelated paths. No Q-02 algorithm, Search lifecycle,
+persistence, migration, frontend, provider, queue/distributed, LLM, or
+unrelated source changed.
 
-- **ENV-03:** `REVIEW`, with the accepted checker diff and required validation
-  evidence recorded. One coherent ENV-03 checkpoint commit contains exactly the
-  two checker files and the two Manager-owned execution documents; its exact
-  Git hash is reported at the stop boundary.
-- **B-03:** Remains `REVIEW`, not `DONE`; no B-03 source or evidence was
-  changed. `M-03`, `N-03`, and `M-02` retain their recorded states, and all
-  downstream/deferred tasks retain their recorded states. No downstream packet
-  was started or auto-unlocked.
-- **Renewed authorization:** Required before B-03 closure/promotion or any
-  follow-on packet. This Manager stops here under the exhausted `INS-053`
-  authorization.
+## Validation and limitations
+
+- Focused Search API/ports/REST tests: **PASS**, 9/9.
+- Deferred-scope checker tests: **PASS**, 10/10.
+- `npm run scope:check`: **PASS**.
+- `npm run arch:check`: **PASS**.
+- `npm run artifacts:check`: **PASS**.
+- `npm run typecheck`: **PASS**.
+- `npm run build`: **PASS**.
+- `npm run lint`: **PASS**.
+- Full workspace tests: **PASS**, 332 passed; 6 environment-gated tests
+  skipped and not counted as passing evidence.
+- `git diff --check`: **PASS**.
+- OpenSpec CLI validation: **UNVERIFIED**; the `openspec` executable is not
+  available in this environment.
+
+The worker initially tried an unsupported Vitest option, then completed its
+focused checks successfully with the supported command. The Manager reran the
+correct focused and required repository gates independently. No real
+PostgreSQL/Binance evidence is claimed because it is outside this
+contract-reconciliation packet.
+
+## Stop boundary
+
+- `C-03` is at `REVIEW`, not `DONE`, pending Instructor review.
+- `Q-02` remains `BLOCKED`; no newly unlocked or downstream packet was started.
+- Manager-owned changed paths are only `docs/implementation/TASKS.md` and this
+  `docs/implementation/HANDOFF.md`. One coherent checkpoint commit contains
+  those files plus the eight worker paths above.
+- Renewed Instructor authorization is required before Q-02 or any other
+  follow-on work.
