@@ -1,114 +1,130 @@
-# INS-063 Execution Checkpoint — C-03 Contract Reconciliation Closure
+# INS-065 Execution Checkpoint — Q-02 Seeded Discovery Closure
 
 ## Resume here
 
-- **Authorization:** `INS-063 / APPROVED_FOR_EXECUTION` authorized exactly one
-  Manager-owned closure packet: C-03. It authorized no worker, source
-  implementation, Q-02 closure, downstream work, retry, replacement, branch,
-  or worktree.
+- **Authorization:** `INS-065 / APPROVED_FOR_EXECUTION` authorized exactly one
+  Manager-owned closure packet: review and close `Q-02`. It authorized no
+  worker, source implementation, checker retry, B-03, downstream work,
+  replacement, branch, worktree, or duplicate.
 - **Manager:** This closure was performed directly in the canonical
   same-directory checkout `D:/agy-cli-projects/AOS/Cryptox` on branch
   `MVP_IMPLEMENTATION`.
-- **Instruction checkpoint:** `daad9f4994d904735006f542678618b4a0b0bcb6`
-  (`docs(control): authorize C-03 closure review`), reviewed base `987eb98`
-  (`docs(control): hold after ENV-04 closure`). The C-03 source/checkpoint is
-  `51e98f9d5edd545831007dc6ce105701384bfd44`; Q-02 remains at source
-  checkpoint `95cb98463f60c35f71dda2f7832f0aa9ad22a30c`; ENV-04 remains DONE
-  with implementation checkpoint `5032582` and closure `4c964f6`.
-- **Start gates:** The branch, authorization, and HEAD were verified; the
-  worktree was clean before edits. `git diff 987eb98..HEAD` contained only the
-  current Instructor signal. Active-task inspection found only the parent
-  Instructor task and this Manager in the Cryptox checkout; no other Cryptox
-  Manager or worker was running. Historical tasks were not resumed, retried,
-  replaced, or duplicated.
+- **Instruction checkpoint:** `7a8a4482df969776012a9249e5b5f7b70359f264`
+  (`docs(control): authorize Q-02 closure review`), reviewed base `1efe938`
+  (`docs(control): hold after C-03 closure`). The Q-02 source/checkpoint is
+  `95cb98463f60c35f71dda2f7832f0aa9ad22a30c` (`feat(search): implement seeded
+  discovery profiles`). C-03 is DONE at `a115025`; its six Search
+  contract/port/REST files are unchanged after
+  `51e98f9d5edd545831007dc6ce105701384bfd44`. ENV-04 is DONE at `4c964f6`,
+  with implementation checkpoint `5032582`.
+- **Start gates:** Branch, authorization, reviewed base, and HEAD were
+  verified; the working tree was clean before edits. The active-task inspection
+  found only the parent Instructor task and this Manager in the Cryptox
+  checkout; no other Cryptox Manager or worker was running. Historical tasks
+  were not resumed, retried, replaced, or duplicated.
 
-## C-03 closure result
+## Q-02 closure result
 
-- **Transition:** C-03 moved exactly
-  `BLOCKED -> READY -> IN_PROGRESS -> REVIEW -> DONE`.
-- **Unchanged state:** Q-02 remains `REVIEW`; ENV-04 remains `DONE`; every
-  other task row/state remains unchanged. No newly unlocked or downstream
-  packet was started, promoted, or inferred from this closure.
-- **Workers/tasks used:** None under INS-063. This was the explicitly
-  authorized Manager-owned closure review. The prior INS-055 source packet
-  used exactly one Search-contract worker, Turing
-  `01a04fed-36a2-76a2-b034-090c150c4873`; no worker was created or retried for
-  the closure.
+- **Transition:** Q-02 moved exactly
+  `BLOCKED -> READY -> IN_PROGRESS -> REVIEW -> DONE` across its authorized
+  implementation and closure checkpoints. This INS-065 checkpoint performs
+  only the final `REVIEW -> DONE` reconciliation.
+- **Workers/tasks used:** No worker was authorized or created by INS-065. The
+  prior INS-057 source packet used exactly one fresh Search worker,
+  `01a0500c-2fa8-7a82-a4f0-0badf7479b01`; it created no source commit,
+  branch, worktree, worker, or control-plane change. The Manager independently
+  reviewed that result and the later ENV-04 checker gate.
+- **Unchanged state:** C-03 remains DONE, ENV-04 remains DONE, B-03 remains
+  REVIEW, ENV-03 remains REVIEW, and every other task row/state remains
+  unchanged. No downstream or newly unlocked packet was started, promoted, or
+  inferred from Q-02 closure.
 
-## Reviewed C-03 source scope and behavior
+## Reviewed Q-02 source scope and behavior
 
-The original C-03 source contribution is exactly these eight paths:
+The accepted Q-02 implementation/test contribution is exactly these eleven
+paths:
 
-- `modules/search/api/contracts.ts`
-- `modules/search/api/contracts.spec.ts`
-- `modules/search/application/ports.ts`
-- `modules/search/application/ports.spec.ts`
-- `packages/contracts/rest/search.ts`
-- `packages/contracts/rest/search.spec.ts`
-- `scripts/check-deferred-scope.cjs`
-- `scripts/check-deferred-scope.test.cjs`
+- `modules/search/application/memory.ts`
+- `modules/search/application/profile.spec.ts`
+- `modules/search/application/service.ts`
+- `modules/search/domain/generators/domain-guided/domain-guided-generator.spec.ts`
+- `modules/search/domain/generators/domain-guided/domain-guided-generator.ts`
+- `modules/search/domain/generators/domain-guided/index.ts`
+- `modules/search/domain/generators/genetic/genetic-generator.spec.ts`
+- `modules/search/domain/generators/genetic/genetic-generator.ts`
+- `modules/search/domain/generators/genetic/index.ts`
+- `modules/search/infrastructure/postgres.spec.ts`
+- `modules/search/infrastructure/postgres.ts`
 
-The six Search contract/port/REST files have no diff after the C-03 source
-checkpoint. The only later source/business changes from that checkpoint are the
-separately reviewed Q-02 Search implementation paths (`modules/search/application/
-memory.ts`, `profile.spec.ts`, `service.ts`, the exact `domain/generators/
-domain-guided/` and `genetic/` paths, and the two Search infrastructure paths)
-and the separately reviewed ENV-04 changes to the two checker paths above.
+The authorized scope is limited to the two generator implementation
+directories/indexes/tests, Search application profile wiring and in-memory
+projection, Search application focused tests, and the Search infrastructure
+projection/tests. Canonical contracts and REST/port contracts are not part of
+Q-02. No migration, Backtesting simulation, scoring, LLM, frontend, external
+provider, queue/distributed, or unrelated source is part of Q-02.
 
-C-03 preserves the approved contract boundary:
+The implementation and tests establish the following packet-boundary behavior:
 
-- Generator types are exactly `RANDOM`, `DOMAIN_GUIDED`, and `GENETIC`; seeded
-  profile IDs are exactly `RANDOM_V1`, `DOMAIN_GUIDED_V1`, and `GENETIC_V1`.
-- Seeded provenance retains profile, bounded algorithm configuration, dataset
-  identity, code version, seed, and the fixed default budget of 500 candidates
-  or 300 seconds. The typed registry provides optional future slots for the two
-  seeded modes while retaining the existing one-candidate form and current
-  RANDOM behavior.
-- Search Run state and stop reasons remain finite and observable, including
-  `SEARCH_SPACE_EXHAUSTED`; client start commands remain owner-free while
-  trusted owner identity remains at the application boundary.
-- REST parsing accepts only the three approved generator/profile values and
-  rejects profile/generator mismatches, unsupported seeded budgets, nested or
-  unsupported algorithm-configuration values, missing finite stop conditions,
-  duplicate components, non-positive in-flight bounds, and client-supplied
-  `userId`/`ownerUserId` identity fields.
-- The deferred-scope checker recognizes the canonical Search contract/REST
-  boundaries with exact path matching and retains negative coverage for broad,
-  near-match, unrelated, forbidden active, and deferred-scope paths. ENV-04's
-  later exact Q-02 implementation-path additions remain separately reviewed.
-- No C-03 work implemented a generator algorithm, changed Search lifecycle
-  behavior, added persistence or migrations, or changed frontend, provider,
-  queue/distributed, LLM, or unrelated source.
+- Domain-guided generation uses explicitly declared category membership only,
+  rejects invalid/unavailable category configuration, emits canonical
+  one-candidate representations, and does not infer categories or use an LLM.
+- Genetic generation is deterministic and bounded with the approved defaults:
+  population `50`, maximum `10` generations, elite `10%`, and mutation `20%`.
+  It avoids duplicate candidates and reports finite search-space exhaustion.
+- Search selects the approved profile slots, persists seed, normalized
+  algorithm configuration, dataset identity, and code version, and retains the
+  fixed seeded default budget of `500` candidates or `300` seconds, whichever
+  occurs first. Candidate validity, capacity, lifecycle state, stop reason,
+  failure count, processing timing, cancellation, and ranking progress remain
+  observable and bounded.
+- The in-memory and PostgreSQL SearchRun projections round-trip seeded
+  provenance and lifecycle fields with owner-filtered reads and owner-bound
+  writes, without a migration or a second lifecycle.
+- Profile wiring exercises the public Strategy composite, Backtesting
+  candidate-submission/progress/cancellation, and Leaderboard scope/ranking
+  boundaries. It does not claim real-provider or real-PostgreSQL runtime
+  evidence.
+
+The source-scope audit compares the Q-02 checkpoint with current Git: its
+eleven source/test paths remain unchanged; the only later source/business
+changes are the separately authorized ENV-04 changes to
+`scripts/check-deferred-scope.cjs` and
+`scripts/check-deferred-scope.test.cjs`. The six C-03 Search contract/port/REST
+files have no diff after `51e98f9d5edd545831007dc6ce105701384bfd44`.
 
 ## Validation
 
-- Focused C-03 Search API/port/REST tests: **PASS**, 9/9.
+- Focused Q-02 generator, profile-wiring, and Search-persistence tests:
+  **PASS**, 12/12.
+- Full Search workspace tests: **PASS**, 32 passed; 1 PostgreSQL-gated
+  integration test skipped because `DATABASE_URL` is absent.
+- Root workspace tests: **PASS**, 341 passed; 6 environment-gated tests
+  skipped. Skips are not PASS evidence.
 - Current deferred-scope checker tests: **PASS**, 13/13.
-- `npm run scope:check`: **PASS**.
+- `npm run scope:check`: **PASS** after the separately authorized ENV-04
+  exact-path reconciliation.
 - `npm run arch:check`: **PASS**.
 - `npm run artifacts:check`: **PASS**.
 - `npm run typecheck`: **PASS**.
 - `npm run build`: **PASS**.
 - `npm run lint`: **PASS**.
-- `npm test`: **PASS**, 341 passed; 6 environment-gated tests skipped. The
-  skips are not PASS evidence.
 - `git diff --check`: **PASS**.
 
 ## Limitations and stop boundary
 
 - OpenSpec CLI remains **UNVERIFIED** because it is unavailable in this
   environment.
-- PostgreSQL evidence remains **UNVERIFIED/BLOCKED**: `DATABASE_URL` is absent,
-  so PostgreSQL/integration-gated tests were skipped; no real database evidence
-  is claimed.
+- PostgreSQL runtime/integration evidence remains **UNVERIFIED/BLOCKED**:
+  `DATABASE_URL` is absent, so the PostgreSQL-gated Search test was skipped;
+  no real database evidence is claimed.
 - Real configured Binance historical/realtime, real configured News, and final
-  real-provider runtime evidence remain **UNVERIFIED/BLOCKED**; fixture tests
-  are not promoted to live-provider evidence.
+  real-provider runtime evidence remain **UNVERIFIED/BLOCKED**; fixture/fake
+  provider tests are not promoted to live-provider evidence.
 - Browser/runtime/demo evidence and link/DAG automation remain
-  **UNVERIFIED/BLOCKED** where unavailable; no unavailable check is converted
+  **UNVERIFIED/BLOCKED** where unavailable. No unavailable check is converted
   to PASS.
-- This closure checkpoint contains only the Manager-owned
-  `docs/implementation/TASKS.md` and `docs/implementation/HANDOFF.md` changes.
-  The coherent Manager commit is this INS-063 closure checkpoint.
-- INS-063 is exhausted. Renewed Instructor review is required before Q-02
-  closure or any downstream implementation authorization.
+- This checkpoint contains only the Manager-owned updates to
+  `docs/implementation/TASKS.md` and `docs/implementation/HANDOFF.md`.
+- INS-065 is exhausted. Renewed Instructor review is required before B-03,
+  ENV-03, E-02, L-02, F-03, I-01, I-02, I-03, AU-02, M-02, M-03, N-03, S-04,
+  or any other implementation, closure, retry, or downstream authorization.
