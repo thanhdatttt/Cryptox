@@ -34,6 +34,7 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 | F-AUTH | DONE | 3 | Integration | Manager / Descartes (`01a04b84-de45-74a2-8b9e-cab4a0d6ff48`) | `MVP_IMPLEMENTATION` / `04bf234` | Frontend 25/25, typecheck/build/lint, real AU-01 PostgreSQL 3/3, backend 1/1, and local browser flow PASS; deployed HTTPS/private business endpoint evidence remains UNVERIFIED |
 | F-02 | DONE | 3 | Integration | Mendel (`01a04bab-a123-7bd2-855b-c02a6ab30f1c`) | `MVP_IMPLEMENTATION` / `84209b0` | Fixture-first Strategy/Search/result/auxiliary views and typed clients; frontend 31/31 across 12 files, typecheck/lint/build and global gates PASS; real API/browser integration remains I-01 |
 | I-01 | REVIEW | 5 | YES | INS-103 Manager / exactly one fresh sequential internal worker Socrates `01a05344-02cf-7930-9226-a3ec1be46522` | `MVP_IMPLEMENTATION` / authorization checkpoint `2a85c82711bb2e78e52e3a02e44f015d8c20a83f` | `BLOCKED → READY → IN_PROGRESS → REVIEW`; worker returned `NEEDS_INSTRUCTOR_REVIEW` with no source changes: backend composition lacks an approved public Strategy factory registry; resolving it requires an excluded module export/seam or prohibited deep import/duplication; single staging attempt denied by `.git/index.lock` permission error, no commit |
+| I-01S | DONE | 5R | YES | INS-104 Manager / exactly one fresh sequential internal worker Mendel `01a0536c-7ff6-7713-bbd7-839e1b535d10` | `MVP_IMPLEMENTATION` / authorized source and checkpoint delta remains uncommitted after the single Manager staging attempt was denied by `.git/index.lock` permission error; no retry | `BLOCKED → READY → IN_PROGRESS → REVIEW → DONE`; worker changed only the authorized Strategy registry/public-entrypoint paths; independent Strategy 119/119, workspace 389 passed / 6 environment-gated skips, build/typecheck/lint, architecture, artifacts, scope, runtime-smoke, secret scan, whitespace, and exact-path review PASS; OpenSpec CLI UNVERIFIED |
 | I-02 | BLOCKED | 6 | YES | Manager plus independent reviewers | — | Not started |
 | RB-01 | DONE | E0 | YES | Manager | `MVP_IMPLEMENTATION` / containing INS-024 RB-01 checkpoint | Documentation-only DEC-007 reconciliation planning committed; no feature implementation started |
 | C-02 | DONE | E0 | YES | Manager / exactly one contract-and-schema worker `01a04d53-6ab4-70c1-a926-f68464b0fc6a` (INS-034) | `MVP_IMPLEMENTATION` / containing INS-034 closure checkpoint | Contract/schema review, 254/254 workspace tests, PostgreSQL up/constraints/down/remigrate, architecture, artifacts, scope, deferred-scope, typecheck, build, lint, and diff checks PASS; OpenSpec CLI and link/DAG automation UNVERIFIED |
@@ -73,11 +74,12 @@ boundary; external feature transport and real-provider/browser evidence remain
 unavailable for downstream integration; `I-03` remains `BLOCKED`. No downstream
 packet was authorized or started.
 The existing legacy rows, including
-`M-02` at `DONE` and `I-01`/`I-02` at `BLOCKED`, retain their states and
-evidence. `AU-02` is the sole current implementation packet and is
-`REVIEW` under `INS-099` after the one authorized worker made no source/test
-change; DEC-007 feature behavior
-remains unimplemented in the separately gated downstream packets.
+`M-02` at `DONE` retains its state and evidence. `AU-02` is `DONE` under
+`INS-101`; `I-01` is `REVIEW` under `INS-103` with
+`NEEDS_INSTRUCTOR_REVIEW`; `I-01S` is the sole packet authorized by the current
+`INS-104` signal and completed exactly `BLOCKED -> READY -> IN_PROGRESS ->
+REVIEW -> DONE` under this checkpoint. `I-02` and `I-03` remain `BLOCKED`; no
+downstream packet is authorized by this checkpoint.
 
 `ENV-02` was the sole implementation packet named by `INS-039`; it was
 persisted as `BLOCKED`, moved to `READY`, executed by exactly one scoped worker,
@@ -497,6 +499,21 @@ started and no worker was created for closure.
 - **Latest branch / commit:** —; record when work starts.
 - **Validation:** Not started.
 - **Full packet:** [`MVP_PLAN.md#i-01--runtime-transports-and-observability-integration`](MVP_PLAN.md#i-01--runtime-transports-and-observability-integration)
+
+### I-01S — Strategy Public Composition Seam Reconciliation
+
+- **Requirement IDs:** `CSL-R-ST-01`, `CSL-R-ST-07`, `CSL-R-AR-01`–`CSL-R-AR-03`
+- **State / owner / wave:** DONE / INS-104 Manager and exactly one fresh sequential Strategy worker Mendel `01a0536c-7ff6-7713-bbd7-839e1b535d10` / 5R
+- **Critical / parallelism:** YES / NO
+- **Start dependencies:** `C-02`, `S-01`, `S-02`, `S-03`, `S-04`, `S-05`, and `S-06` DONE; `I-01` REVIEW / `NEEDS_INSTRUCTOR_REVIEW`
+- **Integration dependencies:** A separately authorized resumed `I-01`; this packet does not authorize I-01, I-02, I-03, or downstream work
+- **Objective:** Expose a Strategy-owned typed immutable public factory collection or equivalent helper for the approved baseline and deterministic Lite factories, consumable by `createStrategyModule` without backend deep imports or duplicated algorithms.
+- **Write scope:** `modules/strategy/api/**` and `modules/strategy/application/**`, including focused tests; exclude `api/contracts.ts`, plugin algorithms, persistence, transports, backend, frontend, dependencies, and all unrelated modules.
+- **Latest branch / commit:** `MVP_IMPLEMENTATION` / authorized source and checkpoint delta remains uncommitted after the single Manager staging attempt was denied by `.git/index.lock` permission error; no retry.
+- **Validation:** Focused Strategy 119/119 PASS; workspace 389 PASS with 6 environment-gated skips; build, typecheck, lint, architecture/dependency, source-sidecar/artifact, deferred-scope, runtime-smoke, secret scan, whitespace, and exact-path review PASS. OpenSpec CLI is UNVERIFIED because the executable is unavailable; PostgreSQL-backed integration/E2E skips remain UNVERIFIED/BLOCKED and are outside this seam packet.
+- **Review evidence:** The public `STRATEGY_FACTORIES` collection is frozen, ordered as the four baseline factories followed by `SMC_LITE_V1` and `WYCKOFF_LITE_V1`, preserves exact factory/descriptor/create-function identity and profile IDs, contains no duplicate algorithm source, and is accepted by `createStrategyModule`. No contract, plugin algorithm, backend, dependency, generated artifact, or unrelated path changed.
+- **Stop boundary:** Move only I-01S through `BLOCKED -> READY -> IN_PROGRESS -> REVIEW -> DONE` when all scoped evidence passes, make one coherent commit attempt, and stop for fresh Instructor review before I-01 can resume.
+- **Full packet:** [`MVP_PLAN.md#i-01s--strategy-public-composition-seam-reconciliation`](MVP_PLAN.md#i-01s--strategy-public-composition-seam-reconciliation)
 
 ### I-02 — E2E Demo, Documentation and Final Verification
 
@@ -1181,8 +1198,9 @@ committed implementation checkpoint `5032582` was reconciled.
 `E-02` and `L-02` are DONE under their exact authorized worker dispatches;
 `M-02` is `DONE` under INS-095 at its approved packet-local realtime boundary
 after the fresh public Binance smoke; `F-03` is `DONE` under INS-091 at its
-approved packet-local frontend screen/test boundary. `AU-02` is
-`REVIEW` under INS-099 after exactly one fresh worker made no source/test
-change; `I-01`, `I-02`, and `I-03` remain BLOCKED.
+approved packet-local frontend screen/test boundary. `AU-02` is `DONE` under
+INS-101; `I-01` is `REVIEW` under INS-103 with
+`NEEDS_INSTRUCTOR_REVIEW`; `I-01S` is `DONE` under INS-104; `I-02` and `I-03`
+remain BLOCKED under the current checkpoint.
 No downstream packet was authorized, started, or promoted; no legacy DONE
 packet is treated as evidence for an unrelated DEC-007 requirement.

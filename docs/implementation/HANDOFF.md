@@ -1233,3 +1233,87 @@ Please authorize either a public Strategy registry/export composition seam
 within the approved contract architecture or explicitly reconcile the I-01
 scope to permit the required source change. Until then, leave I-01 in `REVIEW`
 with `NEEDS_INSTRUCTOR_REVIEW`; do not start I-02, I-03, or any extension.
+
+# INS-104 Manager Checkpoint — I-01S Strategy Public Composition Seam
+
+## Authorization and execution
+
+- **Instruction:** `INS-104 / APPROVED_FOR_EXECUTION`, current at the starting
+  checkpoint `88a03708b241bebb0e202957698bc595c5212c89` on
+  `MVP_IMPLEMENTATION`. The reviewed base in the signal was `7d686b6`; the
+  intervening commit was governance-only (`INSTRUCTOR.md`, `DECISIONS.md`, and
+  `MVP_PLAN.md`), so applicability was confirmed.
+- **Checkout:** The canonical same-directory checkout is
+  `D:/agy-cli-projects/AOS/Cryptox`. The only pre-existing untracked file is
+  the untouched app-generated `.codex/config.toml`; it remains unstaged and
+  undeleted.
+- **Concurrency:** Active-task inspection found the expected parent Instructor
+  context and this Manager, with no competing Cryptox Manager or worker. One
+  fresh sequential internal worker only was used: Mendel
+  (`01a0536c-7ff6-7713-bbd7-839e1b535d10`). Mendel made no control-plane edit,
+  commit, branch, worktree, child-worker, retry, replacement, or duplicate
+  attempt. The worker was closed after its completed checkpoint.
+- **Dependencies:** `C-02`, `S-01`, `S-02`, `S-03`, `S-04`, `S-05`, and `S-06`
+  were verified `DONE`; `I-01` remained `REVIEW / NEEDS_INSTRUCTOR_REVIEW`,
+  and `I-02`/`I-03` remained `BLOCKED`.
+
+## I-01S transition and implementation
+
+- The Manager added the `I-01S` row to `TASKS.md` as `BLOCKED`, then moved only
+  that row through `BLOCKED -> READY -> IN_PROGRESS -> REVIEW -> DONE` under
+  `INS-104`. No other task state changed.
+- The worker changed only these authorized Strategy paths:
+  `modules/strategy/application/registry.ts`,
+  `modules/strategy/api/index.ts`,
+  `modules/strategy/api/index.spec.ts`, and
+  `modules/strategy/api/composition.spec.ts`.
+- The Strategy-owned registry reuses the existing four baseline factories in
+  deterministic order (`MA`, `RSI`, `BOLLINGER_BANDS`,
+  `SUPPORT_RESISTANCE`) followed by the completed deterministic
+  `SMC_LITE_V1` and `WYCKOFF_LITE_V1` factories. The public
+  `STRATEGY_FACTORIES` collection is typed with the existing public
+  `StrategyFactory` contract, frozen, preserves exact factory/descriptor/create
+  identity and profile IDs, and is accepted by the existing
+  `createStrategyModule` bootstrap. No algorithm implementation was copied or
+  changed; the public API now uses the same collection for its default facade.
+- Independent review confirmed no edit to `api/contracts.ts`, plugin algorithm,
+  persistence, migration, transport, backend, frontend, dependency, generated,
+  or unrelated path. No application consumer deep-imports Strategy domain
+  plugins.
+
+## Validation and evidence
+
+- **PASS:** Focused Strategy suite, `119/119`.
+- **PASS:** Independent workspace `npm run verify:stage4a`: build, typecheck,
+  workspace tests (`389` passed), architecture/dependency, source-sidecar and
+  artifact, deferred-scope, and backend runtime-smoke gates. The expected nine
+  forbidden-dependency fixtures were detected by the architecture rules.
+- **PASS:** Workspace lint; `npm run test:scope-check` (`13/13`); `git diff
+  --check`; targeted changed-file secret/log scan (no credential, token, or
+  secret patterns); and exact authorized-path review.
+- **UNVERIFIED:** OpenSpec CLI — the executable is unavailable in this
+  environment. Checked-in active change artifacts were used instead.
+- **UNVERIFIED/BLOCKED:** Six environment-gated workspace tests were skipped
+  (three Auth PostgreSQL integration, one Market Data PostgreSQL integration,
+  one Search integration, and one backend Auth E2E). No real PostgreSQL,
+  Docker, live provider, browser/demo, or final integration evidence is claimed
+  by this packet. A direct raw-Node package-load smoke is also UNVERIFIED
+  because the existing compiled workspace package path resolves a pre-existing
+  `modules/news/api/contracts` alias; the supported TypeScript/Vitest public
+  entrypoint and `createStrategyModule` composition tests pass.
+- No unavailable check, fixture, or skip was promoted to `PASS`.
+
+## Commit and stop boundary
+
+- **Commit attempt:** Exactly one coherent Manager staging attempt was made for
+  the four scoped Strategy paths plus `docs/implementation/TASKS.md` and this
+  `HANDOFF.md`; `.codex/config.toml` was not included. Git denied staging with
+  the exact error `fatal: Unable to create
+  'D:/agy-cli-projects/AOS/Cryptox/.git/index.lock': Permission denied`. No
+  commit was created and no staging/commit retry was made. The authorized
+  source/control delta remains uncommitted at the starting `HEAD`
+  `88a03708b241bebb0e202957698bc595c5212c89` for parent Instructor audit.
+- `I-01` remains `REVIEW / NEEDS_INSTRUCTOR_REVIEW`; `I-02` and `I-03` remain
+  `BLOCKED`. No downstream, retry, replacement, duplicate, extension, or
+  resumed I-01 packet was started. A fresh Instructor review is required before
+  any I-01 resumption or downstream execution.

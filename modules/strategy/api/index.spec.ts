@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import * as strategyApi from "./index";
 
 describe("strategy public entrypoint", () => {
-  it("exports only the frozen runtime facade and profile constants", () => {
+  it("exports the public runtime facade, profile constants, and factory collection", () => {
     expect(Object.keys(strategyApi).sort()).toEqual(
       [
         "BUILT_IN_STRATEGY_NAMES",
@@ -14,6 +14,7 @@ describe("strategy public entrypoint", () => {
         "SMC_LITE_V1_ID",
         "STRATEGY_IDENTITY_V1",
         "STRATEGY_IDENTITY_V1_ID",
+        "STRATEGY_FACTORIES",
         "STRATEGY_SIGNALS",
         "TECHNICAL_PROFILES_V1",
         "TECHNICAL_PROFILES_V1_ID",
@@ -31,6 +32,14 @@ describe("strategy public entrypoint", () => {
         "resolveStrategy",
       ].sort(),
     );
-    expect(strategyApi.listStrategies()).toEqual([]);
+    expect(strategyApi.listStrategies().map((descriptor) => descriptor.name)).toEqual([
+      "MA",
+      "RSI",
+      "BOLLINGER_BANDS",
+      "SUPPORT_RESISTANCE",
+      "SMC_LITE_V1",
+      "WYCKOFF_LITE_V1",
+    ]);
+    expect(Object.isFrozen(strategyApi.STRATEGY_FACTORIES)).toBe(true);
   });
 });

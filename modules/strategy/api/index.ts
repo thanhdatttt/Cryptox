@@ -5,6 +5,7 @@ import type {
   Signal,
   Strategy,
   StrategyDefinition,
+  StrategyFactory,
   StrategyModulePublicApi,
   StrategyPluginDescriptor,
   StrategyDefinitionPage,
@@ -13,10 +14,15 @@ import type {
 import type { AuthenticatedRequestContext } from "modules/auth/api";
 import { createStrategyApplication } from "../application/service";
 import { createInMemoryStrategyDependencies } from "../application/memory";
+import { strategyFactoryCollection } from "../application/registry";
 
 export * from "./contracts";
 
-const defaultStrategyApplication = createStrategyApplication(createInMemoryStrategyDependencies());
+export const STRATEGY_FACTORIES: readonly StrategyFactory[] = strategyFactoryCollection;
+
+const defaultStrategyApplication = createStrategyApplication(
+  createInMemoryStrategyDependencies(STRATEGY_FACTORIES),
+);
 
 export const listStrategies = (): readonly StrategyPluginDescriptor[] =>
   defaultStrategyApplication.listStrategies() as readonly StrategyPluginDescriptor[];
