@@ -8,8 +8,22 @@ const forbiddenPaths = [
 ];
 const roots = ["modules", "apps", "packages", "infra"];
 const approvedProfileBoundaries = {
-  "DOMAIN_GUIDED_V1": ["modules/search/api/contracts.ts", "modules/search/application/ports.ts", "packages/contracts/rest/search.ts", "infra/db/migrations/"],
-  "GENETIC_V1": ["modules/search/api/contracts.ts", "modules/search/application/ports.ts", "packages/contracts/rest/search.ts", "infra/db/migrations/"],
+  "DOMAIN_GUIDED_V1": [
+    "modules/search/api/contracts.ts",
+    "modules/search/application/ports.ts",
+    "packages/contracts/rest/search.ts",
+    "infra/db/migrations/",
+    "modules/search/application/service.ts",
+    "modules/search/domain/generators/domain-guided/",
+  ],
+  "GENETIC_V1": [
+    "modules/search/api/contracts.ts",
+    "modules/search/application/ports.ts",
+    "packages/contracts/rest/search.ts",
+    "infra/db/migrations/",
+    "modules/search/application/service.ts",
+    "modules/search/domain/generators/genetic/",
+  ],
   "SYNTHETIC_SHORT_PAPER_V1": [
     "modules/backtesting/api/contracts.ts",
     "modules/backtesting/application/ports.ts",

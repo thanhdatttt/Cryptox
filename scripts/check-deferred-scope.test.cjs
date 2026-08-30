@@ -46,6 +46,43 @@ test("rejects approved Search profiles outside the exact canonical REST file", (
   });
 });
 
+test("permits Q-02 profiles in every exact Search boundary", () => {
+  withFixture({
+    "modules/search/api/contracts.ts": "export const profiles = ['DOMAIN_GUIDED_V1', 'GENETIC_V1'];",
+    "modules/search/application/ports.ts": "export const profiles = ['DOMAIN_GUIDED_V1', 'GENETIC_V1'];",
+    "packages/contracts/rest/search.ts": "export const profiles = ['DOMAIN_GUIDED_V1', 'GENETIC_V1'];",
+    "infra/db/migrations/003_search_profiles.js": "export const profiles = ['DOMAIN_GUIDED_V1', 'GENETIC_V1'];",
+    "modules/search/application/service.ts": "export const profiles = ['DOMAIN_GUIDED_V1', 'GENETIC_V1'];",
+    "modules/search/domain/generators/domain-guided/index.ts": "export const profile = 'DOMAIN_GUIDED_V1';",
+    "modules/search/domain/generators/genetic/index.ts": "export const profile = 'GENETIC_V1';",
+  }, (fixture) => assert.deepEqual(scanDeferredScope(fixture), []));
+});
+
+test("rejects Q-02 profiles in broad, near-match, and unrelated Search paths", () => {
+  const files = {
+    "modules/search/application/other.ts": "export const profiles = ['DOMAIN_GUIDED_V1', 'GENETIC_V1'];",
+    "modules/search/application/service.tsx": "export const profiles = ['DOMAIN_GUIDED_V1', 'GENETIC_V1'];",
+    "modules/search/application/service-legacy.ts": "export const profiles = ['DOMAIN_GUIDED_V1', 'GENETIC_V1'];",
+    "modules/search/domain/generators/other.ts": "export const profiles = ['DOMAIN_GUIDED_V1', 'GENETIC_V1'];",
+    "modules/search/domain/generators/domain-guided.ts": "export const profile = 'DOMAIN_GUIDED_V1';",
+    "modules/search/domain/generators/domain-guided-legacy/index.ts": "export const profile = 'DOMAIN_GUIDED_V1';",
+    "modules/search/domain/generators/genetic.ts": "export const profile = 'GENETIC_V1';",
+    "modules/search/domain/generators/genetic-legacy/index.ts": "export const profile = 'GENETIC_V1';",
+    "modules/search/infrastructure/profiles.ts": "export const profiles = ['DOMAIN_GUIDED_V1', 'GENETIC_V1'];",
+  };
+  withFixture(files, (fixture) => {
+    const findings = scanDeferredScope(fixture).join("\n");
+    for (const relativePath of Object.keys(files)) {
+      const escapedPath = relativePath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const profiles = files[relativePath].includes("DOMAIN_GUIDED_V1") ? ["DOMAIN_GUIDED_V1"] : [];
+      if (files[relativePath].includes("GENETIC_V1")) profiles.push("GENETIC_V1");
+      for (const profile of profiles) {
+        assert.match(findings, new RegExp(`${escapedPath}: approved profile ${profile} is outside its supported boundary`));
+      }
+    }
+  });
+});
+
 test("permits approved Strategy extension profiles in their exact implementation directories", () => {
   withFixture({
     "modules/strategy/application/composite/weighted-vote.ts": "export const profile = 'WEIGHTED_VOTE_V1';",
@@ -124,18 +161,66 @@ test("rejects operational risk even inside the synthetic-paper contract boundary
 
 test("continues rejecting every deferred-scope family", () => {
   withFixture({
-    "modules/strategy/api/contracts.ts": "const tenantId = 'forbidden'; const autonomous = true; const unconfiguredLlm = true;",
-    "modules/search/api/contracts.ts": "const queue = 'BullMQ';",
-    "modules/backtesting/api/contracts.ts": "const trailingStop = true;",
+    "modules/strategy/api/contracts.ts": "const rbac = 'RBAC'; const oauth = 'OAuth'; const sso = 'SSO'; const organizationId = 'forbidden'; const tenantId = 'forbidden'; const workspaceId = 'forbidden'; const passwordReset = true; const twoFactor = true;",
+    "modules/strategy/application/authoring.ts": "const autonomous = true; const unconfiguredLlm = true;",
+    "modules/search/application/unsafe.ts": "const invalid = undefined as never;",
+    "modules/search/api/contracts.ts": "const queue = 'BullMQ'; const redis = 'Redis'; const kafka = 'Kafka'; const rabbit = 'RabbitMQ'; const queueJobId = 'forbidden'; const completionClaimToken = 'forbidden'; const fencingGeneration = 1; const terminal = 'TERMINAL_FAILURE_PENDING'; const retry = 'RETRY_WAIT';",
+    "modules/backtesting/api/contracts.ts": "const trailingStop = true; const riskPolicy = true; const portfolioRisk = true; const positionSizing = true; const placeExchangeOrder = true; const exchangeOrder = true;",
     "modules/evaluation/api/contracts.ts": "const liveTrading = true; const leverage = true; const generalizedRisk = true; const live_trading = true;",
-    "modules/news/api/contracts.ts": "const strict = 'SentimentDatasetSnapshotRef';",
+    "modules/news/api/contracts.ts": "const strict = 'SentimentDatasetSnapshotRef'; const snapshot = 'SentimentSnapshotPoint'; const model = 'modelSha256'; const worker = 'workerRuntimeSha256'; const evaluation = 'evaluationRuntimeSha256'; const dataset = 'datasetSnapshotSha256';",
   }, (fixture) => {
     const findings = scanDeferredScope(fixture).join("\n");
+    const findingsFor = (relativePath) => findings.split("\n").filter((finding) => finding.startsWith(`${relativePath}:`));
+    assert.equal(findingsFor("modules/strategy/api/contracts.ts").length, 1);
+    assert.equal(findingsFor("modules/strategy/application/authoring.ts").length, 1);
+    assert.equal(findingsFor("modules/search/application/unsafe.ts").length, 1);
+    assert.equal(findingsFor("modules/search/api/contracts.ts").length, 2);
+    assert.equal(findingsFor("modules/backtesting/api/contracts.ts").length, 1);
+    assert.ok(findingsFor("modules/evaluation/api/contracts.ts").length >= 2);
+    assert.equal(findingsFor("modules/news/api/contracts.ts").length, 1);
+    assert.match(findings, /RBAC/);
+    assert.match(findings, /OAuth/);
+    assert.match(findings, /SSO/);
+    assert.match(findings, /organizationId/);
     assert.match(findings, /tenantId/);
+    assert.match(findings, /workspaceId/);
+    assert.match(findings, /passwordReset/);
+    assert.match(findings, /twoFactor/);
     assert.match(findings, /BullMQ/);
+    assert.match(findings, /Redis/);
+    assert.match(findings, /Kafka/);
+    assert.match(findings, /RabbitMQ/);
+    assert.match(findings, /queueJobId/);
+    assert.match(findings, /completionClaimToken/);
+    assert.match(findings, /fencingGeneration/);
+    assert.match(findings, /TERMINAL_FAILURE_PENDING/);
+    assert.match(findings, /RETRY_WAIT/);
     assert.match(findings, /trailingStop/);
+    assert.match(findings, /riskPolicy/);
+    assert.match(findings, /portfolioRisk/);
+    assert.match(findings, /positionSizing/);
+    assert.match(findings, /placeExchangeOrder/);
+    assert.match(findings, /exchangeOrder/);
     assert.match(findings, /deferred risk vocabulary lacks an approved synthetic-paper prohibition context/);
     assert.match(findings, /unconfigured/);
     assert.match(findings, /SentimentDatasetSnapshotRef/);
+    assert.match(findings, /SentimentSnapshotPoint/);
+    assert.match(findings, /modelSha256/);
+    assert.match(findings, /workerRuntimeSha256/);
+    assert.match(findings, /evaluationRuntimeSha256/);
+    assert.match(findings, /datasetSnapshotSha256/);
+  });
+});
+
+test("rejects every configured forbidden active path", () => {
+  withFixture({
+    "apps/backtest-worker/index.ts": "export const forbidden = true;",
+    "packages/contracts/queue/index.ts": "export const forbidden = true;",
+    "infra/docker/worker.Dockerfile": "FROM node:22",
+  }, (fixture) => {
+    const findings = scanDeferredScope(fixture).join("\n");
+    assert.match(findings, /apps\/backtest-worker: forbidden active path exists/);
+    assert.match(findings, /packages\/contracts\/queue: forbidden active path exists/);
+    assert.match(findings, /infra\/docker\/worker\.Dockerfile: forbidden active path exists/);
   });
 });
