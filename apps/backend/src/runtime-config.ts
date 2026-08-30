@@ -16,6 +16,7 @@ export interface BackendRuntimeConfig {
   strategyModelTimeoutMs: number;
   backtestRecoveryIntervalMs: number;
   backtestWorkerConcurrency: number;
+  backtestPolicyDefaults: { initialCapital: number; feeRatePercent: number; slippageBps: number; maxAttempts: number };
 }
 
 const value = (env: NodeJS.ProcessEnv, key: string): string | undefined => {
@@ -27,6 +28,13 @@ const positiveInteger = (env: NodeJS.ProcessEnv, key: string, fallback: number, 
   const raw = value(env, key);
   const parsed = raw === undefined ? fallback : Number(raw);
   if (!Number.isInteger(parsed) || parsed < minimum || parsed > maximum) throw new Error(`INVALID_CONFIGURATION:${key}`);
+  return parsed;
+};
+
+const boundedNumber = (env: NodeJS.ProcessEnv, key: string, fallback: number, minimum: number, maximum: number): number => {
+  const raw = value(env, key);
+  const parsed = raw === undefined ? fallback : Number(raw);
+  if (!Number.isFinite(parsed) || parsed < minimum || parsed > maximum) throw new Error(`INVALID_CONFIGURATION:${key}`);
   return parsed;
 };
 
@@ -80,5 +88,11 @@ export function loadBackendRuntimeConfig(env: NodeJS.ProcessEnv = process.env, r
     strategyModelTimeoutMs: positiveInteger(env, "STRATEGY_MODEL_TIMEOUT_MS", 15_000, 100, 120_000),
     backtestRecoveryIntervalMs: positiveInteger(env, "BACKTEST_RECOVERY_INTERVAL_MS", 30_000, 5_000, 300_000),
     backtestWorkerConcurrency: positiveInteger(env, "BACKTEST_WORKER_CONCURRENCY", 1, 1, 100),
+    backtestPolicyDefaults: {
+      initialCapital: boundedNumber(env, "BACKTEST_DEFAULT_INITIAL_CAPITAL", 1_000, Number.MIN_VALUE, 1_000_000_000_000),
+      feeRatePercent: boundedNumber(env, "BACKTEST_DEFAULT_FEE_RATE_PERCENT", 0, 0, 100),
+      slippageBps: positiveInteger(env, "BACKTEST_DEFAULT_SLIPPAGE_BPS", 5, 0, 500),
+      maxAttempts: positiveInteger(env, "BACKTEST_DEFAULT_MAX_ATTEMPTS", 1, 1, 10),
+    },
   };
 }

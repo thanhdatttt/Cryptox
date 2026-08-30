@@ -21,6 +21,7 @@ import { createAuthModule, createInMemoryAuthDependencies } from "modules/auth/a
 import { loadBackendRuntimeConfig, type RuntimeProfile } from "./runtime-config";
 
 export interface BackendModules extends Record<string, unknown> {
+  backtestPolicyDefaults: { initialCapital: number; feeRatePercent: number; slippageBps: number; maxAttempts: number };
   auth: AuthModulePublicApi;
   marketData: MarketDataModulePublicApi;
   news: NewsModulePublicApi;
@@ -105,6 +106,7 @@ export function composeAllModules(options: { profile?: RuntimeProfile; env?: Nod
     await search.reconcileRunningRuns();
   };
   const modules: BackendModules = {
+    backtestPolicyDefaults: config.backtestPolicyDefaults,
     marketData,
     strategy,
     search,

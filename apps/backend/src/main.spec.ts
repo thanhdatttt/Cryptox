@@ -11,7 +11,7 @@ import { MarketGateway } from "./market.gateway";
 import { composeAllModules, type BackendModules } from "./compose";
 
 describe("backend composition", () => {
-  it("includes all nine modules", () => { expect(Object.keys(composeAllModules())).toHaveLength(9); });
+  it("includes all modules and non-secret capability defaults", () => { const modules = composeAllModules(); expect(Object.keys(modules).filter((key) => key !== "backtestPolicyDefaults")).toHaveLength(9); expect(modules.backtestPolicyDefaults).toEqual({ initialCapital: 1000, feeRatePercent: 0, slippageBps: 5, maxAttempts: 1 }); });
 
   it("maps auth register, login, and protected identity routes to the public Auth API", async () => {
     const auth = createAuthModule(createInMemoryAuthDependencies());
@@ -48,6 +48,11 @@ describe("backend composition", () => {
     await expect(new SentimentController(modules).snapshot("Bearer token", "snapshot-1")).resolves.toEqual({ snapshotId: "snapshot-1" });
     await expect(new MarketController(modules).candles("Bearer token", "BTCUSDT", "1h", "0")).rejects.toBeInstanceOf(BadRequestException);
     await expect(new NewsController(modules).list()).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+
+  it("adds configured Backtest defaults to authenticated market capabilities", async () => {
+    const modules = { auth: { verify: async () => ({ userId: "user-1" }) }, marketData: { readCapabilities: async () => ({ provider: "BINANCE", pairs: ["BTCUSDT"], timeframes: ["1h"] }) }, backtestPolicyDefaults: { initialCapital: 2500, feeRatePercent: 0.1, slippageBps: 8, maxAttempts: 3 } } as unknown as BackendModules;
+    await expect(new MarketController(modules).pairs("Bearer token")).resolves.toEqual({ provider: "BINANCE", pairs: ["BTCUSDT"], timeframes: ["1h"], policyDefaults: { initialCapital: 2500, feeRatePercent: 0.1, slippageBps: 8, maxAttempts: 3 } });
   });
 
   it("creates reviewable strategy and composite definitions from the authenticated owner", async () => {

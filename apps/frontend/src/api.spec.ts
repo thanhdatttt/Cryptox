@@ -66,6 +66,11 @@ describe("frontend backend transport", () => {
     expect(fetchMock).toHaveBeenCalledWith(expect.stringMatching(/\/market\/pairs$/), expect.objectContaining({ headers: expect.any(Headers) }));
   });
 
+  it("preserves backend-configured Backtest defaults in capabilities", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response({ provider: "BINANCE", pairs: ["BTCUSDT"], timeframes: ["1h"], policyDefaults: { initialCapital: 2500, feeRatePercent: 0.1, slippageBps: 8, maxAttempts: 3 } })));
+    await expect(api.marketCapabilities()).resolves.toMatchObject({ policyDefaults: { initialCapital: 2500, feeRatePercent: 0.1, slippageBps: 8, maxAttempts: 3 } });
+  });
+
   it("leaves candle limit omitted so the backend default is exercised", async () => {
     const fetchMock = vi.fn().mockResolvedValue(response({ pair: "BTCUSDT", timeframe: "1h", candles: [], range: { from: "2025-01-01T00:00:00.000Z", to: "2025-01-01T01:00:00.000Z" }, complete: true, asOf: "2025-01-01T01:00:00.000Z" }));
     vi.stubGlobal("fetch", fetchMock);

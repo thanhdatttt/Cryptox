@@ -13,7 +13,7 @@ const durableEnvironment = {
 describe("backend runtime profiles", () => {
   it("uses explicit test composition without durable dependencies", () => {
     const config = loadBackendRuntimeConfig({}, "TEST");
-    expect(config).toMatchObject({ profile: "TEST", durable: false, marketDataProvider: "BINANCE" });
+    expect(config).toMatchObject({ profile: "TEST", durable: false, marketDataProvider: "BINANCE", backtestPolicyDefaults: { initialCapital: 1000, feeRatePercent: 0, slippageBps: 5, maxAttempts: 1 } });
     expect(config.databaseUrl).toBeUndefined();
     expect(config.redisUrl).toBeUndefined();
   });
@@ -28,5 +28,11 @@ describe("backend runtime profiles", () => {
     expect(() => loadBackendRuntimeConfig({ ...durableEnvironment, STRATEGY_MODEL_ENDPOINT: undefined, STRATEGY_MODEL_NAME: undefined, STRATEGY_LLM_API_KEY: undefined }, "DEVELOPMENT")).toThrow("MISSING_CONFIGURATION:STRATEGY_MODEL_ENDPOINT");
     expect(() => loadBackendRuntimeConfig({ ...durableEnvironment, STRATEGY_MODEL_NAME: undefined }, "PRODUCTION")).toThrow("MISSING_CONFIGURATION:STRATEGY_MODEL_NAME");
     expect(() => loadBackendRuntimeConfig({ ...durableEnvironment, BACKTEST_RECOVERY_INTERVAL_MS: "1000" }, "PRODUCTION")).toThrow("INVALID_CONFIGURATION:BACKTEST_RECOVERY_INTERVAL_MS");
+    expect(() => loadBackendRuntimeConfig({ ...durableEnvironment, BACKTEST_DEFAULT_SLIPPAGE_BPS: "501" }, "PRODUCTION")).toThrow("INVALID_CONFIGURATION:BACKTEST_DEFAULT_SLIPPAGE_BPS");
+  });
+
+  it("loads configurable Backtest presentation defaults without exposing credentials", () => {
+    const config = loadBackendRuntimeConfig({ ...durableEnvironment, BACKTEST_DEFAULT_INITIAL_CAPITAL: "2500", BACKTEST_DEFAULT_FEE_RATE_PERCENT: "0.1", BACKTEST_DEFAULT_SLIPPAGE_BPS: "8", BACKTEST_DEFAULT_MAX_ATTEMPTS: "3" }, "PRODUCTION");
+    expect(config.backtestPolicyDefaults).toEqual({ initialCapital: 2500, feeRatePercent: 0.1, slippageBps: 8, maxAttempts: 3 });
   });
 });

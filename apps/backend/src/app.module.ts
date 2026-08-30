@@ -276,7 +276,10 @@ export class MarketController extends ProtectedController {
   @Get("pairs")
   async pairs(@Headers("authorization") authorization: string | undefined) {
     await this.authenticate(authorization);
-    try { return await this.modules.marketData.readCapabilities(); } catch (error) { return auxiliaryHttpError(error); }
+    try {
+      const capabilities = await this.modules.marketData.readCapabilities();
+      return this.modules.backtestPolicyDefaults ? { ...capabilities, policyDefaults: this.modules.backtestPolicyDefaults } : capabilities;
+    } catch (error) { return auxiliaryHttpError(error); }
   }
 
   @Get("candles")
