@@ -68,15 +68,17 @@
   host's Docker does not provide `docker compose` and denies Docker config
   access. Environment-gated workspace tests remain skips, not passes.
 - The one authorized Manager checkpoint staging/commit attempt was denied by
-  Git; no checkpoint commit was created and no retry was made. The parent
-  Instructor must independently audit the remaining uncommitted control delta.
+  Git; no Manager checkpoint commit was created and no retry was made. The
+  parent Instructor independently audited and committed the exact source/control
+  delta at accepted checkpoint `01db873`.
 
 ## Stop boundary
 
-- S-04 is `DONE` after the final review. Source/control changes remain
-  uncommitted at HEAD `3184d7a4fbd9b97f1e600d801c6a2d5b1e9cbeba`; the one
-  coherent Manager checkpoint staging/commit attempt was denied and will not be
-  retried. Stop here. Do not start or promote any newly unlocked task.
+- S-04 is `DONE` after the final review. The accepted source/control checkpoint
+  is committed at `01db873` by the parent Instructor after independently
+  auditing the exact delta; the one coherent Manager checkpoint staging/commit
+  attempt was denied and no Manager retry occurred. Stop here. Do not start or
+  promote any newly unlocked task.
 
 # INS-071 Execution Checkpoint — M-03 Closure Review
 
