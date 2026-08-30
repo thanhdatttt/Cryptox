@@ -28,7 +28,7 @@ describe("frontend backend transport", () => {
   });
 
   it("sends prompt generation through the authenticated backend contract and preserves provenance", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(response({ generationId: "generation-1", kind: "SINGLE", strategyDefinition: { id: "definition-1", strategyName: "RSI", parameters: { period: 14 }, version: 1, createdAt: "2025-01-01T00:00:00.000Z" }, modelName: "LOCAL_DETERMINISTIC", modelVersion: "1.0.0", promptVersion: "1" }));
+    const fetchMock = vi.fn().mockResolvedValue(response({ generationId: "generation-1", kind: "SINGLE", strategyDefinition: { id: "definition-1", userId: "user-test", logicalFamilyKey: "rsi", strategyName: "RSI", implementationVersion: "1.0.0", implementationSha256: "a".repeat(64), parameters: { period: 14 }, version: 1, createdAt: "2025-01-01T00:00:00.000Z" }, modelName: "LOCAL_DETERMINISTIC", modelVersion: "1.0.0", promptVersion: "1" }));
     vi.stubGlobal("fetch", fetchMock);
     const result = await api.generateStrategy({ sourceType: "TEXT", text: "RSI below 30" });
     expect(result.modelName).toBe("LOCAL_DETERMINISTIC");
@@ -67,10 +67,21 @@ describe("frontend backend transport", () => {
   });
 
   it("leaves candle limit omitted so the backend default is exercised", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(response({ pair: "BTCUSDT", timeframe: "1h", candles: [], range: { from: "a", to: "b" }, complete: true, asOf: "now" }));
+    const fetchMock = vi.fn().mockResolvedValue(response({ pair: "BTCUSDT", timeframe: "1h", candles: [], range: { from: "2025-01-01T00:00:00.000Z", to: "2025-01-01T01:00:00.000Z" }, complete: true, asOf: "2025-01-01T01:00:00.000Z" }));
     vi.stubGlobal("fetch", fetchMock);
     await api.candles("BTCUSDT", "1h");
     expect(fetchMock.mock.calls[0]?.[0]).toBe("http://localhost:3000/market/candles?pair=BTCUSDT&timeframe=1h");
+  });
+
+  it("uses the asynchronous replay-verification endpoints", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(response({ replayJobId: "replay-1", experimentId: "experiment-1", status: "QUEUED" }, 202))
+      .mockResolvedValueOnce(response({ replayJobId: "replay-1", experimentId: "experiment-1", sourceAttemptId: "attempt-1", status: "MATCH", comparedTradeCount: 3, mismatches: [], totalMismatchCount: 0, truncated: false }));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(api.replay("experiment-1")).resolves.toMatchObject({ replayJobId: "replay-1", status: "QUEUED" });
+    await expect(api.replayStatus("replay-1")).resolves.toMatchObject({ status: "MATCH", comparedTradeCount: 3 });
+    expect(fetchMock.mock.calls[0]?.[0]).toContain("/experiments/experiment-1/replay-verifications");
+    expect(fetchMock.mock.calls[1]?.[0]).toContain("/replay-verifications/replay-1");
   });
 
   it("maps generation source, model, schema, and validation failures distinctly", () => {
@@ -102,6 +113,19 @@ describe("frontend backend transport", () => {
     handlers.get("market")?.({ type: "CANDLE", payload: { pair: "BTCUSDT" } });
     await Promise.resolve(); await Promise.resolve();
     expect(reconcile).toHaveBeenCalledOnce(); expect(messages).toHaveLength(1);
+    stop();
+  });
+
+  it("reports reconciliation failure and withholds queued live messages", async () => {
+    const handlers = new Map<string, (value?: unknown) => void>();
+    const socket = { on: (event: string, handler: (value?: unknown) => void) => { handlers.set(event, handler); return socket; }, emit: vi.fn(), disconnect: vi.fn(), io: { on: (event: string, handler: () => void) => { return socket.io; } } };
+    vi.mocked(io).mockReturnValue(socket as never);
+    const reconcile = vi.fn().mockRejectedValue(new Error("history unavailable")); const messages: unknown[] = []; const states: string[] = [];
+    const stop = marketSocket((message) => messages.push(message), (state) => states.push(state), [{ pair: "BTCUSDT", timeframe: "1h" }], { reconcile });
+    handlers.get("connect")?.(); handlers.get("disconnect")?.("transport close"); handlers.get("connect")?.();
+    handlers.get("market")?.({ type: "CANDLE", payload: { pair: "BTCUSDT" } });
+    await Promise.resolve(); await Promise.resolve();
+    expect(reconcile).toHaveBeenCalledOnce(); expect(states).toContain("ERROR"); expect(messages).toHaveLength(0);
     stop();
   });
 });

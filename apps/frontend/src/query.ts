@@ -1,5 +1,6 @@
 import { QueryClient } from "@tanstack/react-query";
 import { disconnectMarketSocket, session } from "./api";
+import { persistSearchRunId } from "./state";
 
 export const queryClient = new QueryClient({
   defaultOptions: {
@@ -18,8 +19,18 @@ export const queryClient = new QueryClient({
 
 export function clearAuthenticatedClientState(): void {
   disconnectMarketSocket();
+  persistSearchRunId(undefined);
   queryClient.clear();
 }
+
+let observedToken = session.token;
+session.subscribe((nextToken) => {
+  if (nextToken === observedToken) return;
+  observedToken = nextToken;
+  disconnectMarketSocket();
+  persistSearchRunId(undefined);
+  queryClient.clear();
+});
 
 export function logout(): void {
   clearAuthenticatedClientState();
