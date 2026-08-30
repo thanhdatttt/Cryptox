@@ -110,9 +110,10 @@ non-container repository checks remain verifiable independently.
 ## Focused commit ledger
 
 The implementation commits are recorded in `docs/IMPLEMENTATION_PLAN.md`. The
-latest code hardening commit is `f39ed8f` (`fix(provenance): remove production
-placeholders`). Documentation and Compose reconciliation is kept in the final
-documentation commit after the full validation pass.
+latest code hardening commits are `f39ed8f` (`fix(provenance): remove
+production placeholders`) and `6500d6f` (`fix(search): remove fallback
+identifier`). Documentation and Compose reconciliation is kept in the final
+documentation commits after the full validation pass.
 
 ## Known non-blocking constraints
 

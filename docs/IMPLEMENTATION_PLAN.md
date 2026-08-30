@@ -34,7 +34,7 @@ completion evidence.
 | 7 | Distinct durable Search generators and asynchronous lifecycle recovery | `2393263`, `0c3d604` |
 | 8 | Exact sealed Sentiment loading for INFORMATION backtests and replay | `83bbdcd` |
 | 9 | Contract-validated frontend, capability-driven market/backtest controls, incremental charts, bounded reconnect/reconcile, deep links, Search/Experiment/Trade/News/Leaderboard views, and backend-owned signals | `f20b4da`, `c1f627e`, `3ad94bc`, `57097c4`, `0d30160`, `00fa0c8`, `e02b7d9` |
-| 10 | Production placeholder audit, artifact-derived runtime/plugin hashes, unsupported-provider rejection, Compose durable configuration, documentation reconciliation, and full validation | `f39ed8f` plus the final documentation/configuration commit |
+| 10 | Production placeholder audit, artifact-derived runtime/plugin hashes, unsupported-provider rejection, Compose durable configuration, documentation reconciliation, and full validation | `f39ed8f`, `6500d6f`, plus the final documentation/configuration commits |
 
 The lead orchestrator staged and committed only files belonging to each slice.
 Pre-existing worktree changes remain outside these commits.
