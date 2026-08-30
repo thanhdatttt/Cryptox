@@ -9,6 +9,7 @@ import type {
   StrategyParameterValue,
   StrategyRuntimePort,
 } from "./ports";
+import { InMemoryStrategyAuthoringDraftRepository } from "./authoring-memory";
 
 function pageItems<T extends { id: string; createdAt: string }>(
   items: readonly T[],
@@ -30,6 +31,7 @@ function pageItems<T extends { id: string; createdAt: string }>(
 export class InMemoryStrategyRepositories {
   readonly definitions = new Map<string, StrategyDefinitionRecord>();
   readonly composites = new Map<string, CompositeDefinitionRecord>();
+  readonly authoringDraftRepository = new InMemoryStrategyAuthoringDraftRepository();
 
   readonly definitionRepository: StrategyDefinitionRepository<StrategyDefinitionRecord> = {
     allocateNextVersion: async (ownerUserId, logicalFamilyKey) =>
@@ -90,6 +92,7 @@ export function createInMemoryStrategyDependencies(factories: readonly StrategyF
     factories,
     definitionRepository: repositories.definitionRepository,
     compositeRepository: repositories.compositeRepository,
+    draftRepository: repositories.authoringDraftRepository,
     repositories,
   };
 }

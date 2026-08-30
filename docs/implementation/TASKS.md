@@ -39,7 +39,7 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 | C-02 | DONE | E0 | YES | Manager / exactly one contract-and-schema worker `01a04d53-6ab4-70c1-a926-f68464b0fc6a` (INS-034) | `MVP_IMPLEMENTATION` / containing INS-034 closure checkpoint | Contract/schema review, 254/254 workspace tests, PostgreSQL up/constraints/down/remigrate, architecture, artifacts, scope, deferred-scope, typecheck, build, lint, and diff checks PASS; OpenSpec CLI and link/DAG automation UNVERIFIED |
 | C-03 | DONE | E1 contract reconciliation | YES | Manager closure under INS-063; source review under INS-055 / exactly one Search-contract worker Turing `01a04fed-36a2-76a2-b034-090c150c4873` | `MVP_IMPLEMENTATION` / this INS-063 closure checkpoint; source `51e98f9d5edd545831007dc6ce105701384bfd44` | `BLOCKED -> READY -> IN_PROGRESS -> REVIEW -> DONE`; focused Search/API/REST 9/9, current checker 13/13, full workspace 341 passed / 6 environment-gated skips, scope/arch/artifacts/typecheck/build/lint/diff checks PASS; OpenSpec CLI and PostgreSQL/Binance/News/real-provider/browser/demo evidence remain UNVERIFIED or BLOCKED |
 | M-03 | DONE | E1 | YES | INS-071 Manager `01a05094-bc71-7482-8107-dc654fcdff19` | `MVP_IMPLEMENTATION` / uncommitted INS-071 closure checkpoint | `REVIEW -> DONE`; Market Data 31 passed / 1 skipped plus market WebSocket contract 5/5; checker 13/13; scope, architecture, artifacts, typecheck, build, lint, diff checks PASS; real Binance UNVERIFIED; PostgreSQL BLOCKED/UNVERIFIED |
-| S-04 | BLOCKED | E1 | YES | Future Strategy application worker | — | Not started; controlled LLM draft/approval evidence required |
+| S-04 | DONE | E1 | YES | INS-077 Manager `01a050e8-b340-7df1-8724-0e52e00f234d` / exactly one Strategy application worker Helmholtz `01a050f1-73b9-7c51-975b-19d6247ef96d` | `MVP_IMPLEMENTATION` / uncommitted INS-077 checkpoint; single staging/commit attempt denied | `BLOCKED -> READY -> IN_PROGRESS -> REVIEW -> DONE`; focused authoring 27/27, Strategy 116/116, root gates PASS; OpenSpec CLI and PostgreSQL/provider/demo evidence UNVERIFIED/BLOCKED; parent Instructor audit required for uncommitted control delta |
 | S-05 | DONE | E1 | YES | INS-036 fresh S-05 worker `01a04e66-d981-7e42-b75d-1bb3b7340c73` / Manager; INS-041 closure review | `MVP_IMPLEMENTATION` / containing INS-041 closure checkpoint | Focused 17/17 and Strategy 89/89 PASS; ENV-02 checker gate PASS; immutable weighted-composite evidence accepted |
 | S-06 | DONE | E1 | YES | INS-036 fresh S-06 worker `01a04e66-e691-7a50-af2f-b1eecd39053b` / Manager; INS-041 closure review | `MVP_IMPLEMENTATION` / containing INS-041 closure checkpoint | Focused 20/20 and Strategy 89/89 PASS; ENV-02 checker gate PASS; deterministic Lite-plugin evidence accepted |
 | Q-02 | DONE | E1 | YES | Fresh Search worker `01a0500c-2fa8-7a82-a4f0-0badf7479b01` under INS-057; Manager closure under INS-065 | `MVP_IMPLEMENTATION` / Q-02 source `95cb98463f60c35f71dda2f7832f0aa9ad22a30c`, ENV-04 checker `5032582`, containing this INS-065 closure checkpoint | `BLOCKED -> READY -> IN_PROGRESS -> REVIEW -> DONE`; focused Q-02 12/12 and Search workspace 32 passed / 1 environment-gated skip; root workspace 341 passed / 6 environment-gated skips; scope, arch, artifacts, typecheck, build, lint, and diff checks PASS; OpenSpec CLI and real PostgreSQL/Binance/News/provider/browser/demo evidence remain UNVERIFIED or BLOCKED |
@@ -66,8 +66,9 @@ after one fresh worker and independent Manager review; its fixture evidence and
 current deferred-scope checker gate pass, while real-provider/database evidence
 remains blocked or unverified. `N-03` remains `REVIEW`; `M-02` remains
 `REVIEW/UNVERIFIED`; `ENV-03` is
-`DONE` after its closure. `S-04`, `E-02`, `L-02`, `F-03`, and `I-03` remain
-`BLOCKED`. No downstream packet was authorized or started.
+`DONE` after its closure. `S-04` is `DONE` under `INS-077`; `E-02`,
+`L-02`, `F-03`, and `I-03` remain `BLOCKED`. No downstream packet was
+authorized or started.
 The existing legacy rows, including
 `M-02` at `REVIEW`, `AU-02` at `BLOCKED`, and `I-01`/`I-02` at `BLOCKED`, retain
 their states and evidence. DEC-007 feature behavior remains unimplemented in
@@ -732,7 +733,12 @@ acceptance criteria and handoff requirements are in the linked packets in
 ### S-04 — Controlled `LLM_AUTHORING_V1` Strategy Drafts
 
 - **Requirement IDs:** `CSL-R-ST-05`, `CSL-R-RP-02`, URL join `CSL-R-NW-02`.
-- **State / owner / wave:** BLOCKED / Strategy application worker / E1.
+- **State / owner / wave:** DONE / INS-077 Manager
+  `01a050e8-b340-7df1-8724-0e52e00f234d` and exactly one Strategy application
+  worker Helmholtz `01a050f1-73b9-7c51-975b-19d6247ef96d` / E1.
+- **Operational transitions under INS-077:** `BLOCKED -> READY -> IN_PROGRESS ->
+  REVIEW -> DONE` recorded after independent Manager review; no other task state
+  changed.
 - **Dependencies:** `C-02`, S-01; URL-origin path joins after N-03.
 - **Exact write scope:** Strategy API/application/infrastructure implementation
   and authoring tests excluding canonical contracts; no URL fetch, News storage,
@@ -740,6 +746,13 @@ acceptance criteria and handoff requirements are in the linked packets in
 - **Acceptance/validation:** One bounded request, deterministic draft validation,
   explicit Save/Approve, immutable owner-scoped version, no-write failures/no
   secrets, public News boundary, and Strategy/contract/owner/global checks.
+  Worker changed only the eight allowed Strategy API/application/infrastructure
+  paths and added focused coverage; Manager independently reproduced 27/27
+  focused tests, 116/116 Strategy tests, root build/typecheck/lint/tests,
+  architecture, artifacts, deferred-scope, and diff checks. OpenSpec CLI is
+  unavailable and live PostgreSQL/provider/browser/demo evidence is
+  UNVERIFIED/BLOCKED. The single Manager checkpoint staging/commit attempt was
+  denied; no commit was created and no retry is authorized.
 - **Full packet:** [`MVP_PLAN.md#s-04--controlled-llm_authoring_v1-strategy-drafts`](MVP_PLAN.md#s-04--controlled-llm_authoring_v1-strategy-drafts)
 
 ### S-05 — Immutable `WEIGHTED_VOTE_V1` Composite
@@ -1144,7 +1157,8 @@ evidence; the current deferred-scope gate passes, while real-provider/database
 gates remain blocked or unverified. N-03 is DONE under INS-073 after exactly
   one fresh scoped worker completed N-03A and the Manager re-reviewed the
   retention, provenance, safety, News/Sentiment, and scheduler evidence;
-`S-04` remains BLOCKED. `Q-02` is DONE under INS-065 after the Manager
+`S-04` is DONE under INS-077 after the Manager reviewed the sole worker's scoped
+implementation, focused authoring evidence, and final validation. `Q-02` is DONE under INS-065 after the Manager
 independently verified its exact eleven implementation/test paths, the unchanged
 six C-03 contract/port/REST files, the ENV-04 checker gate, and the recorded
 local validation evidence; real PostgreSQL/provider/browser/demo evidence
