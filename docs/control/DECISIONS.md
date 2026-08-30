@@ -1036,3 +1036,52 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Task state](../implementation/TASKS.md),
 [Latest checkpoint](../implementation/HANDOFF.md), `INS-107`, `DEC-028`, and
 commit `b20c5e6`.
+
+## DEC-030 — INS-108 I-01R held after independent seam review
+
+Status: `APPROVED`
+
+Authority: Independent Instructor review after the fresh `INS-108` Manager
+checkpoint, with the exact audited source delta integrated at `9bbbfda`.
+
+Decision: The bounded `I-01R` attempt is accepted as an honest
+`REVIEW / NEEDS_INSTRUCTOR_REVIEW` checkpoint, not as `DONE`. The public
+Backtesting, Search, Strategy, and Sentiment seams remain committed at
+`9bbbfda`, and the current Instructor signal is `INS-109 / HOLD`. No I-01
+resumption, I-02, I-03, extension, retry, replacement, duplicate, or
+downstream packet is authorized by this decision.
+
+Why: The Manager used exactly one fresh same-directory Manager and exactly
+three fresh disjoint internal workers in the canonical checkout, stopped at
+the authorized I-01R boundary, and made no excluded-path or contract/schema
+change. The Instructor independently reviewed the exact source delta and
+confirmed Backtesting `46/46`, Search `36 passed / 1 PostgreSQL-gated skip`,
+Strategy `125 passed / 2 PostgreSQL-gated skips`, Sentiment `20/20`, root
+workspace test/build/typecheck/lint success, artifact/source-sidecar,
+test-scope `13/13`, secret/log, whitespace, exact-path, and diff checks. The
+Manager's single Git staging attempt was denied by
+`D:/agy-cli-projects/AOS/Cryptox/.git/index.lock` permission failure and was
+not retried. The parent integrated only the independently audited delta once.
+
+The packet cannot be promoted because `npm run scope:check` rejects the two
+approved Search profile entries in the new public registry, `npm run
+arch:check` reports 71 dependency violations including a new public
+API/infrastructure boundary finding, and `npm run runtime:smoke` fails a stale
+readiness assertion. Docker/local PostgreSQL validation is blocked, the two
+live Strategy integration tests are skipped because `DATABASE_URL` is unset,
+and OpenSpec CLI plus real provider/browser/demo/final runtime evidence remain
+unverified. These are explicit reconciliation and environment blockers, not
+permission to repair excluded paths within I-01R or to treat fixtures/skips as
+live evidence.
+
+Affected: `I-01R`, `I-01`, `TASKS.md`, `HANDOFF.md`, `INS-109`, and the
+integration DAG. Requirements, approved functional image amendments, accepted
+architecture, contracts, completed packets, `I-02`, `I-03`, and deferred scope
+remain unchanged.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [Architecture](../architecture.md),
+[Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md),
+[Latest checkpoint](../implementation/HANDOFF.md), `INS-108`, `DEC-029`, and
+commit `9bbbfda`.

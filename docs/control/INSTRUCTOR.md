@@ -2,13 +2,82 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-108`
+Instruction ID: `INS-109`
 
-Status: `APPROVED_FOR_EXECUTION`
+Status: `HOLD`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
-## INS-108 — Public module bootstrap and persistence seam reconciliation
+## INS-109 — HOLD after INS-108 I-01R review
+
+This signal supersedes `INS-108 / APPROVED_FOR_EXECUTION` after the Instructor's
+independent review of the exact I-01R source delta integrated at `9bbbfda`. It
+authorizes no implementation, retry, replacement, duplicate, downstream
+promotion, or task-state transition.
+
+### Reviewed checkpoint and current frontier
+
+- The canonical checkout is `D:/agy-cli-projects/AOS/Cryptox` on
+  `MVP_IMPLEMENTATION`, with the exact audited I-01R source delta integrated at
+  `9bbbfda` (`feat(strategy): expose public module persistence seams`). The
+  tracked tree was clean at the review checkpoint; the untouched app-generated
+  `.codex/config.toml` remains untracked, outside Cryptox scope, and must stay
+  unstaged and undeleted.
+- The authoritative task board has `41 DONE`, `2 REVIEW` (`I-01R`, `I-01`),
+  and `2 BLOCKED` (`I-02`, `I-03`), `45` operational rows total. `I-01R` is
+  `REVIEW / NEEDS_INSTRUCTOR_REVIEW`, not `DONE`; `I-01` remains its earlier
+  `REVIEW / NEEDS_INSTRUCTOR_REVIEW` checkpoint. No downstream task was started
+  or promoted.
+- `INS-108` used exactly one fresh same-directory Manager
+  (`01a053e8-0972-78b2-aa4b-54362ad3c5ab`) and exactly three fresh internal
+  workers (Euler, Erdos, Chandrasekhar) in the canonical checkout. The Manager
+  and all workers are idle/closed; there was no worktree, retry, replacement,
+  duplicate, competing Cryptox writer, or downstream execution. The Manager's
+  single staging attempt was denied by Git's `.git/index.lock` permission error
+  and was not retried.
+
+### Independent I-01R review
+
+- The integrated source is limited to the explicitly authorized public
+  Backtesting/Search/Strategy/Sentiment seams and their focused tests. No
+  contracts, migrations, application layer, existing provider/algorithm,
+  backend, frontend, infra, dependency, generated, OpenSpec, requirement,
+  ADR, or deferred-scope path entered the integration commit. The Manager-owned
+  `TASKS.md` and `HANDOFF.md` checkpoint remains the operational record.
+- `PASS`: Backtesting `46/46`; Search `36 passed / 1 PostgreSQL-gated skip`;
+  Strategy `125 passed / 2 PostgreSQL-gated skips`; Sentiment `20/20`; root
+  workspace test, build, typecheck, and lint commands; artifact/source-sidecar,
+  test-scope `13/13`, focused secret/log, whitespace, exact-path, and
+  `git diff --check` validations.
+- `FAIL`: `npm run scope:check` rejects the approved
+  `DOMAIN_GUIDED_V1` and `GENETIC_V1` profile entries in the new public Search
+  registry because the current checker allowlist does not cover that boundary;
+  `npm run arch:check` reports `71` dependency violations, including the new
+  public API/infrastructure composition finding; `npm run runtime:smoke` fails
+  its stale readiness-name assertion against the now truthful dependency list.
+- `BLOCKED`: Docker Compose/local PostgreSQL validation is unavailable and
+  `DATABASE_URL` is unset, so the two live Strategy PostgreSQL integration
+  tests remain skipped. `UNVERIFIED`: OpenSpec CLI evidence and real provider,
+  browser/demo, and final integrated runtime evidence. Fixtures and skipped
+  tests are not promoted to PASS.
+
+### Hold condition and next safe gate
+
+- No implementation is authorized under `INS-109`. `I-01R` cannot be promoted
+  to `DONE` while its deferred-scope and architecture gates fail and live
+  PostgreSQL evidence is unavailable. `I-01` cannot resume until a fresh
+  authorization proves its applicability against the new checkpoint. `I-02`
+  and `I-03` remain `BLOCKED`; no deferred packet or downstream packet may
+  start automatically.
+- The next Instructor authorization, if any, must be a separately bounded
+  reconciliation of the Search checker allowlist/public boundary and the
+  architecture/runtime-smoke control-plane mismatch, or a separately bounded
+  continuation of I-01 after those premises are proven. It must first recheck
+  Git, the latest checkpoint, task DAG, dependencies, and active writers. It
+  must not silently widen I-01R, reopen deferred scope, or treat unavailable
+  PostgreSQL/provider/demo evidence as PASS.
+
+## Historical INS-108 — Public module bootstrap and persistence seam reconciliation
 
 This signal supersedes `INS-107 / HOLD` after the Instructor's independent
 review of the committed I-01 boundary. It authorizes exactly one fresh
