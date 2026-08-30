@@ -84,6 +84,18 @@ describe("frontend backend transport", () => {
     expect(fetchMock.mock.calls[1]?.[0]).toContain("/replay-verifications/replay-1");
   });
 
+  it("keeps persistent leaderboard entries distinct from Search Run rankings", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(response([{ id: "entry-1", rank: 1, experimentResultId: "experiment-1", leaderboardScopeId: "scope-1", scoreFormulaId: "MVP_MANUAL_V1", score: 12.5, addedAt: "2025-01-01T00:00:00.000Z" }]));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(api.leaderboard("scope-1")).resolves.toEqual([{ id: "entry-1", rank: 1, experimentResultId: "experiment-1", leaderboardScopeId: "scope-1", scoreFormulaId: "MVP_MANUAL_V1", score: 12.5, addedAt: "2025-01-01T00:00:00.000Z" }]);
+    expect(fetchMock.mock.calls[0]?.[0]).toContain("/leaderboard?scopeId=scope-1");
+  });
+
+  it("rejects malformed persistent leaderboard entries before rendering", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(response([{ id: "entry-1", rank: 1, experimentResultId: "experiment-1", leaderboardScopeId: "scope-1", scoreFormulaId: "MVP_MANUAL_V1", score: 12.5, addedAt: "not-a-date" }])));
+    await expect(api.leaderboard("scope-1")).rejects.toMatchObject({ code: "INVALID_DTO", status: 502 });
+  });
+
   it("maps generation source, model, schema, and validation failures distinctly", () => {
     expect(mapGenerationError({ code: "SOURCE_LOAD_FAILED", message: "source" }).kind).toBe("SOURCE");
     expect(mapGenerationError({ code: "MODEL_UNAVAILABLE", message: "model" }).kind).toBe("MODEL");

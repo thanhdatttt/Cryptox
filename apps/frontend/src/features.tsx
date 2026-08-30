@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, type ApiCandle, type Candidate, type Composite, type ExperimentSummary, type SearchRankingEntry, type Scope, type StrategyDefinition, type Trade, type VisualizationMarker, type StrategyVisualizationOverlay, type Timeframe } from "./api";
+import { api, type ApiCandle, type Candidate, type Composite, type ExperimentSummary, type LeaderboardEntry, type SearchRankingEntry, type Scope, type StrategyDefinition, type Trade, type VisualizationMarker, type StrategyVisualizationOverlay, type Timeframe } from "./api";
 import { persistSearchRunId, readSearchRunId } from "./state";
 import { chartBounds, percent } from "./visuals";
 
@@ -48,6 +48,11 @@ export function BacktestLive({ definitions, composites, scopes }: { definitions:
 export function RankingTable({ rows }: { rows: SearchRankingEntry[] }) {
   const details = useQueries({ queries: rows.map((row) => ({ queryKey: ["experiments", row.experimentResultId], queryFn: () => api.experiment(row.experimentResultId), enabled: Boolean(row.experimentResultId) })) });
   return <div className="table-scroll"><table><thead><tr><th>Rank</th><th>Strategy</th><th>Return</th><th>Win rate</th><th>Max drawdown</th><th>Trades</th><th>Score</th><th>Status</th></tr></thead><tbody>{rows.map((row, index) => { const detail = details[index]?.data as ExperimentSummary | undefined; const metrics = detail?.metrics ?? {}; const strategy = detail?.strategyDefinitions?.map((item) => item.strategyName).join(" + ") || row.candidateId || row.experimentResultId; return <tr key={row.id ?? row.candidateId ?? row.experimentResultId}><td>{row.rank ?? "-"}</td><td>{strategy}</td><td>{percent(metrics.totalReturnPercent)}</td><td>{percent(metrics.winRatePercent)}</td><td>{percent(metrics.maxDrawdownPercent)}</td><td>{metrics.numberOfTrades ?? "Unavailable"}</td><td>{Number.isFinite(row.score) ? row.score.toFixed(4) : "Unavailable"}</td><td>{detail?.rankEligible === false ? "Not eligible" : "COMPLETED"}</td></tr>; })}</tbody></table></div>;
+}
+
+export function PersistentLeaderboardTable({ rows }: { rows: LeaderboardEntry[] }) {
+  const details = useQueries({ queries: rows.map((row) => ({ queryKey: ["experiments", row.experimentResultId], queryFn: () => api.experiment(row.experimentResultId), enabled: Boolean(row.experimentResultId) })) });
+  return <div className="table-scroll"><table><thead><tr><th>Rank</th><th>Strategy</th><th>Experiment</th><th>Scope</th><th>Score</th><th>Added</th><th>Return</th><th>Trades</th></tr></thead><tbody>{rows.map((row, index) => { const detail = details[index]?.data as ExperimentSummary | undefined; const strategy = detail?.strategyDefinitions?.map((item) => item.strategyName).join(" + ") || row.experimentResultId; return <tr key={row.id}><td>{row.rank}</td><td>{strategy}</td><td>{row.experimentResultId}</td><td>{row.leaderboardScopeId}</td><td>{row.score.toFixed(4)}</td><td>{row.addedAt}</td><td>{percent(detail?.metrics.totalReturnPercent)}</td><td>{detail?.metrics.numberOfTrades ?? "Unavailable"}</td></tr>; })}</tbody></table></div>;
 }
 
 function CandidateTable({ candidates }: { candidates: Candidate[] }) { return <div className="table-scroll"><table><thead><tr><th>Candidate</th><th>Origin</th><th>Selection</th><th>Status</th><th>Attempts</th><th>Reason</th></tr></thead><tbody>{candidates.map((candidate) => <tr key={candidate.candidateId}><td>{candidate.candidateId}</td><td>{candidate.origin ?? "SEARCH"}</td><td>{candidate.selectionMode ?? "Unavailable"}</td><td>{candidate.status}</td><td>{candidate.attempts?.length ?? 0}</td><td>{candidate.lastError || candidate.failureCode || "—"}</td></tr>)}</tbody></table></div>; }
