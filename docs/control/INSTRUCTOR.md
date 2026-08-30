@@ -2,11 +2,69 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-078`
+Instruction ID: `INS-079`
 
-Status: `HOLD`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-079 — Reconcile the committed INS-077 checkpoint
+
+This current signal supersedes `INS-078 / HOLD` and authorizes exactly one
+fresh Manager for a control-plane-only reconciliation. It authorizes no worker,
+feature implementation, retry, replacement, duplicate, downstream promotion,
+or task-state transition.
+
+### Reviewed checkpoint and exact authority
+
+- Branch: `MVP_IMPLEMENTATION`; reviewed base is
+  `2c69732ec2ed92be7084ca59175b49c48963cc71` (`docs(control): hold after
+  INS-077 audit`). The working tree is clean, and active-task inspection found
+  no Cryptox Manager or worker.
+- The S-04 source and Manager-owned checkpoint delta were independently
+  accepted and committed at `01db873`. The Manager's one staging/commit denial
+  remains historical evidence and must not be rewritten as a successful
+  Manager commit.
+- `TASKS.md` and the top `HANDOFF.md` checkpoint still describe the accepted
+  S-04 source/control changes as uncommitted at `3184d7a`. This is a stale
+  checkpoint statement, not a source or business-state change, and must be
+  reconciled before any new implementation authorization.
+- Current operational states must remain unchanged: `35 DONE`, `1 REVIEW`
+  (`M-02`), and `7 BLOCKED` (`AU-02`, `E-02`, `L-02`, `F-03`, `I-01`, `I-02`,
+  `I-03`). `TASKS.md` remains the sole task-state authority.
+
+### Exact Manager authorization
+
+- Create exactly one fresh Manager in the canonical same-directory checkout
+  `D:/agy-cli-projects/AOS/Cryptox`, branch `MVP_IMPLEMENTATION`, using model
+  `gpt-5.6-luna` with `max` reasoning. The Manager must read `AGENTS.md` and
+  `docs/control/prompts/ORCHESTRATOR_START.md` completely, verify this signal
+  and base from Git, inspect TASKS/HANDOFF consistency and active tasks, and
+  stop if any material source/business/DAG drift is found.
+- This authorization is Manager-owned governance reconciliation only. Create
+  no worker or subagent; do not use a user-facing thread for a worker, and do
+  not create a branch or worktree.
+- The Manager may edit only `docs/implementation/TASKS.md` and
+  `docs/implementation/HANDOFF.md`. It may update the current S-04 latest
+  commit/checkpoint references from “uncommitted at `3184d7a`” to the accepted
+  `01db873` checkpoint and preserve the historical staging denial. It must not
+  change any task state, dependency, validation claim, source, contract,
+  migration, dependency, frontend, backend, OpenSpec, ADR, or other file.
+
+### Acceptance, validation, and stop condition
+
+- Reconcile only the stale S-04 commit/checkpoint language, preserve all other
+  task rows and historical evidence, and ensure the top HANDOFF and S-04 row
+  agree with `01db873`.
+- Verify the exact two-file diff, `git diff --check`, and applicable control
+  consistency checks. Unavailable checks remain `UNVERIFIED`/`BLOCKED`, never
+  `PASS`.
+- Attempt exactly one coherent Manager checkpoint commit. If Git staging or
+  commit is denied, report the exact error once and do not retry; the parent
+  Instructor may independently audit/commit the exact control delta.
+- After that attempt and report, stop immediately. No packet or downstream
+  work is authorized by INS-079, including `M-02`, `E-02`, `L-02`, `F-03`,
+  `AU-02`, `I-01`, `I-02`, or `I-03`.
 
 ## INS-078 — Post-INS-077 independent audit HOLD
 
