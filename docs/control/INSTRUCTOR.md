@@ -2,52 +2,117 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-080`
+Instruction ID: `INS-081`
 
-Status: `HOLD`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
-## INS-080 — Post-INS-079 reconciliation audit HOLD
+## INS-081 — Extension Evaluation and Decimal-Boundary Reconciliation
 
-This current signal supersedes `INS-079 / APPROVED_FOR_EXECUTION`. The stale
-S-04 checkpoint language has been reconciled and the control plane is held for
-the next frontier review. It authorizes no Manager, worker, retry,
-replacement, duplicate, downstream promotion, or task-state transition.
+This current signal supersedes `INS-080 / HOLD` and authorizes exactly one
+fresh Manager to execute and close only packet `E-02`. It authorizes no other
+packet, worker thread, retry, replacement, duplicate, downstream promotion, or
+unrelated control/source change.
 
-### Verified checkpoint
+### Reviewed checkpoint and applicability
 
-- Branch: `MVP_IMPLEMENTATION`; the accepted reconciliation is committed at
-  `bf363c8` (`docs(control): reconcile INS-077 checkpoint`) on top of the
-  `a3190c7` INS-079 authorization. The working tree is clean after the parent
-  Instructor audited and committed the exact two-file Manager delta.
-- INS-079 Manager `01a0512e-04cb-7013-ae35-6790ea321f6b` changed only
-  `docs/implementation/TASKS.md` and `docs/implementation/HANDOFF.md`, created
-  no worker, preserved all task states, and was archived after completion. Its
-  single Git staging attempt was denied; no Manager retry occurred.
-- The current board remains `35 DONE`, `1 REVIEW` (`M-02`), and `7 BLOCKED`
-  (`AU-02`, `E-02`, `L-02`, `F-03`, `I-01`, `I-02`, `I-03`). S-04 remains
-  `DONE`, now pointing to accepted checkpoint `01db873`.
-- Independent checks for the reconciliation passed: exact two-file scope,
-  control consistency, `git diff --check`, scope tests `13/13`, scope,
-  artifacts, and architecture checks. No source/business-state drift was
-  introduced.
+- Reviewed base: `856f0973acf7066149777c566bef847180cc270d`
+  (`docs(control): hold after INS-079 audit`) on branch
+  `MVP_IMPLEMENTATION`. Git status is clean and the source/business tree has
+  not drifted since the accepted S-04 reconciliation.
+- The current operational board is `35 DONE`, `1 REVIEW` (`M-02`), and
+  `7 BLOCKED` (`AU-02`, `E-02`, `L-02`, `F-03`, `I-01`, `I-02`, `I-03`).
+  `C-02`, `B-03`, and the completed legacy `E-01` evidence required to start
+  E-02 are DONE. E-02 is the documented E2 frontier; L-02 is downstream and
+  depends on it.
+- `MVP_PLAN.md` defines E-02 as the decimal Evaluation boundary join from
+  B-03 to L-02. The exact packet requirements are
+  `CSL-R-BT-02`, `CSL-R-RP-02`, and `CSL-R-EV-01`. Its integration dependencies
+  `L-02`, `F-03`, and `I-03` are not start dependencies and must remain
+  blocked.
+- The current Evaluation public contracts are frozen in
+  `modules/evaluation/api/contracts.ts`; the existing evaluator is the exact
+  source evidence for the already-approved baseline metric surface. E-02 may
+  reconcile the implementation within its module boundary but may not edit
+  that canonical contract file.
+- Active-task inspection found only this Instructor task. There is no active
+  Cryptox Manager or worker, so a fresh Manager can be created without a
+  duplicate or concurrency conflict.
 
-### HOLD conditions and next review
+### Authorization
 
-- Re-read the governing requirements, accepted ADRs, architecture, data model,
-  active capability/change specs, `MVP_PLAN.md`, `TASKS.md`, and `HANDOFF.md`
-  for the selected frontier. Verify Git cleanliness, no active Manager/worker,
-  dependencies, and write-scope disjointness before a new signal.
-- The next candidate is `E-02` only if its documented start dependencies and
-  decimal Evaluation boundary are still verified. This HOLD does not authorize
-  E-02 or any other packet. `L-02` must remain behind E-02; `F-03` behind all
-  required E2 work; `I-03` behind E2/E3 plus baseline I-01/AU-02.
-- `AU-02` retains its `NEEDS_HUMAN_DECISION` blocker, and M-02 remains
-  `REVIEW/UNVERIFIED`; neither may be silently promoted or bundled into a new
-  implementation authorization.
-- OpenSpec CLI, Docker/PostgreSQL, real provider, Binance/News, and
-  browser/demo evidence remain `UNVERIFIED`/`BLOCKED` where unavailable.
+- Create exactly one fresh Orchestrator/Manager in the same canonical checkout
+  `D:\agy-cli-projects\AOS\Cryptox`, on branch `MVP_IMPLEMENTATION`, with no
+  worktree or alternate branch, using model `gpt-5.6-luna` and reasoning
+  `max`. Do not reuse a historical Manager and do not create a duplicate.
+- The Manager must read `AGENTS.md` and
+  `docs/control/prompts/ORCHESTRATOR_START.md` completely, then verify the
+  current signal, reviewed base, branch/status, task DAG, dependencies,
+  checkpoint, and active-task list before acting. If any material premise has
+  changed, it must stop with `NEEDS_INSTRUCTOR_REVIEW`.
+- The Manager may create exactly one internal Evaluation worker/subagent using
+  the repository-approved internal subagent mechanism. It must not create a
+  user-facing worker task, worktree worker, second worker, retry, replacement,
+  or duplicate. The Manager must stop when this authorization is exhausted.
+- The authorized packet is **E-02 — Extension Evaluation and Decimal-Boundary
+  Reconciliation** only. The Manager alone may transition E-02 through
+  `BLOCKED -> READY -> IN_PROGRESS -> REVIEW -> DONE` and may update
+  `docs/implementation/TASKS.md` and `docs/implementation/HANDOFF.md`.
+  Workers must not edit those files or any Instructor/decision artifact.
+- Authorized source/write scope is limited to
+  `modules/evaluation/**`, excluding frozen
+  `modules/evaluation/api/contracts.ts`, and focused Evaluation tests or
+  module documentation required to prove the packet. API bootstrap/index,
+  application, and domain files are allowed only when needed for the approved
+  public Evaluation boundary. No other module or root source may change.
+
+### Required behavior and acceptance
+
+- Consume the completed decimal-normalized paper result produced by B-03
+  through the public Evaluation boundary. Preserve independence from Strategy
+  and Backtesting implementation details.
+- Prove deterministic, finite `REQUIRED_METRICS_V1` outputs: Return, Win Rate,
+  Maximum Drawdown, and Number of Trades, including decimal/fixed-point fixture
+  cases, zero trades, flat/zero equity curves, and valid Long/Short paper
+  results.
+- Do not recompute fills, fees, slippage, rounding, entry/exit behavior, or
+  simulation inside Evaluation. Do not introduce optional metrics, risk,
+  ranking/score, persistence, queues, providers, or business logic outside
+  this packet.
+- Reject invalid, sparse, non-finite, non-positive-denominator, or otherwise
+  malformed input deterministically without emitting ranking output; preserve
+  input immutability and explicit finite-output guarantees.
+- Keep the frozen API contract and module ownership boundaries intact. Do not
+  edit migrations, dependencies, Strategy, Backtesting, Leaderboard,
+  frontend, backend composition, provider code, or any deferred scope.
+
+### Validation and stop condition
+
+- The Manager must review the one worker's diff and evidence independently,
+  including focused Evaluation decimal-boundary tests and the complete
+  Evaluation package suite, typecheck, build, and lint.
+- Run the relevant root workspace tests and gates: architecture, artifacts,
+  deferred-scope, scope tests, typecheck, build, lint, and `git diff --check`.
+  Record unavailable OpenSpec CLI, live-provider, PostgreSQL, browser/demo, or
+  other environment evidence as `UNVERIFIED` or `BLOCKED`, never `PASS`.
+- Verify exact write scope, no deferred-scope leakage, no source/business-state
+  drift, and consistency of TASKS/HANDOFF before accepting. A failed check,
+  scope breach, unexpected contract change, or missing decimal-boundary proof
+  requires `REVIEW`/`BLOCKED` and Instructor review rather than broadening the
+  packet.
+- Record `INS-081` and the reviewed base in the checkpoint, attempt at most
+  one coherent Manager checkpoint commit, report any permission failure
+  truthfully, and stop. Do not start L-02, F-03, I-03, M-02, AU-02, I-01,
+  I-02, or any other downstream/deferred work.
+
+### Concurrency rationale
+
+- No safe second implementation packet is available under this signal: L-02
+  is a critical downstream join that depends on E-02, while F-03/I-03 and the
+  baseline integration packets are gated by additional dependencies. One
+  internal worker is therefore the maximum quality-preserving concurrency for
+  INS-081.
 
 ## INS-079 — Reconcile the committed INS-077 checkpoint
 
