@@ -52,7 +52,7 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 | ENV-01 | DONE | E0a | YES | Manager / Infrastructure-and-tooling worker `01a04d08-19c8-76e1-ad32-57471e75f430` | `MVP_IMPLEMENTATION` / containing INS-030 ENV-01 checkpoint commit | Independent review PASS; Docker/migration/checker/root validation PASS; OpenSpec CLI UNVERIFIED |
 | ENV-02 | DONE | E1 closure | YES | Manager `01a04ea7-b1bd-73c2-972a-7d67e6f551c9` / checker-tooling worker `01a04eae-367c-7fc3-8961-dccb9e760cf9` (Confucius) under `INS-039`; INS-041 closure review | `MVP_IMPLEMENTATION` / `d8c5bf3324cbee349e272cb177537fa6ed062df0` plus INS-041 closure checkpoint | `BLOCKED -> READY -> IN_PROGRESS -> REVIEW -> DONE`; immutable checker evidence accepted; no worker created for closure |
 | ENV-03 | REVIEW | E1 validation gate | YES | Fresh Manager under `INS-053` / exactly one fresh checker-tooling worker Tesla `01a04fd3-2a76-7132-a7f7-abdcbbe0c01b` | `MVP_IMPLEMENTATION` / containing this ENV-03 checkpoint commit | `BLOCKED -> READY -> IN_PROGRESS -> REVIEW`; scope tests 9/9, scope, architecture, artifacts, typecheck, build, lint, diff checks PASS; OpenSpec UNVERIFIED |
-| ENV-04 | REVIEW | E1 validation gate | YES | Manager under `INS-059` / exactly one fresh checker-tooling worker Mencius `01a05033-dd87-71d3-ac70-f0817286fc1b` | `MVP_IMPLEMENTATION` / audited working tree; checkpoint commit blocked by Git index permission | `BLOCKED -> READY -> IN_PROGRESS -> REVIEW`; scope tests 13/13, scope, architecture, artifacts, typecheck, build, lint, workspace tests, and diff checks PASS; OpenSpec UNVERIFIED; PostgreSQL-gated tests skipped |
+| ENV-04 | DONE | E1 validation gate | YES | Manager closure review under `INS-061`; prior implementation under `INS-059` with exactly one fresh checker-tooling worker Mencius `01a05033-dd87-71d3-ac70-f0817286fc1b` | `MVP_IMPLEMENTATION` / `5032582` implementation checkpoint plus this INS-061 closure checkpoint | `BLOCKED -> READY -> IN_PROGRESS -> REVIEW -> DONE`; scope tests 13/13, scope, architecture, artifacts, typecheck, build, lint, workspace tests, and diff checks PASS; OpenSpec UNVERIFIED; PostgreSQL-gated tests skipped |
 
 The `RB-01` row records the completed governance checkpoint. `ENV-01` is the
 sole packet allocated by current `INS-030`; it is DONE at its authorized
@@ -888,9 +888,9 @@ acceptance criteria and handoff requirements are in the linked packets in
 - **Requirement IDs / authority:** `CSL-R-RP-02`, `CSL-R-SE-03`, DEC-007,
   DEC-012, DEC-013, ADR-010; this is a post-Q-02 validation/tooling gate and
   creates no product behavior, new profile, contract, migration, or lifecycle.
-- **State / owner / wave:** REVIEW / Manager with exactly one fresh
-  checker-tooling worker Mencius `01a05033-dd87-71d3-ac70-f0817286fc1b` under
-  `INS-059` / E1 validation gate.
+- **State / owner / wave:** DONE / Manager closure review under `INS-061`; prior
+  implementation under `INS-059` with exactly one fresh checker-tooling worker
+  Mencius `01a05033-dd87-71d3-ac70-f0817286fc1b` / E1 validation gate.
 - **Start dependencies:** Q-02 is `REVIEW` at source checkpoint
   `95cb98463f60c35f71dda2f7832f0aa9ad22a30c`; ENV-03 is `REVIEW` with accepted
   checker evidence at `0bc215f5781a7a2860d439b3b4953104a99d9e3a`;
@@ -924,9 +924,9 @@ acceptance criteria and handoff requirements are in the linked packets in
   tests were skipped because `DATABASE_URL` is absent; no real database or
   provider evidence is claimed.
 - **Definition of Done / stop boundary:** ENV-04 transitioned exactly
-  `BLOCKED -> READY -> IN_PROGRESS -> REVIEW` and is not `DONE`. The audited
-  checkpoint commit remains pending because Git index permission was denied.
-  Q-02 remains
+  `BLOCKED -> READY -> IN_PROGRESS -> REVIEW -> DONE`. The implementation
+  checkpoint is committed as `5032582`; this INS-061 closure checkpoint contains
+  only the Manager-owned `TASKS.md` and `HANDOFF.md` updates. Q-02 remains
   `REVIEW`; no Q-02 closure, E-02, L-02, B-03, S-04, M-03, N-03, I-01/I-02/
   I-03, AU-02, or other downstream/newly unlocked packet was started or
   promoted.
@@ -1075,10 +1075,11 @@ completed and the Manager reviewed/fixed the application wiring and final
 evidence; deferred-scope and real-provider/database gates remain blocked or
 unverified. N-03 is REVIEW under INS-045 after exactly one fresh scoped worker
 completed and the Manager reviewed the retention correction and final evidence;
-`S-04` remains BLOCKED and `Q-02` remains REVIEW. `ENV-04` is REVIEW under
-INS-059 after exactly one fresh checker-tooling worker completed and the Manager
+`S-04` remains BLOCKED and `Q-02` remains REVIEW. `ENV-04` is DONE under
+INS-061 after exactly one fresh checker-tooling worker completed, the Manager
 independently reviewed the exact Search profile allowlist and preserved
-deferred-scope rejection.
+deferred-scope rejection, and the committed implementation checkpoint `5032582`
+was reconciled.
 `E-02`, `L-02`, `F-03`, and `I-03` remain BLOCKED. No downstream packet was
 authorized or started. AU-02 and
 I-01/I-02 remain blocked; no legacy DONE packet is treated as evidence for an

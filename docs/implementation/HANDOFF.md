@@ -1,31 +1,32 @@
-# INS-059 Execution Checkpoint — ENV-04 Q-02 Approved-Profile Checker Boundary Reconciliation
+# INS-061 Execution Checkpoint — ENV-04 Q-02 Approved-Profile Checker Boundary Reconciliation
 
 ## Resume here
 
-- **Authorization:** `INS-059 / APPROVED_FOR_EXECUTION` authorized exactly one
-  bounded packet, `ENV-04`. It did not reopen Q-02 source, C-03,
+- **Authorization:** `INS-061 / APPROVED_FOR_EXECUTION` authorized exactly one
+  Manager-owned closure packet, `ENV-04`. It did not reopen Q-02 source, C-03,
   ENV-01/ENV-02/ENV-03, or authorize downstream work.
 - **Manager:** This Manager operated directly in the canonical same-directory
   checkout `D:/agy-cli-projects/AOS/Cryptox` on branch `MVP_IMPLEMENTATION`.
-- **Reviewed base:** `1683f07` (`docs(control): hold after Q-02 review`). The
-  authorization commit is `3a82233` (`docs(control): authorize ENV-04 checker
-  reconciliation`). Q-02 remains `REVIEW` at source checkpoint
+- **Reviewed checkpoint:** `5032582` (`checkpoint(env-04): reconcile Q-02 checker
+  boundary`) contains the exact checker implementation and test changes. The
+  current authorization commit is `398075e` (`docs(control): authorize ENV-04
+  closure review`). Q-02 remains `REVIEW` at source checkpoint
   `95cb98463f60c35f71dda2f7832f0aa9ad22a30c`.
-- **Start conditions:** The source/business tree was clean relative to the
-  reviewed base; the Manager inserted the missing ENV-04 row at `BLOCKED` as
-  authorized before advancing it. Q-02 was `REVIEW`, ENV-03 was `REVIEW` with
-  accepted checker evidence at ENV-03 checkpoint
-  `0bc215f5781a7a2860d439b3b4953104a99d9e3a`, and all ENV-04 dependencies were
-  verified. Active task inspection found only the parent Instructor task and
-  this Manager in the Cryptox checkout; no other Cryptox Manager or worker was
-  running. Historical
-  tasks were not resumed, replaced, retried, or duplicated.
+- **Start conditions:** The worktree was clean and the source/business tree was
+  unchanged from `5032582` except for the authorized Instructor signal. Q-02 was
+  `REVIEW`, ENV-03 was `REVIEW` with accepted checker evidence at ENV-03
+  checkpoint `0bc215f5781a7a2860d439b3b4953104a99d9e3a`, and all ENV-04
+  dependencies were verified. Active task inspection found only the parent
+  Instructor task and this Manager in the Cryptox checkout; no other Cryptox
+  Manager or worker was running. Historical tasks were not resumed, replaced,
+  retried, or duplicated.
 
 ## State and worker
 
-- **ENV-04 transition:** `BLOCKED -> READY -> IN_PROGRESS -> REVIEW`.
+- **ENV-04 transition:** `BLOCKED -> READY -> IN_PROGRESS -> REVIEW -> DONE`.
 - **Unchanged state:** Q-02 remains `REVIEW`; no other task state changed.
-- **Fresh worker:** Exactly one worker was delegated, Mencius
+- **Worker status:** No worker was created under `INS-061`. The already completed
+  implementation packet under `INS-059` used exactly one worker, Mencius
   `01a05033-dd87-71d3-ac70-f0817286fc1b`, with the requested checker-only scope.
   It created no commit, branch, worktree, or worker and did not edit control
   artifacts. The worker was closed after completion.
@@ -76,15 +77,13 @@ behavior, and all unrelated source remain unchanged.
 
 - The final diff is limited to the two checker files plus Manager-owned
   `docs/implementation/TASKS.md` and this `HANDOFF.md`.
-- ENV-04 is at `REVIEW`, not `DONE`, with the audited four-file diff in the
-  working tree. The required single coherent checkpoint commit could not be
-  created: `git add` failed with `fatal: Unable to create
-  'D:/agy-cli-projects/AOS/Cryptox/.git/index.lock': Permission denied`.
-  Staging/commit was not retried. Q-02 remains `REVIEW` pending a separate
+- ENV-04 is `DONE` after the INS-061 closure review. The audited implementation
+  checkpoint is the committed `5032582`; this Manager closure checkpoint is
+  limited to `docs/implementation/TASKS.md` and
+  `docs/implementation/HANDOFF.md`. Q-02 remains `REVIEW` pending a separate
   Instructor closure review after this clean checker gate.
 - No Q-02 closure, E-02, L-02, B-03, S-04, M-03, N-03, I-01/I-02/I-03, AU-02,
   or any downstream/newly unlocked packet was started or promoted.
-- `INS-059` is exhausted. Renewed Instructor review is required before Q-02
-  closure or any downstream authorization. The parent Instructor must perform
-  the same audited stage/commit after resolving the Git index permission
-  blocker; no additional implementation is required.
+- `INS-061` is exhausted. Renewed Instructor review is required before Q-02
+  closure or any downstream authorization; no additional implementation is
+  required.
