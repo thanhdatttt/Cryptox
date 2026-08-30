@@ -2,13 +2,55 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-087`
+Instruction ID: `INS-088`
 
-Status: `APPROVED_FOR_EXECUTION`
+Status: `HOLD`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
-## INS-087 — F-03 Checkpoint Record Reconciliation
+## INS-088 — Post-INS-087 Checkpoint Reconciliation HOLD
+
+This current signal supersedes `INS-087 / APPROVED_FOR_EXECUTION`. The
+governance-only reconciliation is complete and grants no execution authority.
+No Manager, worker, residual F-03 implementation, downstream packet, retry,
+replacement, duplicate, or user-facing child task is currently authorized.
+
+### Reviewed checkpoint
+
+- The canonical checkout is `D:/agy-cli-projects/AOS/Cryptox`, branch
+  `MVP_IMPLEMENTATION`, clean at `43ae5d2` (`docs(control): reconcile F-03
+  checkpoint commit`). This commit contains only the Manager-owned TASKS and
+  HANDOFF reconciliation authorized by INS-087. The audited F-03 source slice
+  remains committed at `122569c`, and the prior Instructor partial-review HOLD
+  is `INS-086` at `376dcbc`.
+- TASKS/HANDOFF now consistently record the exact nine effective frontend
+  source paths plus the two Manager-owned checkpoint files, the Instructor
+  audit/commit at `122569c`, no uncommitted F-03 delta, and the current
+  `REVIEW / NEEDS_INSTRUCTOR_REVIEW` outcome. The reconciliation did not change
+  source, business state, task state, validation classifications, or scope.
+- TASKS remains authoritative at `37 DONE`, `2 REVIEW` (`M-02`, `F-03`), and
+  `4 BLOCKED` (`AU-02`, `I-01`, `I-02`, `I-03`). No downstream task was
+  authorized, started, or promoted. The INS-087 Manager is complete/idle and
+  no active Cryptox Manager or worker remains.
+- The accepted partial source slice is limited to frozen market observability
+  delivery/recovery display, private-cache revision protection, and honest
+  unavailable authoring state. Frontend/global validation remains green, but
+  the required F-03 screen projections and packet-specific tests are absent.
+  Docker/PostgreSQL remains BLOCKED; OpenSpec CLI, live providers, real
+  feature transport, and browser/demo evidence remain UNVERIFIED or BLOCKED.
+
+### Next decision boundary
+
+- A fresh residual F-03 authorization may be considered after this HOLD. It
+  must use a fresh Manager and exactly one fresh internal worker with a
+  narrower disjoint screen/test write scope, preserve frozen contracts, and
+  not reopen or duplicate the already committed market slice. The residual
+  may not mark F-03 DONE unless all applicable acceptance criteria and tests
+  are evidenced; missing public transport must remain explicitly unavailable.
+- This HOLD authorizes nothing. M-02, AU-02, I-01, I-02, and I-03 remain
+  unauthorized, and no newly unlocked work may start.
+
+## Historical INS-087 — F-03 Checkpoint Record Reconciliation
 
 This current signal supersedes `INS-086 / HOLD` for one governance-only
 reconciliation. It authorizes exactly one fresh Manager in the canonical
