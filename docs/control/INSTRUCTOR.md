@@ -2,13 +2,64 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-090`
+Instruction ID: `INS-091`
 
-Status: `HOLD`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
-## INS-090 — Post-INS-089 F-03 Review HOLD
+## INS-091 — F-03 Packet Closure and Checkpoint Reconciliation
+
+This current signal supersedes `INS-090 / HOLD` and authorizes exactly one fresh
+Manager for a governance-only F-03 closure review. It authorizes no worker and no
+source implementation: the bounded screen implementation was already audited
+and committed at `6a4e86e`.
+
+### Reviewed authority and applicability
+
+- The canonical checkout is `D:/agy-cli-projects/AOS/Cryptox`, branch
+  `MVP_IMPLEMENTATION`, clean at the immediately preceding HOLD commit
+  `1926142` (`docs(control): hold after F-03 review`). The F-03 source/test
+  implementation is committed at `6a4e86e`; the current Manager-owned
+  `TASKS.md`/`HANDOFF.md` records still describe that delta as uncommitted from
+  the older starting HEAD and therefore require reconciliation.
+- The board is authoritative at `37 DONE`, `2 REVIEW` (`M-02`, `F-03`), and
+  `4 BLOCKED` (`AU-02`, `I-01`, `I-02`, `I-03`). F-03 is `REVIEW` and its
+  dependencies `M-03`, `S-04`, `S-05`, `S-06`, `Q-02`, `B-03`, `N-03`, `E-02`,
+  and `L-02` are `DONE`. M-02 and all blocked tasks remain outside this signal.
+- No competing Cryptox Manager or worker is active. The fresh Manager must run
+  in the same canonical checkout with model `gpt-5.6-luna` and reasoning
+  `max`, without a worktree, alternate checkout, branch, cloud task, or worker.
+
+### Exact Manager-only scope
+
+- The Manager may read and independently verify the current authority, the
+  committed F-03 source/test diff, the prior INS-089 evidence, and the current
+  task DAG. It may edit only `docs/implementation/TASKS.md` and
+  `docs/implementation/HANDOFF.md`.
+- It must reconcile both files to committed source checkpoint `6a4e86e`, current
+  HOLD/authorization history, exact worker and Manager identities, and the
+  independently verified validation classifications. It may transition only
+  F-03 from `REVIEW` to `DONE` if the approved packet boundary is fully
+  evidenced; otherwise it must leave F-03 in `REVIEW` and report
+  `NEEDS_INSTRUCTOR_REVIEW`.
+- The Manager must not create a worker, edit source/contracts/modules/backend/
+  migrations/providers/manifests, change requirements/ADR/OpenSpec policy,
+  change any other task state, update `INSTRUCTOR.md`/`DECISIONS.md`, or start
+  M-02, AU-02, I-01, I-02, I-03, or any downstream work. No retry, replacement,
+  duplicate, or implementation expansion is authorized.
+- The Manager must preserve the distinction between packet-local PASS evidence
+  and final integration evidence: Docker/PostgreSQL is `BLOCKED`; OpenSpec CLI,
+  live providers, real feature REST/market-WebSocket composition, and
+  browser/demo evidence are `UNVERIFIED` or `BLOCKED`, never PASS. Closure of
+  F-03 does not close `CSL-R-RD-01`, final demo acceptance, I-03, I-01, AU-02,
+  or I-02.
+- The Manager must record the stop boundary and make at most one coherent
+  checkpoint commit attempt. If Git rejects it, it must not retry and must
+  report the exact error for Instructor audit. It must stop after the F-03
+  reconciliation/closure decision.
+
+## Historical INS-090 — Post-INS-089 F-03 Review HOLD
 
 This current signal supersedes `INS-089 / APPROVED_FOR_EXECUTION`. It records the
 Instructor review after the bounded F-03 screen projection run and grants no
