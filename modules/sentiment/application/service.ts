@@ -8,7 +8,7 @@ import type {
   SentimentSnapshotReader,
 } from "../domain/contracts";
 import { SentimentException } from "../domain/errors";
-import { sentimentLabelFor, validateSentimentInput, validateSentimentResult, validateSnapshotCommand, validateSnapshotPoint } from "../domain/rules";
+import { sentimentLabelFor, sentimentSnapshotSerialization, validateSentimentInput, validateSentimentResult, validateSnapshotCommand, validateSnapshotPoint } from "../domain/rules";
 import type { SealedSentimentSnapshot, SentimentModuleDependencies, SentimentResultRepository, SentimentSnapshotRepository } from "./ports";
 
 type InternalDependencies = Partial<SentimentModuleDependencies>;
@@ -85,16 +85,6 @@ const pointForCandle = (snapshot: SealedSentimentSnapshot, snapshotId: string, c
   return point ? clonePoint(point) : undefined;
 };
 
-const snapshotSerialization = (command: CreateSentimentSnapshotCommand, points: SentimentSnapshotPoint[]): string => JSON.stringify({
-  relatedCoin: command.relatedCoin,
-  range: command.range,
-  aggregationWindowSeconds: command.aggregationWindowSeconds,
-  modelName: command.modelName,
-  modelVersion: command.modelVersion,
-  modelSha256: command.modelSha256,
-  points: points.map((point) => [point.timestamp, point.label, point.averageScore]),
-});
-
 const aggregateSnapshotPoints = (command: CreateSentimentSnapshotCommand, rows: Awaited<ReturnType<SentimentResultRepository["readForSnapshot"]>>): SentimentSnapshotPoint[] => {
   const from = Date.parse(command.range.from);
   const to = Date.parse(command.range.to);
@@ -164,7 +154,7 @@ export function createSentimentModule(dependencies: InternalDependencies = creat
       const normalized = validateSnapshotCommand(command);
       const points = aggregateSnapshotPoints(normalized, await resultRepository.readForSnapshot(normalized));
       if (points.length === 0) throw new SentimentException("INVALID_SNAPSHOT", "Cannot create an empty Sentiment snapshot.");
-      const sha256 = createHash("sha256").update(snapshotSerialization(normalized, points), "utf8").digest("hex");
+      const sha256 = createHash("sha256").update(sentimentSnapshotSerialization(normalized, points), "utf8").digest("hex");
       const ref: SentimentDatasetSnapshotRef = {
         id: randomUUID(),
         relatedCoin: normalized.relatedCoin,

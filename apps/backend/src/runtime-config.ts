@@ -58,7 +58,7 @@ export function loadBackendRuntimeConfig(env: NodeJS.ProcessEnv = process.env, r
   const strategyModelEndpoint = value(env, "STRATEGY_MODEL_ENDPOINT");
   const strategyModelName = value(env, "STRATEGY_MODEL_NAME");
   const strategyLlmApiKey = value(env, "STRATEGY_LLM_API_KEY");
-  if (profile === "PRODUCTION") {
+  if (durable) {
     if (!strategyModelEndpoint) throw new Error("MISSING_CONFIGURATION:STRATEGY_MODEL_ENDPOINT");
     if (!strategyModelName) throw new Error("MISSING_CONFIGURATION:STRATEGY_MODEL_NAME");
     if (!strategyLlmApiKey) throw new Error("MISSING_CONFIGURATION:STRATEGY_LLM_API_KEY");
@@ -76,7 +76,7 @@ export function loadBackendRuntimeConfig(env: NodeJS.ProcessEnv = process.env, r
     ...(strategyModelName ? { strategyModelName } : {}),
     ...(strategyLlmApiKey ? { strategyLlmApiKey } : {}),
     strategyPromptVersion: value(env, "STRATEGY_PROMPT_VERSION") ?? "1",
-    ...(value(env, "STRATEGY_MODEL_VERSION") ? { strategyModelVersion: value(env, "STRATEGY_MODEL_VERSION") } : {}),
+    ...(strategyModelName ? { strategyModelVersion: value(env, "STRATEGY_MODEL_VERSION") ?? strategyModelName } : {}),
     strategyModelTimeoutMs: positiveInteger(env, "STRATEGY_MODEL_TIMEOUT_MS", 15_000, 100, 120_000),
     backtestRecoveryIntervalMs: positiveInteger(env, "BACKTEST_RECOVERY_INTERVAL_MS", 30_000, 5_000, 300_000),
     backtestWorkerConcurrency: positiveInteger(env, "BACKTEST_WORKER_CONCURRENCY", 1, 1, 100),

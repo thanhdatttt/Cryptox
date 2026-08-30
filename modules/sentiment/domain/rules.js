@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.sentimentLabelFor = exports.validateSnapshotPoint = exports.validateSnapshotCommand = exports.validateSentimentResult = exports.validateSentimentInput = void 0;
+exports.sentimentLabelFor = exports.sentimentSnapshotSerialization = exports.validateSnapshotPoint = exports.validateSnapshotCommand = exports.validateSentimentResult = exports.validateSentimentInput = void 0;
 const errors_1 = require("./errors");
 const labels = ["POSITIVE", "NEUTRAL", "NEGATIVE"];
 const sha256 = /^[a-f0-9]{64}$/i;
@@ -51,5 +51,15 @@ const validateSnapshotPoint = (point) => {
     return { ...point };
 };
 exports.validateSnapshotPoint = validateSnapshotPoint;
+const sentimentSnapshotSerialization = (command, points) => JSON.stringify({
+    relatedCoin: command.relatedCoin,
+    range: command.range,
+    aggregationWindowSeconds: command.aggregationWindowSeconds,
+    modelName: command.modelName,
+    modelVersion: command.modelVersion,
+    modelSha256: command.modelSha256,
+    points: points.map((point) => [point.timestamp, point.label, point.averageScore]),
+});
+exports.sentimentSnapshotSerialization = sentimentSnapshotSerialization;
 const sentimentLabelFor = (score) => score > 0 ? "POSITIVE" : score < 0 ? "NEGATIVE" : "NEUTRAL";
 exports.sentimentLabelFor = sentimentLabelFor;

@@ -25,7 +25,7 @@ describe("backend runtime profiles", () => {
   });
 
   it("requires model configuration only for production and rejects invalid operational bounds", () => {
-    expect(loadBackendRuntimeConfig({ ...durableEnvironment, STRATEGY_MODEL_ENDPOINT: undefined, STRATEGY_MODEL_NAME: undefined, STRATEGY_LLM_API_KEY: undefined }, "DEVELOPMENT")).toMatchObject({ durable: true });
+    expect(() => loadBackendRuntimeConfig({ ...durableEnvironment, STRATEGY_MODEL_ENDPOINT: undefined, STRATEGY_MODEL_NAME: undefined, STRATEGY_LLM_API_KEY: undefined }, "DEVELOPMENT")).toThrow("MISSING_CONFIGURATION:STRATEGY_MODEL_ENDPOINT");
     expect(() => loadBackendRuntimeConfig({ ...durableEnvironment, STRATEGY_MODEL_NAME: undefined }, "PRODUCTION")).toThrow("MISSING_CONFIGURATION:STRATEGY_MODEL_NAME");
     expect(() => loadBackendRuntimeConfig({ ...durableEnvironment, BACKTEST_RECOVERY_INTERVAL_MS: "1000" }, "PRODUCTION")).toThrow("INVALID_CONFIGURATION:BACKTEST_RECOVERY_INTERVAL_MS");
   });

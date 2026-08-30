@@ -56,4 +56,14 @@ export const validateSnapshotPoint = (point: SentimentSnapshotPoint): SentimentS
   return { ...point };
 };
 
+export const sentimentSnapshotSerialization = (command: CreateSentimentSnapshotCommand, points: SentimentSnapshotPoint[]): string => JSON.stringify({
+  relatedCoin: command.relatedCoin,
+  range: command.range,
+  aggregationWindowSeconds: command.aggregationWindowSeconds,
+  modelName: command.modelName,
+  modelVersion: command.modelVersion,
+  modelSha256: command.modelSha256,
+  points: points.map((point) => [point.timestamp, point.label, point.averageScore]),
+});
+
 export const sentimentLabelFor = (score: number): SentimentLabel => score > 0 ? "POSITIVE" : score < 0 ? "NEGATIVE" : "NEUTRAL";

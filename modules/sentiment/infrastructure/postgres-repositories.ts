@@ -1,7 +1,10 @@
+import { createHash } from "node:crypto";
 import type { CreateSentimentSnapshotCommand, SentimentDatasetSnapshotRef, SentimentInput, SentimentLabel, SentimentResult, SentimentSnapshotPoint } from "../domain/contracts";
 import type { SealedSentimentSnapshot, SentimentResultRepository, SentimentSnapshotRepository } from "../application/ports";
+import { sentimentSnapshotSerialization, validateSnapshotCommand, validateSnapshotPoint } from "../domain/rules";
 
-export interface SentimentSqlClient { query<Row>(text: string, values: unknown[]): Promise<{ rows: Row[] }>; }
+export interface SentimentSqlTransactionClient { query<Row>(text: string, values: unknown[]): Promise<{ rows: Row[] }>; release(): void; }
+export interface SentimentSqlClient { query<Row>(text: string, values: unknown[]): Promise<{ rows: Row[] }>; connect?(): Promise<SentimentSqlTransactionClient>; }
 const date = (value: Date | string): string => new Date(value).toISOString();
 const number = (value: number | string): number => typeof value === "number" ? value : Number(value);
 const strings = (value: string[] | string): string[] => typeof value === "string" ? JSON.parse(value) as string[] : [...value];
@@ -31,13 +34,44 @@ export class PostgresSentimentResultRepository implements SentimentResultReposit
 
 export class PostgresSentimentSnapshotRepository implements SentimentSnapshotRepository {
   constructor(private readonly client: SentimentSqlClient) {}
+  private validateSealed(ref: SentimentDatasetSnapshotRef, points: SentimentSnapshotPoint[]): void {
+    const command: CreateSentimentSnapshotCommand = validateSnapshotCommand({ relatedCoin: ref.relatedCoin, range: ref.range, aggregationWindowSeconds: ref.aggregationWindowSeconds, modelName: ref.modelName, modelVersion: ref.modelVersion, modelSha256: ref.modelSha256 });
+    const windowMs = command.aggregationWindowSeconds * 1_000;
+    const from = Date.parse(command.range.from);
+    const to = Date.parse(command.range.to);
+    if (!/^[a-f0-9]{64}$/i.test(ref.sha256) || ref.pointCount !== points.length || points.length === 0 || points.some((point, index) => {
+      const validated = validateSnapshotPoint(point);
+      const timestamp = Date.parse(validated.timestamp);
+      return !Number.isFinite(timestamp) || timestamp <= from || timestamp > to || (timestamp - from) % windowMs !== 0 || (index > 0 && timestamp <= Date.parse(points[index - 1]!.timestamp));
+    })) throw new Error("SENTIMENT_SNAPSHOT_INTEGRITY_FAILURE");
+    const expectedHash = createHash("sha256").update(sentimentSnapshotSerialization(command, points), "utf8").digest("hex");
+    if (expectedHash !== ref.sha256.toLowerCase()) throw new Error("SENTIMENT_SNAPSHOT_INTEGRITY_FAILURE");
+  }
   async insertSealed(ref: SentimentDatasetSnapshotRef, points: SentimentSnapshotPoint[]): Promise<SentimentDatasetSnapshotRef> {
-    const existing = await this.client.query<SnapshotRow>("SELECT id, related_coin, dataset_from, dataset_to, aggregation_window_seconds, model_name, model_version, model_sha256, point_count, sha256, created_at FROM sentiment_dataset_snapshots WHERE sha256 = $1", [ref.sha256]);
-    const saved = existing.rows[0] ? snapshot(existing.rows[0]) : ref;
-    if (!existing.rows[0]) await this.client.query("INSERT INTO sentiment_dataset_snapshots (id, related_coin, dataset_from, dataset_to, aggregation_window_seconds, model_name, model_version, model_sha256, point_count, sha256, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)", [saved.id, saved.relatedCoin, saved.range.from, saved.range.to, saved.aggregationWindowSeconds, saved.modelName, saved.modelVersion, saved.modelSha256, saved.pointCount, saved.sha256, saved.createdAt]);
-    for (const point of points) await this.client.query("INSERT INTO sentiment_dataset_snapshot_points (snapshot_id, timestamp, label, average_score) VALUES ($1, $2, $3, $4) ON CONFLICT (snapshot_id, timestamp) DO NOTHING", [saved.id, point.timestamp, point.label, point.averageScore]);
-    return saved;
+    this.validateSealed(ref, points);
+    const run = async (client: SentimentSqlClient | SentimentSqlTransactionClient): Promise<SentimentDatasetSnapshotRef> => {
+      const existing = await client.query<SnapshotRow>("SELECT id, related_coin, dataset_from, dataset_to, aggregation_window_seconds, model_name, model_version, model_sha256, point_count, sha256, created_at FROM sentiment_dataset_snapshots WHERE sha256 = $1 FOR UPDATE", [ref.sha256]);
+      const saved = existing.rows[0] ? snapshot(existing.rows[0]) : ref;
+      if (!existing.rows[0]) {
+        await client.query("INSERT INTO sentiment_dataset_snapshots (id, related_coin, dataset_from, dataset_to, aggregation_window_seconds, model_name, model_version, model_sha256, point_count, sha256, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)", [saved.id, saved.relatedCoin, saved.range.from, saved.range.to, saved.aggregationWindowSeconds, saved.modelName, saved.modelVersion, saved.modelSha256, saved.pointCount, saved.sha256, saved.createdAt]);
+        for (const point of points) await client.query("INSERT INTO sentiment_dataset_snapshot_points (snapshot_id, timestamp, label, average_score) VALUES ($1, $2, $3, $4)", [saved.id, point.timestamp, point.label, point.averageScore]);
+        const count = await client.query<{ count: number | string }>("SELECT COUNT(*)::int AS count FROM sentiment_dataset_snapshot_points WHERE snapshot_id = $1", [saved.id]);
+        if (count.rows[0] && Number(count.rows[0].count) !== saved.pointCount) throw new Error("SENTIMENT_SNAPSHOT_INTEGRITY_FAILURE");
+      }
+      return saved;
+    };
+    if (!this.client.connect) return run(this.client);
+    const transaction = await this.client.connect();
+    try {
+      await transaction.query("BEGIN", []);
+      const saved = await run(transaction);
+      await transaction.query("COMMIT", []);
+      return saved;
+    } catch (error) {
+      try { await transaction.query("ROLLBACK", []); } catch { /* preserve the original failure */ }
+      throw error;
+    } finally { transaction.release(); }
   }
   async getRef(snapshotId: string): Promise<SentimentDatasetSnapshotRef | undefined> { const rows = await this.client.query<SnapshotRow>("SELECT id, related_coin, dataset_from, dataset_to, aggregation_window_seconds, model_name, model_version, model_sha256, point_count, sha256, created_at FROM sentiment_dataset_snapshots WHERE id = $1", [snapshotId]); return rows.rows[0] ? snapshot(rows.rows[0]) : undefined; }
-  async readSealed(snapshotId: string): Promise<SealedSentimentSnapshot | undefined> { const ref = await this.getRef(snapshotId); if (!ref) return undefined; const rows = await this.client.query<PointRow>("SELECT timestamp, label, average_score FROM sentiment_dataset_snapshot_points WHERE snapshot_id = $1 ORDER BY timestamp ASC", [snapshotId]); return { ref, points: rows.rows.map((row) => ({ timestamp: date(row.timestamp), label: row.label, averageScore: number(row.average_score) })) }; }
+  async readSealed(snapshotId: string): Promise<SealedSentimentSnapshot | undefined> { const ref = await this.getRef(snapshotId); if (!ref) return undefined; const rows = await this.client.query<PointRow>("SELECT timestamp, label, average_score FROM sentiment_dataset_snapshot_points WHERE snapshot_id = $1 ORDER BY timestamp ASC", [snapshotId]); const points = rows.rows.map((row) => ({ timestamp: date(row.timestamp), label: row.label, averageScore: number(row.average_score) })); this.validateSealed(ref, points); return { ref, points }; }
 }

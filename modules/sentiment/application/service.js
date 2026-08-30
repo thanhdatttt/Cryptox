@@ -70,15 +70,6 @@ const pointForCandle = (snapshot, snapshotId, candleCloseTime) => {
     const point = snapshot.points.find((candidate) => candidate.timestamp === new Date(windowEnd).toISOString());
     return point ? clonePoint(point) : undefined;
 };
-const snapshotSerialization = (command, points) => JSON.stringify({
-    relatedCoin: command.relatedCoin,
-    range: command.range,
-    aggregationWindowSeconds: command.aggregationWindowSeconds,
-    modelName: command.modelName,
-    modelVersion: command.modelVersion,
-    modelSha256: command.modelSha256,
-    points: points.map((point) => [point.timestamp, point.label, point.averageScore]),
-});
 const aggregateSnapshotPoints = (command, rows) => {
     const from = Date.parse(command.range.from);
     const to = Date.parse(command.range.to);
@@ -140,7 +131,7 @@ function createSentimentModule(dependencies = createInMemorySentimentDependencie
             const points = aggregateSnapshotPoints(normalized, await resultRepository.readForSnapshot(normalized));
             if (points.length === 0)
                 throw new errors_1.SentimentException("INVALID_SNAPSHOT", "Cannot create an empty Sentiment snapshot.");
-            const sha256 = (0, node_crypto_1.createHash)("sha256").update(snapshotSerialization(normalized, points), "utf8").digest("hex");
+        const sha256 = (0, node_crypto_1.createHash)("sha256").update((0, rules_1.sentimentSnapshotSerialization)(normalized, points), "utf8").digest("hex");
             const ref = {
                 id: (0, node_crypto_1.randomUUID)(),
                 relatedCoin: normalized.relatedCoin,

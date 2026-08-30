@@ -9,6 +9,9 @@ Object.defineProperty(exports, "createDeterministicSentimentAdapter", { enumerab
 Object.defineProperty(exports, "LOCAL_SENTIMENT_MODEL_NAME", { enumerable: true, get: function () { return deterministic_adapter_1.LOCAL_SENTIMENT_MODEL_NAME; } });
 Object.defineProperty(exports, "LOCAL_SENTIMENT_MODEL_SHA256", { enumerable: true, get: function () { return deterministic_adapter_1.LOCAL_SENTIMENT_MODEL_SHA256; } });
 Object.defineProperty(exports, "LOCAL_SENTIMENT_MODEL_VERSION", { enumerable: true, get: function () { return deterministic_adapter_1.LOCAL_SENTIMENT_MODEL_VERSION; } });
+var openai_compatible_adapter_1 = require("../infrastructure/openai-compatible-adapter");
+Object.defineProperty(exports, "createOpenAiCompatibleSentimentAdapter", { enumerable: true, get: function () { return openai_compatible_adapter_1.createOpenAiCompatibleSentimentAdapter; } });
+Object.defineProperty(exports, "SentimentModelError", { enumerable: true, get: function () { return openai_compatible_adapter_1.SentimentModelError; } });
 var postgres_repositories_1 = require("../infrastructure/postgres-repositories");
 Object.defineProperty(exports, "PostgresSentimentResultRepository", { enumerable: true, get: function () { return postgres_repositories_1.PostgresSentimentResultRepository; } });
 Object.defineProperty(exports, "PostgresSentimentSnapshotRepository", { enumerable: true, get: function () { return postgres_repositories_1.PostgresSentimentSnapshotRepository; } });

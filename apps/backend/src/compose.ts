@@ -15,7 +15,7 @@ import { createBinanceMarketDataAdapter, createMarketDataModule, createRedisLate
 import { createConfiguredNewsProviders, createNewsModule, PostgresNewsRepository } from "modules/news/api/bootstrap";
 import type { SearchModulePublicApi, SearchModuleRuntime } from "modules/search/api";
 import { createInMemorySearchDependencies, createPostgresCancellationUnitOfWork, createPostgresSearchDependencies, createSearchModule } from "modules/search/api/bootstrap";
-import { createDeterministicSentimentAdapter, createSentimentModule, PostgresSentimentResultRepository, PostgresSentimentSnapshotRepository } from "modules/sentiment/api/bootstrap";
+import { createDeterministicSentimentAdapter, createOpenAiCompatibleSentimentAdapter, createSentimentModule, PostgresSentimentResultRepository, PostgresSentimentSnapshotRepository } from "modules/sentiment/api/bootstrap";
 import { createOpenAiCompatibleStrategyGenerationAdapter, createPostgresStrategyDependencies, createStrategyModule } from "modules/strategy/api/bootstrap";
 import { createAuthModule, createInMemoryAuthDependencies } from "modules/auth/api";
 import { loadBackendRuntimeConfig, type RuntimeProfile } from "./runtime-config";
@@ -85,12 +85,14 @@ export function composeAllModules(options: { profile?: RuntimeProfile; env?: Nod
     ? createSearchModule(createPostgresSearchDependencies(postgres, { backtestCoordinator: backtesting, leaderboardService: leaderboard, beginCancellation: () => createPostgresCancellationUnitOfWork(postgres), clock: { now: () => new Date().toISOString() } }))
     : createSearchModule({ ...createInMemorySearchDependencies(), backtestCoordinator: backtesting, leaderboardService: leaderboard, clock: { now: () => new Date().toISOString() } });
   const sentiment = createSentimentModule({
-    analysis: createDeterministicSentimentAdapter(),
+    analysis: config.durable
+      ? createOpenAiCompatibleSentimentAdapter({ apiKey: config.strategyLlmApiKey!, model: config.strategyModelName!, modelVersion: config.strategyModelVersion, endpoint: config.strategyModelEndpoint, timeoutMs: config.strategyModelTimeoutMs })
+      : createDeterministicSentimentAdapter(),
     resultRepository: postgres ? new PostgresSentimentResultRepository(postgres) : undefined,
     snapshotRepository: postgres ? new PostgresSentimentSnapshotRepository(postgres) : undefined,
   });
   const news = createNewsModule({
-    providers: createConfiguredNewsProviders({ provider: process.env.NEWS_PROVIDER ?? "COINDESK_RSS" }),
+    providers: createConfiguredNewsProviders({ provider: config.newsProvider }),
     newsRepository: postgres ? new PostgresNewsRepository(postgres) : undefined,
     sentiment,
   });
