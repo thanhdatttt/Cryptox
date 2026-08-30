@@ -6,7 +6,7 @@ import { createEvaluationModule } from "modules/evaluation/api/bootstrap";
 import { createBacktestingExperimentReader, createBacktestingScopeRepository, createInMemoryLeaderboardDependencies, createLeaderboardModule } from "modules/leaderboard/api/bootstrap";
 import { createInMemorySearchDependencies, createSearchModule } from "modules/search/api/bootstrap";
 import { createInMemoryStrategyDependencies, createStrategyModule } from "modules/strategy/api/bootstrap";
-import { AuthController, BacktestAttemptController, BacktestController, BacktestScopeController, ExperimentController, LeaderboardController, MarketController, NewsController, SearchController, SentimentController, StrategyController, StrategyGenerationController } from "./app.module";
+import { AuthController, BacktestAttemptController, BacktestController, BacktestScopeController, ExperimentController, LeaderboardController, MarketController, NewsController, ReplayVerificationController, SearchController, SentimentController, StrategyController, StrategyGenerationController } from "./app.module";
 import { MarketGateway } from "./market.gateway";
 import { composeAllModules, type BackendModules } from "./compose";
 
@@ -270,6 +270,20 @@ describe("backend composition", () => {
     expect(calls).toContainEqual(["visualization", { userId: "user-1" }, "experiment-1", { limit: 10, cursor: "cursor-1", from: undefined, to: undefined, highlightTradeId: undefined }]);
     expect(calls).toContainEqual(["replay", { userId: "user-1" }, "experiment-1"]);
     expect(calls).toContainEqual(["candles", { pair: "BTCUSDT", timeframe: "1h", limit: undefined, range: { from: "2025-01-01T00:00:00.000Z", to: "2025-01-01T02:00:00.000Z" }, cursor: "cursor-2", includeForming: true, completeness: "REQUIRE_COMPLETE" }]);
+  });
+
+  it("starts replay asynchronously and exposes the owner-scoped polling read", async () => {
+    const calls: unknown[] = [];
+    const modules = {
+      auth: { verify: async () => ({ userId: "user-1" }) },
+      backtesting: {
+        startReplayVerification: async (auth: unknown, experimentId: string) => { calls.push(["start-replay", auth, experimentId]); return { replayJobId: "replay-1", experimentId, status: "QUEUED" }; },
+        readReplayVerification: async (auth: unknown, replayJobId: string) => { calls.push(["read-replay", auth, replayJobId]); return { replayJobId, experimentId: "experiment-1", sourceAttemptId: "attempt-1", status: "RUNNING" }; },
+      },
+    } as unknown as BackendModules;
+    await expect(new ExperimentController(modules).replay("Bearer token", "experiment-1")).resolves.toEqual({ replayJobId: "replay-1", experimentId: "experiment-1", status: "QUEUED" });
+    await expect(new ReplayVerificationController(modules).read("Bearer token", "replay-1")).resolves.toMatchObject({ replayJobId: "replay-1", status: "RUNNING" });
+    expect(calls).toEqual([["start-replay", { userId: "user-1" }, "experiment-1"], ["read-replay", { userId: "user-1" }, "replay-1"]]);
   });
 
   it("authenticates and forwards only normalized Market Data WebSocket messages", async () => {

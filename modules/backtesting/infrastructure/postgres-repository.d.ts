@@ -1,7 +1,7 @@
 import type { EvaluationMetrics } from "modules/evaluation/api";
 import type { Candle, DatasetSnapshotRef } from "modules/market-data/api";
-import type { BacktestAttemptAudit, BacktestAttemptProgress, CancellationUnitOfWork, CompletedBacktestResult, CompletionUnitOfWork, Trade } from "../domain/contracts";
-import type { BacktestDispatch, BacktestingRepository, CompletionProcessingClaim, StoredBenchmarkScope, StoredCandidate, StoredExperiment, WorkerAttemptClaim } from "../application/ports";
+import type { BacktestAttemptAudit, BacktestAttemptProgress, CancellationUnitOfWork, CompletedBacktestResult, CompletionUnitOfWork, ReplayVerificationResult, Trade } from "../domain/contracts";
+import type { BacktestDispatch, BacktestingRepository, CompletionProcessingClaim, StoredBenchmarkScope, StoredCandidate, StoredExperiment, StoredReplayVerification, WorkerAttemptClaim } from "../application/ports";
 export interface BacktestingSqlClient {
     query<Row>(text: string, values: unknown[]): Promise<{
         rows: Row[];
@@ -128,6 +128,24 @@ export declare class PostgresBacktestingRepository implements BacktestingReposit
         overallScore: number;
         rankEligible: boolean;
     }, ownerUserId?: string): Promise<StoredExperiment | undefined>;
+    createReplayVerification(input: StoredReplayVerification): Promise<StoredReplayVerification>;
+    private replaySql;
+    readReplayVerification(replayJobId: string, ownerUserId?: string): Promise<StoredReplayVerification | undefined>;
+    claimReplayVerification(input: {
+        replayJobId: string;
+        claimToken: string;
+        now: string;
+        leaseExpiresAt: string;
+    }): Promise<StoredReplayVerification | undefined>;
+    completeReplayVerification(input: {
+        replayJobId: string;
+        claimToken: string;
+        now: string;
+        result: Extract<ReplayVerificationResult, {
+            status: "MATCH" | "MISMATCH" | "NON_REPLAYABLE";
+        }>;
+    }): Promise<void>;
+    listReplayVerificationRecovery(nowValue: string, limit: number): Promise<string[]>;
     private experiment;
 }
 export declare const createPostgresBacktestingDependencies: (pool: TransactionPool, dependencies: Omit<import("../application/ports").BacktestingModuleDependencies, "repository" | "evaluation"> & Partial<Pick<import("../application/ports").BacktestingModuleDependencies, "evaluation">>) => import("../application/ports").BacktestingModuleDependencies;

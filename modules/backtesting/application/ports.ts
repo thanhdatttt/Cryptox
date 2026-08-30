@@ -2,7 +2,7 @@ import type { EvaluationMetrics, EvaluatorModulePublicApi } from "modules/evalua
 import type { Candle, DatasetSnapshotRef, MarketDataModulePublicApi } from "modules/market-data/api";
 import type { Strategy, StrategyContext, StrategyDefinition, CompositeStrategyDefinition } from "modules/strategy/api";
 import type { BacktestAttemptAudit, BacktestAttemptProgress, BenchmarkScopeSummary, CandidateProgress, CompletedBacktestResult, CompletionUnitOfWork, ExecutionPolicySnapshot, ExperimentResultSummary, StrategyVisualizationOverlay, Trade } from "../domain/contracts";
-import type { BacktestQueueJob } from "@cryptox/contracts/queue";
+import type { BacktestQueueJob, BacktestQueuePayload } from "@cryptox/contracts/queue";
 import type { AuthContext } from "modules/auth/api";
 
 export interface StoredBenchmarkScope extends BenchmarkScopeSummary { ownerUserId: string; }
@@ -23,6 +23,16 @@ export interface StoredCandidate extends CandidateProgress {
 
 export interface StoredExperiment extends ExperimentResultSummary { ownerUserId: string; }
 
+export type StoredReplayVerification = import("../domain/contracts").ReplayVerificationResult & {
+  ownerUserId: string;
+  mismatchSampleLimit: number;
+  requestedAt: string;
+  startedAt?: string;
+  completedAt?: string;
+  activeClaimToken?: string;
+  leaseExpiresAt?: string;
+};
+
 export interface BacktestDispatch {
   job: BacktestQueueJob;
   state: "PENDING" | "DISPATCHED" | "CANCELLED";
@@ -34,7 +44,7 @@ export interface BacktestDispatch {
 }
 
 export interface BacktestQueuePort {
-  enqueue(job: BacktestQueueJob): Promise<void>;
+  enqueue(job: BacktestQueuePayload): Promise<void>;
   remove(jobId: string): Promise<void>;
 }
 
@@ -96,6 +106,11 @@ export interface BacktestingRepository {
   findExperimentByCandidate(candidateId: string): Promise<StoredExperiment | undefined>;
   listExperimentsBySearchRun(searchRunId: string, ownerUserId?: string): Promise<StoredExperiment[]>;
   updateExperimentScore(experimentId: string, input: { overallScore: number; rankEligible: boolean }, ownerUserId?: string): Promise<StoredExperiment | undefined>;
+  createReplayVerification(replay: StoredReplayVerification): Promise<StoredReplayVerification>;
+  readReplayVerification(replayJobId: string, ownerUserId?: string): Promise<StoredReplayVerification | undefined>;
+  claimReplayVerification(input: { replayJobId: string; claimToken: string; now: string; leaseExpiresAt: string }): Promise<StoredReplayVerification | undefined>;
+  completeReplayVerification(input: { replayJobId: string; claimToken: string; now: string; result: Extract<import("../domain/contracts").ReplayVerificationResult, { status: "MATCH" | "MISMATCH" | "NON_REPLAYABLE" }> }): Promise<void>;
+  listReplayVerificationRecovery(now: string, limit: number): Promise<string[]>;
 }
 
 /**

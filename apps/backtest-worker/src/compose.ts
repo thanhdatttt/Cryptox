@@ -5,7 +5,7 @@ import { createMarketDataSnapshotReader, PostgresSnapshotRepository } from "modu
 import { createStrategyModule } from "modules/strategy/api/bootstrap";
 
 interface WorkerQueue {
-  enqueue(value: import("@cryptox/contracts/queue").BacktestQueueJob): Promise<void>;
+  enqueue(value: import("@cryptox/contracts/queue").BacktestQueuePayload): Promise<void>;
   remove(jobId: string): Promise<void>;
   close?(): Promise<void>;
 }

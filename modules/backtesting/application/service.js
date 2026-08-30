@@ -19,6 +19,7 @@ const SAME_CANDLE_ORDERING_POLICY_ID = "ENTRY_THEN_PROTECTIVE_EXIT_THEN_CLOSE_V1
 const DETERMINISTIC_GUARANTEE = "SEALED_INPUTS_AND_RETAINED_ARTIFACTS";
 const now = () => new Date().toISOString();
 const clone = (value) => JSON.parse(JSON.stringify(value));
+const isReplayVerificationJob = (value) => "replayJobId" in value;
 const invalid = (code) => { throw new Error(code); };
 const terminal = (status) => ["COMPLETED", "FAILED", "CANCELLED"].includes(status);
 const plusSeconds = (value, seconds) => new Date(Date.parse(value) + seconds * 1000).toISOString();
@@ -32,6 +33,8 @@ const VISUALIZATION_CANDLE_MAX = 2000;
 const VISUALIZATION_OVERLAY_MAX = 32;
 const DEFAULT_WARMUP_CAPACITY_CANDLES = 500;
 const MAX_WARMUP_CANDLES = 10_000;
+const REPLAY_MISMATCH_SAMPLE_LIMIT = 50;
+const REPLAY_MISMATCH_SAMPLE_MAX = 500;
 const policyPayload = (policy) => JSON.stringify(policy);
 const policyHash = (policy) => (0, node_crypto_1.createHash)("sha256").update(policyPayload(policy), "utf8").digest("hex");
 const validRiskPercent = (value) => value === undefined || (Number.isFinite(value) && value > 0 && value < 100);
@@ -90,8 +93,8 @@ const decodeTradeCursor = (cursor) => {
 };
 class InMemoryBacktestQueue {
     jobs = new Map();
-    async enqueue(job) { if (!this.jobs.has(job.jobId))
-        this.jobs.set(job.jobId, clone(job)); }
+    async enqueue(job) { const id = isReplayVerificationJob(job) ? job.replayJobId : job.jobId; if (!this.jobs.has(id))
+        this.jobs.set(id, clone(job)); }
     async remove(jobId) { this.jobs.delete(jobId); }
 }
 exports.InMemoryBacktestQueue = InMemoryBacktestQueue;
@@ -104,6 +107,7 @@ class InMemoryBacktestingRepository {
     attempts = new Map();
     trades = new Map();
     experiments = new Map();
+    replays = new Map();
     dispatches = new Map();
     async createInputSnapshot(snapshot, candles) { const existing = [...this.snapshots.values()].find((entry) => entry.snapshot.id === snapshot.id || entry.snapshot.sha256 === snapshot.sha256); if (existing)
         return clone(existing.snapshot); this.snapshots.set(snapshot.id, { snapshot: clone(snapshot), candles: clone(candles) }); return clone(snapshot); }
@@ -294,6 +298,28 @@ class InMemoryBacktestingRepository {
     async listExperimentsBySearchRun(searchRunId, ownerUserId) { return [...this.experiments.values()].filter((experiment) => experiment.searchRunId === searchRunId && (!ownerUserId || experiment.ownerUserId === ownerUserId)).map(clone); }
     async updateExperimentScore(experimentId, input, ownerUserId) { const value = this.experiments.get(experimentId); if (!value || (ownerUserId && value.ownerUserId !== ownerUserId))
         return undefined; const updated = { ...value, ...input }; this.experiments.set(experimentId, clone(updated)); return clone(updated); }
+    async createReplayVerification(replay) { const existing = this.replays.get(replay.replayJobId); if (existing)
+        return clone(existing); this.replays.set(replay.replayJobId, clone(replay)); return clone(replay); }
+    async readReplayVerification(replayJobId, ownerUserId) { const value = this.replays.get(replayJobId); return value && (!ownerUserId || value.ownerUserId === ownerUserId) ? clone(value) : undefined; }
+    async claimReplayVerification(input) {
+        const value = this.replays.get(input.replayJobId);
+        if (!value || ["MATCH", "MISMATCH", "NON_REPLAYABLE"].includes(value.status))
+            return undefined;
+        if (value.status === "RUNNING" && value.leaseExpiresAt && Date.parse(value.leaseExpiresAt) > Date.parse(input.now))
+            return undefined;
+        if (value.status !== "QUEUED" && value.status !== "RUNNING")
+            return undefined;
+        const claimed = clone({ ...value, status: "RUNNING", activeClaimToken: input.claimToken, leaseExpiresAt: input.leaseExpiresAt, startedAt: value.startedAt ?? input.now });
+        this.replays.set(input.replayJobId, claimed);
+        return claimed;
+    }
+    async completeReplayVerification(input) {
+        const value = this.replays.get(input.replayJobId);
+        if (!value || value.status !== "RUNNING" || value.activeClaimToken !== input.claimToken || !value.leaseExpiresAt || Date.parse(value.leaseExpiresAt) <= Date.parse(input.now))
+            throw new Error("BACKTEST_REPLAY_FENCE_LOST");
+        this.replays.set(input.replayJobId, clone({ ...value, ...input.result, status: input.result.status, activeClaimToken: undefined, leaseExpiresAt: undefined, completedAt: input.now }));
+    }
+    async listReplayVerificationRecovery(nowValue, limit) { return [...this.replays.values()].filter((value) => value.status === "QUEUED" || (value.status === "RUNNING" && (!value.leaseExpiresAt || Date.parse(value.leaseExpiresAt) <= Date.parse(nowValue)))).sort((left, right) => left.requestedAt.localeCompare(right.requestedAt)).slice(0, limit).map((value) => value.replayJobId); }
 }
 exports.InMemoryBacktestingRepository = InMemoryBacktestingRepository;
 function createInMemoryBacktestingDependencies() { return { marketData: (0, bootstrap_2.createMarketDataModule)(), strategy: (0, bootstrap_3.createStrategyModule)(), evaluation: (0, bootstrap_1.createEvaluationModule)(), repository: new InMemoryBacktestingRepository(), queue: new InMemoryBacktestQueue(), completion: { score: async (_scopeId, metrics) => ({ scoreFormulaId: "MVP_MANUAL_V1", overallScore: metrics.totalReturnPercent, rankEligible: metrics.numberOfTrades > 0 }), submit: async () => undefined }, clock: { now }, idGenerator: node_crypto_1.randomUUID }; }
@@ -400,7 +426,16 @@ class BacktestingService {
             await this.deps.repository.recoverAbandonedAttempt({ candidateId, now: nowValue, error: "BACKTEST_WORKER_LEASE_EXPIRED" });
     } const pending = await this.deps.repository.listPendingDispatches(limit); let dispatched = 0; for (const item of pending)
         if (await this.dispatchOne(item))
-            dispatched += 1; return { dispatched, pending: pending.length - dispatched }; }
+            dispatched += 1; for (const replayJobId of await this.deps.repository.listReplayVerificationRecovery(nowValue, limit)) {
+        const replay = await this.deps.repository.readReplayVerification(replayJobId);
+        if (!replay)
+            continue;
+        try {
+            await this.deps.queue.enqueue({ schemaVersion: 1, replayJobId: replay.replayJobId, experimentId: replay.experimentId, mismatchSampleLimit: replay.mismatchSampleLimit, requestedAt: replay.requestedAt });
+            dispatched += 1;
+        }
+        catch { /* the durable queued record remains retryable */ }
+    } return { dispatched, pending: pending.length - dispatched }; }
     async listQueueRecoveryCandidates(limit = 100) { if (!Number.isInteger(limit) || limit < 1)
         invalid("INVALID_QUEUE_RECOVERY_LIMIT"); return this.deps.repository.listQueueRecoveryCandidates(limit); }
     async submit(command, input) { if (input.submissionIdempotencyKey) {
@@ -562,6 +597,46 @@ class BacktestingService {
         invalid("INVALID_SCORE"); await this.readExperimentSummary(auth, experimentId); const updated = await this.deps.repository.updateExperimentScore(experimentId, input, auth.userId); if (!updated)
         throw new Error("EXPERIMENT_NOT_FOUND"); return updated; }
     async listExperimentTrades(auth, experimentId, page) { const experiment = await this.readExperimentSummary(auth, experimentId); return this.pageTrades(experiment.trades, page, auth.userId, `experiment:${experimentId}`); }
+    async startReplayVerification(auth, experimentId) {
+        const experiment = await this.readExperimentSummary(auth, experimentId);
+        const requestedAt = this.now();
+        const replay = { replayJobId: this.id(), experimentId, sourceAttemptId: experiment.backtestAttemptId, ownerUserId: auth.userId, status: "QUEUED", mismatchSampleLimit: REPLAY_MISMATCH_SAMPLE_LIMIT, requestedAt };
+        await this.deps.repository.createReplayVerification(replay);
+        try {
+            await this.deps.queue.enqueue({ schemaVersion: 1, replayJobId: replay.replayJobId, experimentId, mismatchSampleLimit: replay.mismatchSampleLimit, requestedAt });
+        }
+        catch { /* durable reconciliation retries a lost enqueue */ }
+        return { replayJobId: replay.replayJobId, experimentId, status: "QUEUED" };
+    }
+    async readReplayVerification(auth, replayJobId) {
+        this.assertAuth(auth);
+        const replay = await this.deps.repository.readReplayVerification(replayJobId, auth.userId);
+        if (!replay)
+            throw new Error("REPLAY_VERIFICATION_NOT_FOUND");
+        return clone(replay);
+    }
+    async processReplayVerification(replayJobId) {
+        const nowValue = this.now();
+        const claimed = await this.deps.repository.claimReplayVerification({ replayJobId, claimToken: this.id(), now: nowValue, leaseExpiresAt: plusSeconds(nowValue, 60) });
+        if (!claimed)
+            return;
+        let result;
+        try {
+            const replay = await this.verifyReplay({ userId: claimed.ownerUserId }, claimed.experimentId);
+            const sampleLimit = Math.min(claimed.mismatchSampleLimit, REPLAY_MISMATCH_SAMPLE_MAX);
+            const mismatches = replay.mismatches.slice(0, sampleLimit);
+            const totalMismatchCount = replay.totalMismatchCount ?? replay.mismatches.length;
+            result = replay.status === "MISMATCH"
+                ? { replayJobId, experimentId: replay.experimentId, sourceAttemptId: replay.sourceAttemptId, status: "MISMATCH", comparedTradeCount: replay.comparedTradeCount, mismatches, totalMismatchCount, truncated: totalMismatchCount > mismatches.length }
+                : { replayJobId, experimentId: replay.experimentId, sourceAttemptId: replay.sourceAttemptId, status: "MATCH", comparedTradeCount: replay.comparedTradeCount, mismatches: [], totalMismatchCount: 0, truncated: false };
+        }
+        catch (error) {
+            const code = error instanceof Error ? error.message : "REPLAY_ARTIFACT_EXPIRED";
+            const failureCode = code === "BACKTEST_DATASET_NOT_FOUND" ? "MISSING_SNAPSHOT" : code === "IMPLEMENTATION_ARTIFACT_UNAVAILABLE" ? "IMPLEMENTATION_ARTIFACT_UNAVAILABLE" : "REPLAY_ARTIFACT_EXPIRED";
+            result = { replayJobId, experimentId: claimed.experimentId, sourceAttemptId: claimed.sourceAttemptId, status: "NON_REPLAYABLE", failureCode };
+        }
+        await this.deps.repository.completeReplayVerification({ replayJobId, claimToken: claimed.activeClaimToken, now: this.now(), result });
+    }
     visualizationContexts(candles) {
         return candles.map((candle, index) => ({ pair: candle.pair, timeframe: candle.timeframe, candles: candles.slice(0, index + 1).map(toStrategyCandle), currentPrice: candle.close, indicators: {} }));
     }

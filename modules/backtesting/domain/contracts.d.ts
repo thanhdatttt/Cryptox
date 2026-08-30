@@ -158,20 +158,44 @@ export interface BenchmarkScopeSummary {
     scoreFormulaId: string;
     createdAt: string;
 }
-export interface ReplayVerificationResult {
+export interface ReplayVerificationAccepted {
+    replayJobId: string;
+    experimentId: string;
+    status: "QUEUED";
+}
+export interface ReplayVerificationJob {
+    schemaVersion: 1;
+    replayJobId: string;
+    experimentId: string;
+    mismatchSampleLimit: number;
+    requestedAt: string;
+}
+export type ReplayVerificationResult = {
+    replayJobId: string;
     experimentId: string;
     sourceAttemptId: string;
-    status: "MATCH" | "MISMATCH" | "NON_REPLAYABLE";
+} & ({
+    status: "QUEUED" | "RUNNING";
+} | {
+    status: "MATCH";
+    comparedTradeCount: number;
+    mismatches: [];
+    totalMismatchCount: 0;
+    truncated: false;
+} | {
+    status: "MISMATCH";
     comparedTradeCount: number;
     mismatches: Array<{
         fieldPath: string;
         expected: string;
         actual: string;
     }>;
-    totalMismatchCount?: number;
-    truncated?: boolean;
-    failureCode?: "MISSING_SNAPSHOT" | "IMPLEMENTATION_ARTIFACT_UNAVAILABLE" | "REPLAY_ARTIFACT_EXPIRED";
-}
+    totalMismatchCount: number;
+    truncated: boolean;
+} | {
+    status: "NON_REPLAYABLE";
+    failureCode: "MISSING_SNAPSHOT" | "IMPLEMENTATION_ARTIFACT_UNAVAILABLE" | "REPLAY_ARTIFACT_EXPIRED";
+});
 export interface CandidateProgress {
     candidateId: string;
     origin: "MANUAL" | "SEARCH";

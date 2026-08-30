@@ -225,6 +225,14 @@ describe("backtesting runtime", () => {
     expect(experiment.executionPolicy?.sha256).toMatch(/^[a-f0-9]{64}$/);
     expect(experiment.endingEquity).toBeCloseTo(1000 + (experiment.totalProfitAmount ?? 0), 8);
     await expect(service.verifyReplay({ userId: "user-1" }, experiment.id)).resolves.toMatchObject({ status: "MATCH", comparedTradeCount: 1 });
+    const replayAccepted = await service.startReplayVerification({ userId: "user-1" }, experiment.id);
+    expect(replayAccepted).toMatchObject({ experimentId: experiment.id, status: "QUEUED" });
+    expect(queue.jobs.get(replayAccepted.replayJobId)).toMatchObject({ replayJobId: replayAccepted.replayJobId, experimentId: experiment.id, mismatchSampleLimit: 50 });
+    await expect(service.readReplayVerification({ userId: "user-1" }, replayAccepted.replayJobId)).resolves.toMatchObject({ status: "QUEUED", sourceAttemptId: experiment.backtestAttemptId });
+    await service.processReplayVerification(replayAccepted.replayJobId);
+    await expect(service.readReplayVerification({ userId: "user-1" }, replayAccepted.replayJobId)).resolves.toMatchObject({ status: "MATCH", comparedTradeCount: 1, totalMismatchCount: 0, truncated: false, mismatches: [] });
+    await expect(service.processReplayVerification(replayAccepted.replayJobId)).resolves.toBeUndefined();
+    await expect(service.readReplayVerification({ userId: "another-user" }, replayAccepted.replayJobId)).rejects.toThrow("REPLAY_VERIFICATION_NOT_FOUND");
     await expect(service.status({ userId: "another-user" }, accepted.candidateId)).rejects.toThrow("BACKTEST_CANDIDATE_NOT_FOUND");
 
     transientFailures = 1;

@@ -497,8 +497,22 @@ export class ExperimentController extends ProtectedController {
   async trades(@Headers("authorization") authorization: string | undefined, @Param("experimentId") experimentId: string, @Query("limit") limit?: string, @Query("cursor") cursor?: string) { const userId = await this.authenticate(authorization); const parsed = parsePageLimit(limit, 10, 500, "limit must be an integer from 1 to 500."); try { return await this.modules.backtesting.listExperimentTrades({ userId }, experimentId, { limit: parsed, cursor }); } catch (error) { return backtestHttpError(error); } }
   @Get(":experimentId/visualization")
   async visualization(@Headers("authorization") authorization: string | undefined, @Param("experimentId") experimentId: string, @Query("limit") limit?: string, @Query("cursor") cursor?: string, @Query("from") from?: string, @Query("to") to?: string, @Query("highlightTradeId") highlightTradeId?: string) { const userId = await this.authenticate(authorization); const parsed = parsePageLimit(limit, 500, 2000, "limit must be an integer from 1 to 2000."); try { return projectVisualization(await this.modules.backtesting.readExperimentVisualization({ userId }, experimentId, { limit: parsed, cursor, from, to, highlightTradeId })); } catch (error) { return backtestHttpError(error); } }
-  @Post(":experimentId/replay")
-  async replay(@Headers("authorization") authorization: string | undefined, @Param("experimentId") experimentId: string) { const userId = await this.authenticate(authorization); try { return await this.modules.backtesting.verifyReplay({ userId }, experimentId); } catch (error) { return backtestHttpError(error); } }
+  @Post(":experimentId/replay-verifications")
+  @HttpCode(202)
+  async replay(@Headers("authorization") authorization: string | undefined, @Param("experimentId") experimentId: string) { const userId = await this.authenticate(authorization); try { const backtesting = this.modules.backtesting as BacktestLogApiCompat; return backtesting.startReplayVerification ? await backtesting.startReplayVerification({ userId }, experimentId) : await backtesting.verifyReplay!({ userId }, experimentId); } catch (error) { return backtestHttpError(error); } }
+}
+
+interface BacktestLogApiCompat {
+  startReplayVerification?: (auth: { userId: string }, experimentId: string) => Promise<unknown>;
+  verifyReplay?: (auth: { userId: string }, experimentId: string) => Promise<unknown>;
+  readReplayVerification?: (auth: { userId: string }, replayJobId: string) => Promise<unknown>;
+}
+
+@Controller("replay-verifications")
+export class ReplayVerificationController extends ProtectedController {
+  constructor(@Inject(BACKEND_MODULES) modules: BackendModules) { super(modules); }
+  @Get(":replayJobId")
+  async read(@Headers("authorization") authorization: string | undefined, @Param("replayJobId") replayJobId: string) { const userId = await this.authenticate(authorization); try { const reader = (this.modules.backtesting as BacktestLogApiCompat).readReplayVerification; if (!reader) throw new Error("REPLAY_VERIFICATION_NOT_CONFIGURED"); return await reader({ userId }, replayJobId); } catch (error) { return backtestHttpError(error); } }
 }
 
 @Controller("search-runs")
@@ -549,7 +563,7 @@ export class LeaderboardController extends ProtectedController {
 }
 
 @Module({
-  controllers: [HealthController, AuthController, StrategyController, StrategyGenerationController, MarketController, NewsController, SentimentController, BacktestScopeController, BacktestController, BacktestAttemptController, ExperimentController, SearchController, LeaderboardController],
+  controllers: [HealthController, AuthController, StrategyController, StrategyGenerationController, MarketController, NewsController, SentimentController, BacktestScopeController, BacktestController, BacktestAttemptController, ExperimentController, ReplayVerificationController, SearchController, LeaderboardController],
   providers: [MarketGateway, { provide: BACKEND_MODULES, useFactory: (): BackendModules => composeAllModules() }],
 })
 export class AppModule {}

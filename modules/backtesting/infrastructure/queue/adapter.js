@@ -3,9 +3,16 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.BullMqBacktestCompletionListener = exports.BullMqBacktestWorker = exports.forwardTerminalSignal = exports.BullMqBacktestQueue = exports.BACKTEST_QUEUE_NAME = void 0;
 const bullmq_1 = require("bullmq");
 exports.BACKTEST_QUEUE_NAME = "backtest-execution-v1";
+const isReplayVerificationJob = (value) => "replayJobId" in value;
 const validate = (value) => {
     if (!value || typeof value !== "object")
         throw new Error("INVALID_BACKTEST_QUEUE_JOB");
+    if ("replayJobId" in value) {
+        const job = value;
+        if (job.schemaVersion !== 1 || typeof job.replayJobId !== "string" || job.replayJobId.length === 0 || typeof job.experimentId !== "string" || job.experimentId.length === 0 || typeof job.mismatchSampleLimit !== "number" || !Number.isInteger(job.mismatchSampleLimit) || job.mismatchSampleLimit < 1 || job.mismatchSampleLimit > 500 || typeof job.requestedAt !== "string")
+            throw new Error("INVALID_REPLAY_VERIFICATION_JOB");
+        return job;
+    }
     const job = value;
     const maxAttempts = job.maxAttempts;
     if (job.schemaVersion !== 1 || typeof job.jobId !== "string" || job.jobId.length === 0 || job.candidateId !== job.jobId || typeof job.leaderboardScopeId !== "string" || typeof maxAttempts !== "number" || !Number.isInteger(maxAttempts) || maxAttempts < 1 || typeof job.workerRuntimeVersion !== "string" || typeof job.workerRuntimeSha256 !== "string" || typeof job.enqueuedAt !== "string")
@@ -20,8 +27,8 @@ class BullMqBacktestQueue {
     async enqueue(value) {
         const job = validate(value);
         await this.queue.add("execute", job, {
-            jobId: job.jobId,
-            attempts: job.maxAttempts,
+            jobId: isReplayVerificationJob(job) ? job.replayJobId : job.jobId,
+            attempts: isReplayVerificationJob(job) ? 3 : job.maxAttempts,
             backoff: { type: "exponential", delay: 1_000 },
             removeOnComplete: false,
             removeOnFail: false,
@@ -46,6 +53,12 @@ class BullMqBacktestWorker {
             throw new Error("INVALID_BACKTEST_WORKER_CONCURRENCY");
         this.worker = new bullmq_1.Worker(exports.BACKTEST_QUEUE_NAME, async (nativeJob) => {
             const job = validate(nativeJob.data);
+            if (isReplayVerificationJob(job)) {
+                if (!runtime.processReplayVerification)
+                    throw new Error("REPLAY_WORKER_NOT_CONFIGURED");
+                await runtime.processReplayVerification(job.replayJobId);
+                return { replayJobId: job.replayJobId, status: "PROCESSED" };
+            }
             return runtime.processQueueJob(job, { attemptNumber: nativeJob.attemptsMade + 1, fenceToken: `${job.jobId}:${nativeJob.attemptsMade + 1}:${nativeJob.token ?? "delivery"}` });
         }, { connection: { url: redisUrl }, concurrency, maxStalledCount: 1 });
     }
@@ -64,7 +77,8 @@ class BullMqBacktestCompletionListener {
         this.events.on("completed", ({ jobId, returnvalue }) => {
             try {
                 const parsed = JSON.parse(returnvalue);
-                void (0, exports.forwardTerminalSignal)(this.runtime, { schemaVersion: 1, jobId, status: "COMPLETED", returnValue: parsed }).catch(() => undefined);
+                if ("candidateId" in parsed)
+                    void (0, exports.forwardTerminalSignal)(this.runtime, { schemaVersion: 1, jobId, status: "COMPLETED", returnValue: parsed }).catch(() => undefined);
             }
             catch { /* malformed return values are ignored; durable reconciliation remains authoritative */ }
         });
@@ -73,6 +87,8 @@ class BullMqBacktestCompletionListener {
     async forwardVerifiedFailure(jobId, failedReason) {
         const job = await this.queue.getJob(jobId);
         if (!job || await job.getState() !== "failed")
+            return;
+        if (isReplayVerificationJob(validate(job.data)))
             return;
         const attempts = typeof job.opts.attempts === "number" ? job.opts.attempts : 1;
         if (job.attemptsMade < attempts)

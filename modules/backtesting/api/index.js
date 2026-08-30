@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.createInMemoryBacktestingDependencies = exports.createBacktestingService = exports.verifyReplay = exports.readExperimentVisualization = exports.listExperimentTrades = exports.scoreExperiment = exports.listSearchExperimentSummaries = exports.readExperimentSummary = exports.listAttemptTrades = exports.readAttempt = exports.removePendingJobs = exports.cancelManualCandidate = exports.cancelSearchCandidates = exports.listSearchCandidates = exports.summarizeSearchCandidates = exports.status = exports.processQueueTerminalSignal = exports.processCompletion = exports.processQueueJob = exports.reconcileCompletions = exports.listQueueRecoveryCandidates = exports.reconcileQueue = exports.submitSearchCandidate = exports.startManual = exports.listBenchmarkScopes = exports.readBenchmarkScope = exports.createBenchmarkScope = exports.simulateBacktest = void 0;
+exports.createInMemoryBacktestingDependencies = exports.createBacktestingService = exports.verifyReplay = exports.readReplayVerification = exports.startReplayVerification = exports.readExperimentVisualization = exports.listExperimentTrades = exports.scoreExperiment = exports.listSearchExperimentSummaries = exports.readExperimentSummary = exports.listAttemptTrades = exports.readAttempt = exports.removePendingJobs = exports.cancelManualCandidate = exports.cancelSearchCandidates = exports.listSearchCandidates = exports.summarizeSearchCandidates = exports.status = exports.processQueueTerminalSignal = exports.processCompletion = exports.processReplayVerification = exports.processQueueJob = exports.reconcileCompletions = exports.listQueueRecoveryCandidates = exports.reconcileQueue = exports.submitSearchCandidate = exports.startManual = exports.listBenchmarkScopes = exports.readBenchmarkScope = exports.createBenchmarkScope = exports.simulateBacktest = void 0;
 const service_1 = require("../application/service");
 var simulator_1 = require("../domain/simulator");
 Object.defineProperty(exports, "simulateBacktest", { enumerable: true, get: function () { return simulator_1.simulateBacktest; } });
@@ -23,6 +23,8 @@ const reconcileCompletions = (limit) => defaultService.reconcileCompletions(limi
 exports.reconcileCompletions = reconcileCompletions;
 const processQueueJob = (job, delivery) => defaultService.processQueueJob(job, delivery);
 exports.processQueueJob = processQueueJob;
+const processReplayVerification = (replayJobId) => defaultService.processReplayVerification(replayJobId);
+exports.processReplayVerification = processReplayVerification;
 const processCompletion = (candidateId) => defaultService.processCompletion(candidateId);
 exports.processCompletion = processCompletion;
 const processQueueTerminalSignal = (signal) => defaultService.processQueueTerminalSignal(signal);
@@ -53,6 +55,10 @@ const listExperimentTrades = (auth, experimentId, page) => defaultService.listEx
 exports.listExperimentTrades = listExperimentTrades;
 const readExperimentVisualization = (auth, experimentId, page) => defaultService.readExperimentVisualization(auth, experimentId, page);
 exports.readExperimentVisualization = readExperimentVisualization;
+const startReplayVerification = (auth, experimentId) => defaultService.startReplayVerification(auth, experimentId);
+exports.startReplayVerification = startReplayVerification;
+const readReplayVerification = (auth, replayJobId) => defaultService.readReplayVerification(auth, replayJobId);
+exports.readReplayVerification = readReplayVerification;
 const verifyReplay = (auth, experimentId) => defaultService.verifyReplay(auth, experimentId);
 exports.verifyReplay = verifyReplay;
 var service_2 = require("../application/service");

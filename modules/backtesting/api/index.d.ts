@@ -1,9 +1,9 @@
-import type { BacktestAttemptAudit, BacktestSubmissionAccepted, BenchmarkScopeSummary, CandidateProgress, CancellationUnitOfWork, CreateLeaderboardScopeCommand, ExperimentResultSummary, ExperimentVisualization, ReplayVerificationResult, StartManualBacktestCommand, SubmitSearchCandidateCommand, Trade } from "../domain/contracts";
+import type { BacktestAttemptAudit, BacktestSubmissionAccepted, BenchmarkScopeSummary, CandidateProgress, CancellationUnitOfWork, CreateLeaderboardScopeCommand, ExperimentResultSummary, ExperimentVisualization, ReplayVerificationAccepted, ReplayVerificationResult, StartManualBacktestCommand, SubmitSearchCandidateCommand, Trade } from "../domain/contracts";
 import type { BacktestQueueJob, BacktestQueueReturn, BacktestQueueTerminalSignal } from "@cryptox/contracts/queue";
 import type { AuthContext } from "modules/auth/api";
 export { simulateBacktest } from "../domain/simulator";
 export type { SimulationInput } from "../domain/simulator";
-export type { CandidateStatus, BacktestSubmissionAccepted, CancellationUnitOfWork, CompletionUnitOfWork, ExecutionPolicyInput, ExecutionPolicySnapshot, Trade, CompletedBacktestResult, GeneratorType, CreateLeaderboardScopeCommand, StartManualBacktestCommand, SubmitSearchCandidateCommand, BenchmarkScopeSummary, ReplayVerificationResult, CandidateProgress, BacktestAttemptProgress, BacktestAttemptAudit, ExperimentResult, ExperimentResultSummary, ExperimentVisualization, ExperimentVisualizationMarker, StrategyVisualizationOverlay } from "../domain/contracts";
+export type { CandidateStatus, BacktestSubmissionAccepted, CancellationUnitOfWork, CompletionUnitOfWork, ExecutionPolicyInput, ExecutionPolicySnapshot, Trade, CompletedBacktestResult, GeneratorType, CreateLeaderboardScopeCommand, StartManualBacktestCommand, SubmitSearchCandidateCommand, BenchmarkScopeSummary, ReplayVerificationAccepted, ReplayVerificationResult, CandidateProgress, BacktestAttemptProgress, BacktestAttemptAudit, ExperimentResult, ExperimentResultSummary, ExperimentVisualization, ExperimentVisualizationMarker, StrategyVisualizationOverlay } from "../domain/contracts";
 export interface SearchCandidateSummary {
     searchRunId: string;
     active: CandidateProgress[];
@@ -41,6 +41,20 @@ export interface ExperimentVisualizationPageRequest {
     to?: string;
     highlightTradeId?: string;
 }
+export interface LegacyReplayVerificationResult {
+    experimentId: string;
+    sourceAttemptId: string;
+    status: "MATCH" | "MISMATCH" | "NON_REPLAYABLE";
+    comparedTradeCount: number;
+    mismatches: Array<{
+        fieldPath: string;
+        expected: string;
+        actual: string;
+    }>;
+    totalMismatchCount?: number;
+    truncated?: boolean;
+    failureCode?: "MISSING_SNAPSHOT" | "IMPLEMENTATION_ARTIFACT_UNAVAILABLE" | "REPLAY_ARTIFACT_EXPIRED";
+}
 export type { AuthContext } from "modules/auth/api";
 export interface BacktestLogApi {
     createBenchmarkScope(auth: AuthContext, command: CreateLeaderboardScopeCommand, options: {
@@ -65,6 +79,7 @@ export interface BacktestLogApi {
         attemptNumber: number;
         fenceToken?: string;
     }): Promise<BacktestQueueReturn>;
+    processReplayVerification(replayJobId: string): Promise<void>;
     processCompletion(candidateId: string): Promise<{
         candidateId: string;
         status: "COMPLETED" | "FAILED" | "IGNORED";
@@ -91,7 +106,9 @@ export interface BacktestLogApi {
     }): Promise<ExperimentResultSummary>;
     listExperimentTrades(auth: AuthContext, experimentId: string, page: TradePageRequest): Promise<TradePage>;
     readExperimentVisualization(auth: AuthContext, experimentId: string, page: ExperimentVisualizationPageRequest): Promise<ExperimentVisualization>;
-    verifyReplay(auth: AuthContext, experimentId: string): Promise<ReplayVerificationResult>;
+    startReplayVerification(auth: AuthContext, experimentId: string): Promise<ReplayVerificationAccepted>;
+    readReplayVerification(auth: AuthContext, replayJobId: string): Promise<ReplayVerificationResult>;
+    verifyReplay(auth: AuthContext, experimentId: string): Promise<LegacyReplayVerificationResult>;
 }
 export declare const createBenchmarkScope: BacktestLogApi["createBenchmarkScope"];
 export declare const readBenchmarkScope: BacktestLogApi["readBenchmarkScope"];
@@ -102,6 +119,7 @@ export declare const reconcileQueue: BacktestLogApi["reconcileQueue"];
 export declare const listQueueRecoveryCandidates: BacktestLogApi["listQueueRecoveryCandidates"];
 export declare const reconcileCompletions: BacktestLogApi["reconcileCompletions"];
 export declare const processQueueJob: BacktestLogApi["processQueueJob"];
+export declare const processReplayVerification: BacktestLogApi["processReplayVerification"];
 export declare const processCompletion: BacktestLogApi["processCompletion"];
 export declare const processQueueTerminalSignal: BacktestLogApi["processQueueTerminalSignal"];
 export declare const status: BacktestLogApi["status"];
@@ -117,5 +135,7 @@ export declare const listSearchExperimentSummaries: BacktestLogApi["listSearchEx
 export declare const scoreExperiment: BacktestLogApi["scoreExperiment"];
 export declare const listExperimentTrades: BacktestLogApi["listExperimentTrades"];
 export declare const readExperimentVisualization: BacktestLogApi["readExperimentVisualization"];
+export declare const startReplayVerification: BacktestLogApi["startReplayVerification"];
+export declare const readReplayVerification: BacktestLogApi["readReplayVerification"];
 export declare const verifyReplay: BacktestLogApi["verifyReplay"];
 export { createBacktestingService, createInMemoryBacktestingDependencies } from "../application/service";

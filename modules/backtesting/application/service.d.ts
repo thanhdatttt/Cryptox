@@ -1,16 +1,16 @@
-import type { BacktestQueueJob, BacktestQueueReturn, BacktestQueueTerminalSignal } from "@cryptox/contracts/queue";
+import type { BacktestQueueJob, BacktestQueuePayload, BacktestQueueReturn, BacktestQueueTerminalSignal } from "@cryptox/contracts/queue";
 import type { CompositeStrategyDefinition, StrategyDefinition } from "modules/strategy/api";
-import type { BacktestLogApi, ExperimentVisualizationPageRequest, SearchCandidatePage, SearchCandidatePageRequest, SearchCandidateSummary, TradePage, TradePageRequest } from "../api";
+import type { BacktestLogApi, ExperimentVisualizationPageRequest, LegacyReplayVerificationResult, SearchCandidatePage, SearchCandidatePageRequest, SearchCandidateSummary, TradePage, TradePageRequest } from "../api";
 import type { BacktestAttemptAudit, BacktestSubmissionAccepted, BenchmarkScopeSummary, CandidateProgress, CompletedBacktestResult, CreateLeaderboardScopeCommand, ExecutionPolicySnapshot, ExperimentResultSummary, ExperimentVisualization, ReplayVerificationResult, StartManualBacktestCommand, SubmitSearchCandidateCommand, Trade } from "../domain/contracts";
 import type { AuthContext } from "modules/auth/api";
-import type { BacktestDispatch, BacktestQueuePort, BacktestingModuleDependencies, BacktestingRepository, StoredBenchmarkScope, StoredCandidate, StoredExperiment, WorkerAttemptClaim } from "./ports";
+import type { BacktestDispatch, BacktestQueuePort, BacktestingModuleDependencies, BacktestingRepository, StoredBenchmarkScope, StoredCandidate, StoredExperiment, StoredReplayVerification, WorkerAttemptClaim } from "./ports";
 export declare const BACKTEST_RUNTIME_VERSION = "1.0.0";
 export declare const BACKTEST_RUNTIME_SHA256 = "c7d208d3db06e01df73733b91ed928fbd78d06f0d6d978f5821547c8ee6af75b";
 export declare const SIMULATOR_VERSION = "1.0.0";
 export declare const SIMULATOR_SHA256 = "2ed4a4326ba78169d9432c10f05272b01c53a5518ead8ab873be35bd2f1305bf";
 export declare class InMemoryBacktestQueue implements BacktestQueuePort {
     readonly jobs: Map<string, BacktestQueueJob>;
-    enqueue(job: BacktestQueueJob): Promise<void>;
+    enqueue(job: BacktestQueuePayload): Promise<void>;
     remove(jobId: string): Promise<void>;
 }
 export declare class InMemoryBacktestingRepository implements BacktestingRepository {
@@ -22,6 +22,7 @@ export declare class InMemoryBacktestingRepository implements BacktestingReposit
     private readonly attempts;
     private readonly trades;
     private readonly experiments;
+    private readonly replays;
     private readonly dispatches;
     createInputSnapshot(snapshot: import("modules/market-data/api").DatasetSnapshotRef, candles: import("modules/market-data/api").Candle[]): Promise<import("modules/market-data/api").DatasetSnapshotRef>;
     readInputSnapshot(snapshotId: string): Promise<{
@@ -184,6 +185,35 @@ export declare class InMemoryBacktestingRepository implements BacktestingReposit
         leaderboardScopeId: string;
         scoreFormulaId: string;
     } | undefined>;
+    createReplayVerification(replay: StoredReplayVerification): Promise<StoredReplayVerification>;
+    readReplayVerification(replayJobId: string, ownerUserId?: string): Promise<StoredReplayVerification | undefined>;
+    claimReplayVerification(input: {
+        replayJobId: string;
+        claimToken: string;
+        now: string;
+        leaseExpiresAt: string;
+    }): Promise<{
+        status: "RUNNING";
+        activeClaimToken: string;
+        leaseExpiresAt: string;
+        startedAt: string;
+        replayJobId: string;
+        experimentId: string;
+        sourceAttemptId: string;
+        ownerUserId: string;
+        mismatchSampleLimit: number;
+        requestedAt: string;
+        completedAt?: string;
+    } | undefined>;
+    completeReplayVerification(input: {
+        replayJobId: string;
+        claimToken: string;
+        now: string;
+        result: Extract<import("../domain/contracts").ReplayVerificationResult, {
+            status: "MATCH" | "MISMATCH" | "NON_REPLAYABLE";
+        }>;
+    }): Promise<void>;
+    listReplayVerificationRecovery(nowValue: string, limit: number): Promise<string[]>;
 }
 export declare function createInMemoryBacktestingDependencies(): BacktestingModuleDependencies;
 export declare class BacktestingService implements BacktestLogApi {
@@ -256,10 +286,13 @@ export declare class BacktestingService implements BacktestLogApi {
         rankEligible: boolean;
     }): Promise<ExperimentResultSummary>;
     listExperimentTrades(auth: AuthContext, experimentId: string, page: TradePageRequest): Promise<TradePage>;
+    startReplayVerification(auth: AuthContext, experimentId: string): Promise<import("../domain/contracts").ReplayVerificationAccepted>;
+    readReplayVerification(auth: AuthContext, replayJobId: string): Promise<ReplayVerificationResult>;
+    processReplayVerification(replayJobId: string): Promise<void>;
     private visualizationContexts;
     private buildExperimentOverlays;
     readExperimentVisualization(auth: AuthContext, experimentId: string, page: ExperimentVisualizationPageRequest): Promise<ExperimentVisualization>;
     private pageTrades;
-    verifyReplay(auth: AuthContext, experimentId: string): Promise<ReplayVerificationResult>;
+    verifyReplay(auth: AuthContext, experimentId: string): Promise<LegacyReplayVerificationResult>;
 }
 export declare function createBacktestingService(dependencies?: BacktestingModuleDependencies): BacktestLogApi;

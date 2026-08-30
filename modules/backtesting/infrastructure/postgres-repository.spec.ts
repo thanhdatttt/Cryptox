@@ -151,4 +151,21 @@ describe("PostgresBacktestingRepository", () => {
     expect(calls[1]).toContain("INSERT INTO backtest_experiment_results");
     expect(finalCalls[0]).toContain("UPDATE backtest_candidates");
   });
+
+  it("persists replay jobs and fences duplicate or expired worker claims", async () => {
+    const calls: Array<{ text: string; values: unknown[] }> = [];
+    const row = { id: "replay-1", owner_user_id: "user-1", experiment_result_id: "experiment-1", status: "RUNNING", mismatch_sample_limit: 50, compared_trade_count: null, mismatch_sample: null, total_mismatch_count: null, truncated: null, failure_code: null, claim_token: "claim-1", lease_expires_at: "2025-01-01T00:01:00.000Z", created_at: "2025-01-01T00:00:00.000Z", started_at: "2025-01-01T00:00:00.000Z", completed_at: null, backtest_attempt_id: "attempt-1" };
+    const repository = new PostgresBacktestingRepository({ query: async <Row>(text: string, values: unknown[]) => {
+      calls.push({ text, values });
+      if (text.startsWith("UPDATE backtest_replay_verifications")) return { rows: [row] as unknown as Row[] };
+      if (text.startsWith("SELECT backtest_attempt_id")) return { rows: [{ backtest_attempt_id: "attempt-1" }] as Row[] };
+      if (text.startsWith("UPDATE backtest_replay_verifications SET status")) return { rows: [{ id: "replay-1" }] as Row[] };
+      return { rows: [] as Row[] };
+    } });
+    await repository.createReplayVerification({ replayJobId: "replay-1", experimentId: "experiment-1", sourceAttemptId: "attempt-1", ownerUserId: "user-1", status: "QUEUED", mismatchSampleLimit: 50, requestedAt: "2025-01-01T00:00:00.000Z" });
+    await expect(repository.claimReplayVerification({ replayJobId: "replay-1", claimToken: "claim-1", now: "2025-01-01T00:00:00.000Z", leaseExpiresAt: "2025-01-01T00:01:00.000Z" })).resolves.toMatchObject({ replayJobId: "replay-1", status: "RUNNING", sourceAttemptId: "attempt-1" });
+    await repository.completeReplayVerification({ replayJobId: "replay-1", claimToken: "claim-1", now: "2025-01-01T00:00:30.000Z", result: { replayJobId: "replay-1", experimentId: "experiment-1", sourceAttemptId: "attempt-1", status: "MATCH", comparedTradeCount: 0, mismatches: [], totalMismatchCount: 0, truncated: false } });
+    expect(calls.some((call) => call.text.startsWith("INSERT INTO backtest_replay_verifications"))).toBe(true);
+    expect(calls.some((call) => call.text.includes("claim_token = $2") && call.text.includes("lease_expires_at > $3"))).toBe(true);
+  });
 });
