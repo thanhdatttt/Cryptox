@@ -13,7 +13,7 @@ const keysAre = (value, required, optional = []) => required.every((key) => Obje
 const finite = (value) => typeof value === "number" && Number.isFinite(value);
 const parameterRecord = (value) => isPlainRecord(value) && Object.values(value).every((item) => typeof item === "string" || finite(item));
 const validateHttpUrl = (value) => {
-    if (typeof value !== "string" || !value.trim() || value.trim().length > 100000)
+    if (typeof value !== "string" || !value.trim())
         throw new Error("VALIDATION_ERROR");
     const text = value.trim();
     let url;
@@ -153,14 +153,14 @@ function createInMemoryStrategyDependencies() {
             listByLogicalFamily: async (ownerUserId, logicalFamilyKey) => [...composites.values()].filter((item) => item.ownerUserId === ownerUserId && item.value.logicalFamilyKey === logicalFamilyKey).map((item) => item.value),
         },
         generationAdapter: {
-            modelName: "UNCONFIGURED",
-            modelVersion: "0",
+            modelName: "LOCAL_DETERMINISTIC",
+            modelVersion: "1.0.0",
             generate: async () => { throw new Error("STRATEGY_MODEL_UNAVAILABLE"); },
         },
         sourceLoader: (0, public_source_loader_1.createPublicStrategySourceLoader)(),
         generationUnitOfWork,
-        modelName: "UNCONFIGURED",
-        modelVersion: "0",
+        modelName: "LOCAL_DETERMINISTIC",
+        modelVersion: "1.0.0",
         promptVersion: "1",
     };
 }
@@ -174,8 +174,8 @@ function createStrategyModule(dependencies = createInMemoryStrategyDependencies(
     };
     const configuredModelName = dependencies.modelName?.trim();
     const configuredModelVersion = dependencies.modelVersion?.trim();
-    const modelName = generationAdapter.modelName ?? (configuredModelName && configuredModelName !== "UNCONFIGURED" ? configuredModelName : "configured-model");
-    const modelVersion = generationAdapter.modelVersion ?? (configuredModelVersion && configuredModelVersion !== "0" ? configuredModelVersion : "1");
+    const modelName = generationAdapter.modelName ?? configuredModelName ?? "LOCAL_DETERMINISTIC";
+    const modelVersion = generationAdapter.modelVersion ?? configuredModelVersion ?? "1.0.0";
     const promptVersion = dependencies.promptVersion ?? "1";
     const modelTimeoutMs = finite(dependencies.modelTimeoutMs) && dependencies.modelTimeoutMs > 0 ? dependencies.modelTimeoutMs : 15_000;
     const factories = new Map(registry.list().map((descriptor) => [descriptor.name, registry.get(descriptor.name, descriptor.implementationSha256)]));
@@ -348,7 +348,7 @@ function createStrategyModule(dependencies = createInMemoryStrategyDependencies(
             if (!keysAre(source, allowedSourceKeys))
                 invalid("VALIDATION_ERROR");
             const value = sourceType === "TEXT" ? source.text : source.url;
-            if (typeof value !== "string" || !value.trim())
+            if (typeof value !== "string" || !value.trim() || value.trim().length > 100_000)
                 invalid("VALIDATION_ERROR");
             let sourceText;
             if (sourceType === "TEXT") {

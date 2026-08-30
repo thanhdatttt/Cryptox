@@ -113,4 +113,9 @@ describe("news runtime", () => {
     expect(createConfiguredNewsProviders()[0]).toEqual(expect.objectContaining({ name: "COINDESK_RSS_V1" }));
     expect(createConfiguredNewsProviders({ provider: "coindesk_rss" })[0]).toEqual(expect.objectContaining({ name: "COINDESK_RSS_V1" }));
   });
+
+  it("rejects providers that have no registered adapter", () => {
+    expect(() => createConfiguredNewsProviders({ provider: "UNKNOWN" })).toThrow("INVALID_CONFIGURATION:NEWS_PROVIDER:UNKNOWN");
+    expect(() => createConfiguredNewsProviders({ provider: "CRAWLER" })).toThrow("MISSING_CONFIGURATION:NEWS_PROVIDER_CRAWLER");
+  });
 });

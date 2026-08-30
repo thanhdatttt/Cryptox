@@ -12,6 +12,7 @@ describe("evaluation runtime", () => {
     expect(metrics.profitFactor).toBe(2);
     expect(metrics.sharpeRatioStatus).toBe("FINITE");
     expect(metrics.evaluationPolicyId).toBe("MVP_EVALUATION_V1");
+    expect(metrics.evaluationRuntimeSha256).toMatch(/^[a-f0-9]{64}$/);
   });
   it("keeps zero-trade metrics finite and rejects non-completed results", () => {
     const empty: CompletedBacktestResult = { status: "COMPLETED", candidateId: "candidate", attemptId: "attempt", workerRuntimeVersion: "1", workerRuntimeSha256: "a".repeat(64), startedAt: "now", completedAt: "now", trades: [] };

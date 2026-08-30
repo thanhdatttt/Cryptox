@@ -1,13 +1,11 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.EVALUATION_RUNTIME_SHA256 = exports.EVALUATION_RUNTIME_VERSION = exports.EVALUATION_POLICY_ID = void 0;
+exports.EVALUATION_POLICY_ID = void 0;
 exports.evaluateBacktest = evaluateBacktest;
 exports.EVALUATION_POLICY_ID = "MVP_EVALUATION_V1";
-exports.EVALUATION_RUNTIME_VERSION = "1.0.0";
-exports.EVALUATION_RUNTIME_SHA256 = "e4b2f8a1d1a3e6f22f0d0ef8d5a4b9d2c7e1f9a3b4c6d8e0f1a2b3c4d5e6f708";
 const finite = (value, label) => { if (!Number.isFinite(value))
     throw new Error(`EVALUATION_FINITE_METRIC_VIOLATION:${label}`); return value; };
-function evaluateBacktest(result) {
+function evaluateBacktest(result, provenance) {
     if (!result || result.status !== "COMPLETED" || !Array.isArray(result.trades))
         throw new Error("INVALID_INPUT");
     const returns = result.trades.map((trade) => finite(trade.resultPercent, "trade.resultPercent"));
@@ -49,7 +47,7 @@ function evaluateBacktest(result) {
         sharpeRatio,
         sharpeRatioStatus,
         evaluationPolicyId: exports.EVALUATION_POLICY_ID,
-        evaluationRuntimeVersion: exports.EVALUATION_RUNTIME_VERSION,
-        evaluationRuntimeSha256: exports.EVALUATION_RUNTIME_SHA256,
+        evaluationRuntimeVersion: provenance.version,
+        evaluationRuntimeSha256: provenance.sha256,
     };
 }

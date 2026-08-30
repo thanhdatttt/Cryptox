@@ -121,8 +121,8 @@ const createPostgresStrategyDependencies = (pool) => ({
     definitionRepository: new PostgresStrategyDefinitionRepository(pool),
     compositeRepository: new PostgresCompositeDefinitionRepository(pool),
     generationUnitOfWork: new PostgresStrategyGenerationUnitOfWork(pool),
-    modelName: process.env.STRATEGY_MODEL_NAME ?? "UNCONFIGURED",
-    modelVersion: process.env.STRATEGY_MODEL_VERSION ?? "0",
+    modelName: process.env.STRATEGY_MODEL_NAME?.trim() || (() => { throw new Error("MISSING_CONFIGURATION:STRATEGY_MODEL_NAME"); })(),
+    modelVersion: process.env.STRATEGY_MODEL_VERSION?.trim() || process.env.STRATEGY_MODEL_NAME?.trim() || (() => { throw new Error("MISSING_CONFIGURATION:STRATEGY_MODEL_VERSION"); })(),
     promptVersion: process.env.STRATEGY_PROMPT_VERSION ?? "1",
 });
 exports.createPostgresStrategyDependencies = createPostgresStrategyDependencies;

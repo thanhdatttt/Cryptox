@@ -8,6 +8,7 @@ describe("strategy runtime", () => {
       expect(strategy.minimumHistoryCandles).toBeGreaterThanOrEqual(0);
       expect(Object.isFrozen(strategy)).toBe(true);
       expect(strategy.implementationSha256).toMatch(/^[a-f0-9]{64}$/);
+      expect(strategy.implementationSha256).not.toBe(`builtin:${strategy.name}:1.0.0`);
     }
     expect(listStrategies().find((strategy) => strategy.category === "INFORMATION")).toMatchObject({ name: "SENTIMENT", requiresSentiment: true });
   });

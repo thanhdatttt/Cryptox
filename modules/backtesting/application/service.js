@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.BacktestingService = exports.InMemoryBacktestingRepository = exports.InMemoryBacktestQueue = exports.SIMULATOR_SHA256 = exports.SIMULATOR_VERSION = exports.BACKTEST_RUNTIME_SHA256 = exports.BACKTEST_RUNTIME_VERSION = void 0;
+exports.BACKTEST_RUNTIME_SHA256 = exports.BacktestingService = exports.InMemoryBacktestingRepository = exports.InMemoryBacktestQueue = exports.SIMULATOR_SHA256 = exports.SIMULATOR_VERSION = exports.BACKTEST_RUNTIME_VERSION = void 0;
 exports.createInMemoryBacktestingDependencies = createInMemoryBacktestingDependencies;
 exports.createBacktestingService = createBacktestingService;
 const node_crypto_1 = require("node:crypto");
@@ -9,9 +9,9 @@ const bootstrap_2 = require("../../market-data/api/bootstrap");
 const bootstrap_3 = require("../../strategy/api/bootstrap");
 const simulator_1 = require("../domain/simulator");
 exports.BACKTEST_RUNTIME_VERSION = "1.0.0";
-exports.BACKTEST_RUNTIME_SHA256 = "c7d208d3db06e01df73733b91ed928fbd78d06f0d6d978f5821547c8ee6af75b";
 exports.SIMULATOR_VERSION = "1.0.0";
-exports.SIMULATOR_SHA256 = "2ed4a4326ba78169d9432c10f05272b01c53a5518ead8ab873be35bd2f1305bf";
+const artifactSha256 = (...parts) => (0, node_crypto_1.createHash)("sha256").update(parts.join("\n"), "utf8").digest("hex");
+exports.SIMULATOR_SHA256 = artifactSha256(exports.SIMULATOR_VERSION, simulator_1.simulateBacktest.toString());
 const BENCHMARK_TIMEZONE = "UTC";
 const FILL_POLICY_ID = "NEXT_OPEN_OHLC_STOP_FIRST_V2";
 const OPPOSITE_SIGNAL_POLICY_ID = "CLOSE_AND_REVERSE_NEXT_OPEN_V1";
@@ -815,4 +815,5 @@ class BacktestingService {
         compare(`metrics.${field}`, experiment.metrics[field], replayMetrics[field]); compare("executionPolicy", expected.executionPolicy ?? replayPolicy, replayPolicy); const totalMismatchCount = mismatches.length; const sampleLimit = 50; return { experimentId, sourceAttemptId: attempt.attemptId, status: totalMismatchCount === 0 ? "MATCH" : "MISMATCH", comparedTradeCount: Math.max(replay.trades.length, experiment.trades.length), mismatches: mismatches.slice(0, sampleLimit), totalMismatchCount, truncated: totalMismatchCount > sampleLimit }; }
 }
 exports.BacktestingService = BacktestingService;
+exports.BACKTEST_RUNTIME_SHA256 = artifactSha256(exports.BACKTEST_RUNTIME_VERSION, BacktestingService.toString(), exports.SIMULATOR_SHA256);
 function createBacktestingService(dependencies = createInMemoryBacktestingDependencies()) { return new BacktestingService(dependencies); }

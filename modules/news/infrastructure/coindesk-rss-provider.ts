@@ -186,7 +186,7 @@ export function createConfiguredNewsProviders(input: {
   }
   if (configured === "CRAWLER" || configured === "CRAWLER_LLM" || configured === "LLM_CRAWLER") {
     if (input.crawler) return [createCrawlerNewsProvider({ ...input.crawler, clock: input.crawler.clock ?? input.clock, observability: input.crawler.observability ?? input.observability })];
-    return [{ name: "CRAWLER_LLM_V1", fetch: async () => { throw new Error("NEWS_PROVIDER_CRAWLER_NOT_CONFIGURED"); } }];
+    throw new Error("MISSING_CONFIGURATION:NEWS_PROVIDER_CRAWLER");
   }
-  return [{ name: configured, fetch: async () => { throw new Error(`NEWS_PROVIDER_${configured}_NOT_CONFIGURED`); } }];
+  throw new Error(`INVALID_CONFIGURATION:NEWS_PROVIDER:${configured}`);
 }

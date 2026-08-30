@@ -1,5 +1,5 @@
 import type { Evaluator } from "../domain/contracts";
-import { EVALUATION_RUNTIME_SHA256, EVALUATION_RUNTIME_VERSION } from "../domain/evaluator";
+import { EVALUATION_RUNTIME_SHA256, EVALUATION_RUNTIME_VERSION } from "../application/runtime-provenance";
 export type { EvaluationMetrics, Evaluator, EvaluationError } from "../domain/contracts";
 export interface EvaluatorModulePublicApi {
     readonly evaluator: Evaluator;

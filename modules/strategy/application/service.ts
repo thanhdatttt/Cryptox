@@ -166,14 +166,14 @@ export function createInMemoryStrategyDependencies(): StrategyModuleDependencies
       listByLogicalFamily: async (ownerUserId, logicalFamilyKey) => [...composites.values()].filter((item) => item.ownerUserId === ownerUserId && item.value.logicalFamilyKey === logicalFamilyKey).map((item) => item.value),
     },
     generationAdapter: {
-      modelName: "UNCONFIGURED",
-      modelVersion: "0",
+      modelName: "LOCAL_DETERMINISTIC",
+      modelVersion: "1.0.0",
       generate: async () => { throw new Error("STRATEGY_MODEL_UNAVAILABLE"); },
     },
     sourceLoader: createPublicStrategySourceLoader(),
     generationUnitOfWork,
-    modelName: "UNCONFIGURED",
-    modelVersion: "0",
+    modelName: "LOCAL_DETERMINISTIC",
+    modelVersion: "1.0.0",
     promptVersion: "1",
   };
 }
@@ -188,8 +188,8 @@ export function createStrategyModule(dependencies: StrategyModuleDependencies = 
   } satisfies StrategyGenerationUnitOfWork;
   const configuredModelName = dependencies.modelName?.trim();
   const configuredModelVersion = dependencies.modelVersion?.trim();
-  const modelName = generationAdapter.modelName ?? (configuredModelName && configuredModelName !== "UNCONFIGURED" ? configuredModelName : "configured-model");
-  const modelVersion = generationAdapter.modelVersion ?? (configuredModelVersion && configuredModelVersion !== "0" ? configuredModelVersion : "1");
+  const modelName = generationAdapter.modelName ?? configuredModelName ?? "LOCAL_DETERMINISTIC";
+  const modelVersion = generationAdapter.modelVersion ?? configuredModelVersion ?? "1.0.0";
   const promptVersion = dependencies.promptVersion ?? "1";
   const modelTimeoutMs = finite(dependencies.modelTimeoutMs) && dependencies.modelTimeoutMs > 0 ? dependencies.modelTimeoutMs : 15_000;
   const factories = new Map(registry.list().map((descriptor) => [descriptor.name, registry.get(descriptor.name, descriptor.implementationSha256)!]));

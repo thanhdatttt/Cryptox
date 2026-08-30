@@ -103,4 +103,8 @@ const item = (id, minute) => ({
         (0, vitest_1.expect)((0, coindesk_rss_provider_1.createConfiguredNewsProviders)()[0]).toEqual(vitest_1.expect.objectContaining({ name: "COINDESK_RSS_V1" }));
         (0, vitest_1.expect)((0, coindesk_rss_provider_1.createConfiguredNewsProviders)({ provider: "coindesk_rss" })[0]).toEqual(vitest_1.expect.objectContaining({ name: "COINDESK_RSS_V1" }));
     });
+    (0, vitest_1.it)("rejects providers that have no registered adapter", () => {
+        (0, vitest_1.expect)(() => (0, coindesk_rss_provider_1.createConfiguredNewsProviders)({ provider: "UNKNOWN" })).toThrow("INVALID_CONFIGURATION:NEWS_PROVIDER:UNKNOWN");
+        (0, vitest_1.expect)(() => (0, coindesk_rss_provider_1.createConfiguredNewsProviders)({ provider: "CRAWLER" })).toThrow("MISSING_CONFIGURATION:NEWS_PROVIDER_CRAWLER");
+    });
 });

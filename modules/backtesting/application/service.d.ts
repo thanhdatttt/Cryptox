@@ -6,9 +6,8 @@ import type { SentimentDatasetSnapshotRef } from "modules/sentiment/api";
 import type { AuthContext } from "modules/auth/api";
 import type { BacktestDispatch, BacktestQueuePort, BacktestingModuleDependencies, BacktestingRepository, StoredBenchmarkScope, StoredCandidate, StoredExperiment, StoredReplayVerification, WorkerAttemptClaim } from "./ports";
 export declare const BACKTEST_RUNTIME_VERSION = "1.0.0";
-export declare const BACKTEST_RUNTIME_SHA256 = "c7d208d3db06e01df73733b91ed928fbd78d06f0d6d978f5821547c8ee6af75b";
 export declare const SIMULATOR_VERSION = "1.0.0";
-export declare const SIMULATOR_SHA256 = "2ed4a4326ba78169d9432c10f05272b01c53a5518ead8ab873be35bd2f1305bf";
+export declare const SIMULATOR_SHA256: string;
 export declare class InMemoryBacktestQueue implements BacktestQueuePort {
     readonly jobs: Map<string, BacktestQueueJob>;
     enqueue(job: BacktestQueuePayload): Promise<void>;
@@ -299,4 +298,5 @@ export declare class BacktestingService implements BacktestLogApi {
     private pageTrades;
     verifyReplay(auth: AuthContext, experimentId: string): Promise<LegacyReplayVerificationResult>;
 }
+export declare const BACKTEST_RUNTIME_SHA256: string;
 export declare function createBacktestingService(dependencies?: BacktestingModuleDependencies): BacktestLogApi;

@@ -2,7 +2,10 @@ import { createHash } from "node:crypto";
 import type { Strategy, StrategyCategory, StrategyContext, StrategyFactory, StrategyPluginDescriptor, StrategyRegistry, StrategyVisualizationOverlayDraft, Signal } from "./contracts";
 import { bollingerBands, relativeStrengthIndex, simpleMovingAverage, supportResistance } from "./indicators";
 
-const descriptor = (name: string, displayName: string, description: string, category: StrategyCategory, minimumHistoryCandles: number, parameters: StrategyPluginDescriptor["parameters"], requiresSentiment = false): StrategyPluginDescriptor => {
+type UnhashedDescriptor = Omit<StrategyPluginDescriptor, "implementationSha256">;
+type UnhashedFactory = Omit<StrategyFactory, "descriptor"> & { descriptor: UnhashedDescriptor };
+
+const descriptor = (name: string, displayName: string, description: string, category: StrategyCategory, minimumHistoryCandles: number, parameters: StrategyPluginDescriptor["parameters"], requiresSentiment = false): UnhashedDescriptor => {
   if (!Number.isInteger(minimumHistoryCandles) || minimumHistoryCandles < 0) throw new Error("INVALID_STRATEGY_DESCRIPTOR");
   return Object.freeze({
     name,
@@ -10,11 +13,16 @@ const descriptor = (name: string, displayName: string, description: string, cate
     description,
     category,
     implementationVersion: "1.0.0",
-    implementationSha256: createHash("sha256").update(JSON.stringify({ name, implementationVersion: "1.0.0", category, minimumHistoryCandles, parameters, requiresSentiment }), "utf8").digest("hex"),
     minimumHistoryCandles,
     parameters: Object.freeze(parameters.map((parameter) => Object.freeze({ ...parameter }))),
     ...(requiresSentiment ? { requiresSentiment: true } : {}),
   });
+};
+const withArtifactHash = (factory: UnhashedFactory): StrategyFactory => {
+  const implementationSha256 = createHash("sha256")
+    .update(JSON.stringify({ descriptor: factory.descriptor, implementation: factory.create.toString() }), "utf8")
+    .digest("hex");
+  return Object.freeze({ ...factory, descriptor: Object.freeze({ ...factory.descriptor, implementationSha256 }) });
 };
 const lastValues = (context: StrategyContext) => context.candles.map((candle) => candle.close);
 const signalFrom = (condition: boolean, inverse: boolean): Signal => condition ? (inverse ? "SELL" : "BUY") : "HOLD";
@@ -33,7 +41,7 @@ const signalPoint = (context: StrategyContext, value: number, signal: Signal): A
 };
 const nonEmpty = (overlays: StrategyVisualizationOverlayDraft[]): StrategyVisualizationOverlayDraft[] => overlays.filter((overlay) => overlay.points.length > 0);
 
-const ma: StrategyFactory = {
+const ma: UnhashedFactory = {
   descriptor: descriptor("MA", "Moving Average", "Trend direction from a fast/slow moving-average crossover.", "TREND", 51, [
     { key: "fastPeriod", label: "Fast period", type: "INTEGER", required: true, defaultValue: 20, minimum: 2, maximum: 500 },
     { key: "slowPeriod", label: "Slow period", type: "INTEGER", required: true, defaultValue: 50, minimum: 3, maximum: 1000 },
@@ -66,7 +74,7 @@ const ma: StrategyFactory = {
   },
 };
 
-const rsi: StrategyFactory = {
+const rsi: UnhashedFactory = {
   descriptor: descriptor("RSI", "RSI", "Momentum signal for overbought and oversold conditions.", "MOMENTUM", 15, [
     { key: "period", label: "Period", type: "INTEGER", required: true, defaultValue: 14, minimum: 2, maximum: 200 },
     { key: "buyThreshold", label: "Buy threshold", type: "NUMBER", required: true, defaultValue: 30, minimum: 0, maximum: 50 },
@@ -95,7 +103,7 @@ const rsi: StrategyFactory = {
   },
 };
 
-const bollinger: StrategyFactory = {
+const bollinger: UnhashedFactory = {
   descriptor: descriptor("BOLLINGER", "Bollinger Bands", "Mean-reversion signal at the outer volatility bands.", "VOLATILITY", 20, [
     { key: "period", label: "Period", type: "INTEGER", required: true, defaultValue: 20, minimum: 2, maximum: 500 },
     { key: "deviations", label: "Standard deviations", type: "NUMBER", required: true, defaultValue: 2, minimum: 0.1, maximum: 5 },
@@ -116,7 +124,7 @@ const bollinger: StrategyFactory = {
   },
 };
 
-const supportResistanceFactory: StrategyFactory = {
+const supportResistanceFactory: UnhashedFactory = {
   descriptor: descriptor("SUPPORT_RESISTANCE", "Support / Resistance", "Structure signal near recent support and resistance zones.", "STRUCTURE", 20, [
     { key: "lookback", label: "Lookback", type: "INTEGER", required: true, defaultValue: 20, minimum: 2, maximum: 500 },
     { key: "proximityPercent", label: "Proximity %", type: "NUMBER", required: true, defaultValue: 1, minimum: 0.01, maximum: 20 },
@@ -138,7 +146,7 @@ const supportResistanceFactory: StrategyFactory = {
   },
 };
 
-const sentimentFactory: StrategyFactory = {
+const sentimentFactory: UnhashedFactory = {
   descriptor: descriptor("SENTIMENT", "News sentiment", "Reads the sealed sentiment context and emits a directional signal.", "INFORMATION", 0, [
     { key: "buyThreshold", label: "Buy threshold", type: "NUMBER", required: true, defaultValue: 0.2, minimum: 0.01, maximum: 1 },
     { key: "sellThreshold", label: "Sell threshold", type: "NUMBER", required: true, defaultValue: -0.2, minimum: -1, maximum: -0.01 },
@@ -153,7 +161,7 @@ const sentimentFactory: StrategyFactory = {
   validateParameters: (parameters) => { if (Number(parameters.buyThreshold) <= Number(parameters.sellThreshold)) throw new Error("INVALID_STRATEGY_PARAMETERS"); },
 };
 
-export const builtInFactories: readonly StrategyFactory[] = [ma, rsi, bollinger, supportResistanceFactory, sentimentFactory];
+export const builtInFactories: readonly StrategyFactory[] = [ma, rsi, bollinger, supportResistanceFactory, sentimentFactory].map(withArtifactHash);
 
 export class InMemoryStrategyRegistry implements StrategyRegistry {
   private readonly factories = new Map<string, StrategyFactory>();

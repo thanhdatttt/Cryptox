@@ -4,12 +4,23 @@ const vitest_1 = require("vitest");
 const index_1 = require("./index");
 (0, vitest_1.describe)("strategy runtime", () => {
     (0, vitest_1.it)("exposes descriptor-driven built-in plugins", () => {
-        (0, vitest_1.expect)((0, index_1.listStrategies)().map((strategy) => strategy.name)).toEqual(["MA", "RSI", "BOLLINGER", "SUPPORT_RESISTANCE"]);
+        (0, vitest_1.expect)((0, index_1.listStrategies)().map((strategy) => strategy.name)).toEqual(["BOLLINGER", "MA", "RSI", "SENTIMENT", "SUPPORT_RESISTANCE"]);
         for (const strategy of (0, index_1.listStrategies)()) {
             (0, vitest_1.expect)(Number.isInteger(strategy.minimumHistoryCandles)).toBe(true);
             (0, vitest_1.expect)(strategy.minimumHistoryCandles).toBeGreaterThanOrEqual(0);
             (0, vitest_1.expect)(Object.isFrozen(strategy)).toBe(true);
+            (0, vitest_1.expect)(strategy.implementationSha256).toMatch(/^[a-f0-9]{64}$/);
+            (0, vitest_1.expect)(strategy.implementationSha256).not.toBe(`builtin:${strategy.name}:1.0.0`);
         }
+        (0, vitest_1.expect)((0, index_1.listStrategies)().find((strategy) => strategy.category === "INFORMATION")).toMatchObject({ name: "SENTIMENT", requiresSentiment: true });
+    });
+    (0, vitest_1.it)("executes the retained INFORMATION plugin from supplied sentiment only", async () => {
+        const descriptor = (0, index_1.listStrategies)().find((strategy) => strategy.name === "SENTIMENT");
+        const strategy = await (0, index_1.resolveStrategy)({ id: "sentiment-definition", userId: "user-a", logicalFamilyKey: "strategy:SENTIMENT", strategyName: "SENTIMENT", implementationVersion: descriptor.implementationVersion, implementationSha256: descriptor.implementationSha256, version: 1, parameters: { buyThreshold: 0.2, sellThreshold: -0.2 }, createdAt: "2025-01-01T00:00:00.000Z" });
+        const context = { pair: "BTCUSDT", timeframe: "1h", candles: [], currentPrice: 100, indicators: {} };
+        (0, vitest_1.expect)(strategy.analyze(context)).toBe("HOLD");
+        (0, vitest_1.expect)(strategy.analyze({ ...context, sentiment: { label: "POSITIVE", averageScore: 0.5 } })).toBe("BUY");
+        (0, vitest_1.expect)(strategy.analyze({ ...context, sentiment: { label: "NEGATIVE", averageScore: -0.5 } })).toBe("SELL");
     });
     (0, vitest_1.it)("combines signals with majority and weighted voting", () => {
         const components = [{ strategyDefinitionId: "ma", weight: 0.4 }, { strategyDefinitionId: "rsi", weight: 0.6 }];
@@ -28,7 +39,7 @@ const index_1 = require("./index");
             currentPrice: index + 2,
             indicators: {},
         }));
-        const definition = { id: "ma-definition", userId: "user-a", logicalFamilyKey: "strategy:MA", strategyName: "MA", implementationVersion: "1.0.0", implementationSha256: "builtin:MA:1.0.0", version: 1, parameters: { fastPeriod: 2, slowPeriod: 3 }, createdAt: "2025-01-01T00:00:00.000Z" };
+        const definition = { id: "ma-definition", userId: "user-a", logicalFamilyKey: "strategy:MA", strategyName: "MA", implementationVersion: "1.0.0", implementationSha256: (0, index_1.listStrategies)().find((strategy) => strategy.name === "MA").implementationSha256, version: 1, parameters: { fastPeriod: 2, slowPeriod: 3 }, createdAt: "2025-01-01T00:00:00.000Z" };
         const first = (0, index_1.buildVisualization)(definition, contexts);
         const second = (0, index_1.buildVisualization)(definition, contexts);
         (0, vitest_1.expect)(first).toEqual(second);
@@ -37,7 +48,7 @@ const index_1 = require("./index");
         (0, vitest_1.expect)(first[0]?.strategyDefinitionId).toBe("ma-definition");
     });
     (0, vitest_1.it)("builds generic support and resistance levels without strategy-specific API logic", () => {
-        const definition = { id: "sr-definition", userId: "user-a", logicalFamilyKey: "strategy:SUPPORT_RESISTANCE", strategyName: "SUPPORT_RESISTANCE", implementationVersion: "1.0.0", implementationSha256: "builtin:SUPPORT_RESISTANCE:1.0.0", version: 1, parameters: { lookback: 3, proximityPercent: 1 }, createdAt: "2025-01-01T00:00:00.000Z" };
+        const definition = { id: "sr-definition", userId: "user-a", logicalFamilyKey: "strategy:SUPPORT_RESISTANCE", strategyName: "SUPPORT_RESISTANCE", implementationVersion: "1.0.0", implementationSha256: (0, index_1.listStrategies)().find((strategy) => strategy.name === "SUPPORT_RESISTANCE").implementationSha256, version: 1, parameters: { lookback: 3, proximityPercent: 1 }, createdAt: "2025-01-01T00:00:00.000Z" };
         const context = { pair: "BTCUSDT", timeframe: "1h", candles: [
                 { timestamp: "2025-01-01T00:00:00.000Z", open: 12, high: 20, low: 10, close: 15, volume: 1 },
                 { timestamp: "2025-01-01T01:00:00.000Z", open: 15, high: 22, low: 11, close: 17, volume: 1 },
