@@ -4,10 +4,10 @@ import {
   assertFiniteMetrics,
   assertRankingConfiguration,
   LeaderboardScoringDomainError,
+  LINEAR_REQUIRED_V1,
   scoreEvaluation,
 } from "../domain/ranking";
 import {
-  LINEAR_REQUIRED_V1,
   type CreateLeaderboardScopeCommand,
   type LeaderboardEntry,
   type LeaderboardModulePublicApi,

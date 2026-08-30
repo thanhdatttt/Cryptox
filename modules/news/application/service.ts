@@ -1,8 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import type { SentimentResult, SentimentInput } from "@cryptox/sentiment";
 import {
-  EXTERNAL_CONTENT_SAFETY_V1,
-  NEWS_READ_ORDER_V1,
   type CollectNewsCommand,
   type NewsCollectionResult,
   type NewsModulePublicApi,
@@ -32,6 +30,19 @@ import type {
   SafeNewsFailureReason,
   StoredNewsExtractionProvenance,
 } from "./ports";
+
+const NEWS_READ_ORDER_V1 =
+  "PUBLISHED_AT_DESC_PROVIDER_ID_ASC_PROVIDER_ITEM_ID_ASC" as const;
+const EXTERNAL_CONTENT_SAFETY_V1 = {
+  id: "EXTERNAL_CONTENT_SAFETY_V1",
+  allowedSchemes: ["https"],
+  maximumRedirects: 3,
+  timeoutMs: 20_000,
+  maximumBodyBytes: 1_048_576,
+  rawHtmlRetentionDays: 7,
+  normalizedRetentionDays: 90,
+  excluded: ["CREDENTIALS", "COOKIES", "ARBITRARY_URL_PERSISTENCE", "AUTOMATIC_PROMOTION"],
+} as const;
 
 const DEFAULT_COLLECTION_LIMIT = 50;
 const MAX_QUERY_LIMIT = 10_000;

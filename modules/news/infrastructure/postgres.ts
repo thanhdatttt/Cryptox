@@ -9,19 +9,9 @@ import type {
 import { normalizeExtractionProvenance, normalizeNewsItem } from "../application/normalization";
 import { createPostgresNewsMetadataDependencies } from "./extraction-postgres";
 import type { PostgresNewsMetadataDependencies } from "./extraction-postgres";
+import type { PostgresPool, PostgresQueryResult } from "./postgres-types";
 
-export interface PostgresQueryResult<Row extends Record<string, unknown> = Record<string, unknown>> {
-  readonly rows: Row[];
-  readonly rowCount?: number | null;
-}
-
-export interface PostgresPool {
-  query<Row extends Record<string, unknown> = Record<string, unknown>>(
-    text: string,
-    values?: unknown[],
-  ): Promise<PostgresQueryResult<Row>>;
-  end(): Promise<void>;
-}
+export type { PostgresPool, PostgresQueryResult } from "./postgres-types";
 
 export interface PostgresNewsOptions {
   readonly connectionString: string;

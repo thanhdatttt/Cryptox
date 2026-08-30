@@ -49,6 +49,7 @@ test("rejects approved Search profiles outside the exact canonical REST file", (
 test("permits Q-02 profiles in every exact Search boundary", () => {
   withFixture({
     "modules/search/api/contracts.ts": "export const profiles = ['DOMAIN_GUIDED_V1', 'GENETIC_V1'];",
+    "modules/search/api/registry.ts": "export const profiles = ['DOMAIN_GUIDED_V1', 'GENETIC_V1'];",
     "modules/search/application/ports.ts": "export const profiles = ['DOMAIN_GUIDED_V1', 'GENETIC_V1'];",
     "packages/contracts/rest/search.ts": "export const profiles = ['DOMAIN_GUIDED_V1', 'GENETIC_V1'];",
     "infra/db/migrations/003_search_profiles.js": "export const profiles = ['DOMAIN_GUIDED_V1', 'GENETIC_V1'];",
@@ -61,6 +62,8 @@ test("permits Q-02 profiles in every exact Search boundary", () => {
 test("rejects Q-02 profiles in broad, near-match, and unrelated Search paths", () => {
   const files = {
     "modules/search/application/other.ts": "export const profiles = ['DOMAIN_GUIDED_V1', 'GENETIC_V1'];",
+    "modules/search/api/registry.tsx": "export const profiles = ['DOMAIN_GUIDED_V1', 'GENETIC_V1'];",
+    "modules/search/api/registry-legacy.ts": "export const profiles = ['DOMAIN_GUIDED_V1', 'GENETIC_V1'];",
     "modules/search/application/service.tsx": "export const profiles = ['DOMAIN_GUIDED_V1', 'GENETIC_V1'];",
     "modules/search/application/service-legacy.ts": "export const profiles = ['DOMAIN_GUIDED_V1', 'GENETIC_V1'];",
     "modules/search/domain/generators/other.ts": "export const profiles = ['DOMAIN_GUIDED_V1', 'GENETIC_V1'];",

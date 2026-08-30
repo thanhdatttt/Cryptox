@@ -1,9 +1,33 @@
-import type {
-  CandidateGenerationRequest,
-  GeneratedCandidate,
-  SearchSpaceConfig,
-  StrategyGenerator,
-} from "../api/contracts";
+export type GeneratorType = "RANDOM" | "DOMAIN_GUIDED" | "GENETIC";
+
+export interface GeneratedCandidate {
+  candidateKey: string;
+  compositeLogicalFamilyKey: string;
+  strategyDefinitionIds: readonly string[];
+  combinationProfileId: "MAJORITY_VOTE_V1";
+  generatedBy: GeneratorType;
+}
+
+export interface SearchSpaceConfig {
+  availableStrategyDefinitionIds: readonly string[];
+  componentCount: {
+    minimum: number;
+    maximum: number;
+  };
+  requireDistinctComponents: true;
+}
+
+export interface CandidateGenerationRequest {
+  searchSpace: SearchSpaceConfig;
+  randomSeed: string;
+  iterationNumber: number;
+  previouslyGeneratedCandidateKeys: readonly string[];
+}
+
+export interface StrategyGenerator {
+  readonly type: GeneratorType;
+  generate(request: CandidateGenerationRequest): GeneratedCandidate;
+}
 
 export class RandomGeneratorError extends Error {
   public readonly name = "RandomGeneratorError";

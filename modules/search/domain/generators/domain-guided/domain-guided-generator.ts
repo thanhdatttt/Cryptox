@@ -3,7 +3,7 @@ import type {
   GeneratedCandidate,
   SearchSpaceConfig,
   StrategyGenerator,
-} from "../../../api/contracts";
+} from "../../random-generator";
 
 export type DomainGuidedCategoryMembers = Readonly<Record<string, readonly string[]>>;
 

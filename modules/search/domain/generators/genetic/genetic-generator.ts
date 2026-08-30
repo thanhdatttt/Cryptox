@@ -1,10 +1,9 @@
-import {
-  GENETIC_V1_DEFAULTS,
-  type CandidateGenerationRequest,
-  type GeneratedCandidate,
-  type SearchSpaceConfig,
-  type StrategyGenerator,
-} from "../../../api/contracts";
+import type {
+  CandidateGenerationRequest,
+  GeneratedCandidate,
+  SearchSpaceConfig,
+  StrategyGenerator,
+} from "../../random-generator";
 
 export interface GeneticGeneratorOptions {
   readonly population?: number;
@@ -16,7 +15,13 @@ export interface GeneticGeneratorOptions {
   readonly mutationRate?: number;
 }
 
-export { GENETIC_V1_DEFAULTS } from "../../../api/contracts";
+export const GENETIC_V1_DEFAULTS = {
+  population: 50,
+  maximumGenerations: 10,
+  elitePercent: 0.1,
+  mutationPercent: 0.2,
+  candidateBudget: 500,
+} as const;
 
 export class GeneticGeneratorError extends Error {
   public readonly name = "GeneticGeneratorError";

@@ -1,11 +1,52 @@
-import {
-  REQUIRED_METRICS_V1_ID,
-  type EvaluationMetrics,
-} from "@cryptox/evaluation";
-import {
-  LINEAR_REQUIRED_V1,
-  type RankingConfiguration,
-} from "../api/contracts";
+export const LINEAR_REQUIRED_V1_ID = "LINEAR_REQUIRED_V1" as const;
+
+export const LINEAR_REQUIRED_V1 = {
+  id: LINEAR_REQUIRED_V1_ID,
+  version: 1,
+  formula: {
+    totalReturnPercentWeight: 0.5,
+    winRatePercentWeight: 0.3,
+    maxDrawdownMagnitudePercentWeight: -0.2,
+  },
+  eligibility: {
+    requiredExecutionState: "SUCCEEDED",
+    finiteRequiredMetrics: true,
+    minimumNumberOfTrades: 1,
+  },
+  tieBreakers: [
+    { field: "SCORE", direction: "DESCENDING" },
+    { field: "TOTAL_RETURN_PERCENT", direction: "DESCENDING" },
+    { field: "MAX_DRAWDOWN_MAGNITUDE_PERCENT", direction: "ASCENDING" },
+    { field: "WIN_RATE_PERCENT", direction: "DESCENDING" },
+    { field: "EXPERIMENT_ID", direction: "ASCENDING" },
+  ],
+  defaultTopK: 10,
+} as const;
+
+const REQUIRED_METRICS_V1_ID = "REQUIRED_METRICS_V1" as const;
+
+interface RankingEvaluationMetrics {
+  candidateId: string;
+  totalReturnPercent: number;
+  winRatePercent: number;
+  numberOfTrades: number;
+  maxDrawdownMagnitudePercent: number;
+  evaluationProfileId: typeof REQUIRED_METRICS_V1_ID;
+}
+
+export type RankingFormula = typeof LINEAR_REQUIRED_V1.formula;
+
+export interface RankingConfiguration {
+  id: string;
+  profileId: typeof LINEAR_REQUIRED_V1_ID;
+  version: typeof LINEAR_REQUIRED_V1.version;
+  name: string;
+  description?: string;
+  formula: RankingFormula;
+  minimumNumberOfTrades: typeof LINEAR_REQUIRED_V1.eligibility.minimumNumberOfTrades;
+  tieBreakers: typeof LINEAR_REQUIRED_V1.tieBreakers;
+  createdAt: string;
+}
 
 export class LeaderboardScoringDomainError extends Error {
   public readonly name = "LeaderboardScoringDomainError";
@@ -40,7 +81,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
-export function assertFiniteMetrics(metrics: EvaluationMetrics): void {
+export function assertFiniteMetrics(metrics: RankingEvaluationMetrics): void {
   if (!isRecord(metrics)) {
     throw new LeaderboardScoringDomainError("INVALID_METRICS", "metrics must be an object");
   }
@@ -119,7 +160,7 @@ export function assertRankingConfiguration(configuration: RankingConfiguration):
 export function scoreEvaluation(
   leaderboardScopeId: string,
   configuration: RankingConfiguration,
-  metrics: EvaluationMetrics,
+  metrics: RankingEvaluationMetrics,
 ): {
   leaderboardScopeId: string;
   rankingConfigurationId: string;

@@ -1,5 +1,11 @@
-import { LEXICON_V1_ID, type SentimentLabel } from "../api/contracts";
-import type { SentimentAnalysisInput, SentimentProvider, SentimentProviderResult } from "./ports";
+import type {
+  SentimentAnalysisInput,
+  SentimentLabel,
+  SentimentProvider,
+  SentimentProviderResult,
+} from "./ports";
+
+export const LEXICON_V1_ID = "LEXICON_V1" as const;
 
 export const LEXICON_V1_ANALYSIS_PROFILE_ID = LEXICON_V1_ID;
 export const LEXICON_V1_MODEL_NAME = LEXICON_V1_ID;
@@ -164,4 +170,3 @@ export function createLexiconV1Provider(): SentimentProvider {
     analyze: async (input) => analyzeLexicon(input),
   };
 }
-

@@ -3,45 +3,10 @@ import type {
   AuthenticatedRequestContext,
   AuthenticatedUserId,
 } from "modules/auth/api";
+import type { RankingConfiguration } from "../domain/ranking";
 
-export const LINEAR_REQUIRED_V1_ID = "LINEAR_REQUIRED_V1" as const;
-
-export const LINEAR_REQUIRED_V1 = {
-  id: LINEAR_REQUIRED_V1_ID,
-  version: 1,
-  formula: {
-    totalReturnPercentWeight: 0.5,
-    winRatePercentWeight: 0.3,
-    maxDrawdownMagnitudePercentWeight: -0.2,
-  },
-  eligibility: {
-    requiredExecutionState: "SUCCEEDED",
-    finiteRequiredMetrics: true,
-    minimumNumberOfTrades: 1,
-  },
-  tieBreakers: [
-    { field: "SCORE", direction: "DESCENDING" },
-    { field: "TOTAL_RETURN_PERCENT", direction: "DESCENDING" },
-    { field: "MAX_DRAWDOWN_MAGNITUDE_PERCENT", direction: "ASCENDING" },
-    { field: "WIN_RATE_PERCENT", direction: "DESCENDING" },
-    { field: "EXPERIMENT_ID", direction: "ASCENDING" },
-  ],
-  defaultTopK: 10,
-} as const;
-
-export type RankingFormula = typeof LINEAR_REQUIRED_V1.formula;
-
-export interface RankingConfiguration {
-  id: string;
-  profileId: typeof LINEAR_REQUIRED_V1_ID;
-  version: typeof LINEAR_REQUIRED_V1.version;
-  name: string;
-  description?: string;
-  formula: RankingFormula;
-  minimumNumberOfTrades: typeof LINEAR_REQUIRED_V1.eligibility.minimumNumberOfTrades;
-  tieBreakers: typeof LINEAR_REQUIRED_V1.tieBreakers;
-  createdAt: string;
-}
+export { LINEAR_REQUIRED_V1, LINEAR_REQUIRED_V1_ID } from "../domain/ranking";
+export type { RankingConfiguration, RankingFormula } from "../domain/ranking";
 
 export const LEADERBOARD_COMPARISON_IDENTITY_V1 = {
   id: "LEADERBOARD_COMPARISON_IDENTITY_V1",

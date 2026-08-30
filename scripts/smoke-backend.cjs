@@ -70,7 +70,15 @@ async function main() {
     assert.equal(readiness.status, "not-ready");
     assert.deepEqual(
       readiness.unavailableRequired.map(({ name }) => name),
-      ["market-data-provider", "backtest-runner", "persistence-adapters"],
+      [
+        "auth-persistence",
+        "persistence-adapters",
+        "market-data-provider",
+        "backtest-runner",
+        "leaderboard-persistence",
+        "strategy-persistence",
+        "search-composition",
+      ],
     );
 
     const obsoleteHealth = await fetch(`${baseUrl}/health`);

@@ -10,6 +10,7 @@ const roots = ["modules", "apps", "packages", "infra"];
 const approvedProfileBoundaries = {
   "DOMAIN_GUIDED_V1": [
     "modules/search/api/contracts.ts",
+    "modules/search/api/registry.ts",
     "modules/search/application/ports.ts",
     "packages/contracts/rest/search.ts",
     "infra/db/migrations/",
@@ -18,6 +19,7 @@ const approvedProfileBoundaries = {
   ],
   "GENETIC_V1": [
     "modules/search/api/contracts.ts",
+    "modules/search/api/registry.ts",
     "modules/search/application/ports.ts",
     "packages/contracts/rest/search.ts",
     "infra/db/migrations/",

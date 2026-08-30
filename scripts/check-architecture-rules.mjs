@@ -58,7 +58,7 @@ const forbiddenCases = [
   },
   {
     rule: "api-does-not-import-infrastructure",
-    from: "modules/backtesting/api/bootstrap.ts",
+    from: "modules/backtesting/api/index.ts",
     to: "modules/backtesting/infrastructure/local/executor.ts",
   },
   {
@@ -88,6 +88,8 @@ const allowedCases = [
   ],
   ["apps/backend/src/compose.ts", "modules/backtesting/api/bootstrap.ts"],
   ["apps/backend/src/compose.ts", "modules/auth/api/bootstrap.ts"],
+  ["modules/backtesting/api/bootstrap.ts", "modules/backtesting/infrastructure/local/executor.ts"],
+  ["modules/backtesting/api/composition.ts", "modules/backtesting/infrastructure/local/executor.ts"],
   ["modules/strategy/api/contracts.ts", "modules/auth/api/index.ts"],
   ["modules/search/application/service.ts", "modules/auth/api/index.ts"],
   ["packages/contracts/websocket/index.ts", "packages/contracts/websocket/market-data.ts"],

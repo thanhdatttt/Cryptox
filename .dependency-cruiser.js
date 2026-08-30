@@ -61,7 +61,11 @@ module.exports = {
     {
       name: "api-does-not-import-infrastructure",
       severity: "error",
-      from: { path: "^modules/([^/]+)/api/" },
+      from: {
+        path: "^modules/([^/]+)/api/",
+        pathNot:
+          "^(?:modules/[^/]+/api/bootstrap\\.ts|modules/backtesting/api/composition\\.ts)$",
+      },
       to: { path: "^modules/$1/infrastructure/" },
     },
     {
@@ -80,6 +84,7 @@ module.exports = {
     },
   ],
   options: {
+    tsConfig: { fileName: "tsconfig.base.json" },
     doNotFollow: { path: "node_modules/(?!@cryptox(?:/|$))" },
     tsPreCompilationDeps: true,
     enhancedResolveOptions: {

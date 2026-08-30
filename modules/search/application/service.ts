@@ -24,7 +24,6 @@ import type {
   StartSearchCommand,
   StopCondition,
 } from "../api/contracts";
-import { GENETIC_V1_DEFAULTS } from "../api/contracts";
 import type { SearchApplicationDependencies, StrategyGeneratorPort } from "./ports";
 import {
   DomainGuidedStrategyGenerator,
@@ -32,6 +31,7 @@ import {
 } from "../domain/generators/domain-guided";
 import {
   GeneticStrategyGenerator,
+  GENETIC_V1_DEFAULTS,
   type GeneticGeneratorOptions,
 } from "../domain/generators/genetic";
 

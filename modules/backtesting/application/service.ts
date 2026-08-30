@@ -32,7 +32,6 @@ import {
   type TradePageRequest,
   type SyntheticPaperExecutionConfiguration,
 } from "../api/contracts";
-import { BACKTEST_EXECUTION_V1_ID } from "../api/contracts";
 import {
   type BacktestExecutionPort,
   type BacktestExecutionRequest,
@@ -41,6 +40,8 @@ import {
   type BacktestingCompletionUnitOfWork,
 } from "./ports";
 import { simulateBacktest } from "../domain/simulator";
+
+const BACKTEST_EXECUTION_V1_ID = "BACKTEST_EXECUTION_V1" as const;
 
 export interface BacktestingCandidate extends CandidateProgress {
   readonly configuration: BacktestConfiguration;

@@ -8,7 +8,7 @@ import type {
   StoredNewsExtractionProvenance,
 } from "../application/ports";
 import { normalizeExtractionProvenance } from "../application/normalization";
-import type { PostgresPool, PostgresQueryResult } from "./postgres";
+import type { PostgresPool, PostgresQueryResult } from "./postgres-types";
 
 interface TemplateRow extends Record<string, unknown> {
   id: string;

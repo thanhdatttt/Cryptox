@@ -1,7 +1,9 @@
+import { LEXICON_V1_ID } from "../application/lexicon";
+
 export const SENTIMENT_LABELS = ["POSITIVE", "NEUTRAL", "NEGATIVE"] as const;
 export type SentimentLabel = (typeof SENTIMENT_LABELS)[number];
 
-export const LEXICON_V1_ID = "LEXICON_V1" as const;
+export { LEXICON_V1_ID } from "../application/lexicon";
 export const LEXICON_V1 = {
   id: LEXICON_V1_ID,
   providerKind: "LOCAL_DETERMINISTIC_LEXICON",
