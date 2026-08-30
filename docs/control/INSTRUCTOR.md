@@ -2,13 +2,87 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-113`
+Instruction ID: `INS-114`
 
-Status: `HOLD`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
-## INS-113 — HOLD after ENV-06 review and live PostgreSQL Strategy blocker
+## INS-114 — ENV-07 Strategy PostgreSQL Composite Persistence Reconciliation
+
+This signal supersedes `INS-113 / HOLD` after the Instructor independently
+verified the live PostgreSQL failure, the ENV-06 integration checkpoint, Git
+state, the task board, and the absence of an active Cryptox Manager or worker.
+It authorizes exactly one bounded packet: `ENV-07`. It authorizes no ENV-06
+retry, I-01R closure, I-01 resumption, I-02, I-03, extension, replacement,
+duplicate, worktree, or downstream execution.
+
+### Authorization boundary and applicability
+
+- The canonical checkout is `D:/agy-cli-projects/AOS/Cryptox` on
+  `MVP_IMPLEMENTATION`, at `391d639` (`chore(control): hold after ENV-06
+  database review`), with the exact ENV-06 source integration at ancestor
+  `d274f52`. The tracked tree is clean; the app-generated `.codex/config.toml`
+  remains untracked, outside Cryptox scope, and must stay untouched,
+  unstaged, and undeleted.
+- The authoritative board remains `42 DONE`, `3 REVIEW` (`ENV-05`, `I-01R`,
+  `I-01`), and `2 BLOCKED` (`I-02`, `I-03`) across `47` rows. `ENV-07` is a
+  planned packet and is not yet an operational row; the Manager must add
+  exactly that one new row and may move no existing row.
+- `HANDOFF.md` remains the latest Manager checkpoint for ENV-06 at the
+  integrated `d274f52` source checkpoint. Its recorded `INS-112` authority is
+  historical; this fresh signal is the only execution authority for ENV-07.
+- The previous ENV-06 Manager and all three internal workers are idle/complete.
+  The task-status review found no active Cryptox Manager, worker, retry,
+  replacement, duplicate, or downstream task.
+
+### Authorized packet: ENV-07
+
+- **Requirement IDs:** `CSL-R-ST-03`–`04`, `CSL-R-OW-01`, `CSL-R-RP-02`, the
+  accepted Strategy persistence contract, and the live PostgreSQL failure
+  recorded in `DEC-034` and `MVP_PLAN.md`.
+- **Manager:** create exactly one fresh Manager in the same canonical
+  same-directory checkout, with model `gpt-5.6-luna` and reasoning `max`.
+  The Manager must read `AGENTS.md` and
+  `docs/control/prompts/ORCHESTRATOR_START.md` completely, verify this signal,
+  the reviewed checkpoint, the DAG, and the exact write scopes before work.
+- **Worker:** the Manager may create exactly one fresh internal worker. That
+  worker is the sole feature implementer and must use only the disjoint scope
+  `modules/strategy/infrastructure/postgres.ts` and, only when a focused
+  regression assertion is strictly necessary,
+  `modules/strategy/infrastructure/postgres.integration.spec.ts`.
+- **Objective:** repair only the JSON key mapping mismatch in Strategy
+  composite persistence where `componentPayload` emits camelCase keys while
+  `jsonb_to_recordset` reads snake_case fields. Preserve schema, public
+  contracts, version semantics, owner filtering, component-version
+  provenance, transaction behavior, and all unrelated Strategy behavior.
+- **Manager-owned control scope:** add the single `ENV-07` row to
+  `docs/implementation/TASKS.md`, move only that row through the normal state
+  sequence, and replace `docs/implementation/HANDOFF.md` with the final
+  checkpoint. The Manager may review/integrate only the worker's exact
+  authorized source delta; it must not change any other task row or governance
+  artifact.
+- **Acceptance:** with the local PostgreSQL test database, the focused
+  Strategy integration proves same-owner composite persistence, exact
+  component versions, owner-filtered reads, and cross-owner rejection. The
+  targeted Strategy suite must pass, followed by applicable workspace tests,
+  build, typecheck, lint, `npm run arch:check`, `npm run scope:check`, the
+  13-case deferred-scope suite, artifacts/source-sidecar, runtime smoke,
+  secret/log, whitespace, exact-path, and `git diff --check` validation.
+  Docker/PostgreSQL evidence may use the process-local test URL derived from
+  the repository's local environment file; never print passwords, tokens, or
+  connection secrets. Any unavailable tool or environment is `BLOCKED` or
+  `UNVERIFIED`, never `PASS`; OpenSpec CLI remains `UNVERIFIED` unless real
+  evidence becomes available.
+- **Prohibitions and stop condition:** no schema or migration change, API/DTO
+  redesign, algorithm change, ownership weakening, checker modification,
+  broad skip, unrelated cleanup, retry, replacement, duplicate, worktree,
+  downstream task, I-01R closure, or I-01/I-02/I-03 execution. The Manager
+  stops after ENV-07 reaches `REVIEW` (and records `DONE` only if all scoped
+  evidence passes) for a fresh Instructor audit. No newly unlocked work may
+  start automatically.
+
+## Historical INS-113 — HOLD after ENV-06 review and live PostgreSQL Strategy blocker
 
 This signal supersedes `INS-112 / APPROVED_FOR_EXECUTION` after the Instructor
 independently reviewed the exact ENV-06 integration and newly available local

@@ -1233,3 +1233,51 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [MVP plan](../implementation/MVP_PLAN.md), [Task state](../implementation/TASKS.md),
 [Latest checkpoint](../implementation/HANDOFF.md), `DEC-033`, `INS-112`, and
 commit `d274f52`.
+
+## DEC-035 — Fresh explicit ENV-07 Strategy persistence authorization
+
+Status: `APPROVED`
+
+Authority: Fresh Instructor review after `INS-113 / HOLD` at `391d639`, the
+integrated ENV-06 checkpoint `d274f52`, and reproducible local PostgreSQL
+evidence.
+
+Decision: Authorize exactly one fresh `INS-114 /
+APPROVED_FOR_EXECUTION` attempt for `ENV-07 — Strategy PostgreSQL Composite
+Persistence Reconciliation`. The authorization is limited to one fresh
+same-directory Manager using `gpt-5.6-luna` with reasoning `max` and exactly
+one fresh internal worker. The worker's implementation scope is limited to
+`modules/strategy/infrastructure/postgres.ts` and, only if strictly required
+for a focused regression assertion,
+`modules/strategy/infrastructure/postgres.integration.spec.ts`. The Manager
+may add and operate only the new ENV-07 row and latest checkpoint, and may
+review/integrate only the exact authorized source delta.
+
+Why: Docker Compose `v2.40.3` is reachable and local migration validation
+passes. A targeted real PostgreSQL Strategy integration reproducibly fails a
+valid same-owner composite insert because the existing `componentPayload`
+emits camelCase JSON keys while `jsonb_to_recordset` reads snake_case fields,
+returning `NOT_FOUND` at `modules/strategy/infrastructure/postgres.ts:637`.
+The defect is outside ENV-06's exact changed paths and blocks truthful
+acceptance of the persistence prerequisite. The packet repairs only that
+mapping and must prove same-owner persistence, exact component versions,
+owner filtering, and cross-owner rejection without changing schema,
+contracts, ownership, provenance, or algorithm behavior.
+
+Prohibitions: no ENV-06 retry, I-01R closure, I-01 resumption, I-02, I-03,
+extension, migration/schema change, API/DTO redesign, checker change, broad
+skip, unrelated cleanup, retry, replacement, duplicate, worktree, or
+downstream execution. Any unavailable tool or environment is `BLOCKED` or
+`UNVERIFIED`, never `PASS`; OpenSpec CLI is not assumed available.
+
+Affected: `ENV-07`, `ENV-06`, `I-01R`, `I-01`, `MVP_PLAN.md`, `TASKS.md`,
+`HANDOFF.md`, `INS-114`, and the integration DAG. Requirements, approved
+functional image amendments, accepted ADRs, public contracts, completed
+packet states, `I-02`, `I-03`, and deferred scope remain unchanged.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [Architecture](../architecture.md),
+[Data model](../data-model.md), [ADR-005](../adr/ADR_005_module_first_structure.md),
+[MVP plan](../implementation/MVP_PLAN.md), [Task state](../implementation/TASKS.md),
+[Latest checkpoint](../implementation/HANDOFF.md), `DEC-034`, `INS-113`, and
+commit `391d639`.

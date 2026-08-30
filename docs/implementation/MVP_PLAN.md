@@ -1111,9 +1111,9 @@ strict artifact repositories; unrelated cleanup.
 - **State / owner / wave:** BLOCKED / fresh Manager plus one disjoint internal
   worker / 6B.
 - **Start dependencies:** ENV-06 is `DONE` and its exact delta is integrated
-  at `d274f52`; the current Instructor checkpoint is `INS-113 / HOLD`; the
-  Strategy PostgreSQL integration failure is reproducible with the local test
-  database; and no Cryptox implementation writer is active.
+  at `d274f52`; a current non-stale Instructor signal explicitly authorizes
+  ENV-07; the Strategy PostgreSQL integration failure is reproducible with the
+  local test database; and no Cryptox implementation writer is active.
 - **Integration dependencies:** A fresh Instructor review of ENV-07 and the
   resulting I-01R evidence. This packet does not authorize I-01R closure, I-01,
   I-02, I-03, extensions, or final/demo claims.
