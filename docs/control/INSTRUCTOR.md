@@ -2,80 +2,55 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-065`
+Instruction ID: `INS-066`
 
-Status: `APPROVED_FOR_EXECUTION`
+Status: `HOLD`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
-## INS-065 — Q-02 seeded discovery closure review
+## INS-066 — HOLD after Q-02 seeded discovery closure
 
-This replaceable signal supersedes `INS-064 / HOLD` and authorizes exactly one
-Manager-owned closure packet: review and close `Q-02`. It authorizes no worker,
-source implementation, B-03, or downstream work.
+The previous `INS-065 / APPROVED_FOR_EXECUTION` is exhausted. This signal
+persists a safe Instructor checkpoint after the Manager's Q-02 closure and
+authorizes no implementation, closure, worker, or downstream start yet.
 
-### Reviewed checkpoint and preconditions
+### Reviewed checkpoint and current frontier
 
-- Branch: `MVP_IMPLEMENTATION`.
-- Reviewed base: `1efe938` (`docs(control): hold after C-03 closure`), with a
-  clean Git tree at dispatch. C-03 and ENV-04 are `DONE`; Q-02 is `REVIEW`.
-- Q-02 source checkpoint: `95cb98463f60c35f71dda2f7832f0aa9ad22a30c`
-  (`feat(search): implement seeded discovery profiles`). The six C-03
-  contract/REST files are unchanged after their `51e98f9` checkpoint; later
-  Search changes are confined to the reviewed Q-02 implementation scope, and
-  the checker boundary was reconciled separately by ENV-04.
-- The parent Instructor independently reviewed the Q-02 implementation and
-  tests. Q-02 focused tests pass 12/12; current checker tests pass 13/13,
-  `scope:check`, architecture, artifacts, typecheck, build, lint, workspace
-  tests, and diff checks pass. The workspace evidence is 341 passed with 6
-  PostgreSQL-gated skips; skips are not PASS evidence. OpenSpec CLI remains
-  `UNVERIFIED`; PostgreSQL, Binance/News, real-provider, browser, and demo
-  evidence remains `UNVERIFIED` or `BLOCKED` where recorded.
-- Active-task inspection must find no other running Cryptox Manager or worker.
-  Historical tasks must not be resumed, retried, replaced, or duplicated.
+- Branch: `MVP_IMPLEMENTATION`; current HEAD is `bd9dd86`
+  (`checkpoint(q-02): close seeded discovery reconciliation`); Git is clean
+  after the parent Instructor committed the audited Manager-owned
+  `TASKS.md`/`HANDOFF.md` diff.
+- Q-02 is `DONE` under INS-065. Its source checkpoint remains
+  `95cb98463f60c35f71dda2f7832f0aa9ad22a30c`; ENV-04 is `DONE` at `4c964f6`
+  with implementation checkpoint `5032582`; C-03 is `DONE` at `a115025`.
+- Current operational board: 29 `DONE`, 5 `REVIEW` (`M-02`, `M-03`, `B-03`,
+  `N-03`, `ENV-03`), and 8 `BLOCKED` (`S-04`, `E-02`, `L-02`, `F-03`, `I-01`,
+  `I-02`, `I-03`, `AU-02`) across 42 task rows. This is packet-state
+  progress only, not final MVP acceptance.
+- The current deferred-scope checker and its 13 focused tests pass, and
+  `npm run scope:check` now passes for the approved B-03 and Q-02 boundaries.
+  ENV-03's reviewed checkpoint `0bc215f` therefore has the local evidence for
+  a separate Manager-only closure review, subject to the start gate below.
+- Real PostgreSQL, configured Binance/News providers, browser/demo runtime,
+  link/DAG automation, and OpenSpec CLI evidence remain `UNVERIFIED` or
+  `BLOCKED` where recorded. No unavailable check is treated as PASS.
+- Control-plane finding requiring reconciliation before acceptance: a legacy
+  narrative paragraph in `docs/implementation/TASKS.md` still broadly says
+  that all extension packets other than the completed S-05/S-06/Q-02 remain
+  `BLOCKED`, while the authoritative rows for M-03, B-03, N-03, and ENV-03 are
+  `REVIEW`. The next Manager may correct only this stale summary wording as
+  part of an explicitly authorized control-plane reconciliation; no Instructor
+  or Manager may silently change task states outside that authorization.
 
-### Authorized packet: `Q-02` closure review
+### Conditions for the next authorization
 
-- **Authority and requirements:** `CSL-R-SE-03`, `CSL-R-RP-02`,
-  `CSL-R-OB-01`, `CSL-R-LB-01`, DEC-007, DEC-012, DEC-013, ADR-010, and the
-  C-03 public-boundary decision. This is a closure review of already executed
-  seeded discovery implementation; it creates no new product behavior.
-- **Fresh Manager:** create exactly one new Manager in the canonical
-  same-directory checkout `D:/agy-cli-projects/AOS/Cryptox`, on branch
-  `MVP_IMPLEMENTATION`, with model `gpt-5.6-luna` and `xhigh` reasoning. It
-  must read `AGENTS.md` and `docs/control/prompts/ORCHESTRATOR_START.md`
-  completely, then verify this signal, `TASKS.md`, `HANDOFF.md`, the DAG,
-  current Git, dependencies, and active tasks before editing anything.
-- **Worker rule:** no worker is authorized or needed. This packet is limited
-  to Manager-owned control-plane reconciliation and closure review; the Manager
-  must not create a worker or touch source.
-- **Manager-owned write scope:** only `docs/implementation/TASKS.md` and
-  `docs/implementation/HANDOFF.md`. Reconcile the Q-02 checkpoint to the
-  current Git history and evidence, preserve all exact implementation paths,
-  validation results, and `UNVERIFIED`/`BLOCKED` limitations, and update only
-  Q-02's operational state/checkpoint text. C-03, ENV-04, and every other task
-  state must remain unchanged.
-
-### Acceptance and stop condition
-
-- Verify the original Q-02 write scope: the Domain-guided and Genetic
-  generator directories, Search application/profile and infrastructure
-  projections excluding canonical contracts, and focused Search tests. Confirm
-  no contract, migration, Backtesting, scoring, LLM, frontend, provider,
-  queue, or unrelated source was changed by Q-02.
-- Verify deterministic seed/config/dataset/code provenance, declared-category
-  behavior, Genetic bounded defaults, the 500-candidate/300-second bound,
-  finite capacity/lifecycle observability, persistence projections, and public
-  Search/Backtesting/Leaderboard lifecycle evidence. Unavailable PostgreSQL or
-  provider evidence must remain explicitly unverified.
-- If evidence and control records are consistent, move only Q-02
-  `REVIEW -> DONE`; otherwise keep Q-02 `REVIEW` and record the precise reason.
-  Do not promote B-03 or any downstream packet.
-- Commit one coherent Manager checkpoint containing only the two authorized
-  control files and stop immediately. No source, contract, migration,
-  dependency, provider, frontend, or downstream packet may change.
-- After this authorization, renewed Instructor review is required before B-03,
-  ENV-03, or any downstream implementation/closure authorization.
+Before issuing an `APPROVED_FOR_EXECUTION` signal, the Instructor must verify
+that the tree remains clean, no Cryptox Manager/worker is running, the current
+HEAD and reviewed checkpoint are unchanged, and TASKS/HANDOFF/DAG agree. The
+next safe candidate is exactly `ENV-03` closure/reconciliation; it must not
+promote B-03 or start any E1/E2/downstream feature. Any material drift or
+unavailable required evidence keeps the system at `HOLD` or moves it to
+`NEEDS_HUMAN_DECISION` with exact evidence.
 
 ### References
 
