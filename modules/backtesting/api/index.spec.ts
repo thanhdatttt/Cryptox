@@ -230,4 +230,28 @@ describe("backtesting runtime", () => {
     await expect(service.processQueueTerminalSignal({ schemaVersion: 1, jobId: failed.candidateId, status: "RETRIES_EXHAUSTED", attemptsMade: 1 })).resolves.toMatchObject({ status: "FAILED" });
     await expect(service.status({ userId: "user-1" }, failed.candidateId)).resolves.toMatchObject({ status: "FAILED", failureKind: "RETRY_EXHAUSTED" });
   });
+
+  it("lets a matching in-flight worker finish audit trades after cancellation without reopening the candidate", async () => {
+    const dependencies = createInMemoryBacktestingDependencies();
+    const repository = dependencies.repository;
+    const now = "2025-01-01T00:00:00.000Z";
+    const candidate = {
+      candidateId: "cancelled-candidate", ownerUserId: "user-1", origin: "MANUAL" as const, selectionMode: "SINGLE" as const,
+      leaderboardScopeId: "scope-1", status: "QUEUED" as const, attempts: [], maxAttempts: 1, completionAttemptCount: 0,
+      completionMaxAttempts: 5, strategyDefinitions: [], compositeDefinition: { id: "composite-1", userId: "user-1", logicalFamilyKey: "test", version: 1, method: "WEIGHTED_SCORE" as const, components: [], createdAt: now },
+      queueJobId: "cancelled-candidate", createdAt: now, updatedAt: now,
+    };
+    await repository.createCandidate(candidate);
+    const claim = await repository.claimWorkerAttempt({ candidateId: candidate.candidateId, queueJobId: candidate.queueJobId, deliveryAttempt: 1, attemptId: "cancelled-candidate:attempt:1", fenceToken: "fence-1", now, leaseExpiresAt: "2025-01-01T00:01:00.000Z", workerRuntimeVersion: "worker-1", workerRuntimeSha256: "a".repeat(64) });
+    expect(claim).toBeDefined();
+    await repository.updateCandidate({ ...claim!.candidate, status: "CANCELLED", activeLeaseExpiresAt: undefined });
+    const trade = { id: "audit-trade", sequence: 1, pair: "BTCUSDT" as const, settlementAsset: "USDT", backtestAttemptId: claim!.attempt.attemptId, signal: "LONG" as const, entryTime: now, marketEntryPrice: 100, entryPrice: 100, stopLoss: null, takeProfit: null, exitTime: "2025-01-01T00:00:30.000Z", marketExitPrice: 101, exitPrice: 101, exitReason: "RANGE_END" as const, quantity: 1, notionalEntryValue: 100, equityBeforeTrade: 100, equityAfterTrade: 101, grossProfit: 1, feeAmount: 0, slippageBps: 0, slippageAmount: 0, profit: 1, resultPercent: 1, result: "WIN" as const };
+    await repository.persistWorkerSuccess({ candidate: claim!.candidate, attempt: claim!.attempt, fenceToken: "fence-1", result: { status: "COMPLETED", candidateId: candidate.candidateId, attemptId: claim!.attempt.attemptId, workerRuntimeVersion: "worker-1", workerRuntimeSha256: "a".repeat(64), startedAt: now, completedAt: "2025-01-01T00:00:30.000Z", trades: [trade] } });
+    const storedCandidate = await repository.readCandidate(candidate.candidateId);
+    expect(storedCandidate?.status).toBe("CANCELLED");
+    expect(storedCandidate?.activeFenceToken).toBeUndefined();
+    await expect(repository.readAttempt(claim!.attempt.attemptId)).resolves.toMatchObject({ status: "COMPLETED", auditOnly: true, tradeCount: 1 });
+    await expect(repository.listTrades(claim!.attempt.attemptId)).resolves.toHaveLength(1);
+    await expect(repository.findExperimentByCandidate(candidate.candidateId)).resolves.toBeUndefined();
+  });
 });

@@ -125,8 +125,11 @@ class InMemoryBacktestingRepository {
         const attempt = this.attempts.get(input.attempt.attemptId);
         if (!candidate || !attempt || candidate.activeFenceToken !== input.fenceToken || attempt.fenceToken !== input.fenceToken)
             throw new Error("BACKTEST_FENCE_LOST");
-        const failed = { ...attempt, status: "FAILED", completedAt: input.now, failureCategory: input.retrying ? "RETRYABLE" : "INFRASTRUCTURE", failureCode: input.error, errorMessage: input.error, leaseExpiresAt: undefined };
-        const updated = { ...candidate, status: input.retrying ? "RETRY_WAIT" : "TERMINAL_FAILURE_PENDING", activeAttemptNumber: undefined, activeFenceToken: undefined, activeLeaseExpiresAt: undefined, failureKind: input.retrying ? undefined : "RETRY_EXHAUSTED", failureCode: input.error, lastError: input.error, updatedAt: input.now };
+        const cancelled = candidate.status === "CANCELLED";
+        const failed = { ...attempt, status: "FAILED", completedAt: input.now, failureCategory: cancelled ? "CANCELLED_AUDIT" : input.retrying ? "RETRYABLE" : "INFRASTRUCTURE", failureCode: input.error, errorMessage: input.error, leaseExpiresAt: undefined };
+        const updated = cancelled
+            ? { ...candidate, activeAttemptNumber: undefined, activeFenceToken: undefined, activeLeaseExpiresAt: undefined, updatedAt: input.now }
+            : { ...candidate, status: input.retrying ? "RETRY_WAIT" : "TERMINAL_FAILURE_PENDING", activeAttemptNumber: undefined, activeFenceToken: undefined, activeLeaseExpiresAt: undefined, failureKind: input.retrying ? undefined : "RETRY_EXHAUSTED", failureCode: input.error, lastError: input.error, updatedAt: input.now };
         this.attempts.set(failed.attemptId, clone(failed));
         this.candidates.set(updated.candidateId, clone(updated));
     }
@@ -144,8 +147,11 @@ class InMemoryBacktestingRepository {
         const attempt = this.attempts.get(input.attempt.attemptId);
         if (!candidate || !attempt || candidate.activeFenceToken !== input.fenceToken || attempt.fenceToken !== input.fenceToken)
             throw new Error("BACKTEST_FENCE_LOST");
-        const completedAttempt = { ...attempt, status: "COMPLETED", completedAt: input.result.completedAt, tradeCount: input.result.trades.length, leaseExpiresAt: undefined };
-        const pending = { ...candidate, status: "PROCESSING_RESULT", activeAttemptNumber: undefined, activeFenceToken: undefined, activeLeaseExpiresAt: undefined, completionNextRetryAt: input.result.completedAt, updatedAt: input.result.completedAt };
+        const auditOnly = candidate.status === "CANCELLED";
+        const completedAttempt = { ...attempt, status: "COMPLETED", completedAt: input.result.completedAt, tradeCount: input.result.trades.length, auditOnly, leaseExpiresAt: undefined };
+        const pending = candidate.status === "CANCELLED"
+            ? { ...candidate, status: "CANCELLED", activeAttemptNumber: undefined, activeFenceToken: undefined, activeLeaseExpiresAt: undefined, updatedAt: input.result.completedAt }
+            : { ...candidate, status: "PROCESSING_RESULT", activeAttemptNumber: undefined, activeFenceToken: undefined, activeLeaseExpiresAt: undefined, completionNextRetryAt: input.result.completedAt, updatedAt: input.result.completedAt };
         this.attempts.set(completedAttempt.attemptId, clone(completedAttempt));
         this.trades.set(completedAttempt.attemptId, clone(input.result.trades));
         this.candidates.set(pending.candidateId, clone(pending));
@@ -180,20 +186,20 @@ class InMemoryBacktestingRepository {
     }
     async finalizeCompletion(input) {
         const candidate = this.candidates.get(input.candidate.candidateId);
-        if (!candidate || candidate.status !== "PROCESSING_RESULT" || candidate.activeCompletionClaimToken !== input.claimToken)
+        if (!candidate || candidate.status !== "PROCESSING_RESULT" || candidate.activeCompletionClaimToken !== input.claimToken || candidate.completionGeneration !== input.candidate.completionGeneration || !candidate.activeCompletionLeaseExpiresAt || Date.parse(candidate.activeCompletionLeaseExpiresAt) <= Date.parse(input.now))
             throw new Error("BACKTEST_COMPLETION_FENCE_LOST");
         const completed = { ...candidate, status: "COMPLETED", experimentResultId: input.experimentId, activeCompletionClaimToken: undefined, activeCompletionLeaseExpiresAt: undefined, completionNextRetryAt: undefined, updatedAt: input.now };
         this.candidates.set(completed.candidateId, clone(completed));
     }
     async finalizeTerminalFailure(input) {
         const candidate = this.candidates.get(input.candidate.candidateId);
-        if (!candidate || candidate.status !== "TERMINAL_FAILURE_PENDING" || candidate.activeCompletionClaimToken !== input.claimToken)
+        if (!candidate || candidate.status !== "TERMINAL_FAILURE_PENDING" || candidate.activeCompletionClaimToken !== input.claimToken || candidate.completionGeneration !== input.candidate.completionGeneration || !candidate.activeCompletionLeaseExpiresAt || Date.parse(candidate.activeCompletionLeaseExpiresAt) <= Date.parse(input.now))
             throw new Error("BACKTEST_COMPLETION_FENCE_LOST");
         this.candidates.set(candidate.candidateId, clone({ ...candidate, status: "FAILED", activeCompletionClaimToken: undefined, activeCompletionLeaseExpiresAt: undefined, completionNextRetryAt: undefined, updatedAt: input.now }));
     }
     async failCompletion(input) {
         const candidate = this.candidates.get(input.candidate.candidateId);
-        if (!candidate || candidate.activeCompletionClaimToken !== input.claimToken)
+        if (!candidate || candidate.activeCompletionClaimToken !== input.claimToken || candidate.completionGeneration !== input.candidate.completionGeneration || !candidate.activeCompletionLeaseExpiresAt || Date.parse(candidate.activeCompletionLeaseExpiresAt) <= Date.parse(input.now))
             throw new Error("BACKTEST_COMPLETION_FENCE_LOST");
         const exhausted = candidate.completionAttemptCount >= candidate.completionMaxAttempts;
         this.candidates.set(candidate.candidateId, clone({ ...candidate, status: exhausted ? "FAILED" : "PROCESSING_RESULT", activeCompletionClaimToken: undefined, activeCompletionLeaseExpiresAt: undefined, completionNextRetryAt: exhausted ? undefined : input.retryAt, failureKind: exhausted ? "COMPLETION_PROCESSING" : candidate.failureKind, failureCode: exhausted ? "COMPLETION_PROCESSING_FAILED" : candidate.failureCode, lastError: input.error, updatedAt: input.now }));
@@ -420,8 +426,9 @@ class BacktestingService {
         invalid("INVALID_PAGE"); const selected = items.slice(offset, offset + page.limit); return { items: await Promise.all(selected.map(async (candidate) => this.progress(candidate, await this.deps.repository.listAttempts(candidate.candidateId)))), nextCursor: offset + page.limit < items.length ? String(offset + page.limit) : undefined }; }
     async cancelSearchCandidates(auth, searchRunId, unitOfWork) { const candidates = await this.ownedSearchCandidates(auth, searchRunId); const cancelled = []; for (const candidate of candidates)
         if (!terminal(candidate.status)) {
+            const activeFenceToken = candidate.status === "BACKTESTING" ? candidate.activeFenceToken : undefined;
             candidate.status = "CANCELLED";
-            candidate.activeFenceToken = undefined;
+            candidate.activeFenceToken = activeFenceToken;
             candidate.activeLeaseExpiresAt = undefined;
             candidate.updatedAt = this.now();
             await this.deps.repository.updateCandidate(candidate, unitOfWork);
@@ -430,8 +437,9 @@ class BacktestingService {
         } return { candidateIds: cancelled }; }
     async cancelManualCandidate(auth, candidateId) { const candidate = await this.ownedCandidate(auth, candidateId); if (candidate.origin !== "MANUAL")
         invalid("BACKTEST_CANDIDATE_NOT_MANUAL"); if (!terminal(candidate.status)) {
+        const activeFenceToken = candidate.status === "BACKTESTING" ? candidate.activeFenceToken : undefined;
         candidate.status = "CANCELLED";
-        candidate.activeFenceToken = undefined;
+        candidate.activeFenceToken = activeFenceToken;
         candidate.activeLeaseExpiresAt = undefined;
         candidate.updatedAt = this.now();
         await this.deps.repository.updateCandidate(candidate);

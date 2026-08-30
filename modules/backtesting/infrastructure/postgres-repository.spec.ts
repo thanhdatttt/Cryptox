@@ -99,4 +99,14 @@ describe("PostgresBacktestingRepository", () => {
     const repository = new PostgresBacktestingRepository({ query: async <Row>(text: string) => ({ rows: (text.includes("FROM backtest_input_snapshots") ? [snapshot] : [{ timestamp: "2025-01-01T00:00:00.000Z", open: 100, high: 100, low: 100, close: 99, volume: 1, is_closed: true }]) as unknown as Row[] }) });
     await expect(repository.readInputSnapshot(snapshot.id)).rejects.toThrow("BACKTEST_INPUT_SNAPSHOT_INTEGRITY_FAILURE");
   });
+
+  it("requires the matching completion generation, claim, and unexpired lease", async () => {
+    let statement = "";
+    let values: unknown[] = [];
+    const repository = new PostgresBacktestingRepository({ query: async <Row>(text: string, input: unknown[]) => { statement = text; values = input; return { rows: [{ id: "candidate-1" }] as Row[] }; } });
+    await repository.finalizeCompletion({ candidate: { candidateId: "candidate-1", completionGeneration: 4 } as never, experimentId: "experiment-1", claimToken: "claim-1", now: "2025-01-01T00:00:00.000Z" });
+    expect(statement).toContain("completion_generation = $3");
+    expect(statement).toContain("active_completion_lease_expires_at > $4");
+    expect(values).toEqual(["candidate-1", "claim-1", 4, "2025-01-01T00:00:00.000Z", "experiment-1", "2025-01-01T00:00:00.000Z"]);
+  });
 });
