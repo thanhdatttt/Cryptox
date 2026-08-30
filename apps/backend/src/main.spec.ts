@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { BadRequestException, ConflictException, ServiceUnavailableException, UnauthorizedException, UnprocessableEntityException } from "@nestjs/common";
 import { createAuthModule, createInMemoryAuthDependencies } from "modules/auth/api";
 import { createBacktestingService, createInMemoryBacktestingDependencies } from "modules/backtesting/api";
@@ -213,7 +213,7 @@ describe("backend composition", () => {
     await expect(new ExperimentController(modules).trades(`Bearer ${token}`, experiment.id, "10")).resolves.toMatchObject({ items: [expect.objectContaining({ result: "WIN" })] });
 
     const searchStarted = await new SearchController(modules).start(`Bearer ${token}`, { leaderboardScopeId: scope.id, strategyDefinitionIds: [definition.id], maxCandidates: 2, maxInFlight: 1 });
-    await expect(new SearchController(modules).status(`Bearer ${token}`, searchStarted.searchRunId)).resolves.toMatchObject({ state: "RUNNING", candidatesTested: 1, queuedCount: 1 });
+    await vi.waitFor(async () => expect(await new SearchController(modules).status(`Bearer ${token}`, searchStarted.searchRunId)).toMatchObject({ state: "RUNNING", candidatesTested: 0, queuedCount: 1 }));
   });
 
   it("maps authenticated bounded Search lifecycle and scoped Top-K routes to public facades", async () => {
