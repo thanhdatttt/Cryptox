@@ -1,3 +1,118 @@
+# INS-089 Manager Checkpoint — F-03 Residual Screen Projections
+
+## Resume here
+
+- **Authorization:** `INS-089 / APPROVED_FOR_EXECUTION` authorizes exactly one
+  fresh Manager and exactly one fresh internal Frontend worker for the F-03
+  residual screen-level slice. The current Instructor signal is committed at
+  `3945fb09286e062446cd95b55b6714bc1bbdda3b`; its reviewed base is
+  `29464d3f52858f687ded90818757628b7c9b671f`.
+- **Canonical checkout:** `D:/agy-cli-projects/AOS/Cryptox` on branch
+  `MVP_IMPLEMENTATION`; no worktree, alternate checkout, branch, or cloud task
+  was used.
+- **Reviewed starting state:** The audited market/cache source slice is
+  `122569c8f10e39dcbd31ec74d032dde73187bd2c`, and the reconciled Manager
+  checkpoint is `43ae5d2a5a2aa116d328120f832bd6cc4a446bc0`. Both are ancestors
+  of the starting signal. Source/business state was clean before execution;
+  the only subsequent implementation paths are the two authorized screen
+  paths below.
+- **Control-plane preconditions:** `TASKS.md` was verified at `37 DONE`,
+  `2 REVIEW` (`M-02`, `F-03`), and `4 BLOCKED` (`AU-02`, `I-01`, `I-02`,
+  `I-03`). F-03 was `REVIEW / NEEDS_INSTRUCTOR_REVIEW`. Dependencies `M-03`,
+  `S-04`, `S-05`, `S-06`, `Q-02`, `B-03`, `N-03`, `E-02`, and `L-02` were
+  `DONE`. No competing active Cryptox Manager or worker was found; historical
+  workers were idle and were not resumed.
+- **Worker:** Exactly one fresh internal Frontend worker, Darwin
+  (`01a05209-7eaa-7162-b10c-4cdf849258f2`), was dispatched with
+  `gpt-5.6-luna` at maximum supported reasoning in the canonical checkout.
+  No child agent, worktree, branch, commit, retry, replacement, or control-plane
+  edit was used or permitted.
+- **State transition:** F-03 moved exactly
+  `REVIEW -> READY -> IN_PROGRESS -> REVIEW`. No other task moved and no
+  downstream packet was authorized or started.
+
+## Execution boundary
+
+- **Requirement IDs:** `CSL-R-MD-03`, `CSL-R-ST-05`–`07`, `CSL-R-SE-03`,
+  `CSL-R-BT-02`, `CSL-R-NW-02`, `CSL-R-RP-02`, `CSL-R-FE-01`, and
+  `CSL-R-DM-01`.
+- **Worker write scope:** Only
+  `apps/frontend/src/features/screens.tsx` and
+  `apps/frontend/src/features/screens.spec.tsx` were changed. The permitted
+  fixture files and `apps/frontend/src/style.css` were untouched. Frozen
+  contracts, clients, state/types, market observability/cache seams,
+  backend/modules, migrations, providers, manifests/lockfiles, policy docs,
+  and generated artifacts were protected.
+- **Manager scope:** The Manager owned review, the two Manager control files,
+  and narrow acceptance cleanup in the same two worker-owned screen paths.
+  No new transport, endpoint, field, persistence, provider call, business
+  calculation, client identity path, or unrelated redesign was introduced.
+
+## Worker result and independent review
+
+- **Worker result:** Darwin completed the residual screen projection and packet
+  regression tests, reported focused tests 3/3 passing, and made no commit or
+  control-plane edit. The Manager read the diff path-by-path. The resulting
+  screen UI projects the unavailable/disabled `FeatureWorkspaceState.authoring`
+  state; saved origin metadata; generic descriptor and visualization metadata;
+  composite method/profile/component and weighted metadata; all frozen Search
+  generator types; supplied seeded discovery provenance, finite bounds,
+  lifecycle/count/timing/error/ranking data; supplied Experiment/Trade
+  provenance, paper fields and visualization; and News extraction/template plus
+  supplied Sentiment availability states.
+- **Acceptance safety review:** LLM draft/validation/Save/Approve controls stay
+  visibly unavailable because no frozen transport exists. Seeded non-random
+  starts stay disabled because the current client has no composed seeded-start
+  method. Seeded profiles are shown only when supplied by the DTO; absent
+  values say `not supplied/not yet composed`. Opaque paper provenance is
+  rendered generically without profile-name branches, and the result view only
+  displays supplied metrics/P&L/execution values with explicit paper/no-live-
+  order wording. News remains readable without Sentiment; no URL fetch or LLM
+  call was added.
+- **Scope review:** PASS. `git diff --name-status` contains only the two
+  screen paths and these Manager-owned control records. No forbidden path,
+  client identity/cache bypass, strategy-name branch, browser generation, or
+  deferred-scope literal remains in the screen slice. Fixtures remain
+  fixture-only.
+
+## Validation evidence
+
+- **PASS:** Focused packet test
+  `npm --workspace @cryptox/frontend test -- src/features/screens.spec.tsx` —
+  3/3.
+- **PASS:** Full Frontend test suite — 12 files, 33/33; Frontend typecheck,
+  build, and lint.
+- **PASS:** Root test suite — 385 passed, 6 environment-gated skips; root
+  typecheck, build, and lint.
+- **PASS:** `npm run arch:check` (expected nine forbidden-dependency fixtures),
+  `npm run artifacts:check`, `npm run scope:check`,
+  `npm run test:scope-check` (13/13), and `git diff --check`.
+- **PASS (limited):** `npm run runtime:smoke` — `/live=200`, `/ready=503`,
+  `/health=404`; this is health-only evidence, not feature transport evidence.
+- **BLOCKED:** `npm run db:local:validate` because Docker Compose is unavailable
+  and Docker config access is denied (`docker: unknown command: docker compose`).
+  PostgreSQL/database evidence is not claimed.
+- **UNVERIFIED:** The OpenSpec CLI is unavailable (`openspec` is not
+  recognized). Live Binance/News/provider traffic, real feature REST and
+  market-WebSocket composition, and browser/demo evidence were unavailable and
+  are not claimed.
+
+## Stop boundary
+
+- F-03 remains `REVIEW / NEEDS_INSTRUCTOR_REVIEW`; it was not promoted to
+  `DONE` in this authorization. The board remains `37 DONE`, `2 REVIEW`, and
+  `4 BLOCKED`; `M-02` remains `REVIEW`, and `AU-02`, `I-01`, `I-02`, and `I-03`
+  remain blocked.
+- The sole worker and authorized residual execution are exhausted. Do not start
+  another worker, retry or resume Darwin, implement another packet, or promote
+  newly unlocked work. Instructor review is required before any further F-03
+  or integration decision.
+- **INS-089 Manager staging/commit attempt:** The single coherent attempt failed
+  before staging with the exact error `fatal: Unable to create
+  'D:/agy-cli-projects/AOS/Cryptox/.git/index.lock': Permission denied`. It was
+  not retried. The validated four-file delta remains uncommitted at starting
+  HEAD `3945fb09286e062446cd95b55b6714bc1bbdda3b` for Instructor audit.
+
 # INS-087 Manager Checkpoint — F-03 Checkpoint Record Reconciliation
 
 ## Resume here
