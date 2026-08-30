@@ -333,6 +333,30 @@ describe("Search application fake-port phase", () => {
     expect(new Set(harness.compositeCalls.map((call) => call.command.strategyDefinitionIds.join(","))).size).toBe(2);
   });
 
+  it("waits for accepted candidates before terminalizing a max-candidate run", async () => {
+    const harness = makeHarness({ candidateStatus: "RUNNING" });
+    const started = await harness.app.start(
+      { authenticatedUserId: ownerA },
+      command({ stopCondition: { maxCandidates: 1 } }),
+    );
+
+    await waitFor(() => harness.submitted.length === 1);
+    expect(harness.repository.runs.get(started.searchRunId)?.state).toBe("RUNNING");
+
+    const candidate = [...harness.candidates.values()][0]!;
+    candidate.status = "SUCCEEDED";
+    await waitFor(() => harness.repository.runs.get(started.searchRunId)?.state === "COMPLETED");
+
+    await expect(harness.app.status({ authenticatedUserId: ownerA }, started.searchRunId)).resolves.toMatchObject({
+      state: "COMPLETED",
+      stopReason: "MAX_CANDIDATES",
+      submittedCandidateCount: 1,
+      completedCandidateCount: 1,
+      failedCandidateCount: 0,
+      activeCandidateIds: [],
+    });
+  });
+
   it("enforces positive maxInFlight capacity while candidates remain running", async () => {
     const harness = makeHarness({ candidateStatus: "RUNNING" });
     const started = await harness.app.start(

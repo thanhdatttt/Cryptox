@@ -24,6 +24,7 @@ import type {
   LeaderboardEntry,
   LeaderboardModulePublicApi,
   LeaderboardScope,
+  RankableExperiment,
   RankingConfiguration,
 } from "@cryptox/leaderboard";
 import {
@@ -180,7 +181,31 @@ function createMarketDataApi(): Pick<MarketDataModulePublicApi, "createDatasetSn
   };
 }
 
-function createLeaderboardApi(): LeaderboardModulePublicApi {
+function createLeaderboardExperimentRepository(
+  repositories: ReturnType<typeof createInMemoryBacktestingRepositories>,
+): NonNullable<LeaderboardModuleDependencies["experimentRepository"]> {
+  const toRankable = (experiment: Awaited<ReturnType<typeof repositories.experimentRepository.getByCandidateOwnerAndId>>): RankableExperiment | undefined => {
+    if (!experiment) return undefined;
+    return {
+      executionState: "SUCCEEDED",
+      experimentId: experiment.id,
+      candidateId: experiment.candidateId,
+      ...(experiment.searchRunId === undefined ? {} : { searchRunId: experiment.searchRunId }),
+      metrics: experiment.metrics,
+    };
+  };
+  return {
+    getByOwnerAndId: async (ownerUserId, experimentId) =>
+      toRankable(await repositories.experimentRepository.getByCandidateOwnerAndId(ownerUserId, experimentId)),
+    listByOwnerAndSearchRun: async (ownerUserId, searchRunId) =>
+      (await repositories.experimentRepository.listByCandidateOwnerAndSearchRun(ownerUserId, searchRunId))
+        .map((experiment) => toRankable(experiment)!)
+  };
+}
+
+function createLeaderboardApi(
+  experimentRepository?: NonNullable<LeaderboardModuleDependencies["experimentRepository"]>,
+): LeaderboardModulePublicApi {
   const scope: LeaderboardScope = {
     id: leaderboardScopeId,
     ownerUserId: ownerA,
@@ -246,6 +271,7 @@ function createLeaderboardApi(): LeaderboardModulePublicApi {
       getById: async (id) => configurations.get(id),
       listAll: async () => [...configurations.values()],
     },
+    ...(experimentRepository ? { experimentRepository } : {}),
     clock: { now: () => "2026-01-01T03:00:00.000Z" },
   };
   return createLeaderboardModule(dependencies);
@@ -255,8 +281,8 @@ function createBoundedPublicBacktesting(
   strategy: StrategyModulePublicApi,
   leaderboard: LeaderboardModulePublicApi,
   searchRunOwnerGuard: (context: { authenticatedUserId: AuthenticatedUserId }, searchRunId: string) => Promise<void>,
+  repositories: ReturnType<typeof createInMemoryBacktestingRepositories> = createInMemoryBacktestingRepositories(),
 ): BacktestingApplication {
-  const repositories = createInMemoryBacktestingRepositories();
   let application!: BacktestingApplication;
   const active = new Map<string, { controller: AbortController; startedAt: string }>();
   const execution: BacktestExecutionPort<CandidateExecutionRequest, CandidateRunResult> = {
@@ -333,12 +359,13 @@ describeReal("Q-01 real SearchRun, Backtesting, and Leaderboard integration", ()
         [leaderboardScopeId, ownerA, "Q-01 integration scope", 10, rankingConfigurationId, "Q01_FIXTURE", now],
       );
 
-      const leaderboard = createLeaderboardApi();
+      const backtestingRepositories = createInMemoryBacktestingRepositories();
+      const leaderboard = createLeaderboardApi(createLeaderboardExperimentRepository(backtestingRepositories));
       const strategy = createStrategyApi();
       let search!: SearchModulePublicApi;
       const backtesting = createBoundedPublicBacktesting(strategy, leaderboard, async (context, id) => {
         await search.status(context, id);
-      });
+      }, backtestingRepositories);
       search = createSearchModule({
         searchRunRepository: repository,
         generators: { RANDOM: new SeededRandomStrategyGenerator() },
@@ -350,7 +377,7 @@ describeReal("Q-01 real SearchRun, Backtesting, and Leaderboard integration", ()
         },
       }, { idGenerator: () => searchRunId, pollIntervalMs: 2 });
 
-      const started = await search.start({ authenticatedUserId: ownerA }, {
+      const clientCommand: Parameters<SearchModulePublicApi["start"]>[1] = {
         searchSpace: {
           availableStrategyDefinitionIds: ["strategy-b", "strategy-a"],
           componentCount: { minimum: 2, maximum: 2 },
@@ -362,7 +389,9 @@ describeReal("Q-01 real SearchRun, Backtesting, and Leaderboard integration", ()
         leaderboardScopeId,
         candidateTemplate,
         maxInFlight: 1,
-      });
+      };
+      Object.assign(clientCommand, { ownerUserId: ownerB });
+      const started = await search.start({ authenticatedUserId: ownerA }, clientCommand);
       expect(started.searchRunId).toBe(searchRunId);
 
       let status: SearchRunStatus | undefined;
@@ -383,6 +412,14 @@ describeReal("Q-01 real SearchRun, Backtesting, and Leaderboard integration", ()
       expect(persisted?.ownerUserId).toBe(ownerA);
       expect(await repository.getByOwnerAndId(ownerB, searchRunId)).toBeUndefined();
       await expect(search.status({ authenticatedUserId: ownerB }, searchRunId)).rejects.toMatchObject({ code: "NOT_FOUND" });
+      await expect(search.pause({ authenticatedUserId: ownerB }, searchRunId)).rejects.toMatchObject({ code: "NOT_FOUND" });
+      await expect(search.resume({ authenticatedUserId: ownerB }, searchRunId)).rejects.toMatchObject({ code: "NOT_FOUND" });
+      await expect(search.cancel({ authenticatedUserId: ownerB }, searchRunId)).rejects.toMatchObject({ code: "NOT_FOUND" });
+      await expect(search.status({} as never, searchRunId)).rejects.toMatchObject({ code: "UNAUTHENTICATED" });
+      await expect(search.list({ authenticatedUserId: ownerA }, { limit: 10 })).resolves.toMatchObject({
+        items: [expect.objectContaining({ searchRunId, ownerUserId: ownerA })],
+      });
+      await expect(search.list({ authenticatedUserId: ownerB }, { limit: 10 })).resolves.toMatchObject({ items: [] });
 
       const candidates: readonly CandidateProgress[] = await backtesting.listSearchCandidates(
         { authenticatedUserId: ownerA },
@@ -393,10 +430,96 @@ describeReal("Q-01 real SearchRun, Backtesting, and Leaderboard integration", ()
       expect(candidates[0]?.ownerUserId).toBe(ownerA);
       expect(candidates[0]?.status).toBe("SUCCEEDED");
 
+      await expect(backtesting.status({ authenticatedUserId: ownerB }, candidates[0]!.candidateId))
+        .rejects.toMatchObject({ code: "NOT_FOUND" });
+      await expect(backtesting.status({} as never, candidates[0]!.candidateId))
+        .rejects.toMatchObject({ code: "UNAUTHENTICATED" });
+      await expect(backtesting.listSearchCandidates({ authenticatedUserId: ownerB }, searchRunId, { limit: 10 }))
+        .resolves.toMatchObject({ items: [] });
+      await expect(backtesting.cancelCandidate({ authenticatedUserId: ownerB }, candidates[0]!.candidateId))
+        .rejects.toMatchObject({ code: "NOT_FOUND" });
+      await expect(backtesting.cancelSearchCandidates({ authenticatedUserId: ownerB }, searchRunId))
+        .resolves.toEqual({ candidateIds: [] });
+      await expect(backtesting.submitSearchCandidate({ authenticatedUserId: ownerB }, {
+        leaderboardScopeId,
+        strategySelection: { kind: "STRATEGY", strategyDefinitionId: "strategy-a" },
+        marketInput: candidateTemplate.marketInput,
+        configuration: candidateTemplate.configuration,
+        searchRunId,
+        iterationNumber: 2,
+      })).rejects.toMatchObject({ code: "NOT_FOUND" });
+
+      const candidateStatus = await backtesting.status({ authenticatedUserId: ownerA }, candidates[0]!.candidateId);
+      expect(candidateStatus.experimentId).toBeTypeOf("string");
+      const experimentId = candidateStatus.experimentId!;
+      const experiment = await backtesting.readExperiment({ authenticatedUserId: ownerA }, experimentId);
+      expect(experiment.candidateId).toBe(candidates[0]!.candidateId);
+      await expect(backtesting.readExperiment({ authenticatedUserId: ownerB }, experimentId))
+        .rejects.toMatchObject({ code: "NOT_FOUND" });
+      await expect(backtesting.listSearchExperiments({ authenticatedUserId: ownerA }, searchRunId))
+        .resolves.toHaveLength(1);
+      await expect(backtesting.listSearchExperiments({ authenticatedUserId: ownerB }, searchRunId))
+        .resolves.toEqual([]);
+      await expect(backtesting.listExperimentTrades({ authenticatedUserId: ownerA }, experimentId, { limit: 10 }))
+        .resolves.toMatchObject({ items: expect.any(Array) });
+      await expect(backtesting.listExperimentTrades({ authenticatedUserId: ownerB }, experimentId, { limit: 10 }))
+        .rejects.toThrow("NOT_FOUND");
+
+      const composite = await strategy.defineComposite({ authenticatedUserId: ownerA }, {
+        logicalFamilyKey: "matrix-composite",
+        combinationProfileId: "MAJORITY_VOTE_V1",
+        strategyDefinitionIds: ["strategy-a", "strategy-b"],
+      });
+      await expect(strategy.readStrategyDefinition({ authenticatedUserId: ownerA }, "strategy-a"))
+        .resolves.toMatchObject({ ownerUserId: ownerA });
+      await expect(strategy.readStrategyDefinition({ authenticatedUserId: ownerB }, "strategy-a"))
+        .rejects.toThrow("NOT_FOUND");
+      await expect(strategy.readCompositeDefinition({ authenticatedUserId: ownerA }, composite.id))
+        .resolves.toMatchObject({ ownerUserId: ownerA });
+      await expect(strategy.readCompositeDefinition({ authenticatedUserId: ownerB }, composite.id))
+        .rejects.toThrow("NOT_FOUND");
+      await expect(strategy.defineComposite({ authenticatedUserId: ownerB }, {
+        logicalFamilyKey: "cross-owner-composite",
+        combinationProfileId: "MAJORITY_VOTE_V1",
+        strategyDefinitionIds: ["strategy-a", "strategy-b"],
+      })).rejects.toThrow("NOT_FOUND");
+
+      await expect(leaderboard.getLeaderboardScope({ authenticatedUserId: ownerA }, leaderboardScopeId))
+        .resolves.toMatchObject({ ownerUserId: ownerA });
+      await expect(leaderboard.getLeaderboardScope({ authenticatedUserId: ownerB }, leaderboardScopeId))
+        .rejects.toMatchObject({ code: "NOT_FOUND" });
+      await expect(leaderboard.getLeaderboardScope({} as never, leaderboardScopeId))
+        .rejects.toMatchObject({ code: "UNAUTHENTICATED" });
+      await expect(leaderboard.topK({ authenticatedUserId: ownerA }, leaderboardScopeId)).resolves.toHaveLength(1);
+      await expect(leaderboard.topK({ authenticatedUserId: ownerB }, leaderboardScopeId))
+        .rejects.toMatchObject({ code: "NOT_FOUND" });
+      await expect(leaderboard.rankSearchRun({ authenticatedUserId: ownerB }, searchRunId)).resolves.toEqual([]);
+
+      const rankableExperiment: RankableExperiment & { readonly ownerUserId: AuthenticatedUserId } = {
+        executionState: "SUCCEEDED",
+        experimentId: experiment.id,
+        candidateId: experiment.candidateId,
+        ...(experiment.searchRunId === undefined ? {} : { searchRunId: experiment.searchRunId }),
+        metrics: experiment.metrics,
+        ownerUserId: ownerA,
+      };
+      await expect(leaderboard.submit({ authenticatedUserId: ownerA }, {
+        leaderboardScopeId,
+        experiment: rankableExperiment,
+      })).resolves.toMatchObject({ admitted: true });
+      await expect(leaderboard.submit({ authenticatedUserId: ownerB }, {
+        leaderboardScopeId,
+        experiment: rankableExperiment,
+      })).rejects.toMatchObject({ code: "NOT_FOUND" });
+
       const ranking = await search.leaderboard({ authenticatedUserId: ownerA }, searchRunId);
       expect(ranking).toHaveLength(1);
       expect(ranking[0]?.searchRunId).toBe(searchRunId);
       expect(ranking[0]?.score).toBeTypeOf("number");
+      await expect(search.leaderboard({ authenticatedUserId: ownerB }, searchRunId))
+        .rejects.toMatchObject({ code: "NOT_FOUND" });
+      await expect(search.leaderboard({} as never, searchRunId))
+        .rejects.toMatchObject({ code: "UNAUTHENTICATED" });
     } finally {
       await database.query("DELETE FROM search_runs WHERE id = $1::uuid", [searchRunId]);
       await database.query("DELETE FROM leaderboard_scopes WHERE id = $1::uuid", [leaderboardScopeId]);

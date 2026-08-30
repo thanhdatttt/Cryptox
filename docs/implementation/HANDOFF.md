@@ -1,4 +1,135 @@
-# INS-099 Manager Checkpoint — AU-02 Completion Ownership Matrix
+# INS-101 Manager Checkpoint — AU-02 Search remediation and ownership matrix
+
+## Authorization and execution
+
+- **Authorization / applicability:** The current Instructor signal is exactly
+  `INS-101 / APPROVED_FOR_EXECUTION`, committed at
+  `90f533f8471571b91c6a1c73136a660d65a493f0`, after the `INS-100 / HOLD`
+  checkpoint. The reviewed checkpoint is `9d2d6d9`; the only material delta
+  from that checkpoint to the authorization commit was the committed
+  Instructor change in `docs/control/DECISIONS.md` and
+  `docs/control/INSTRUCTOR.md`. No source, business-state, or task-DAG drift
+  was found before execution.
+- **Manager and checkout:** Manager `01a052f7-aef4-7e50-af7c-39eff3156e4f`
+  worked directly in `D:/agy-cli-projects/AOS/Cryptox` on
+  `MVP_IMPLEMENTATION`. The app-generated `.codex/config.toml` remained
+  unmodified, unstaged, and undeleted.
+- **Worker:** Exactly one fresh sequential internal worker was created:
+  Archimedes `01a052ff-2bd6-7873-8df2-5186d8718bdc`. It edited only the
+  authorized Search source/test paths, did not stage or commit, and was closed
+  after its bounded pass. No second worker, retry, replacement, duplicate,
+  user-visible child, or downstream packet was created. After the worker
+  stopped, the Manager made only a narrow review addition to the existing
+  cross-module integration test to complete the requested matrix assertions.
+- **State transition:** AU-02 moved exactly `REVIEW → READY → IN_PROGRESS →
+  REVIEW → DONE`. `I-01`, `I-02`, and `I-03` remain `BLOCKED`; no other task
+  state changed.
+- **Scope:** The reviewed diff is limited to `modules/search/application/**`
+  plus the Manager-owned `TASKS.md` and this checkpoint. No contracts,
+  migrations, dependencies, generated files, News, Market Data, frontend,
+  unrelated routes, pure algorithms, or policy files were changed.
+
+## AU-02 remediation
+
+The concrete failure was a Search lifecycle race: `drive()` reached
+`MAX_CANDIDATES` immediately after accepting an asynchronous candidate and
+terminalized the SearchRun while Backtesting still reported that candidate as
+active. The persisted SearchRun could therefore report
+`completedCandidateCount: 0` instead of `1`.
+
+`modules/search/application/service.ts` now treats `MAX_CANDIDATES` and
+`NO_IMPROVEMENT` as submission bounds. When accepted candidates remain active,
+Search keeps its run `RUNNING`, schedules its existing bounded poll, refreshes
+Backtesting progress, and terminalizes only after the accepted candidates have
+published terminal states. `MAX_DURATION` retains its cancellation behavior.
+`service.spec.ts` adds a delayed-candidate regression. The real integration
+now passes the same Backtesting experiment repository into the Leaderboard
+adapter, so admission and ranking use the authoritative completed Experiment
+created by the public Backtesting boundary. No assertion was weakened, no
+timeout was used as a fix, and the expected completed count remains `1`.
+
+## Complete two-user ownership/security matrix
+
+The matrix below is evidenced by the real PostgreSQL-backed Search integration
+(`modules/search/application/integration.spec.ts`), the public module APIs it
+composes, the existing owner-focused application suites, and the real backend
+Auth smoke. Isolated tests are supporting evidence only; the real SearchRun
+database path is the AU-02 integration gate.
+
+| Resource / behavior | A/B evidence and applicable operation | Result |
+|---|---|---|
+| Backend private boundary / unauthenticated access | Real backend Auth E2E returns HTTP 401 for `/auth/current-user` without a session; controller contract also passes the 401 assertion. | **PASS** |
+| Private business REST routes | No Strategy/Search/Backtesting/Leaderboard business REST controllers are composed in the current backend; their public application APIs are tested below, and no nonexistent HTTP route is claimed. | **N/A** |
+| Trusted identity and client spoof resistance | Backend passes a server-derived context separately; the real Search command carries a spoofed `ownerUserId: ownerB` under owner A's context but persists the run and Candidate as owner A; a Leaderboard submission carrying owner A's identity is rejected under owner B's context. | **PASS** |
+| StrategyDefinition read/list/ownership | Public integration: owner A reads its definition, owner B receives `NOT_FOUND`; the Strategy application suite also proves owner-filtered collections and reads. | **PASS** |
+| CompositeDefinition ownership | Public integration: owner A reads its CompositeDefinition, owner B receives `NOT_FOUND`, and owner B cannot compose owner A's components. | **PASS** |
+| SearchRun start/status/list | Real PostgreSQL SearchRun is created and completed for owner A; owner A's list contains it and owner B's owner-filtered list is empty; owner B status is `NOT_FOUND`; unauthenticated status is `UNAUTHENTICATED`. | **PASS** |
+| SearchRun pause/resume/cancel/rank | Owner B receives `NOT_FOUND` for pause, resume, and cancel; owner A ranks the completed run; owner B receives `NOT_FOUND` for the private Search ranking and unauthenticated ranking is rejected. | **PASS** |
+| SearchRun update/delete | No update or delete operation exists on the approved public SearchRun API; lifecycle is append-only/state-machine controlled. | **N/A** |
+| SearchRun → Candidate submit/propagation | Search submits through the public Backtesting API with the trusted owner context; the real Candidate is owner A, owner B's guessed submit is `NOT_FOUND`, and owner B's Candidate collection is empty. | **PASS** |
+| Candidate read/status/list | Owner A reads the completed Candidate and lists one item; owner B receives `NOT_FOUND` for status and an empty owner-filtered list; unauthenticated status is rejected. | **PASS** |
+| Candidate cancel | Owner B's guessed Candidate cancellation is `NOT_FOUND`; same-owner active cancellation and terminal guards pass in the Search/Backtesting application suites. | **PASS** |
+| Candidate update/delete | No update or delete operation exists on the approved Candidate public API. | **N/A** |
+| Candidate → Experiment inheritance | Owner A reads one completed Experiment and lists it for the SearchRun; owner B receives `NOT_FOUND` for the guessed Experiment and an empty SearchRun Experiment list. | **PASS** |
+| Experiment → Trade inheritance | Owner A lists the Experiment's Trades; owner B receives `NOT_FOUND` for the same guessed Experiment's Trades. | **PASS** |
+| LeaderboardScope read/create ownership | Owner A reads its scope; owner B receives `NOT_FOUND`; unauthenticated scope read is rejected; scope creation derives owner from context in the application suite. | **PASS** |
+| LeaderboardEntry admission | The completed owner-A Experiment is admitted through the same-owner completion path and a same-owner duplicate submit is admitted idempotently; owner B's guessed submission is `NOT_FOUND`. | **PASS** |
+| Leaderboard top-K/rank | Owner A sees one top-K entry and one ranked Search result; owner B receives `NOT_FOUND` for the private scope and an empty owner-filtered Search ranking. | **PASS** |
+| Approved shared-data visibility | RankingConfiguration, Market Data snapshots, and Strategy plugin descriptors remain shared; the integration uses shared ranking configuration/market input and the architecture/dependency gate passes without user ownership on those shared roots. | **PASS** |
+| Auth independence of pure work | Pure Strategy execution, Backtest simulation, Evaluation, and ranking tests pass without Auth infrastructure; architecture/dependency validation remains clean. | **PASS** |
+| Sensitive logging | Reviewed active source has only safe module/readiness logs; no password, raw credential, cookie, session token, token digest, or credential-bearing expression is logged. Auth controller redaction tests pass. | **PASS** |
+
+## Validation and environment status
+
+- **PASS:** Process-local PostgreSQL checks returned the expected databases:
+  `cryptox_development` on `127.0.0.1:55432` and `cryptox_test` on
+  `127.0.0.1:55433`. Password and connection strings were never printed.
+- **PASS:** Real Auth PostgreSQL integration — 3/3 tests.
+- **PASS:** Real backend Auth E2E — 1/1 test, including HTTP 401, registration,
+  current-user restoration, invalid-login equivalence, and logout revocation.
+- **PASS:** Real Search integration — 1/1 test against `cryptox_test`, including
+  PostgreSQL persistence, public Search → Backtesting → Leaderboard execution,
+  completed count `1`, owner A success, and owner B isolation.
+- **PASS:** Search application regression — 13/13 tests; full Search package —
+  33 passed with its no-URL PostgreSQL test skipped.
+- **BLOCKED / superseded attempt:** An initial concurrent package fan-out hit
+  the Auth Argon2 test's 5-second timeout under CPU contention. The isolated
+  Auth rerun passed, and the final serial `npm run verify:stage4a` passed; the
+  transient contention result is not used as final gate evidence.
+- **PASS:** `npm run verify:stage4a` — build, typecheck, 386 workspace tests
+  passed with 6 environment-gated skips, architecture/dependency validation,
+  source-sidecar validation, deferred-scope validation, and backend runtime
+  smoke (`/live=200`, `/ready=503`, `/health=404`). The architecture helper
+  reported its 9 expected forbidden-dependency fixtures while exiting 0.
+- **PASS:** `npm run lint`, `npm run test:scope-check` (13/13), and
+  `git diff --check`.
+- **PASS:** Secret-log review, exact changed-path review, and generated-artifact
+  review. The only untracked path is the untouched app-generated
+  `.codex/config.toml`.
+- **UNVERIFIED:** Docker daemon, Docker Compose, and standalone `psql`; direct
+  process-local Node PostgreSQL checks and the application integrations were
+  used instead. No elevated retry, install, credential change, volume reset,
+  cloud database, or secret request was made.
+- **UNVERIFIED:** OpenSpec CLI; the host command is unavailable and no install
+  or network fallback was attempted.
+- **UNVERIFIED:** PDF text extraction; the assignment PDF exists and its
+  repository-recorded hash is present, but local `pypdf`/`pdfplumber` modules
+  are unavailable. No assignment detail was inferred from this missing tool.
+
+## Changed paths and commit boundary
+
+- `modules/search/application/service.ts`
+- `modules/search/application/service.spec.ts`
+- `modules/search/application/integration.spec.ts`
+- `docs/implementation/TASKS.md`
+- `docs/implementation/HANDOFF.md`
+
+One coherent Manager staging/commit attempt for exactly these five tracked
+paths was made. Git denied staging with
+`fatal: Unable to create 'D:/agy-cli-projects/AOS/Cryptox/.git/index.lock': Permission denied`;
+no commit was created and no staging/commit retry was made. The
+`.codex/config.toml` path remains untracked, untouched, and unstaged.
+# Historical INS-099 Manager Checkpoint — AU-02 Completion Ownership Matrix
 
 ## Authorization and execution
 
@@ -1038,5 +1169,3 @@ distinguished without a history schema change, which is outside INS-083.
   Staging failed with
   `fatal: Unable to create 'D:/agy-cli-projects/AOS/Cryptox/.git/index.lock': Permission denied`;
   no commit was created by that attempt, and no staging/commit retry was
-  attempted. This failure remains historical evidence and is not rewritten as
-  a successful Manager commit.

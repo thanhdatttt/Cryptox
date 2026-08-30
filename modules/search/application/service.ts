@@ -770,6 +770,13 @@ export function createSearchApplication(
       while (control.status.state === "RUNNING") {
         const stopReason = stopConditionReached(control);
         if (stopReason !== undefined) {
+          // Reaching a generation bound only stops new submissions. The run
+          // becomes terminal after every accepted candidate has published its
+          // terminal state through the Backtesting boundary, otherwise the
+          // SearchRun counts can describe an unfinished execution.
+          if (stopReason !== "MAX_DURATION" && control.status.activeCandidateIds.length > 0) {
+            return;
+          }
           await completeRun(control, "COMPLETED", stopReason);
           return;
         }
