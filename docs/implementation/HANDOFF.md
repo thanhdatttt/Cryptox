@@ -222,8 +222,18 @@
   promoted, or automatically unlocked.
 - `INS-073` is exhausted. Renewed Instructor review is required before any
   other packet, retry, implementation, closure review, or downstream promotion.
-- **Checkpoint commit:** Exactly one coherent Manager checkpoint commit was
-  attempted with only `TASKS.md` and `HANDOFF.md`. Staging failed with
+- **Integration checkpoint:** The audited integration commit is
+  `f320b5f1d7731d121db27e788cffa4a8033dc7fd` (`feat(news): complete N-03A
+  refresh scheduler`). It integrates the reviewed worker paths
+  `modules/news/application/scheduler.ts`,
+  `modules/news/application/scheduler.spec.ts`, and
+  `modules/news/api/bootstrap.ts`, together with the INS-073 Manager-owned
+  `TASKS.md`/`HANDOFF.md` checkpoint changes. The reviewed worker paths are
+  no longer uncommitted.
+- **Historical Manager checkpoint attempt:** Exactly one coherent Manager
+  checkpoint commit was attempted with only `TASKS.md` and `HANDOFF.md`.
+  Staging failed with
   `fatal: Unable to create 'D:/agy-cli-projects/AOS/Cryptox/.git/index.lock': Permission denied`;
-  no commit was created, and no staging/commit retry was attempted. The
-  accepted worker paths remain uncommitted for the next authorized recovery.
+  no commit was created by that attempt, and no staging/commit retry was
+  attempted. This failure remains historical evidence and is not rewritten as
+  a successful Manager commit.
