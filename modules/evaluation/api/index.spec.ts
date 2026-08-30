@@ -18,4 +18,9 @@ describe("evaluation runtime", () => {
     expect(createEvaluationModule().evaluator.evaluate(empty)).toMatchObject({ totalReturnPercent: 0, winRatePercent: 0, maxDrawdownPercent: 0, profitFactor: null, profitFactorStatus: "NO_TRADES", sharpeRatio: 0, sharpeRatioStatus: "INSUFFICIENT_OBSERVATIONS" });
     expect(() => createEvaluationModule().evaluator.evaluate({ ...empty, status: "FAILED" } as never)).toThrow("INVALID_INPUT");
   });
+
+  it("reports all-losing trades with a finite zero profit factor", () => {
+    const result: CompletedBacktestResult = { status: "COMPLETED", candidateId: "candidate", attemptId: "attempt", workerRuntimeVersion: "1", workerRuntimeSha256: "a".repeat(64), startedAt: "2025-01-01T00:00:00.000Z", completedAt: "2025-01-01T02:00:00.000Z", trades: [trade(-10), trade(-5)] };
+    expect(createEvaluationModule().evaluator.evaluate(result)).toMatchObject({ profitFactor: 0, profitFactorStatus: "FINITE", winRatePercent: 0 });
+  });
 });

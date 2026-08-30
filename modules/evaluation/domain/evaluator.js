@@ -36,7 +36,7 @@ function evaluateBacktest(result) {
     const standardDeviation = Math.sqrt(variance);
     const sharpeRatioStatus = numberOfTrades < 2 ? "INSUFFICIENT_OBSERVATIONS" : standardDeviation <= 1e-12 ? "ZERO_VARIANCE" : "FINITE";
     const sharpeRatio = sharpeRatioStatus === "FINITE" ? finite(mean / standardDeviation, "sharpeRatio") : 0;
-    const profitFactorStatus = numberOfTrades === 0 ? "NO_TRADES" : grossProfit > 0 && grossLoss > 0 ? "FINITE" : grossProfit > 0 ? "NO_LOSSES" : "NO_GROSS_MOVEMENT";
+    const profitFactorStatus = numberOfTrades === 0 ? "NO_TRADES" : grossProfit > 0 && grossLoss > 0 ? "FINITE" : grossProfit > 0 ? "NO_LOSSES" : grossLoss > 0 ? "FINITE" : "NO_GROSS_MOVEMENT";
     const profitFactor = profitFactorStatus === "FINITE" ? finite(grossProfit / grossLoss, "profitFactor") : null;
     return {
         candidateId: result.candidateId,
