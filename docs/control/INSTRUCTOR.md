@@ -2,21 +2,143 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-084`
+Instruction ID: `INS-085`
 
-Status: `HOLD`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
-## INS-084 — Post-L-02 Independent Audit HOLD
+## INS-085 — DEC-007 Functional-State Frontend Projections
 
-This current signal supersedes `INS-083 / APPROVED_FOR_EXECUTION`. The L-02
-authorization is exhausted and the repository is deliberately held pending a
-fresh Instructor review before any new Manager or worker is created. No packet,
-retry, replacement, duplicate, downstream promotion, or source change is
-authorized by this signal.
+This current signal supersedes `INS-084 / HOLD` and authorizes exactly one fresh
+Manager and exactly one internal Frontend worker to execute only packet `F-03`.
+It authorizes no retry, replacement, duplicate, second worker, downstream
+promotion, M-02/AU-02/I-01/I-02/I-03 work, or unrelated control/source change.
 
-### Reviewed checkpoint and current frontier
+### Reviewed authority and applicability
+
+- The reviewed base is `1c5b1cf9c250526990c1b4bc0da0b5d9bbec403d`
+  (`docs(control): reconcile task board evidence`) on branch
+  `MVP_IMPLEMENTATION`; Git is clean, `.git/index.lock` is absent, and no
+  source or business-state drift is present. The only expected delta after this
+  review is this committed Instructor authorization.
+- `TASKS.md` is reconciled with the current checkpoints: `37 DONE`, `1 REVIEW`
+  (`M-02`), and `5 BLOCKED` (`AU-02`, `F-03`, `I-01`, `I-02`, `I-03`). F-03's
+  start dependencies `M-03`, `S-04`, `S-05`, `S-06`, `Q-02`, `B-03`, `N-03`,
+  `E-02`, and `L-02` are all `DONE`. F-03 is the sole packet authorized here;
+  its downstream `I-03` and baseline `I-01` remain blocked and unauthorized.
+- The authority chain reviewed for F-03 is `DEC-007`, `MVP_PLAN.md`,
+  `TASKS.md`, `HANDOFF.md`, `docs/requirements.md`, accepted ADR-001,
+  ADR-002, ADR-006, ADR-007, and ADR-009, the active frontend and related
+  capability specifications, the frozen REST/WebSocket contracts, and the
+  current frontend/backend source. The current frontend is fixture-first for
+  private feature views and has typed remote clients; backend feature transport
+  composition and final real-provider evidence remain later integration work.
+- Existing public contracts already expose normalized chart data,
+  `MARKET_OBSERVABILITY_V1` WebSocket messages, descriptor metadata, strategy
+  authoring-origin fields, seeded Search provenance, paper-execution
+  provenance, News extraction/template fields, Sentiment availability, and
+  Experiment/Leaderboard provenance. These contracts are frozen for F-03.
+  A required state that cannot be represented through an existing public
+  contract must be reported honestly as unavailable and escalated as
+  `NEEDS_INSTRUCTOR_REVIEW`; no worker may invent or expand a transport.
+- No active Cryptox Manager or worker exists. The historical INS-083 Manager
+  and worker are idle and must not be reused for implementation; no parallel
+  frontend writer is authorized.
+
+### Authorization
+
+- Create exactly one fresh Orchestrator/Manager in the canonical checkout
+  `D:/agy-cli-projects/AOS/Cryptox`, same directory, branch
+  `MVP_IMPLEMENTATION`, with no worktree or alternate checkout. Use model
+  `gpt-5.6-luna` with reasoning `max`. The Manager must read `AGENTS.md` and
+  `docs/control/prompts/ORCHESTRATOR_START.md` completely, then independently
+  verify this signal, the reviewed base, task DAG, dependencies, active-task
+  list, and clean Git before doing anything.
+- The Manager must create exactly one internal Frontend worker/subagent using
+  the repository-approved native mechanism. The worker must use the same
+  canonical checkout, must not create a user-facing thread, branch, worktree,
+  child agent, or commit, and must not edit any control-plane artifact. No
+  second, replacement, retry, or duplicate worker is allowed.
+- Only F-03 may move through `BLOCKED -> READY -> IN_PROGRESS -> REVIEW ->
+  DONE`. The Manager alone may update `docs/implementation/TASKS.md` and
+  `docs/implementation/HANDOFF.md`; the worker returns scoped source, tests,
+  and evidence. When F-03 is exhausted, the Manager must stop without starting
+  I-03, I-01, M-02, AU-02, I-02, or any newly unlocked packet.
+
+### Packet boundary
+
+- **Requirement IDs:** `CSL-R-MD-03`, `CSL-R-ST-05`–`07`, `CSL-R-SE-03`,
+  `CSL-R-BT-02`, `CSL-R-NW-02`, `CSL-R-RP-02`, `CSL-R-FE-01`, and
+  `CSL-R-DM-01`.
+- **Only writable implementation scope:** `apps/frontend/**`, excluding
+  generated/build output and dependency directories. Frontend tests, fixtures,
+  typed client adapters, state projections, and styling under that directory
+  are allowed only when they serve F-03. Manager-only control updates remain
+  limited to `TASKS.md` and `HANDOFF.md`.
+- **Forbidden scope:** all module source, `apps/backend/**`,
+  `packages/contracts/**`, migrations, providers, infrastructure, package
+  manifests/lockfiles, OpenSpec/ADR/requirements/architecture/data-model
+  policy changes, new REST/WebSocket fields, business calculations, persistence
+  changes, LLM/network calls from the browser, and unrelated auth behavior.
+
+### Acceptance criteria
+
+- Up to four independently configurable charts use normalized market state,
+  keep history-before-realtime ordering, preserve independent timeframe state,
+  and render connection/recovery truthfully. The frontend consumes the existing
+  market observability projection for provider event time, received time,
+  latency, connection state, and the latest-tick buffer; it labels the buffer
+  ephemeral, shows restart/loss honestly, and never treats it as historical or
+  backtest input.
+- Strategy and composite controls remain descriptor/public-contract driven. The
+  UI renders weighted and Lite profile descriptors and provenance without
+  name-based business branches. LLM draft, deterministic validation, failure or
+  missing-configuration, and explicit Save/Approve states remain distinct; no
+  draft is presented as persisted automatically, and unavailable backend state
+  is not fabricated.
+- Search presentation exposes the selected `RANDOM_V1`, `DOMAIN_GUIDED_V1`,
+  or `GENETIC_V1` profile, finite budget/stop state, seed, algorithm
+  configuration, dataset identity, code version, counts, failures, timing, and
+  ranking through request/response state. It does not widen the market
+  WebSocket or run generation in the client.
+- Experiment/result views visibly distinguish synthetic Long versus Short
+  paper execution, SL/TP and `STOP_LOSS_WINS_V1`, fee, adverse slippage,
+  decimal scale/rounding, and practical replay/provenance limitations. They
+  render required metrics, ranking configuration, selected-strategy overlays,
+  Buy/Sell and Entry/Exit markers, and do not imply live exchange orders.
+- News displays source/refresh and extraction provenance, template `DRAFT` /
+  `APPROVED` review state where supplied, and keeps News usable when Sentiment
+  is missing/degraded. Sentiment failure must remain visibly limited to that
+  panel and must not block chart, strategy, Search, result, or leaderboard
+  views.
+- No private data is retained in a client cache across owner changes or logout,
+  no client-supplied identity authorizes access, no frontend business rule
+  replaces backend authority, and fixture-only evidence is never reported as
+  final real-provider/demo evidence.
+
+### Validation and stop conditions
+
+- The Manager must review the worker diff path-by-path and run the focused
+  frontend component/state/client/browser tests available in the environment,
+  frontend typecheck/build/lint, and applicable root tests plus architecture,
+  artifacts, deferred-scope, scope, and whitespace checks. Browser and real API
+  evidence are required when available; fixture-only evidence remains limited
+  and final-mode real-provider evidence is `UNVERIFIED` or `BLOCKED` when the
+  integrated runtime/environment is unavailable.
+- If the current frozen contracts do not carry a required F-03 state, if a
+  backend/module/contract/schema change is needed, if scope or task-DAG drift
+  appears, or if any active competing Manager/worker is found, stop safely and
+  report `NEEDS_INSTRUCTOR_REVIEW` without widening scope. Unavailable tools,
+  PostgreSQL/Docker, OpenSpec CLI, live providers, and browser/demo checks must
+  be recorded as `UNVERIFIED` or `BLOCKED`, never `PASS`.
+- The Manager must record the exact Instruction ID, worker, state transitions,
+  changed paths, evidence, limitations, and newly ready/remaining blocked
+  tasks in `HANDOFF.md`/`TASKS.md`, make at most one coherent commit attempt for
+  the completed bounded checkpoint, and stop when F-03 is done or blocked. No
+  downstream work starts under INS-085.
+
+## Historical INS-084 — Post-L-02 Independent Audit HOLD
 
 - Branch is `MVP_IMPLEMENTATION`; the reviewed source/control checkpoint is
   `32ed9321f9f22f858fdd2458351b531e8807db7d` (`feat(leaderboard): reconcile
