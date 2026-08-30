@@ -92,13 +92,13 @@ export declare class PostgresBacktestingRepository implements BacktestingReposit
     }): Promise<CompletionProcessingClaim | undefined>;
     listDueCompletions(now: string, limit: number): Promise<string[]>;
     readLatestCompletedAttempt(candidateId: string): Promise<BacktestAttemptAudit | undefined>;
-    stageCompletionExperiment(input: StoredExperiment): Promise<StoredExperiment>;
+    stageCompletionExperiment(input: StoredExperiment, unitOfWork?: CompletionUnitOfWork): Promise<StoredExperiment>;
     finalizeCompletion(input: {
         candidate: StoredCandidate;
         experimentId: string;
         claimToken: string;
         now: string;
-    }): Promise<void>;
+    }, unitOfWork?: CompletionUnitOfWork): Promise<void>;
     finalizeTerminalFailure(input: {
         candidate: StoredCandidate;
         claimToken: string;

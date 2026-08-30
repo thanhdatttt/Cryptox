@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.BacktestingService = exports.InMemoryBacktestingRepository = exports.InMemoryBacktestQueue = exports.BACKTEST_RUNTIME_SHA256 = exports.BACKTEST_RUNTIME_VERSION = void 0;
+exports.BacktestingService = exports.InMemoryBacktestingRepository = exports.InMemoryBacktestQueue = exports.SIMULATOR_SHA256 = exports.SIMULATOR_VERSION = exports.BACKTEST_RUNTIME_SHA256 = exports.BACKTEST_RUNTIME_VERSION = void 0;
 exports.createInMemoryBacktestingDependencies = createInMemoryBacktestingDependencies;
 exports.createBacktestingService = createBacktestingService;
 const node_crypto_1 = require("node:crypto");
@@ -10,6 +10,13 @@ const bootstrap_3 = require("../../strategy/api/bootstrap");
 const simulator_1 = require("../domain/simulator");
 exports.BACKTEST_RUNTIME_VERSION = "1.0.0";
 exports.BACKTEST_RUNTIME_SHA256 = "c7d208d3db06e01df73733b91ed928fbd78d06f0d6d978f5821547c8ee6af75b";
+exports.SIMULATOR_VERSION = "1.0.0";
+exports.SIMULATOR_SHA256 = "2ed4a4326ba78169d9432c10f05272b01c53a5518ead8ab873be35bd2f1305bf";
+const BENCHMARK_TIMEZONE = "UTC";
+const FILL_POLICY_ID = "NEXT_OPEN_OHLC_STOP_FIRST_V2";
+const OPPOSITE_SIGNAL_POLICY_ID = "CLOSE_AND_REVERSE_NEXT_OPEN_V1";
+const SAME_CANDLE_ORDERING_POLICY_ID = "ENTRY_THEN_PROTECTIVE_EXIT_THEN_CLOSE_V1";
+const DETERMINISTIC_GUARANTEE = "SEALED_INPUTS_AND_RETAINED_ARTIFACTS";
 const now = () => new Date().toISOString();
 const clone = (value) => JSON.parse(JSON.stringify(value));
 const invalid = (code) => { throw new Error(code); };
@@ -25,6 +32,47 @@ const VISUALIZATION_CANDLE_MAX = 2000;
 const VISUALIZATION_OVERLAY_MAX = 32;
 const DEFAULT_WARMUP_CAPACITY_CANDLES = 500;
 const MAX_WARMUP_CANDLES = 10_000;
+const policyPayload = (policy) => JSON.stringify(policy);
+const policyHash = (policy) => (0, node_crypto_1.createHash)("sha256").update(policyPayload(policy), "utf8").digest("hex");
+const validRiskPercent = (value) => value === undefined || (Number.isFinite(value) && value > 0 && value < 100);
+const normalizeExecutionPolicy = (input, warmupCandles, fallback) => {
+    const supplied = input;
+    const stopLossPercent = input === undefined ? fallback?.stopLossPercent : supplied?.stopLossPercent;
+    const takeProfitPercent = input === undefined ? fallback?.takeProfitPercent : supplied?.takeProfitPercent;
+    if (!validRiskPercent(stopLossPercent) || !validRiskPercent(takeProfitPercent) || (supplied?.policyId !== undefined && supplied.policyId !== "TWO_SIDED_ONE_X_V1"))
+        invalid("INVALID_EXECUTION_POLICY");
+    const normalized = { policyId: "TWO_SIDED_ONE_X_V1", positionPolicyId: "TWO_SIDED_ONE_X_V1", sizingPolicyId: "FULL_CURRENT_EQUITY_FEE_AWARE_V1", fillPolicyId: FILL_POLICY_ID, oppositeSignalPolicyId: OPPOSITE_SIGNAL_POLICY_ID, ...(stopLossPercent === undefined ? {} : { stopLossPercent }), ...(takeProfitPercent === undefined ? {} : { takeProfitPercent }), warmupCandles: warmupCandles ?? 0 };
+    const sha256 = policyHash(normalized);
+    if (supplied?.sha256 !== undefined && (supplied.warmupCandles !== normalized.warmupCandles || supplied.positionPolicyId !== normalized.positionPolicyId || supplied.sizingPolicyId !== normalized.sizingPolicyId || supplied.fillPolicyId !== normalized.fillPolicyId || supplied.oppositeSignalPolicyId !== normalized.oppositeSignalPolicyId || supplied.sha256 !== sha256))
+        invalid("INVALID_EXECUTION_POLICY");
+    return { ...normalized, sha256 };
+};
+const roundMoney = (value) => { if (!Number.isFinite(value))
+    invalid("BACKTEST_NON_FINITE_AMOUNT"); return Number(value.toFixed(2)); };
+const amountProjection = (initialCapital, trades) => {
+    if (!Number.isFinite(initialCapital))
+        invalid("BACKTEST_NON_FINITE_AMOUNT");
+    let totalProfitAmount = 0;
+    let peak = initialCapital;
+    let maxDrawdownAmount = 0;
+    let wins = 0;
+    let losses = 0;
+    let breakevens = 0;
+    for (const trade of trades) {
+        if (![trade.profit, trade.equityAfterTrade].every(Number.isFinite))
+            invalid("BACKTEST_NON_FINITE_AMOUNT");
+        totalProfitAmount += trade.profit;
+        peak = Math.max(peak, trade.equityAfterTrade);
+        maxDrawdownAmount = Math.max(maxDrawdownAmount, peak - trade.equityAfterTrade);
+        if (trade.result === "WIN")
+            wins += 1;
+        else if (trade.result === "LOSS")
+            losses += 1;
+        else
+            breakevens += 1;
+    }
+    return { initialCapital: roundMoney(initialCapital), totalProfitAmount: roundMoney(totalProfitAmount), endingEquity: roundMoney(initialCapital + totalProfitAmount), wins, losses, breakevens, maxDrawdownAmount: roundMoney(maxDrawdownAmount) };
+};
 const toStrategyCandle = (candle) => ({ timestamp: candle.timestamp, open: candle.open, high: candle.high, low: candle.low, close: candle.close, volume: candle.volume });
 const tradeKey = (trade) => ({ entryTime: trade.entryTime, sequence: trade.sequence, id: trade.id });
 const compareTradeKey = (left, right) => left.entryTime.localeCompare(right.entryTime) || left.sequence - right.sequence || left.id.localeCompare(right.id);
@@ -297,13 +345,16 @@ class BacktestingService {
         return required;
     }
     async validateStrategyReferences(ownerUserId, command) {
-        const requestedIds = command.strategyDefinitions.map((definition) => definition.id);
+        const requestedIds = command.strategyDefinitionIds ?? command.strategyDefinitions?.map((definition) => definition.id) ?? [];
         if (requestedIds.length === 0 || new Set(requestedIds).size !== requestedIds.length)
             invalid("STRATEGY_DEFINITION_NOT_FOUND");
         const definitions = await this.deps.strategy.readDefinitions(ownerUserId, requestedIds);
         if (definitions.length !== requestedIds.length)
             invalid("STRATEGY_DEFINITION_NOT_FOUND");
-        const composite = await this.deps.strategy.readComposite(ownerUserId, command.compositeDefinition.id).catch(() => invalid("COMPOSITE_STRATEGY_NOT_FOUND"));
+        const compositeId = command.compositeDefinitionId ?? command.compositeDefinition?.id;
+        if (!compositeId)
+            invalid("COMPOSITE_STRATEGY_NOT_FOUND");
+        const composite = await this.deps.strategy.readComposite(ownerUserId, compositeId).catch(() => invalid("COMPOSITE_STRATEGY_NOT_FOUND"));
         const componentIds = composite.components.map((component) => component.strategyDefinitionId);
         if (componentIds.length !== requestedIds.length || new Set(componentIds).size !== componentIds.length || componentIds.some((id) => !requestedIds.includes(id)))
             invalid("STRATEGY_DEFINITION_MISMATCH");
@@ -323,13 +374,13 @@ class BacktestingService {
         invalid("INVALID_BENCHMARK_SCOPE"); }
     async createBenchmarkScope(auth, command, options) { this.assertAuth(auth); if (!options.scopeIdempotencyKey.trim())
         invalid("INVALID_BENCHMARK_SCOPE"); const existing = await this.deps.repository.findScopeByIdempotency(auth.userId, options.scopeIdempotencyKey); if (existing)
-        return existing; this.validateScope(command); const captured = await this.captureSnapshot(command.datasetSnapshot.id); const createdAt = this.now(); const scope = { id: this.id(), ownerUserId: auth.userId, name: command.name, version: 1, datasetSnapshot: captured.snapshot, sentimentDatasetSnapshot: command.sentimentDatasetSnapshot, workerRuntimeVersion: command.workerRuntimeVersion, workerRuntimeSha256: command.workerRuntimeSha256, evaluationRuntimeVersion: command.evaluationRuntimeVersion, evaluationRuntimeSha256: command.evaluationRuntimeSha256, pair: captured.snapshot.pair, timeframe: captured.snapshot.timeframe, datasetRange: captured.snapshot.range, datasetSnapshotId: captured.snapshot.id, datasetSnapshotSha256: captured.snapshot.sha256, warmupCapacityCandles: command.warmupCapacityCandles ?? DEFAULT_WARMUP_CAPACITY_CANDLES, initialCapital: command.initialCapital, feeRatePercent: command.feeRatePercent, slippageBps: command.slippageBps, riskPolicy: command.riskPolicy, decimalPolicyId: "MVP_DECIMAL_HALF_UP_V1", evaluationPolicyId: "MVP_EVALUATION_V1", scoreFormulaId: command.scoreFormulaId, createdAt }; return this.deps.repository.createScope(scope, options.scopeIdempotencyKey); }
+        return existing; this.validateScope(command); const captured = await this.captureSnapshot(command.datasetSnapshot.id); const createdAt = this.now(); const scope = { id: this.id(), ownerUserId: auth.userId, name: command.name, version: 1, datasetSnapshot: captured.snapshot, sentimentDatasetSnapshot: command.sentimentDatasetSnapshot, workerRuntimeVersion: command.workerRuntimeVersion, workerRuntimeSha256: command.workerRuntimeSha256, evaluationRuntimeVersion: command.evaluationRuntimeVersion, evaluationRuntimeSha256: command.evaluationRuntimeSha256, simulatorVersion: exports.SIMULATOR_VERSION, simulatorSha256: exports.SIMULATOR_SHA256, benchmarkTimezone: BENCHMARK_TIMEZONE, fillPolicyId: FILL_POLICY_ID, oppositeSignalPolicyId: OPPOSITE_SIGNAL_POLICY_ID, sameCandleOrderingPolicyId: SAME_CANDLE_ORDERING_POLICY_ID, deterministicGuarantee: DETERMINISTIC_GUARANTEE, pair: captured.snapshot.pair, timeframe: captured.snapshot.timeframe, datasetRange: captured.snapshot.range, datasetSnapshotId: captured.snapshot.id, datasetSnapshotSha256: captured.snapshot.sha256, warmupCapacityCandles: command.warmupCapacityCandles ?? DEFAULT_WARMUP_CAPACITY_CANDLES, initialCapital: command.initialCapital, feeRatePercent: command.feeRatePercent, slippageBps: command.slippageBps, riskPolicy: command.riskPolicy, decimalPolicyId: "MVP_DECIMAL_HALF_UP_V1", evaluationPolicyId: "MVP_EVALUATION_V1", scoreFormulaId: command.scoreFormulaId, createdAt }; return this.deps.repository.createScope(scope, options.scopeIdempotencyKey); }
     async readBenchmarkScope(auth, scopeId) { return this.ownedScope(auth, scopeId); }
     async listBenchmarkScopes(auth) { this.assertAuth(auth); return this.deps.repository.listScopesByOwner(auth.userId); }
     async compositeStrategy(definitions, composite) { const byId = new Map(definitions.map((definition) => [definition.id, definition])); if (composite.components.length === 0 || composite.components.some((component) => !byId.has(component.strategyDefinitionId)))
         invalid("INVALID_COMPOSITE_STRATEGY"); const resolved = await Promise.all(definitions.map(async (definition) => [definition.id, await this.deps.strategy.resolveStrategy(definition)])); const strategies = new Map(resolved); return { name: `composite:${composite.id}`, category: "TREND", analyze: (context) => this.deps.strategy.combineSignals(composite, composite.components.map((component) => ({ strategyDefinitionId: component.strategyDefinitionId, signal: strategies.get(component.strategyDefinitionId).analyze(context) }))) }; }
     candidateRecord(input) { const createdAt = this.now(); const search = input.origin === "SEARCH" ? input.command : undefined; if (!Number.isInteger(input.command.maxAttempts) || input.command.maxAttempts < 1)
-        invalid("INVALID_BACKTEST_SUBMISSION"); const single = input.command.strategyDefinitions.length === 1 && input.command.compositeDefinition.method === "WEIGHTED_SCORE" && input.command.compositeDefinition.components.length === 1 && input.command.compositeDefinition.components[0]?.strategyDefinitionId === input.command.strategyDefinitions[0]?.id && input.command.compositeDefinition.components[0]?.weight === 1; return { candidateId: input.candidateId, ownerUserId: input.ownerUserId, origin: input.origin, selectionMode: single ? "SINGLE" : "COMPOSITE", searchRunId: search?.searchRunId, iterationNumber: search?.iterationNumber, leaderboardScopeId: input.scope.id, status: "QUEUED", attempts: [], maxAttempts: input.command.maxAttempts, completionAttemptCount: 0, completionMaxAttempts: 5, executionGeneration: 0, completionGeneration: 0, warmupCandles: input.warmupCandles, strategyDefinitions: clone(input.command.strategyDefinitions), compositeDefinition: clone(input.command.compositeDefinition), queueJobId: input.candidateId, createdAt, updatedAt: createdAt }; }
+        invalid("INVALID_BACKTEST_SUBMISSION"); const single = input.strategyDefinitions.length === 1 && input.compositeDefinition.method === "WEIGHTED_SCORE" && input.compositeDefinition.components.length === 1 && input.compositeDefinition.components[0]?.strategyDefinitionId === input.strategyDefinitions[0]?.id && input.compositeDefinition.components[0]?.weight === 1; return { candidateId: input.candidateId, ownerUserId: input.ownerUserId, origin: input.origin, selectionMode: single ? "SINGLE" : "COMPOSITE", searchRunId: search?.searchRunId, iterationNumber: search?.iterationNumber, leaderboardScopeId: input.scope.id, status: "QUEUED", attempts: [], maxAttempts: input.command.maxAttempts, completionAttemptCount: 0, completionMaxAttempts: 5, executionGeneration: 0, completionGeneration: 0, warmupCandles: input.warmupCandles, executionPolicy: clone(input.executionPolicy), strategyDefinitions: clone(input.strategyDefinitions), compositeDefinition: clone(input.compositeDefinition), queueJobId: input.candidateId, createdAt, updatedAt: createdAt }; }
     dispatchRecord(candidate, scope) { const createdAt = this.now(); return { job: { schemaVersion: 1, jobId: candidate.candidateId, candidateId: candidate.candidateId, leaderboardScopeId: scope.id, maxAttempts: candidate.maxAttempts, workerRuntimeVersion: scope.workerRuntimeVersion, workerRuntimeSha256: scope.workerRuntimeSha256, enqueuedAt: createdAt }, state: "PENDING", dispatchAttempts: 0, createdAt, updatedAt: createdAt }; }
     async dispatchOne(dispatch) { if (dispatch.state === "CANCELLED")
         return false; try {
@@ -359,7 +410,7 @@ class BacktestingService {
     } const scope = await this.deps.repository.readScope(command.leaderboardScopeId, input.ownerUserId); if (!scope)
         throw new Error("BACKTEST_SCOPE_NOT_FOUND"); const references = await this.validateStrategyReferences(input.ownerUserId, command); if (references.warmupCandles > scope.warmupCapacityCandles)
         invalid("SNAPSHOT_INCOMPLETE"); const inputSnapshot = await this.snapshot(scope.datasetSnapshotId); if (references.warmupCandles > inputSnapshot.candles.filter((candle) => candle.isClosed).length)
-        invalid("SNAPSHOT_INCOMPLETE"); const canonicalCommand = { ...command, strategyDefinitions: references.strategyDefinitions, compositeDefinition: references.compositeDefinition }; const candidate = this.candidateRecord({ ownerUserId: input.ownerUserId, scope, command: canonicalCommand, origin: input.origin, candidateId: this.id(), warmupCandles: references.warmupCandles }); const dispatch = this.dispatchRecord(candidate, scope); const saved = await this.deps.repository.createQueuedSubmission({ candidate, dispatch, submissionIdempotencyKey: input.submissionIdempotencyKey }); await this.dispatchOne(dispatch); return { candidateId: saved.candidateId, jobId: saved.queueJobId, status: saved.status }; }
+        invalid("SNAPSHOT_INCOMPLETE"); const executionPolicy = normalizeExecutionPolicy(command.executionPolicy, references.warmupCandles, scope.riskPolicy); const candidate = this.candidateRecord({ ownerUserId: input.ownerUserId, scope, command, strategyDefinitions: references.strategyDefinitions, compositeDefinition: references.compositeDefinition, executionPolicy, origin: input.origin, candidateId: this.id(), warmupCandles: references.warmupCandles }); const dispatch = this.dispatchRecord(candidate, scope); const saved = await this.deps.repository.createQueuedSubmission({ candidate, dispatch, submissionIdempotencyKey: input.submissionIdempotencyKey }); await this.dispatchOne(dispatch); return { candidateId: saved.candidateId, jobId: saved.queueJobId, status: saved.status }; }
     async startManual(auth, command, options) { this.assertAuth(auth); return this.submit(command, { ownerUserId: auth.userId, origin: "MANUAL", submissionIdempotencyKey: options?.submissionIdempotencyKey }); }
     async submitSearchCandidate(auth, command) { this.assertAuth(auth); return this.submit(command, { ownerUserId: auth.userId, origin: "SEARCH" }); }
     async processQueueJob(job, delivery) { if (job.schemaVersion !== 1 || job.jobId !== job.candidateId || !Number.isInteger(delivery.attemptNumber) || delivery.attemptNumber < 1 || delivery.attemptNumber > job.maxAttempts)
@@ -374,7 +425,7 @@ class BacktestingService {
             const input = await this.snapshot(scope.datasetSnapshotId);
             const strategy = await this.compositeStrategy(candidate.strategyDefinitions, candidate.compositeDefinition);
             const completedAt = this.now();
-            const result = (0, simulator_1.simulateBacktest)({ candidateId: candidate.candidateId, attemptId: attempt.attemptId, pair: scope.pair, settlementAsset: scope.datasetSnapshot.pairMetadata.settlementAsset || scope.datasetSnapshot.pairMetadata.quoteAsset || "USDT", timeframe: scope.timeframe, candles: input.candles, warmupCandles: candidate.warmupCandles, strategy, initialCapital: scope.initialCapital, feeRatePercent: scope.feeRatePercent, slippageBps: scope.slippageBps, stopLossPercent: scope.riskPolicy?.stopLossPercent, takeProfitPercent: scope.riskPolicy?.takeProfitPercent, workerRuntimeVersion: job.workerRuntimeVersion, workerRuntimeSha256: job.workerRuntimeSha256, startedAt: attempt.startedAt, completedAt });
+            const result = (0, simulator_1.simulateBacktest)({ candidateId: candidate.candidateId, attemptId: attempt.attemptId, pair: scope.pair, settlementAsset: scope.datasetSnapshot.pairMetadata.settlementAsset || scope.datasetSnapshot.pairMetadata.quoteAsset || "USDT", timeframe: scope.timeframe, candles: input.candles, warmupCandles: candidate.warmupCandles, strategy, initialCapital: scope.initialCapital, feeRatePercent: scope.feeRatePercent, slippageBps: scope.slippageBps, stopLossPercent: candidate.executionPolicy?.stopLossPercent ?? scope.riskPolicy?.stopLossPercent, takeProfitPercent: candidate.executionPolicy?.takeProfitPercent ?? scope.riskPolicy?.takeProfitPercent, workerRuntimeVersion: job.workerRuntimeVersion, workerRuntimeSha256: job.workerRuntimeSha256, startedAt: attempt.startedAt, completedAt });
             await this.deps.repository.persistWorkerSuccess({ candidate, attempt, result, fenceToken });
             return { candidateId: candidate.candidateId, status: "COMPLETED", attemptId: attempt.attemptId, completedAt };
         }
@@ -407,14 +458,15 @@ class BacktestingService {
             if (!attempt)
                 throw new Error("BACKTEST_COMPLETION_ATTEMPT_NOT_FOUND");
             const scope = await this.scope(candidate.leaderboardScopeId);
-            const result = { status: "COMPLETED", candidateId, attemptId: attempt.attemptId, workerRuntimeVersion: attempt.workerRuntimeVersion, workerRuntimeSha256: attempt.workerRuntimeSha256, startedAt: attempt.startedAt, completedAt: attempt.completedAt ?? this.now(), trades: await this.deps.repository.listTrades(attempt.attemptId) };
+            const result = { status: "COMPLETED", candidateId, attemptId: attempt.attemptId, workerRuntimeVersion: attempt.workerRuntimeVersion, workerRuntimeSha256: attempt.workerRuntimeSha256, startedAt: attempt.startedAt, completedAt: attempt.completedAt ?? this.now(), initialCapital: scope.initialCapital, trades: await this.deps.repository.listTrades(attempt.attemptId) };
             const metrics = this.deps.evaluation.evaluator.evaluate(result);
+            const projections = amountProjection(scope.initialCapital, result.trades);
             const scored = await this.deps.completion.score(scope.id, metrics);
             const existing = await this.deps.repository.findExperimentByCandidate(candidateId);
             let unitOfWork;
             try {
                 unitOfWork = await this.deps.beginCompletion?.({ candidateId, completionAttemptCount: candidate.completionAttemptCount, completionClaimToken: claimToken }) ?? { kind: "COMPLETION", id: `completion-${candidateId}-${candidate.completionAttemptCount}`, candidateId, completionAttemptCount: candidate.completionAttemptCount, completionClaimToken: claimToken, enlist: () => undefined, commit: async () => undefined, rollback: async () => undefined };
-                const experiment = existing ?? await this.deps.repository.stageCompletionExperiment({ id: this.id(), ownerUserId: candidate.ownerUserId, candidateId, searchRunId: candidate.searchRunId, leaderboardScopeId: scope.id, scoreFormulaId: scored.scoreFormulaId, overallScore: scored.overallScore, rankEligible: scored.rankEligible, backtestAttemptId: attempt.attemptId, compositeDefinitionId: candidate.compositeDefinition.id, compositeDefinition: candidate.compositeDefinition, datasetSnapshot: scope.datasetSnapshot, sentimentDatasetSnapshot: scope.sentimentDatasetSnapshot, strategyDefinitions: candidate.strategyDefinitions, metrics, trades: result.trades, createdAt: this.now() }, unitOfWork);
+                const experiment = existing ?? await this.deps.repository.stageCompletionExperiment({ id: this.id(), ownerUserId: candidate.ownerUserId, candidateId, searchRunId: candidate.searchRunId, leaderboardScopeId: scope.id, scoreFormulaId: scored.scoreFormulaId, overallScore: scored.overallScore, rankEligible: scored.rankEligible, backtestAttemptId: attempt.attemptId, compositeDefinitionId: candidate.compositeDefinition.id, compositeDefinition: candidate.compositeDefinition, datasetSnapshot: scope.datasetSnapshot, sentimentDatasetSnapshot: scope.sentimentDatasetSnapshot, strategyDefinitions: candidate.strategyDefinitions, executionPolicy: candidate.executionPolicy, simulatorVersion: scope.simulatorVersion ?? exports.SIMULATOR_VERSION, simulatorSha256: scope.simulatorSha256 ?? exports.SIMULATOR_SHA256, benchmarkTimezone: scope.benchmarkTimezone ?? BENCHMARK_TIMEZONE, fillPolicyId: scope.fillPolicyId ?? FILL_POLICY_ID, oppositeSignalPolicyId: scope.oppositeSignalPolicyId ?? OPPOSITE_SIGNAL_POLICY_ID, sameCandleOrderingPolicyId: scope.sameCandleOrderingPolicyId ?? SAME_CANDLE_ORDERING_POLICY_ID, deterministicGuarantee: scope.deterministicGuarantee ?? DETERMINISTIC_GUARANTEE, workerRuntimeVersion: attempt.workerRuntimeVersion, workerRuntimeSha256: attempt.workerRuntimeSha256, evaluationRuntimeVersion: metrics.evaluationRuntimeVersion, evaluationRuntimeSha256: metrics.evaluationRuntimeSha256, decimalPolicyId: scope.decimalPolicyId, evaluationPolicyId: scope.evaluationPolicyId, feeRatePercent: scope.feeRatePercent, slippageBps: scope.slippageBps, ...projections, metrics, trades: result.trades, createdAt: this.now() }, unitOfWork);
                 await this.deps.completion.submit(experiment, unitOfWork);
                 await this.deps.repository.finalizeCompletion({ candidate, experimentId: experiment.id, claimToken, now: this.now() }, unitOfWork);
                 await unitOfWork.commit?.();
@@ -602,7 +654,15 @@ class BacktestingService {
             invalid("INVALID_CURSOR");
         start = index + 1;
     } const items = ordered.slice(start, start + limit); const nextCursor = start + items.length < ordered.length && items.length > 0 ? encodeTradeCursor(ownerUserId, resource, limit, items[items.length - 1]) : undefined; return { items, totalCount: ordered.length, nextCursor }; }
-    async verifyReplay(auth, experimentId) { const experiment = await this.readExperimentSummary(auth, experimentId); const candidate = await this.ownedCandidate(auth, experiment.candidateId); const scope = await this.ownedScope(auth, experiment.leaderboardScopeId); const attempt = await this.readAttempt(auth, experiment.backtestAttemptId); const snapshot = await this.snapshot(scope.datasetSnapshotId); const strategy = await this.compositeStrategy(candidate.strategyDefinitions, candidate.compositeDefinition); const replay = (0, simulator_1.simulateBacktest)({ candidateId: candidate.candidateId, attemptId: attempt.attemptId, pair: scope.pair, settlementAsset: scope.datasetSnapshot.pairMetadata.settlementAsset || scope.datasetSnapshot.pairMetadata.quoteAsset || "USDT", timeframe: scope.timeframe, candles: snapshot.candles, warmupCandles: candidate.warmupCandles, strategy, initialCapital: scope.initialCapital, feeRatePercent: scope.feeRatePercent, slippageBps: scope.slippageBps, stopLossPercent: scope.riskPolicy?.stopLossPercent, takeProfitPercent: scope.riskPolicy?.takeProfitPercent, workerRuntimeVersion: attempt.workerRuntimeVersion, workerRuntimeSha256: attempt.workerRuntimeSha256, startedAt: attempt.startedAt, completedAt: attempt.completedAt ?? attempt.startedAt }); const matches = JSON.stringify(replay.trades) === JSON.stringify(experiment.trades); return { experimentId, sourceAttemptId: attempt.attemptId, status: matches ? "MATCH" : "MISMATCH", comparedTradeCount: Math.max(replay.trades.length, experiment.trades.length), mismatches: matches ? [] : [{ fieldPath: "trades", expected: JSON.stringify(experiment.trades), actual: JSON.stringify(replay.trades) }] }; }
+    async verifyReplay(auth, experimentId) { const experiment = await this.readExperimentSummary(auth, experimentId); const candidate = await this.ownedCandidate(auth, experiment.candidateId); const scope = await this.ownedScope(auth, experiment.leaderboardScopeId); const attempt = await this.readAttempt(auth, experiment.backtestAttemptId); const snapshot = await this.snapshot(scope.datasetSnapshotId); const strategy = await this.compositeStrategy(candidate.strategyDefinitions, candidate.compositeDefinition); const replay = (0, simulator_1.simulateBacktest)({ candidateId: candidate.candidateId, attemptId: attempt.attemptId, pair: scope.pair, settlementAsset: scope.datasetSnapshot.pairMetadata.settlementAsset || scope.datasetSnapshot.pairMetadata.quoteAsset || "USDT", timeframe: scope.timeframe, candles: snapshot.candles, warmupCandles: candidate.warmupCandles, strategy, initialCapital: scope.initialCapital, feeRatePercent: scope.feeRatePercent, slippageBps: scope.slippageBps, stopLossPercent: candidate.executionPolicy?.stopLossPercent ?? scope.riskPolicy?.stopLossPercent, takeProfitPercent: candidate.executionPolicy?.takeProfitPercent ?? scope.riskPolicy?.takeProfitPercent, workerRuntimeVersion: attempt.workerRuntimeVersion, workerRuntimeSha256: attempt.workerRuntimeSha256, startedAt: attempt.startedAt, completedAt: attempt.completedAt ?? attempt.startedAt }); const replayMetrics = this.deps.evaluation.evaluator.evaluate(replay); const expected = experiment; const replayPolicy = candidate.executionPolicy ?? normalizeExecutionPolicy(undefined, candidate.warmupCandles, scope.riskPolicy); const mismatches = []; const compare = (fieldPath, expectedValue, actualValue) => { if (JSON.stringify(expectedValue) !== JSON.stringify(actualValue))
+        mismatches.push({ fieldPath, expected: JSON.stringify(expectedValue), actual: JSON.stringify(actualValue) }); }; const expectedTrades = experiment.trades; const actualTrades = replay.trades; if (expectedTrades.length !== actualTrades.length)
+        compare("trades.length", expectedTrades.length, actualTrades.length); const tradeFields = ["id", "sequence", "entryTime", "entryPrice", "exitTime", "exitPrice", "quantity", "equityBeforeTrade", "equityAfterTrade", "feeAmount", "slippageAmount", "profit", "resultPercent", "result"]; for (let index = 0; index < Math.max(expectedTrades.length, actualTrades.length); index += 1) {
+        const expectedTrade = expectedTrades[index];
+        const actualTrade = actualTrades[index];
+        for (const field of tradeFields)
+            compare(`trades[${index}].${field}`, expectedTrade?.[field], actualTrade?.[field]);
+    } const metricFields = Object.keys(experiment.metrics); for (const field of metricFields)
+        compare(`metrics.${field}`, experiment.metrics[field], replayMetrics[field]); compare("executionPolicy", expected.executionPolicy ?? replayPolicy, replayPolicy); const totalMismatchCount = mismatches.length; const sampleLimit = 50; return { experimentId, sourceAttemptId: attempt.attemptId, status: totalMismatchCount === 0 ? "MATCH" : "MISMATCH", comparedTradeCount: Math.max(replay.trades.length, experiment.trades.length), mismatches: mismatches.slice(0, sampleLimit), totalMismatchCount, truncated: totalMismatchCount > sampleLimit }; }
 }
 exports.BacktestingService = BacktestingService;
 function createBacktestingService(dependencies = createInMemoryBacktestingDependencies()) { return new BacktestingService(dependencies); }

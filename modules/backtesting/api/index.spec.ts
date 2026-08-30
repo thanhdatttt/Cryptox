@@ -39,6 +39,7 @@ describe("backtesting runtime", () => {
       completedAt: "2025-01-01T03:00:00.000Z",
     });
     expect(result.trades).toHaveLength(1);
+    expect(result.initialCapital).toBe(1000);
     expect(result.trades[0]).toMatchObject({ entryTime: "2025-01-01T01:00:00.000Z", marketEntryPrice: 102, marketExitPrice: 110, exitReason: "RANGE_END", result: "WIN" });
   });
 
@@ -198,10 +199,10 @@ describe("backtesting runtime", () => {
     const definition = { id: "definition-1", userId: "user-1", logicalFamilyKey: "strategy:test", strategyName: "TEST", implementationVersion: "1", implementationSha256: "a".repeat(64), version: 1, parameters: {}, createdAt: "2025-01-01T00:00:00.000Z" };
     const composite = { id: "composite-1", userId: "user-1", logicalFamilyKey: "composite:test", version: 1, method: "MAJORITY_VOTE" as const, components: [{ strategyDefinitionId: definition.id, weight: 0 }], createdAt: "2025-01-01T00:00:00.000Z" };
     const scope = await service.createBenchmarkScope({ userId: "user-1" }, { name: "BTC fixture", datasetSnapshot: snapshot, initialCapital: 1000, feeRatePercent: 0, slippageBps: 0, scoreFormulaId: "MVP_MANUAL_V1", workerRuntimeVersion: "1", workerRuntimeSha256: "b".repeat(64), evaluationRuntimeVersion: "1", evaluationRuntimeSha256: "c".repeat(64) }, { scopeIdempotencyKey: "scope-key" });
-    const accepted = await service.startManual({ userId: "user-1" }, { leaderboardScopeId: scope.id, strategyDefinitions: [definition], compositeDefinition: composite, maxAttempts: 2 }, { submissionIdempotencyKey: "submission-key" });
+    const accepted = await service.startManual({ userId: "user-1" }, { leaderboardScopeId: scope.id, strategyDefinitionIds: [definition.id], compositeDefinitionId: composite.id, executionPolicy: { stopLossPercent: 5, takeProfitPercent: 5 }, maxAttempts: 2 }, { submissionIdempotencyKey: "submission-key" });
 
     expect(accepted).toMatchObject({ candidateId: accepted.jobId, status: "QUEUED" });
-    await expect(service.startManual({ userId: "user-1" }, { leaderboardScopeId: scope.id, strategyDefinitions: [definition], compositeDefinition: composite, maxAttempts: 2 }, { submissionIdempotencyKey: "submission-key" })).resolves.toEqual(accepted);
+    await expect(service.startManual({ userId: "user-1" }, { leaderboardScopeId: scope.id, strategyDefinitionIds: [definition.id], compositeDefinitionId: composite.id, executionPolicy: { stopLossPercent: 5, takeProfitPercent: 5 }, maxAttempts: 2 }, { submissionIdempotencyKey: "submission-key" })).resolves.toEqual(accepted);
     const job = queue.jobs.get(accepted.jobId);
     expect(job).toMatchObject({ jobId: accepted.candidateId, maxAttempts: 2 });
     await expect(service.processQueueJob(job!, { attemptNumber: 1, fenceToken: "worker-claim-1" })).rejects.toThrow("TRANSIENT_STRATEGY_ARTIFACT_FAILURE");
@@ -220,6 +221,9 @@ describe("backtesting runtime", () => {
     expect(trades.items).toHaveLength(1);
     const experiment = await service.readExperimentSummary({ userId: "user-1" }, progress.experimentResultId!);
     expect(experiment.metrics).toMatchObject({ numberOfTrades: 1, candidateId: accepted.candidateId });
+    expect(experiment).toMatchObject({ initialCapital: 1000, wins: 1, losses: 0, breakevens: 0, simulatorVersion: "1.0.0", benchmarkTimezone: "UTC", fillPolicyId: "NEXT_OPEN_OHLC_STOP_FIRST_V2", decimalPolicyId: "MVP_DECIMAL_HALF_UP_V1" });
+    expect(experiment.executionPolicy?.sha256).toMatch(/^[a-f0-9]{64}$/);
+    expect(experiment.endingEquity).toBeCloseTo(1000 + (experiment.totalProfitAmount ?? 0), 8);
     await expect(service.verifyReplay({ userId: "user-1" }, experiment.id)).resolves.toMatchObject({ status: "MATCH", comparedTradeCount: 1 });
     await expect(service.status({ userId: "another-user" }, accepted.candidateId)).rejects.toThrow("BACKTEST_CANDIDATE_NOT_FOUND");
 

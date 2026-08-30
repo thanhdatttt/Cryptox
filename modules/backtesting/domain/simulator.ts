@@ -275,6 +275,7 @@ export function simulateBacktest(input: SimulationInput): CompletedBacktestResul
     workerRuntimeSha256: input.workerRuntimeSha256,
     startedAt: input.startedAt,
     completedAt: input.completedAt,
+    initialCapital: input.initialCapital,
     trades,
   };
 }

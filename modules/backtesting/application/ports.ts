@@ -1,7 +1,7 @@
 import type { EvaluationMetrics, EvaluatorModulePublicApi } from "modules/evaluation/api";
 import type { Candle, DatasetSnapshotRef, MarketDataModulePublicApi } from "modules/market-data/api";
 import type { Strategy, StrategyContext, StrategyDefinition, CompositeStrategyDefinition } from "modules/strategy/api";
-import type { BacktestAttemptAudit, BacktestAttemptProgress, BenchmarkScopeSummary, CandidateProgress, CompletedBacktestResult, CompletionUnitOfWork, ExperimentResultSummary, StrategyVisualizationOverlay, Trade } from "../domain/contracts";
+import type { BacktestAttemptAudit, BacktestAttemptProgress, BenchmarkScopeSummary, CandidateProgress, CompletedBacktestResult, CompletionUnitOfWork, ExecutionPolicySnapshot, ExperimentResultSummary, StrategyVisualizationOverlay, Trade } from "../domain/contracts";
 import type { BacktestQueueJob } from "@cryptox/contracts/queue";
 import type { AuthContext } from "modules/auth/api";
 
@@ -11,6 +11,7 @@ export interface StoredCandidate extends CandidateProgress {
   ownerUserId: string;
   strategyDefinitions: StrategyDefinition[];
   compositeDefinition: CompositeStrategyDefinition;
+  executionPolicy?: ExecutionPolicySnapshot;
   queueJobId: string;
   executionGeneration?: number;
   activeFenceToken?: string;

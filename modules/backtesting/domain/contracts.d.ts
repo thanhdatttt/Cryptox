@@ -31,6 +31,22 @@ export interface CompletionUnitOfWork {
     commit?: () => Promise<void>;
     rollback?: () => Promise<void>;
 }
+export interface ExecutionPolicyInput {
+    policyId?: "TWO_SIDED_ONE_X_V1";
+    stopLossPercent?: number;
+    takeProfitPercent?: number;
+}
+export interface ExecutionPolicySnapshot {
+    policyId: "TWO_SIDED_ONE_X_V1";
+    positionPolicyId: "TWO_SIDED_ONE_X_V1";
+    sizingPolicyId: "FULL_CURRENT_EQUITY_FEE_AWARE_V1";
+    fillPolicyId: "NEXT_OPEN_OHLC_STOP_FIRST_V2";
+    oppositeSignalPolicyId: "CLOSE_AND_REVERSE_NEXT_OPEN_V1";
+    stopLossPercent?: number;
+    takeProfitPercent?: number;
+    warmupCandles: number;
+    sha256: string;
+}
 export interface Trade {
     id: string;
     sequence: number;
@@ -67,6 +83,7 @@ export interface CompletedBacktestResult {
     workerRuntimeSha256: string;
     startedAt: string;
     completedAt: string;
+    initialCapital?: number;
     trades: Trade[];
 }
 export type GeneratorType = "RANDOM" | "DOMAIN_GUIDED" | "GENETIC";
@@ -90,14 +107,18 @@ export interface CreateLeaderboardScopeCommand {
 }
 export interface StartManualBacktestCommand {
     leaderboardScopeId: string;
-    strategyDefinitions: StrategyDefinition[];
-    compositeDefinition: CompositeStrategyDefinition;
+    strategyDefinitions?: StrategyDefinition[];
+    compositeDefinition?: CompositeStrategyDefinition;
+    strategyDefinitionIds?: string[];
+    compositeDefinitionId?: string;
+    executionPolicy?: ExecutionPolicyInput;
     maxAttempts: number;
 }
 export interface SubmitSearchCandidateCommand extends StartManualBacktestCommand {
     searchRunId: string;
     iterationNumber: number;
     generatedBy: GeneratorType;
+    executionPolicy?: ExecutionPolicyInput | ExecutionPolicySnapshot;
 }
 export interface BenchmarkScopeSummary {
     id: string;
@@ -109,6 +130,13 @@ export interface BenchmarkScopeSummary {
     workerRuntimeSha256: string;
     evaluationRuntimeVersion: string;
     evaluationRuntimeSha256: string;
+    simulatorVersion?: string;
+    simulatorSha256?: string;
+    benchmarkTimezone?: string;
+    fillPolicyId?: string;
+    oppositeSignalPolicyId?: string;
+    sameCandleOrderingPolicyId?: string;
+    deterministicGuarantee?: string;
     pair: Pair;
     timeframe: Timeframe;
     datasetRange: {
@@ -140,7 +168,9 @@ export interface ReplayVerificationResult {
         expected: string;
         actual: string;
     }>;
-    failureCode?: "MISSING_SNAPSHOT" | "IMPLEMENTATION_ARTIFACT_UNAVAILABLE";
+    totalMismatchCount?: number;
+    truncated?: boolean;
+    failureCode?: "MISSING_SNAPSHOT" | "IMPLEMENTATION_ARTIFACT_UNAVAILABLE" | "REPLAY_ARTIFACT_EXPIRED";
 }
 export interface CandidateProgress {
     candidateId: string;
@@ -202,6 +232,29 @@ export interface ExperimentResultSummary extends ExperimentResult {
     datasetSnapshot: DatasetSnapshotRef;
     sentimentDatasetSnapshot?: SentimentDatasetSnapshotRef;
     strategyDefinitions: StrategyDefinition[];
+    executionPolicy?: ExecutionPolicySnapshot;
+    simulatorVersion?: string;
+    simulatorSha256?: string;
+    benchmarkTimezone?: string;
+    fillPolicyId?: string;
+    oppositeSignalPolicyId?: string;
+    sameCandleOrderingPolicyId?: string;
+    deterministicGuarantee?: string;
+    workerRuntimeVersion?: string;
+    workerRuntimeSha256?: string;
+    evaluationRuntimeVersion?: string;
+    evaluationRuntimeSha256?: string;
+    decimalPolicyId?: "MVP_DECIMAL_HALF_UP_V1";
+    evaluationPolicyId?: "MVP_EVALUATION_V1";
+    initialCapital?: number;
+    feeRatePercent?: number;
+    slippageBps?: number;
+    totalProfitAmount?: number;
+    endingEquity?: number;
+    wins?: number;
+    losses?: number;
+    breakevens?: number;
+    maxDrawdownAmount?: number;
     metrics: import("modules/evaluation/api").EvaluationMetrics;
     trades: Trade[];
     createdAt: string;

@@ -3,7 +3,7 @@ import type { BacktestQueueJob, BacktestQueueReturn, BacktestQueueTerminalSignal
 import type { AuthContext } from "modules/auth/api";
 export { simulateBacktest } from "../domain/simulator";
 export type { SimulationInput } from "../domain/simulator";
-export type { CandidateStatus, BacktestSubmissionAccepted, CancellationUnitOfWork, CompletionUnitOfWork, Trade, CompletedBacktestResult, GeneratorType, CreateLeaderboardScopeCommand, StartManualBacktestCommand, SubmitSearchCandidateCommand, BenchmarkScopeSummary, ReplayVerificationResult, CandidateProgress, BacktestAttemptProgress, BacktestAttemptAudit, ExperimentResult, ExperimentResultSummary, ExperimentVisualization, ExperimentVisualizationMarker, StrategyVisualizationOverlay } from "../domain/contracts";
+export type { CandidateStatus, BacktestSubmissionAccepted, CancellationUnitOfWork, CompletionUnitOfWork, ExecutionPolicyInput, ExecutionPolicySnapshot, Trade, CompletedBacktestResult, GeneratorType, CreateLeaderboardScopeCommand, StartManualBacktestCommand, SubmitSearchCandidateCommand, BenchmarkScopeSummary, ReplayVerificationResult, CandidateProgress, BacktestAttemptProgress, BacktestAttemptAudit, ExperimentResult, ExperimentResultSummary, ExperimentVisualization, ExperimentVisualizationMarker, StrategyVisualizationOverlay } from "../domain/contracts";
 export interface SearchCandidateSummary {
     searchRunId: string;
     active: CandidateProgress[];
