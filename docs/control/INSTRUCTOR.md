@@ -2,13 +2,102 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-107`
+Instruction ID: `INS-108`
 
-Status: `HOLD`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
-## INS-107 — HOLD after INS-106 I-01 review
+## INS-108 — Public module bootstrap and persistence seam reconciliation
+
+This signal supersedes `INS-107 / HOLD` after the Instructor's independent
+review of the committed I-01 boundary. It authorizes exactly one fresh
+same-directory Manager and only the bounded prerequisite packet `I-01R`.
+
+### Reviewed checkpoint and applicability
+
+- The canonical checkout is `D:/agy-cli-projects/AOS/Cryptox` on
+  `MVP_IMPLEMENTATION`, at `b20c5e6` (`chore(control): hold after I-01
+  integration review`). The tracked tree is clean at this checkpoint; the
+  untouched app-generated `.codex/config.toml` remains untracked, outside
+  Cryptox scope, and must stay unstaged and undeleted.
+- The authoritative task board at authorization is `41 DONE`, `1 REVIEW`
+  (`I-01`), and `2 BLOCKED` (`I-02`, `I-03`). `I-01R` is a new plan packet in
+  `MVP_PLAN.md`; the Manager must add its single operational row to
+  `TASKS.md` and own its state transitions. `I-01` must remain `REVIEW` until
+  a later fresh authorization.
+- `INS-106` was independently reviewed and integrated at `0bab722`; its
+  Manager and sole worker Volta are idle/closed. No competing Cryptox
+  Manager, worker, retry, replacement, duplicate, or downstream execution is
+  active. The public seams named below are concrete blockers from that review,
+  not chat-only assumptions.
+
+### Exact Manager and worker authorization
+
+- Create exactly one fresh Manager in the canonical checkout, same directory,
+  no worktree and no historical Manager reuse, using model
+  `gpt-5.6-luna` with reasoning `max`. The Manager must read `AGENTS.md`,
+  `docs/control/prompts/ORCHESTRATOR_START.md`, the current signal, checkpoint,
+  task DAG, requirements, accepted ADRs, architecture, data model, relevant
+  capability specs, and the `I-01R` plan packet before acting.
+- The Manager may create at most three fresh internal workers, one for each
+  disjoint scope below, and no user-visible child tasks. Workers must not edit
+  control-plane artifacts, commit, or change another worker's paths. No
+  duplicate, replacement, retry, or unapproved parallel writer is allowed.
+- Worker A — Backtesting public execution seam: only
+  `modules/backtesting/api/**` excluding `contracts.ts`, plus focused tests
+  within that authorized area. Expose a public bounded-local-executor
+  composition helper/factory usable by `createBacktestingModule`; do not alter
+  simulator behavior or import infrastructure from the backend.
+- Worker B — Search public generator seam: only `modules/search/api/**`
+  excluding `contracts.ts`, plus focused tests within that authorized area.
+  Expose deterministic immutable composition for the already approved
+  `RANDOM_V1`, `DOMAIN_GUIDED_V1`, and `GENETIC_V1` generators without copying
+  algorithms or changing their behavior.
+- Worker C — Owned persistence/public exports: only
+  `modules/strategy/api/**`, a new or narrowly required
+  `modules/strategy/infrastructure/postgres.ts` and its focused tests, plus
+  `modules/sentiment/api/**` and focused tests. Provide owner-filtered,
+  versioned Strategy definition/composite PostgreSQL repositories against the
+  existing approved schema and expose the existing Sentiment PostgreSQL
+  dependencies through its public entrypoint. No schema or migration change
+  is authorized.
+- The Manager alone may update the new `I-01R` row in
+  `docs/implementation/TASKS.md` and replace
+  `docs/implementation/HANDOFF.md`; all source implementation with an
+  independent write scope must be delegated to the workers. The Manager may
+  do only governance, review, integration glue, conflict resolution, or a
+  tiny review fix clearly within these paths.
+
+### Acceptance, validation, prohibitions and stop condition
+
+- Prove through focused public-entrypoint tests that the Backtesting and
+  Search seams are composable, deterministic, immutable, and free of
+  duplicate algorithm source; prove Strategy owner filtering, pagination,
+  version allocation/concurrency, composite component-version provenance,
+  cross-owner no-leak behavior, and Sentiment public adapter export.
+- Run focused module suites plus workspace build, typecheck, lint,
+  architecture/dependency, artifact/source-sidecar, deferred-scope,
+  test-scope, secret/log, whitespace, and exact-path checks. Fixture/fake
+  tests may establish deterministic source behavior, but real PostgreSQL or
+  provider evidence must be reported only when actually observed; unavailable
+  tools/environments remain `UNVERIFIED`/`BLOCKED`.
+- Do not change `packages/contracts/**`, migrations/schema, any module
+  `application/**`, Strategy algorithms, existing provider implementations,
+  `apps/backend/**`, `infra/**`, frontend, dependencies, OpenSpec artifacts,
+  requirements, ADRs, deferred scope, queues, distributed protocols, or
+  general event buses. Do not resume or promote `I-01`, start `I-02`/`I-03`,
+  or claim final/demo integration. If the required seam cannot be implemented
+  within the listed paths without contract/schema/application changes, stop at
+  `REVIEW / NEEDS_INSTRUCTOR_REVIEW` and report the exact blocker.
+- The Manager may move only `I-01R` through
+  `BLOCKED -> READY -> IN_PROGRESS -> REVIEW`, and to `DONE` only when its
+  bounded seam evidence passes. It must stop when I-01R is exhausted and must
+  not automatically resume I-01 or start any downstream packet. One coherent
+  commit attempt is allowed; if Git denies it, record the exact error and do
+  not retry.
+
+## Historical INS-107 — HOLD after INS-106 I-01 review
 
 This signal supersedes `INS-106 / APPROVED_FOR_EXECUTION` after the
 Instructor's independent review. It records the current safe checkpoint and

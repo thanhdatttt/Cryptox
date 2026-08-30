@@ -995,3 +995,44 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Task state](../implementation/TASKS.md),
 [Latest checkpoint](../implementation/HANDOFF.md), `INS-106`, `DEC-027`, and
 commit `0bab722`.
+
+## DEC-029 — Fresh explicit I-01R public seam reconciliation authorization
+
+Status: `APPROVED`
+
+Authority: Fresh Instructor review after `INS-107 / HOLD` at `b20c5e6`, with
+the I-01 review recorded at `0bab722`.
+
+Decision: The Instructor authorizes exactly one fresh `INS-108 /
+APPROVED_FOR_EXECUTION` attempt for the new prerequisite packet `I-01R —
+Public Module Bootstrap and Persistence Seam Reconciliation`. The attempt is
+limited to one fresh same-directory Manager in the canonical checkout using
+`gpt-5.6-luna` with reasoning `max`, and up to three fresh internal workers
+with the explicitly disjoint scopes recorded in `INSTRUCTOR.md`. The packet
+may reconcile only already approved public composition/persistence seams; it
+does not authorize resumed I-01, I-02, I-03, extensions, retries,
+replacements, duplicates, worktrees, or downstream execution.
+
+Why: Independent I-01 review proved the backend transport boundary but found
+concrete public-surface gaps that cannot be repaired inside the authorized
+`apps/backend/**` boundary: the bounded local Backtesting executor and the
+approved Search generators are not publicly composable, Strategy's existing
+owner-scoped definitions/composites have no PostgreSQL adapter/bootstrap, and
+the existing Sentiment PostgreSQL adapter is not exposed through its public
+package entrypoint. The accepted architecture and already approved schema
+support a bounded owner-review reconciliation without changing contracts,
+migrations, algorithms, or product scope. The plan now records `I-01R` as a
+separate prerequisite and the current checkout is clean apart from the
+untouched app-generated `.codex/config.toml`; no Cryptox writer is active.
+
+Affected: `I-01R`, `I-01`, `MVP_PLAN.md`, `TASKS.md`, `HANDOFF.md`, `INS-108`,
+and the integration DAG. Requirements, approved functional image amendments,
+accepted architecture, canonical contracts, completed packets, `I-02`,
+`I-03`, and deferred scope remain unchanged.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [Architecture](../architecture.md),
+[Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md),
+[Latest checkpoint](../implementation/HANDOFF.md), `INS-107`, `DEC-028`, and
+commit `b20c5e6`.

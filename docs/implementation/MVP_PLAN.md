@@ -184,7 +184,7 @@ P-00 DONE -> C-01 DONE -> A-00 DONE -> C-01A READY
          +-------------------------------> I-01 <-----------------------+
 
 E-01 READY --------------------------------> B-02
-F-01 READY -> F-AUTH --(AU-01 integrate)--> F-02 -----------------> I-01S -> I-01 -> I-02
+F-01 READY -> F-AUTH --(AU-01 integrate)--> F-02 -----------------> I-01S -> I-01R -> I-01 -> I-02
 ```
 
 The revised critical join is:
@@ -193,7 +193,7 @@ The revised critical join is:
 A-00 -> C-01A
   -> { S-01 -> B-01 | D-01 -> L-01 } -> B-02 -> Q-01 integration
   -> { AU-01 | Q-01 integration } -> AU-02
-  -> { AU-02 | F-01 -> F-AUTH -> F-02 | real-provider lanes } -> I-01S -> I-01 -> I-02
+  -> { AU-02 | F-01 -> F-AUTH -> F-02 | real-provider lanes } -> I-01S -> I-01R -> I-01 -> I-02
 ```
 
 E-01 and F-01 remain independently READY after A-00 but are not started by A-00.
@@ -291,7 +291,8 @@ provider, provenance, and no-secret evidence for this extension frontier.
 | 4 | F-01 checkpoint and C-01A | F-AUTH then F-02; Q-01 pure lifecycle | Authenticated fixture workflows and bounded Search pass |
 | 5 | B-02 then Q-01 real integration | AU-02 only after affected owners checkpoint | Persisted owner-scoped Search/Experiment/Leaderboard passes |
 | 5R | I-01 review identifies a missing public Strategy composition seam | `I-01S` only | Strategy-owned public registry/composition seam is reviewed and available to the runtime boundary |
-| 6 | I-01S plus the existing I-01/AU-02 prerequisites | Fresh reviewed I-01 resumption | Runnable integrated backend/frontend with real-provider preflight |
+| 6R | I-01 review identifies missing public module bootstrap/persistence seams | `I-01R` only | Public module composition and owned persistence seams are reviewed and available to the runtime boundary |
+| 6 | I-01S and I-01R plus the existing I-01/AU-02 prerequisites | Fresh reviewed I-01 resumption | Runnable integrated backend/frontend with real-provider preflight |
 | 7 | I-02 | Independent test/reviewer agents | Full MVP DoD, two-user isolation, and real demo evidence |
 
 The DEC-007 extension sequence is a later controlled frontier, not an automatic
@@ -841,6 +842,79 @@ strict artifact repositories; unrelated cleanup.
   resume I-01. No retry, duplicate, replacement worker, or downstream packet
   may start automatically. **Parallel:** NO. **Critical:** YES to I-01.
 
+### I-01R — Public Module Bootstrap and Persistence Seam Reconciliation
+
+- **Requirement IDs / authority:** `CSL-R-AU-01`, `CSL-R-OW-01`,
+  `CSL-R-ST-01`, `CSL-R-ST-04`, `CSL-R-ST-06`, `CSL-R-ST-07`,
+  `CSL-R-SE-03`, `CSL-R-BT-01`–`02`, `CSL-R-SN-01`, `CSL-R-RP-01`–`02`,
+  `CSL-R-AR-01`–`03`, and the public composition boundaries required by the
+  accepted architecture and the `INS-106` review; BLOCKED pending a fresh
+  Instructor authorization; source-reconciliation prerequisite for I-01.
+- **State / owner / wave:** BLOCKED / Manager plus up to three disjoint
+  internal workers / E4.
+- **Start dependencies:** `I-01` is at `REVIEW / NEEDS_INSTRUCTOR_REVIEW`
+  under `INS-107 / HOLD`; `C-02`, `S-01`–`S-06`, `Q-01`, `Q-02`, `B-01`–`B-03`,
+  `AU-01`, `AU-02`, `N-01`–`N-03`, `E-01`, `E-02`, `L-01`, `L-02`, and the
+  accepted `I-01S` seam are `DONE`; no implementation writer is active.
+- **Integration dependencies:** The later resumed `I-01` packet and its
+  real PostgreSQL/provider/browser evidence. This packet does not authorize
+  I-01, I-02, I-03, any extension, or any final/demo claim.
+- **Objective:** Make the already approved module behavior consumable through
+  public package boundaries so the backend can compose truthful MVP runtime
+  state without importing module internals. Reconcile the missing bounded
+  executor and Search generator seams, provide the existing Strategy-owned
+  persistence boundary against the already approved schema, and expose the
+  existing Sentiment PostgreSQL adapter through its public bootstrap.
+- **Worker scopes:** (A) Backtesting public bounded-local-executor composition
+  under `modules/backtesting/api/**` and focused tests; (B) Search public
+  deterministic generator registry/composition under `modules/search/api/**`
+  and focused tests; (C) Strategy PostgreSQL repositories/public bootstrap
+  under the explicitly listed Strategy paths plus Sentiment public PostgreSQL
+  bootstrap/export under the explicitly listed Sentiment paths. These scopes
+  are disjoint and may run in parallel; no worker may edit another scope.
+- **Exact write scope:** `modules/backtesting/api/**` excluding
+  `contracts.ts`; `modules/search/api/**` excluding `contracts.ts`;
+  `modules/strategy/api/**`, new or narrowly required
+  `modules/strategy/infrastructure/postgres.ts`, and their focused tests;
+  `modules/sentiment/api/**` and focused tests; and only the Manager-owned
+  operational `TASKS.md` and `HANDOFF.md` checkpoint files. Existing contracts,
+  migrations/schema, Strategy algorithms, existing provider implementations,
+  backend, frontend, infrastructure root, and all unrelated paths are not
+  writable.
+- **Required behavior:** The Backtesting public boundary exposes a bounded
+  local execution composition helper/factory usable by
+  `createBacktestingModule`; Search exposes immutable deterministic
+  `RANDOM_V1`, `DOMAIN_GUIDED_V1`, and `GENETIC_V1` generator composition
+  without algorithm duplication; Strategy repositories persist and read
+  versioned definitions/composites with owner filtering, pagination, safe
+  version allocation, component-version provenance, and cross-owner no-leak
+  behavior; Sentiment exposes its existing PostgreSQL dependencies through the
+  public package boundary. Public APIs remain synchronous, typed, and
+  provider-neutral, and no backend consumer needs a domain/infrastructure
+  deep import.
+- **Forbidden:** Contract or migration changes; new product/UI behavior;
+  strategy/search/backtest/sentiment algorithm changes; direct database access
+  from controllers or strategies; mock fallback for final runtime; changes to
+  `apps/backend/**`, `modules/*/application/**` except no required seam may
+  silently broaden into it, `modules/*/infrastructure/**` outside the one
+  Strategy adapter path, `infra/**`, `packages/**`, frontend, dependencies,
+  OpenSpec, deferred scope, queues, distributed protocols, or general event
+  buses. No real-provider or final-demo evidence may be inferred from fixture
+  tests.
+- **Acceptance/tests:** Focused public-entrypoint tests prove the three seams,
+  deterministic registration, immutability, public bootstrap compatibility,
+  Strategy ownership/version/concurrency and cross-owner isolation, and
+  Sentiment adapter export. Run focused module suites, workspace build,
+  typecheck, lint, architecture, artifact/source-sidecar, deferred-scope,
+  test-scope, secret/log, whitespace, and exact-path checks. Required tools or
+  environments unavailable remain `UNVERIFIED`/`BLOCKED`.
+- **Stop condition:** The Manager moves only `I-01R` through the normal state
+  sequence, records `DONE` only with the scoped seam evidence, and stops. A
+  fresh Instructor review must accept it before a new authorization can resume
+  `I-01`; no retry, duplicate, replacement, I-01/I-02/I-03, or downstream
+  packet may start automatically. **Parallel:** YES, maximum three workers;
+  **Critical:** YES to I-01.
+
 ### I-01 — Runtime, Transports and Observability Integration
 
 - **Requirements / baseline state / planned owner:** AU-01, OW-01, RD-01, all capability integrations,
@@ -854,8 +928,10 @@ strict artifact repositories; unrelated cleanup.
 - **Integration dependencies:** Live Binance/CoinDesk availability for final smoke.
 - **Unblocks:** I-02.
 - **Current reconciliation:** `INS-103` reached `REVIEW` with a concrete
-  missing Strategy composition seam. `I-01S` is a separately authorized
-  prerequisite; its completion does not itself resume or complete I-01.
+  missing Strategy composition seam. `I-01S` is accepted, while `I-01R` is a
+  separately authorized public bootstrap/persistence prerequisite after the
+  `INS-106` review; completion of either prerequisite does not itself resume
+  or complete I-01.
 - **Reading:** Entire authority chain and latest checkpoint.
 - **Allowed:** `apps/backend/**`, example configuration, thin transport mappers;
   module fixes only through owner review.
