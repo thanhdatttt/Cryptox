@@ -3,12 +3,15 @@ import { ColorType, createChart, type CandlestickData, type HistogramData, type 
 import { api, marketSocket, type ApiCandle, type MarketCapabilities, type MarketTick, type Timeframe } from "./api";
 import { canAddChart, defaultMarketLayout, mergeCandle, nextChartId, type ChartPanelState, type MarketLayoutState } from "./state";
 
-const periods: Timeframe[] = ["1m", "5m", "15m", "1h", "4h", "1d"];
-const topPeriods: Timeframe[] = ["1m", "5m", "15m", "1h", "4h"];
-
 const ErrorBox = ({ error }: { error: unknown }) => error ? <div className="market-error"><b>Unable to load market data</b><span>{error instanceof Error ? error.message : String(error)}</span></div> : null;
 
 const chartTime = (timestamp: string): Time => Math.floor(Date.parse(timestamp) / 1_000) as Time;
+
+export const chartUpdatePlan = (previous: ApiCandle[], next: ApiCandle[]): { replace: boolean; changedTimestamps: string[] } => {
+  const previousByTimestamp = new Map(previous.map((candle) => [candle.timestamp, candle]));
+  const replace = previous.length === 0 || previous.length > next.length || previous[0]?.timestamp !== next[0]?.timestamp;
+  return { replace, changedTimestamps: replace ? [] : next.filter((candle) => JSON.stringify(previousByTimestamp.get(candle.timestamp)) !== JSON.stringify(candle)).map((candle) => candle.timestamp) };
+};
 
 function CandleVisual({ candles, emptyLabel }: { candles: ApiCandle[]; emptyLabel: string }) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -16,6 +19,7 @@ function CandleVisual({ candles, emptyLabel }: { candles: ApiCandle[]; emptyLabe
   const volumeSeriesRef = useRef<ReturnType<ReturnType<typeof createChart>["addHistogramSeries"]>>();
   const chartRef = useRef<ReturnType<typeof createChart>>();
   const fittedRef = useRef(false);
+  const previousCandlesRef = useRef<Map<string, ApiCandle>>(new Map());
 
   useEffect(() => {
     const container = containerRef.current;
@@ -46,6 +50,8 @@ function CandleVisual({ candles, emptyLabel }: { candles: ApiCandle[]; emptyLabe
     chartRef.current = chart;
     candleSeriesRef.current = candleSeries;
     volumeSeriesRef.current = volumeSeries;
+    previousCandlesRef.current = new Map();
+    fittedRef.current = false;
     return () => {
       chart.remove();
       chartRef.current = undefined;
@@ -58,10 +64,13 @@ function CandleVisual({ candles, emptyLabel }: { candles: ApiCandle[]; emptyLabe
     const candleSeries = candleSeriesRef.current;
     const volumeSeries = volumeSeriesRef.current;
     if (!candleSeries || !volumeSeries) return;
+    const previous = previousCandlesRef.current;
     const candleData: CandlestickData<Time>[] = candles.map((candle) => ({ time: chartTime(candle.timestamp), open: candle.open, high: candle.high, low: candle.low, close: candle.close }));
     const volumeData: HistogramData<Time>[] = candles.map((candle) => ({ time: chartTime(candle.timestamp), value: candle.volume, color: candle.close >= candle.open ? "#55c99488" : "#e58b9888" }));
-    candleSeries.setData(candleData);
-    volumeSeries.setData(volumeData);
+    const plan = chartUpdatePlan([...previous.values()], candles);
+    if (plan.replace) { candleSeries.setData(candleData); volumeSeries.setData(volumeData); }
+    else plan.changedTimestamps.forEach((timestamp) => { const index = candles.findIndex((candle) => candle.timestamp === timestamp); if (index >= 0) { candleSeries.update(candleData[index]!); volumeSeries.update(volumeData[index]!); } });
+    previousCandlesRef.current = new Map(candles.map((candle) => [candle.timestamp, candle]));
     if (candleData.length && !fittedRef.current) {
       chartRef.current?.timeScale().fitContent();
       fittedRef.current = true;
@@ -82,7 +91,7 @@ function connectionLabel(state: string): string {
   return state.toLowerCase();
 }
 
-function LiveChart({ panel, primary, realtimeEnabled, availablePairs, pairsReady, onChange, onRemove, onSelectPrimary, onTick, onState, onProvider, canRemove }: { panel: ChartPanelState; primary: boolean; realtimeEnabled: boolean; availablePairs: string[]; pairsReady: boolean; onChange: (pair: string, timeframe: Timeframe) => void; onRemove: () => void; onSelectPrimary: () => void; onTick: (tick: MarketTick) => void; onState: (state: string) => void; onProvider: (provider: string) => void; canRemove: boolean }) {
+function LiveChart({ panel, primary, realtimeEnabled, availablePairs, availableTimeframes, pairsReady, onChange, onRemove, onSelectPrimary, onTick, onState, onProvider, canRemove }: { panel: ChartPanelState; primary: boolean; realtimeEnabled: boolean; availablePairs: string[]; availableTimeframes: Timeframe[]; pairsReady: boolean; onChange: (pair: string, timeframe: Timeframe) => void; onRemove: () => void; onSelectPrimary: () => void; onTick: (tick: MarketTick) => void; onState: (state: string) => void; onProvider: (provider: string) => void; canRemove: boolean }) {
   const { pair, timeframe } = panel;
   const [candles, setCandles] = useState<ApiCandle[]>([]);
   const [state, setState] = useState("CONNECTING");
@@ -128,7 +137,7 @@ function LiveChart({ panel, primary, realtimeEnabled, availablePairs, pairsReady
   const previous = candles.at(-2);
   const change = last && previous ? ((last.close - previous.close) / previous.close) * 100 : undefined;
   const emptyBackend = error instanceof Error && /no historical candles/i.test(error.message);
-  const pairOptions = availablePairs.length ? availablePairs : [pair];
+  const pairOptions = availablePairs.length ? availablePairs : [pair]; const timeframeOptions = availableTimeframes.length ? availableTimeframes : [timeframe];
   return <article className="market-chart-card">
     <div className="market-card-heading">
       <div><h2>{pair} · {timeframe} <i className={`market-live-dot ${state === "CONNECTED" ? "is-connected" : ""}`} /></h2><small>{connectionLabel(state)}</small></div>
@@ -137,7 +146,7 @@ function LiveChart({ panel, primary, realtimeEnabled, availablePairs, pairsReady
     </div>
     <div className="market-panel-controls">
       <label>Pair<select aria-label={`Pair ${panel.id}`} value={pair} disabled={!pairsReady} onChange={(event) => onChange(event.target.value, timeframe)}>{pairOptions.map((item) => <option key={item} value={item}>{item}</option>)}</select></label>
-      <label>Timeframe<select aria-label={`Timeframe ${panel.id}`} value={timeframe} onChange={(event) => onChange(pair, event.target.value as Timeframe)}>{periods.map((item) => <option key={item}>{item}</option>)}</select></label>
+      <label>Timeframe<select aria-label={`Timeframe ${panel.id}`} value={timeframe} onChange={(event) => onChange(pair, event.target.value as Timeframe)}>{timeframeOptions.map((item) => <option key={item}>{item}</option>)}</select></label>
       <button type="button" className={`market-primary-button ${primary ? "active" : ""}`} aria-pressed={primary} onClick={onSelectPrimary}>{primary ? "Primary panel" : "Use as primary"}</button>
       <button type="button" className="market-remove" aria-label={`Remove chart ${panel.id}`} disabled={!canRemove} onClick={onRemove}><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 6h18" /><path d="M8 6V4h8v2" /><path d="M19 6l-1 14H6L5 6" /><path d="M10 11v5M14 11v5" /></svg><span>Remove chart</span></button>
       <span className={`market-panel-status status-${state.toLowerCase()}`}><i />{connectionLabel(state)}</span>
@@ -173,7 +182,7 @@ export function MarketScreen({ layout, onLayoutChange }: MarketScreenProps) {
   const [capabilities, setCapabilities] = useState<{ data?: MarketCapabilities; loading: boolean; error?: unknown }>({ loading: true });
   const primary = panels.find((panel) => panel.id === primaryPanelId) ?? panels[0] ?? defaultMarketLayout().panels[0]!;
   const availablePairs = capabilities.data?.pairs ?? [];
-  const availableTimeframes = capabilities.data?.timeframes.filter((item) => topPeriods.includes(item)) ?? topPeriods;
+  const availableTimeframes = capabilities.data?.timeframes ?? [];
   const pairsReady = Boolean(capabilities.data && availablePairs.length > 0);
   useEffect(() => {
     let active = true;
@@ -187,7 +196,7 @@ export function MarketScreen({ layout, onLayoutChange }: MarketScreenProps) {
     const stale = panels.some((panel) => !data.pairs.includes(panel.pair) || !data.timeframes.includes(panel.timeframe));
     if (!stale) return;
     const fallback = defaultMarketLayout();
-    const fallbackTimeframes = data.timeframes.length ? data.timeframes : periods;
+    const fallbackTimeframes = data.timeframes;
     const fallbackPair = data.pairs.includes("BTCUSDT") ? "BTCUSDT" : data.pairs[0]!;
     onLayoutChange({ ...fallback, panels: fallback.panels.map((panel, index) => ({ ...panel, pair: fallbackPair, timeframe: fallbackTimeframes[index] ?? fallbackTimeframes[0]! })) });
   }, [capabilities.data, panels, onLayoutChange]);
@@ -218,9 +227,9 @@ export function MarketScreen({ layout, onLayoutChange }: MarketScreenProps) {
   const updatePrimary = (pair: string, timeframe: Timeframe) => updatePanel(primary.id, pair, timeframe);
   const addChart = () => { if (!canAddChart(panels)) return; const timeframe = availableTimeframes.find((item) => !panels.some((panel) => panel.timeframe === item)) ?? availableTimeframes[0] ?? "1h"; onLayoutChange({ ...layout, panels: [...panels, { id: nextChartId(panels), pair: availablePairs[0] ?? primary.pair, timeframe }] }); };
   return <div className="market-screen">
-    <div className="market-header"><div><h1>Realtime Chart – Đa khung thời gian</h1><p>Backend candles and authenticated WebSocket updates, with independent controls for up to four charts.</p></div><div className="market-header-actions"><span className="market-source-pill"><i />Source: {providerLabel} · {summary.label}</span><button type="button" aria-label="Help" className="market-header-action">?</button><button type="button" aria-label="Notifications" className="market-header-action">♧<i /></button></div></div>
+    <div className="market-header"><div><h1>Realtime Chart – Đa khung thời gian</h1><p>Backend candles and authenticated WebSocket updates, with independent controls for up to four charts.</p></div><div className="market-header-actions"><span className="market-source-pill"><i />Source: {providerLabel} · {summary.label}</span></div></div>
     <section className="market-controlbar"><label className="market-pair-control">Pair / Coin<select aria-label="Market pair" value={primary.pair} disabled={!pairsReady} onChange={(event) => updatePrimary(event.target.value, primary.timeframe)}>{(availablePairs.length ? availablePairs : [primary.pair]).map((item) => <option key={item}>{item}</option>)}</select></label><div className="market-timeframe-control"><b>Timeframe</b><div>{availableTimeframes.map((item) => <button type="button" key={item} className={primary.timeframe === item ? "active" : ""} onClick={() => updatePrimary(primary.pair, item)}>{item}</button>)}</div></div><div className="market-realtime-control"><b>Realtime</b><button type="button" aria-label="Realtime toggle" aria-pressed={realtimeEnabled} className={`market-toggle ${realtimeEnabled ? "active" : ""}`} onClick={() => onLayoutChange({ ...layout, realtimeEnabled: !realtimeEnabled })}><i /></button></div><span className={`market-receiving-pill ${summary.tone}`}><i />{summary.label}</span><button type="button" className="market-add-chart" disabled={!canAddChart(panels)} onClick={addChart}>+ Add chart ({panels.length}/4)</button></section>
     {capabilities.error ? <ErrorBox error={capabilities.error} /> : null}
-    <div className="market-layout"><div className="market-chart-grid">{panels.map((panel) => <LiveChart key={panel.id} panel={panel} primary={panel.id === primary.id} realtimeEnabled={realtimeEnabled} availablePairs={availablePairs} pairsReady={pairsReady} onChange={(pair, timeframe) => updatePanel(panel.id, pair, timeframe)} onRemove={() => removePanel(panel.id)} onSelectPrimary={() => onLayoutChange({ ...layout, primaryPanelId: panel.id })} onTick={addTick} onState={(state) => updateState(panel.id, state)} onProvider={setProvider} canRemove={panels.length > 1} />)}</div><aside className="market-sidebar"><section className="market-side-card connection-card"><div className="market-side-title"><h2>Connection status</h2><span className={`connection-pill ${summary.tone}`}><i />{summary.label}</span></div><dl><dt>Transport</dt><dd>Authenticated Socket.IO</dd><dt>Provider</dt><dd>{providerLabel}</dd><dt>Last update</dt><dd>{lastUpdate ? new Date(lastUpdate).toLocaleTimeString() : "Waiting"}</dd></dl></section><section className="market-side-card recent-ticks"><div className="market-side-title"><h2>Recent Ticks ({primary.pair})</h2></div>{ticks.length ? <table><thead><tr><th>Time</th><th>Price</th><th>Quantity</th><th>Side</th></tr></thead><tbody>{ticks.map((tick) => <tr key={`${tick.pair}-${tick.timestamp}-${tick.price}-${tick.quantity}-${tick.side}`}><td>{new Date(tick.timestamp).toLocaleTimeString()}</td><td>{tick.price.toLocaleString()}</td><td>{formatMarketQuantity(tick.quantity)}</td><td><span className={`market-tick-side ${tick.side === "BUY" ? "buy" : "sell"}`}>{tick.side}</span></td></tr>)}</tbody></table> : <div className="market-empty-side">{tickEmptyState(summary, capabilities)}</div>}</section></aside></div>
+    <div className="market-layout"><div className="market-chart-grid">{panels.map((panel) => <LiveChart key={panel.id} panel={panel} primary={panel.id === primary.id} realtimeEnabled={realtimeEnabled} availablePairs={availablePairs} availableTimeframes={availableTimeframes} pairsReady={pairsReady} onChange={(pair, timeframe) => updatePanel(panel.id, pair, timeframe)} onRemove={() => removePanel(panel.id)} onSelectPrimary={() => onLayoutChange({ ...layout, primaryPanelId: panel.id })} onTick={addTick} onState={(state) => updateState(panel.id, state)} onProvider={setProvider} canRemove={panels.length > 1} />)}</div><aside className="market-sidebar"><section className="market-side-card connection-card"><div className="market-side-title"><h2>Connection status</h2><span className={`connection-pill ${summary.tone}`}><i />{summary.label}</span></div><dl><dt>Transport</dt><dd>Authenticated Socket.IO</dd><dt>Provider</dt><dd>{providerLabel}</dd><dt>Last update</dt><dd>{lastUpdate ? new Date(lastUpdate).toLocaleTimeString() : "Waiting"}</dd></dl></section><section className="market-side-card recent-ticks"><div className="market-side-title"><h2>Recent Ticks ({primary.pair})</h2></div>{ticks.length ? <table><thead><tr><th>Time</th><th>Price</th><th>Quantity</th><th>Side</th></tr></thead><tbody>{ticks.map((tick) => <tr key={`${tick.pair}-${tick.timestamp}-${tick.price}-${tick.quantity}-${tick.side}`}><td>{new Date(tick.timestamp).toLocaleTimeString()}</td><td>{tick.price.toLocaleString()}</td><td>{formatMarketQuantity(tick.quantity)}</td><td><span className={`market-tick-side ${tick.side === "BUY" ? "buy" : "sell"}`}>{tick.side}</span></td></tr>)}</tbody></table> : <div className="market-empty-side">{tickEmptyState(summary, capabilities)}</div>}</section></aside></div>
   </div>;
 }

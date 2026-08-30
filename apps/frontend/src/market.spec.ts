@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatMarketQuantity, recentMarketTicks, tickEmptyState } from "./market";
+import { chartUpdatePlan, formatMarketQuantity, recentMarketTicks, tickEmptyState } from "./market";
 import type { MarketTick } from "./api";
 
 const tick = (pair: string, timestamp: string, price: number, side: "BUY" | "SELL" = "BUY"): MarketTick => ({ pair, timestamp, price, quantity: 0.25, side });
@@ -21,5 +21,13 @@ describe("Market tick presentation", () => {
     expect(tickEmptyState({ tone: "paused", label: "Realtime paused" }, { loading: false })).toContain("paused");
     expect(tickEmptyState({ tone: "error", label: "Connection error" }, { loading: false })).toContain("unavailable");
     expect(tickEmptyState({ tone: "connected", label: "Receiving data" }, { loading: false })).toContain("waiting");
+  });
+
+  it("updates only changed candles after the initial chart history", () => {
+    const first = [{ pair: "BTCUSDT", timeframe: "1h" as const, timestamp: "2025-01-01T00:00:00.000Z", open: 1, high: 2, low: 1, close: 1.5, volume: 2, isClosed: false }];
+    const corrected = [{ ...first[0]!, close: 1.75, isClosed: true }];
+    expect(chartUpdatePlan([], first).replace).toBe(true);
+    expect(chartUpdatePlan(first, corrected)).toEqual({ replace: false, changedTimestamps: [first[0]!.timestamp] });
+    expect(chartUpdatePlan(first, first)).toEqual({ replace: false, changedTimestamps: [] });
   });
 });
