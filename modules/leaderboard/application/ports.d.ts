@@ -1,3 +1,4 @@
+import type { CompletionUnitOfWork } from "modules/backtesting/api";
 import type { LeaderboardEntry, LeaderboardScope, ScoreFormula } from "../domain/contracts";
 export interface LeaderboardScopeRepository {
     insert(scope: LeaderboardScope): Promise<LeaderboardScope>;
@@ -8,10 +9,10 @@ export interface ScoreFormulaRepository {
     listAll(): Promise<ScoreFormula[]>;
 }
 export interface LeaderboardEntryRepository {
-    getActiveTopK(scopeId: string, k: number): Promise<LeaderboardEntry[]>;
-    getByExperimentResultId(experimentResultId: string): Promise<LeaderboardEntry | undefined>;
-    insert(entry: Omit<LeaderboardEntry, "id" | "rank">): Promise<LeaderboardEntry>;
-    deactivate(entryId: string): Promise<void>;
+    getActiveTopK(scopeId: string, k: number, unitOfWork?: CompletionUnitOfWork): Promise<LeaderboardEntry[]>;
+    getByExperimentResultId(experimentResultId: string, unitOfWork?: CompletionUnitOfWork): Promise<LeaderboardEntry | undefined>;
+    insert(entry: Omit<LeaderboardEntry, "id" | "rank">, unitOfWork?: CompletionUnitOfWork): Promise<LeaderboardEntry>;
+    deactivate(entryId: string, unitOfWork?: CompletionUnitOfWork): Promise<void>;
 }
 export interface ExperimentResultReader {
     getBySearchRunId(userId: string, searchRunId: string): Promise<Array<{

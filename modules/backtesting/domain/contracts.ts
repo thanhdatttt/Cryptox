@@ -12,7 +12,7 @@ export interface CancellationUnitOfWork {
   commit(): Promise<void>;
   rollback(): Promise<void>;
 }
-export interface CompletionUnitOfWork { kind: "COMPLETION"; id: string; candidateId: string; completionAttemptCount: number; completionClaimToken: string; enlist(moduleName: "EVALUATION" | "LEADERBOARD" | "SEARCH"): void; }
+export interface CompletionUnitOfWork { kind: "COMPLETION"; id: string; candidateId: string; completionAttemptCount: number; completionClaimToken: string; query?<Row>(text: string, values: unknown[]): Promise<{ rows: Row[] }>; enlist(moduleName: "EVALUATION" | "LEADERBOARD" | "SEARCH"): void; commit?: () => Promise<void>; rollback?: () => Promise<void>; }
 export interface Trade { id: string; sequence: number; pair: Pair; settlementAsset: string; backtestAttemptId: string; signal: "LONG" | "SHORT"; entryTime: string; marketEntryPrice: number; entryPrice: number; stopLoss: number | null; takeProfit: number | null; exitTime: string; marketExitPrice: number; exitPrice: number; exitReason: "STOP_LOSS" | "TAKE_PROFIT" | "STRATEGY_CLOSE" | "RANGE_END"; quantity: number; notionalEntryValue: number; equityBeforeTrade: number; equityAfterTrade: number; grossProfit: number; feeAmount: number; slippageBps: number; slippageAmount: number; profit: number; resultPercent: number; result: "WIN" | "LOSS" | "BREAKEVEN"; }
 export interface CompletedBacktestResult { status: "COMPLETED"; candidateId: string; attemptId: string; workerRuntimeVersion: string; workerRuntimeSha256: string; startedAt: string; completedAt: string; trades: Trade[]; }
 export type GeneratorType = "RANDOM" | "DOMAIN_GUIDED" | "GENETIC";

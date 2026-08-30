@@ -24,7 +24,12 @@ export interface CompletionUnitOfWork {
     candidateId: string;
     completionAttemptCount: number;
     completionClaimToken: string;
+    query?<Row>(text: string, values: unknown[]): Promise<{
+        rows: Row[];
+    }>;
     enlist(moduleName: "EVALUATION" | "LEADERBOARD" | "SEARCH"): void;
+    commit?: () => Promise<void>;
+    rollback?: () => Promise<void>;
 }
 export interface Trade {
     id: string;

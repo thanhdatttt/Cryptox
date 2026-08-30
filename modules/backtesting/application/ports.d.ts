@@ -1,7 +1,7 @@
 import type { EvaluationMetrics, EvaluatorModulePublicApi } from "modules/evaluation/api";
 import type { Candle, DatasetSnapshotRef, MarketDataModulePublicApi } from "modules/market-data/api";
 import type { Strategy, StrategyContext, StrategyDefinition, CompositeStrategyDefinition } from "modules/strategy/api";
-import type { BacktestAttemptAudit, BacktestAttemptProgress, BenchmarkScopeSummary, CandidateProgress, CompletedBacktestResult, ExperimentResultSummary, StrategyVisualizationOverlay, Trade } from "../domain/contracts";
+import type { BacktestAttemptAudit, BacktestAttemptProgress, BenchmarkScopeSummary, CandidateProgress, CompletedBacktestResult, CompletionUnitOfWork, ExperimentResultSummary, StrategyVisualizationOverlay, Trade } from "../domain/contracts";
 import type { BacktestQueueJob } from "@cryptox/contracts/queue";
 export interface StoredBenchmarkScope extends BenchmarkScopeSummary {
     ownerUserId: string;
@@ -120,13 +120,13 @@ export interface BacktestingRepository {
     }): Promise<CompletionProcessingClaim | undefined>;
     listDueCompletions(now: string, limit: number): Promise<string[]>;
     readLatestCompletedAttempt(candidateId: string): Promise<BacktestAttemptAudit | undefined>;
-    stageCompletionExperiment(experiment: StoredExperiment): Promise<StoredExperiment>;
+    stageCompletionExperiment(experiment: StoredExperiment, unitOfWork?: CompletionUnitOfWork): Promise<StoredExperiment>;
     finalizeCompletion(input: {
         candidate: StoredCandidate;
         experimentId: string;
         claimToken: string;
         now: string;
-    }): Promise<void>;
+    }, unitOfWork?: CompletionUnitOfWork): Promise<void>;
     finalizeTerminalFailure(input: {
         candidate: StoredCandidate;
         claimToken: string;
@@ -190,6 +190,7 @@ export interface BacktestingModuleDependencies {
     repository: BacktestingRepository;
     queue: BacktestQueuePort;
     completion: BacktestCompletionServices;
+    beginCompletion?: (input: Pick<CompletionUnitOfWork, "candidateId" | "completionAttemptCount" | "completionClaimToken">) => Promise<CompletionUnitOfWork>;
     clock: {
         now(): string;
     };

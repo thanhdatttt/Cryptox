@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.createPostgresBacktestingDependencies = exports.PostgresBacktestingRepository = void 0;
+exports.createPostgresCompletionUnitOfWork = exports.createPostgresBacktestingDependencies = exports.PostgresBacktestingRepository = void 0;
 const DEFAULT_WARMUP_CAPACITY_CANDLES = 500;
 const node_crypto_1 = require("node:crypto");
 const RECOVERY_RUNTIME_VERSION = "RECOVERY_SYNTHETIC_V1";
@@ -168,9 +168,9 @@ class PostgresBacktestingRepository {
     }
     async listDueCompletions(now, limit) { const result = await this.pool.query("SELECT id FROM backtest_candidates WHERE status IN ('PROCESSING_RESULT', 'TERMINAL_FAILURE_PENDING') AND completion_attempt_count < completion_max_attempts AND (completion_next_retry_at IS NULL OR completion_next_retry_at <= $1) AND (active_completion_lease_expires_at IS NULL OR active_completion_lease_expires_at <= $1) ORDER BY updated_at ASC LIMIT $2", [now, limit]); return result.rows.map((row) => row.id); }
     async readLatestCompletedAttempt(candidateId) { const result = await this.pool.query("SELECT id, candidate_id, queue_job_id, attempt_number, worker_runtime_version, worker_runtime_sha256, status, trade_count, audit_only, delivery_attempt_count, fence_token, lease_expires_at, failure_category, failure_code, error_message, started_at, completed_at FROM backtest_attempts WHERE candidate_id = $1 AND status = 'COMPLETED' ORDER BY attempt_number DESC LIMIT 1", [candidateId]); return result.rows[0] ? attempt(result.rows[0]) : undefined; }
-    async stageCompletionExperiment(input) { const existing = await this.findExperimentByCandidate(input.candidateId); if (existing)
-        return existing; await this.pool.query("INSERT INTO backtest_experiment_results (id, candidate_id, backtest_attempt_id, leaderboard_scope_id, score_formula_id, overall_score, rank_eligible, metrics, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9) ON CONFLICT (candidate_id) DO NOTHING", [input.id, input.candidateId, input.backtestAttemptId, input.leaderboardScopeId, input.scoreFormulaId, input.overallScore, input.rankEligible, JSON.stringify(input.metrics), input.createdAt]); return (await this.findExperimentByCandidate(input.candidateId)) ?? input; }
-    async finalizeCompletion(input) { const result = await this.pool.query("UPDATE backtest_candidates SET status = 'COMPLETED', experiment_result_id = $5, active_completion_claim_token = NULL, active_completion_lease_expires_at = NULL, completion_next_retry_at = NULL, updated_at = $6 WHERE id = $1 AND status = 'PROCESSING_RESULT' AND active_completion_claim_token = $2 AND completion_generation = $3 AND active_completion_lease_expires_at > $4 RETURNING id", [input.candidate.candidateId, input.claimToken, input.candidate.completionGeneration ?? 0, input.now, input.experimentId, input.now]); if (!result.rows[0])
+    async stageCompletionExperiment(input, unitOfWork) { const client = unitOfWork?.query ? { query: (text, values) => unitOfWork.query(text, values) } : this.pool; const select = "SELECT id, candidate_id, backtest_attempt_id, leaderboard_scope_id, score_formula_id, overall_score, rank_eligible, metrics, created_at FROM backtest_experiment_results WHERE candidate_id = $1"; const existing = await client.query(select, [input.candidateId]); if (existing.rows[0])
+        return this.experiment(existing.rows[0]); await client.query("INSERT INTO backtest_experiment_results (id, candidate_id, backtest_attempt_id, leaderboard_scope_id, score_formula_id, overall_score, rank_eligible, metrics, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9) ON CONFLICT (candidate_id) DO NOTHING", [input.id, input.candidateId, input.backtestAttemptId, input.leaderboardScopeId, input.scoreFormulaId, input.overallScore, input.rankEligible, JSON.stringify(input.metrics), input.createdAt]); const saved = await client.query(select, [input.candidateId]); return saved.rows[0] ? this.experiment(saved.rows[0]) : input; }
+    async finalizeCompletion(input, unitOfWork) { const client = unitOfWork?.query ? { query: (text, values) => unitOfWork.query(text, values) } : this.pool; const result = await client.query("UPDATE backtest_candidates SET status = 'COMPLETED', experiment_result_id = $5, active_completion_claim_token = NULL, active_completion_lease_expires_at = NULL, completion_next_retry_at = NULL, updated_at = $6 WHERE id = $1 AND status = 'PROCESSING_RESULT' AND active_completion_claim_token = $2 AND completion_generation = $3 AND active_completion_lease_expires_at > $4 RETURNING id", [input.candidate.candidateId, input.claimToken, input.candidate.completionGeneration ?? 0, input.now, input.experimentId, input.now]); if (!result.rows[0])
         throw new Error("BACKTEST_COMPLETION_FENCE_LOST"); }
     async finalizeTerminalFailure(input) { const result = await this.pool.query("UPDATE backtest_candidates SET status = 'FAILED', active_completion_claim_token = NULL, active_completion_lease_expires_at = NULL, completion_next_retry_at = NULL, updated_at = $5 WHERE id = $1 AND status = 'TERMINAL_FAILURE_PENDING' AND active_completion_claim_token = $2 AND completion_generation = $3 AND active_completion_lease_expires_at > $4 RETURNING id", [input.candidate.candidateId, input.claimToken, input.candidate.completionGeneration ?? 0, input.now, input.now]); if (!result.rows[0])
         throw new Error("BACKTEST_COMPLETION_FENCE_LOST"); }
@@ -202,3 +202,28 @@ class PostgresBacktestingRepository {
 exports.PostgresBacktestingRepository = PostgresBacktestingRepository;
 const createPostgresBacktestingDependencies = (pool, dependencies) => ({ ...dependencies, evaluation: dependencies.evaluation ?? (0, bootstrap_1.createEvaluationModule)(), repository: new PostgresBacktestingRepository(pool) });
 exports.createPostgresBacktestingDependencies = createPostgresBacktestingDependencies;
+const createPostgresCompletionUnitOfWork = async (pool, input) => {
+    if (!pool.connect)
+        return { kind: "COMPLETION", id: `completion-${(0, node_crypto_1.randomUUID)()}`, ...input, enlist: () => undefined, commit: async () => undefined, rollback: async () => undefined };
+    const client = await pool.connect();
+    await client.query("BEGIN", []);
+    let closed = false;
+    return {
+        kind: "COMPLETION",
+        id: `completion-${(0, node_crypto_1.randomUUID)()}`,
+        ...input,
+        query: (text, values) => client.query(text, values),
+        enlist: () => undefined,
+        commit: async () => { if (closed)
+            return; await client.query("COMMIT", []); closed = true; client.release(); },
+        rollback: async () => { if (closed)
+            return; try {
+            await client.query("ROLLBACK", []);
+        }
+        finally {
+            closed = true;
+            client.release();
+        } },
+    };
+};
+exports.createPostgresCompletionUnitOfWork = createPostgresCompletionUnitOfWork;

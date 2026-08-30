@@ -106,21 +106,22 @@ export function createLeaderboardModule(dependencies: LeaderboardModuleDependenc
         .sort((left, right) => right.overallScore - left.overallScore || left.id.localeCompare(right.id))
         .map((experiment, index) => ({ rank: index + 1, searchRunId, leaderboardScopeId: experiment.leaderboardScopeId, candidateId: experiment.candidateId, experimentResultId: experiment.id, scoreFormulaId: experiment.scoreFormulaId, score: experiment.overallScore }));
     },
-    submit: async (experiment, _unitOfWork) => {
+    submit: async (experiment, unitOfWork) => {
+      unitOfWork.enlist("LEADERBOARD");
       if (!experiment.rankEligible) return { admitted: false };
       if (!Number.isFinite(experiment.overallScore)) throw new Error("INVALID_SCORE");
       if (!experiment.ownerUserId?.trim()) throw new Error("EXPERIMENT_OWNER_REQUIRED");
       const scope = await dependencies.scopeRepository.getById(experiment.ownerUserId, experiment.leaderboardScopeId);
       if (!scope) throw new Error("SCOPE_NOT_FOUND");
       await cacheScopeAndFormula(scope);
-      const existing = await dependencies.entryRepository.getByExperimentResultId(experiment.id);
+      const existing = await dependencies.entryRepository.getByExperimentResultId(experiment.id, unitOfWork);
       if (existing) return { admitted: existing.leaderboardScopeId === experiment.leaderboardScopeId, entry: existing.leaderboardScopeId === experiment.leaderboardScopeId ? existing : undefined };
-      const activeEntries = rankEntries(await dependencies.entryRepository.getActiveTopK(experiment.leaderboardScopeId, TOP_K));
+      const activeEntries = rankEntries(await dependencies.entryRepository.getActiveTopK(experiment.leaderboardScopeId, TOP_K, unitOfWork));
       const lowest = activeEntries[activeEntries.length - 1];
       if (activeEntries.length === TOP_K && experiment.overallScore <= lowest.score) return { admitted: false };
-      if (lowest && activeEntries.length === TOP_K) await dependencies.entryRepository.deactivate(lowest.id);
-      const inserted = await dependencies.entryRepository.insert({ experimentResultId: experiment.id, leaderboardScopeId: experiment.leaderboardScopeId, scoreFormulaId: experiment.scoreFormulaId, score: experiment.overallScore, addedAt: dependencies.clock.now() });
-      const entry = rankEntries(await dependencies.entryRepository.getActiveTopK(experiment.leaderboardScopeId, TOP_K)).find((candidate) => candidate.id === inserted.id) ?? inserted;
+      if (lowest && activeEntries.length === TOP_K) await dependencies.entryRepository.deactivate(lowest.id, unitOfWork);
+      const inserted = await dependencies.entryRepository.insert({ experimentResultId: experiment.id, leaderboardScopeId: experiment.leaderboardScopeId, scoreFormulaId: experiment.scoreFormulaId, score: experiment.overallScore, addedAt: dependencies.clock.now() }, unitOfWork);
+      const entry = rankEntries(await dependencies.entryRepository.getActiveTopK(experiment.leaderboardScopeId, TOP_K, unitOfWork)).find((candidate) => candidate.id === inserted.id) ?? inserted;
       return { admitted: true, entry, evictedExperimentResultId: lowest?.experimentResultId };
     },
     createLeaderboardScope: async (userId, command) => {

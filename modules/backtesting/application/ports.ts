@@ -1,7 +1,7 @@
 import type { EvaluationMetrics, EvaluatorModulePublicApi } from "modules/evaluation/api";
 import type { Candle, DatasetSnapshotRef, MarketDataModulePublicApi } from "modules/market-data/api";
 import type { Strategy, StrategyContext, StrategyDefinition, CompositeStrategyDefinition } from "modules/strategy/api";
-import type { BacktestAttemptAudit, BacktestAttemptProgress, BenchmarkScopeSummary, CandidateProgress, CompletedBacktestResult, ExperimentResultSummary, StrategyVisualizationOverlay, Trade } from "../domain/contracts";
+import type { BacktestAttemptAudit, BacktestAttemptProgress, BenchmarkScopeSummary, CandidateProgress, CompletedBacktestResult, CompletionUnitOfWork, ExperimentResultSummary, StrategyVisualizationOverlay, Trade } from "../domain/contracts";
 import type { BacktestQueueJob } from "@cryptox/contracts/queue";
 import type { AuthContext } from "modules/auth/api";
 
@@ -80,8 +80,8 @@ export interface BacktestingRepository {
   claimCompletion(input: { candidateId: string; claimToken: string; now: string; leaseExpiresAt: string }): Promise<CompletionProcessingClaim | undefined>;
   listDueCompletions(now: string, limit: number): Promise<string[]>;
   readLatestCompletedAttempt(candidateId: string): Promise<BacktestAttemptAudit | undefined>;
-  stageCompletionExperiment(experiment: StoredExperiment): Promise<StoredExperiment>;
-  finalizeCompletion(input: { candidate: StoredCandidate; experimentId: string; claimToken: string; now: string }): Promise<void>;
+  stageCompletionExperiment(experiment: StoredExperiment, unitOfWork?: CompletionUnitOfWork): Promise<StoredExperiment>;
+  finalizeCompletion(input: { candidate: StoredCandidate; experimentId: string; claimToken: string; now: string }, unitOfWork?: CompletionUnitOfWork): Promise<void>;
   finalizeTerminalFailure(input: { candidate: StoredCandidate; claimToken: string; now: string }): Promise<void>;
   failCompletion(input: { candidate: StoredCandidate; claimToken: string; retryAt?: string; now: string; error: string }): Promise<void>;
   listCandidatesBySearchRun(searchRunId: string, ownerUserId?: string): Promise<StoredCandidate[]>;
@@ -125,6 +125,7 @@ export interface BacktestingModuleDependencies {
   repository: BacktestingRepository;
   queue: BacktestQueuePort;
   completion: BacktestCompletionServices;
+  beginCompletion?: (input: Pick<CompletionUnitOfWork, "candidateId" | "completionAttemptCount" | "completionClaimToken">) => Promise<CompletionUnitOfWork>;
   clock: { now(): string };
   idGenerator?: () => string;
 }

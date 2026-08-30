@@ -20,4 +20,14 @@ describe("PostgresLeaderboardEntryRepository", () => {
     expect(calls.some((call) => call.text.includes("active = TRUE") && call.values.includes(10))).toBe(true);
     expect(calls.some((call) => call.text.startsWith("UPDATE leaderboard_entries SET active = FALSE") && call.values.includes("entry-1"))).toBe(true);
   });
+
+  it("uses the completion transaction client when one is supplied", async () => {
+    const calls: string[] = [];
+    const repository = new PostgresLeaderboardEntryRepository({ query: async () => { throw new Error("pool should not be used"); } });
+    const unitOfWork = { kind: "COMPLETION" as const, id: "completion-1", candidateId: "candidate-1", completionAttemptCount: 1, completionClaimToken: "claim-1", query: async <Row>(text: string) => { calls.push(text); return { rows: [{ id: "entry-1", experiment_result_id: "experiment-1", leaderboard_scope_id: "scope-1", score_formula_id: "MVP_MANUAL_V1", score: "12.5", added_at: "2025-01-01T00:00:00.000Z" }] as Row[] }; }, enlist: () => undefined };
+    await repository.getActiveTopK("scope-1", 10, unitOfWork);
+    await repository.insert({ experimentResultId: "experiment-1", leaderboardScopeId: "scope-1", scoreFormulaId: "MVP_MANUAL_V1", score: 12.5, addedAt: "2025-01-01T00:00:00.000Z" }, unitOfWork);
+    await repository.deactivate("entry-1", unitOfWork);
+    expect(calls).toHaveLength(3);
+  });
 });

@@ -6,7 +6,7 @@ import type { NewsModulePublicApi } from "modules/news/api";
 import type { SentimentModulePublicApi } from "modules/sentiment/api";
 import type { StrategyModuleRuntime } from "modules/strategy/api/bootstrap";
 import type { BacktestLogApi } from "modules/backtesting/api";
-import { BullMqBacktestCompletionListener, BullMqBacktestQueue, createBacktestingModule, createInMemoryBacktestingDependencies, createPostgresBacktestingDependencies } from "modules/backtesting/api/bootstrap";
+import { BullMqBacktestCompletionListener, BullMqBacktestQueue, createBacktestingModule, createInMemoryBacktestingDependencies, createPostgresBacktestingDependencies, createPostgresCompletionUnitOfWork } from "modules/backtesting/api/bootstrap";
 import { createEvaluationModule } from "modules/evaluation/api/bootstrap";
 import type { EvaluatorModulePublicApi } from "modules/evaluation/api";
 import type { LeaderboardModulePublicApi } from "modules/leaderboard/api";
@@ -79,7 +79,7 @@ export function composeAllModules(options: { profile?: RuntimeProfile; env?: Nod
     notifySearchCandidateFinished: async (searchRunId: string) => { await search.onCandidateFinished(searchRunId); },
   };
   backtesting = postgres
-    ? createBacktestingModule(createPostgresBacktestingDependencies(postgres, { marketData, strategy, evaluation, queue, completion, clock: { now: () => new Date().toISOString() } }))
+    ? createBacktestingModule(createPostgresBacktestingDependencies(postgres, { marketData, strategy, evaluation, queue, completion, beginCompletion: (input) => createPostgresCompletionUnitOfWork(postgres, input), clock: { now: () => new Date().toISOString() } }))
     : createBacktestingModule({ ...inMemoryBacktesting, marketData, strategy, evaluation, queue, completion });
   search = postgres
     ? createSearchModule(createPostgresSearchDependencies(postgres, { backtestCoordinator: backtesting, leaderboardService: leaderboard, beginCancellation: () => createPostgresCancellationUnitOfWork(postgres), clock: { now: () => new Date().toISOString() } }))

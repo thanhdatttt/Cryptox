@@ -1,6 +1,6 @@
 import type { EvaluationMetrics } from "modules/evaluation/api";
 import type { Candle, DatasetSnapshotRef } from "modules/market-data/api";
-import type { BacktestAttemptAudit, BacktestAttemptProgress, CancellationUnitOfWork, CompletedBacktestResult, Trade } from "../domain/contracts";
+import type { BacktestAttemptAudit, BacktestAttemptProgress, CancellationUnitOfWork, CompletedBacktestResult, CompletionUnitOfWork, Trade } from "../domain/contracts";
 import type { BacktestDispatch, BacktestingRepository, CompletionProcessingClaim, StoredBenchmarkScope, StoredCandidate, StoredExperiment, WorkerAttemptClaim } from "../application/ports";
 export interface BacktestingSqlClient {
     query<Row>(text: string, values: unknown[]): Promise<{
@@ -131,4 +131,5 @@ export declare class PostgresBacktestingRepository implements BacktestingReposit
     private experiment;
 }
 export declare const createPostgresBacktestingDependencies: (pool: TransactionPool, dependencies: Omit<import("../application/ports").BacktestingModuleDependencies, "repository" | "evaluation"> & Partial<Pick<import("../application/ports").BacktestingModuleDependencies, "evaluation">>) => import("../application/ports").BacktestingModuleDependencies;
+export declare const createPostgresCompletionUnitOfWork: (pool: TransactionPool, input: Pick<CompletionUnitOfWork, "candidateId" | "completionAttemptCount" | "completionClaimToken">) => Promise<CompletionUnitOfWork>;
 export {};

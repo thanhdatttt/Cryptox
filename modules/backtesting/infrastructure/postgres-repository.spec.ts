@@ -135,4 +135,20 @@ describe("PostgresBacktestingRepository", () => {
     expect(calls.some((call) => call.text.startsWith("INSERT INTO backtest_attempts") && call.values.includes("candidate-1:recovery:attempt:1"))).toBe(true);
     expect(calls.some((call) => call.text.includes("status = 'TERMINAL_FAILURE_PENDING'") && call.values.includes("candidate-1"))).toBe(true);
   });
+
+  it("routes completion Experiment staging and finalization through the supplied transaction client", async () => {
+    const calls: string[] = [];
+    const repository = new PostgresBacktestingRepository({ query: async () => { throw new Error("pool should not be used"); } });
+    const unitOfWork = { kind: "COMPLETION" as const, id: "completion-1", candidateId: "candidate-1", completionAttemptCount: 1, completionClaimToken: "claim-1", query: async <Row>(text: string) => { calls.push(text); return { rows: [] as Row[] }; }, enlist: () => undefined };
+    const experiment = { id: "experiment-1", candidateId: "candidate-1" } as never;
+    await expect(repository.stageCompletionExperiment(experiment, unitOfWork)).resolves.toBe(experiment);
+    const candidate = { candidateId: "candidate-1", completionGeneration: 2 } as never;
+    const finalCalls: string[] = [];
+    const finalUnitOfWork = { kind: "COMPLETION" as const, id: "completion-1", candidateId: "candidate-1", completionAttemptCount: 1, completionClaimToken: "claim-1", query: async <Row>(text: string) => { finalCalls.push(text); return { rows: [{ id: "candidate-1" }] as Row[] }; }, enlist: () => undefined };
+    await repository.finalizeCompletion({ candidate, experimentId: "experiment-1", claimToken: "claim-1", now: "2025-01-01T00:00:00.000Z" }, finalUnitOfWork);
+    expect(calls).toHaveLength(3);
+    expect(calls[0]).toContain("FROM backtest_experiment_results");
+    expect(calls[1]).toContain("INSERT INTO backtest_experiment_results");
+    expect(finalCalls[0]).toContain("UPDATE backtest_candidates");
+  });
 });

@@ -5,7 +5,7 @@ import { createStrategyModule } from "../../strategy/api/bootstrap";
 import type { BacktestQueueJob, BacktestQueueReturn, BacktestQueueTerminalSignal } from "@cryptox/contracts/queue";
 import type { CompositeStrategyDefinition, Strategy, StrategyContext, StrategyDefinition } from "modules/strategy/api";
 import type { BacktestLogApi, ExperimentVisualizationPageRequest, SearchCandidatePage, SearchCandidatePageRequest, SearchCandidateSummary, TradePage, TradePageRequest } from "../api";
-import type { BacktestAttemptAudit, BacktestSubmissionAccepted, BenchmarkScopeSummary, CandidateProgress, CandidateStatus, CompletedBacktestResult, CreateLeaderboardScopeCommand, ExperimentResultSummary, ExperimentVisualization, ReplayVerificationResult, StartManualBacktestCommand, SubmitSearchCandidateCommand, Trade } from "../domain/contracts";
+import type { BacktestAttemptAudit, BacktestSubmissionAccepted, BenchmarkScopeSummary, CandidateProgress, CandidateStatus, CompletedBacktestResult, CompletionUnitOfWork, CreateLeaderboardScopeCommand, ExperimentResultSummary, ExperimentVisualization, ReplayVerificationResult, StartManualBacktestCommand, SubmitSearchCandidateCommand, Trade } from "../domain/contracts";
 import { simulateBacktest } from "../domain/simulator";
 import type { AuthContext } from "modules/auth/api";
 import type { BacktestDispatch, BacktestQueuePort, BacktestingModuleDependencies, BacktestingRepository, StoredBenchmarkScope, StoredCandidate, StoredExperiment, WorkerAttemptClaim } from "./ports";
@@ -309,9 +309,17 @@ export class BacktestingService implements BacktestLogApi {
       const metrics = this.deps.evaluation.evaluator.evaluate(result);
       const scored = await this.deps.completion.score(scope.id, metrics);
       const existing = await this.deps.repository.findExperimentByCandidate(candidateId);
-      const experiment = existing ?? await this.deps.repository.stageCompletionExperiment({ id: this.id(), ownerUserId: candidate.ownerUserId, candidateId, searchRunId: candidate.searchRunId, leaderboardScopeId: scope.id, scoreFormulaId: scored.scoreFormulaId, overallScore: scored.overallScore, rankEligible: scored.rankEligible, backtestAttemptId: attempt.attemptId, compositeDefinitionId: candidate.compositeDefinition.id, compositeDefinition: candidate.compositeDefinition, datasetSnapshot: scope.datasetSnapshot, sentimentDatasetSnapshot: scope.sentimentDatasetSnapshot, strategyDefinitions: candidate.strategyDefinitions, metrics, trades: result.trades, createdAt: this.now() });
-      await this.deps.completion.submit(experiment, { kind: "COMPLETION", id: `completion-${candidateId}-${candidate.completionAttemptCount}`, candidateId, completionAttemptCount: candidate.completionAttemptCount, completionClaimToken: claimToken, enlist: () => undefined });
-      await this.deps.repository.finalizeCompletion({ candidate, experimentId: experiment.id, claimToken, now: this.now() });
+      let unitOfWork: CompletionUnitOfWork | undefined;
+      try {
+        unitOfWork = await this.deps.beginCompletion?.({ candidateId, completionAttemptCount: candidate.completionAttemptCount, completionClaimToken: claimToken }) ?? { kind: "COMPLETION", id: `completion-${candidateId}-${candidate.completionAttemptCount}`, candidateId, completionAttemptCount: candidate.completionAttemptCount, completionClaimToken: claimToken, enlist: () => undefined, commit: async () => undefined, rollback: async () => undefined };
+        const experiment = existing ?? await this.deps.repository.stageCompletionExperiment({ id: this.id(), ownerUserId: candidate.ownerUserId, candidateId, searchRunId: candidate.searchRunId, leaderboardScopeId: scope.id, scoreFormulaId: scored.scoreFormulaId, overallScore: scored.overallScore, rankEligible: scored.rankEligible, backtestAttemptId: attempt.attemptId, compositeDefinitionId: candidate.compositeDefinition.id, compositeDefinition: candidate.compositeDefinition, datasetSnapshot: scope.datasetSnapshot, sentimentDatasetSnapshot: scope.sentimentDatasetSnapshot, strategyDefinitions: candidate.strategyDefinitions, metrics, trades: result.trades, createdAt: this.now() }, unitOfWork);
+        await this.deps.completion.submit(experiment, unitOfWork);
+        await this.deps.repository.finalizeCompletion({ candidate, experimentId: experiment.id, claimToken, now: this.now() }, unitOfWork);
+        await unitOfWork.commit?.();
+      } catch (error) {
+        try { await unitOfWork?.rollback?.(); } catch { /* Preserve the original completion failure. */ }
+        throw error;
+      }
       if (candidate.searchRunId) {
         try { await this.deps.completion.notifySearchCandidateFinished?.(candidate.searchRunId); } catch { /* Search startup reconciliation recovers a lost callback. */ }
       }
