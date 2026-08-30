@@ -4,6 +4,11 @@ export type StrategyCategory = "TREND" | "MOMENTUM" | "VOLATILITY" | "STRUCTURE"
 export interface GeneratedCandidate {
     strategyDefinitions: StrategyDefinition[];
     compositeDefinition: CompositeStrategyDefinition;
+    executionPolicyIntent: {
+        mode: "TWO_SIDED_ONE_X_V1";
+        stopLossPercent?: number;
+        takeProfitPercent?: number;
+    };
     generatedBy: GeneratorType;
 }
 export interface SearchSpaceConfig {

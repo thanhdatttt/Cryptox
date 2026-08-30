@@ -310,4 +310,21 @@ describe("backtesting runtime", () => {
     expect(attempts).toHaveLength(1);
     await expect(repository.readAttempt(`${candidate.candidateId}:recovery:attempt:1`)).resolves.toMatchObject({ status: "FAILED", failureCategory: "INFRASTRUCTURE", failureCode: "BACKTEST_QUEUE_TERMINAL_FAILURE" });
   });
+
+  it("returns the original in-memory Search candidate for a repeated iteration reservation", async () => {
+    const repository = createInMemoryBacktestingDependencies().repository;
+    const now = "2025-01-01T00:00:00.000Z";
+    const candidate = {
+      candidateId: "search-candidate-1", ownerUserId: "user-1", origin: "SEARCH" as const, selectionMode: "COMPOSITE" as const,
+      leaderboardScopeId: "scope-1", searchRunId: "search-run-1", iterationNumber: 1, status: "QUEUED" as const, attempts: [], maxAttempts: 1, completionAttemptCount: 0,
+      completionMaxAttempts: 5, strategyDefinitions: [], compositeDefinition: { id: "composite-1", userId: "user-1", logicalFamilyKey: "test", version: 1, method: "MAJORITY_VOTE" as const, components: [], createdAt: now },
+      queueJobId: "search-candidate-1", createdAt: now, updatedAt: now,
+    };
+    const first = await repository.createQueuedSubmission({ candidate, dispatch: { job: { schemaVersion: 1, jobId: candidate.queueJobId, candidateId: candidate.candidateId, leaderboardScopeId: candidate.leaderboardScopeId, maxAttempts: 1, workerRuntimeVersion: "1", workerRuntimeSha256: "a".repeat(64), enqueuedAt: now }, state: "PENDING", dispatchAttempts: 0, createdAt: now, updatedAt: now } });
+    const duplicate = await repository.createQueuedSubmission({ candidate: { ...candidate, candidateId: "search-candidate-duplicate", queueJobId: "search-candidate-duplicate" }, dispatch: { job: { schemaVersion: 1, jobId: "search-candidate-duplicate", candidateId: "search-candidate-duplicate", leaderboardScopeId: candidate.leaderboardScopeId, maxAttempts: 1, workerRuntimeVersion: "1", workerRuntimeSha256: "a".repeat(64), enqueuedAt: now }, state: "PENDING", dispatchAttempts: 0, createdAt: now, updatedAt: now } });
+
+    expect(duplicate.candidateId).toBe(first.candidateId);
+    await expect(repository.readCandidate("search-candidate-duplicate")).resolves.toBeUndefined();
+    await expect(repository.readDispatch(first.queueJobId)).resolves.toMatchObject({ state: "PENDING" });
+  });
 });

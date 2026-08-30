@@ -38,6 +38,7 @@ const candle = (timestamp, open, close) => ({
             completedAt: "2025-01-01T03:00:00.000Z",
         });
         (0, vitest_1.expect)(result.trades).toHaveLength(1);
+        (0, vitest_1.expect)(result.initialCapital).toBe(1000);
         (0, vitest_1.expect)(result.trades[0]).toMatchObject({ entryTime: "2025-01-01T01:00:00.000Z", marketEntryPrice: 102, marketExitPrice: 110, exitReason: "RANGE_END", result: "WIN" });
     });
     (0, vitest_1.it)("applies stop loss before take profit when both occur", () => {
@@ -174,8 +175,8 @@ const candle = (timestamp, open, close) => ({
             queue,
             marketData: { readDatasetSnapshot: async () => ({ snapshot, candles }) },
             strategy: {
-                readDefinitions: async (_userId, ids) => ids.map((id) => ({ id, logicalFamilyKey: "strategy:test", strategyName: "TEST", implementationVersion: "1", implementationSha256: "a".repeat(64), version: 1, parameters: {}, createdAt: "2025-01-01T00:00:00.000Z" })),
-                readComposite: async (_userId, id) => ({ id, logicalFamilyKey: "composite:test", version: 1, method: "MAJORITY_VOTE", components: [{ strategyDefinitionId: "definition-1", weight: 0 }], createdAt: "2025-01-01T00:00:00.000Z" }),
+                readDefinitions: async (userId, ids) => ids.map((id) => ({ id, userId, logicalFamilyKey: "strategy:test", strategyName: "TEST", implementationVersion: "1", implementationSha256: "a".repeat(64), version: 1, parameters: {}, createdAt: "2025-01-01T00:00:00.000Z" })),
+                readComposite: async (userId, id) => ({ id, userId, logicalFamilyKey: "composite:test", version: 1, method: "MAJORITY_VOTE", components: [{ strategyDefinitionId: "definition-1", weight: 0 }], createdAt: "2025-01-01T00:00:00.000Z" }),
                 resolveStrategy: async () => {
                     if (transientFailures-- > 0)
                         throw new Error("TRANSIENT_STRATEGY_ARTIFACT_FAILURE");
@@ -187,12 +188,12 @@ const candle = (timestamp, open, close) => ({
             clock: { now: () => "2025-01-01T00:00:00.000Z" },
             idGenerator: () => `id-${sequence++}`,
         });
-        const definition = { id: "definition-1", logicalFamilyKey: "strategy:test", strategyName: "TEST", implementationVersion: "1", implementationSha256: "a".repeat(64), version: 1, parameters: {}, createdAt: "2025-01-01T00:00:00.000Z" };
-        const composite = { id: "composite-1", logicalFamilyKey: "composite:test", version: 1, method: "MAJORITY_VOTE", components: [{ strategyDefinitionId: definition.id, weight: 0 }], createdAt: "2025-01-01T00:00:00.000Z" };
+        const definition = { id: "definition-1", userId: "user-1", logicalFamilyKey: "strategy:test", strategyName: "TEST", implementationVersion: "1", implementationSha256: "a".repeat(64), version: 1, parameters: {}, createdAt: "2025-01-01T00:00:00.000Z" };
+        const composite = { id: "composite-1", userId: "user-1", logicalFamilyKey: "composite:test", version: 1, method: "MAJORITY_VOTE", components: [{ strategyDefinitionId: definition.id, weight: 0 }], createdAt: "2025-01-01T00:00:00.000Z" };
         const scope = await service.createBenchmarkScope({ userId: "user-1" }, { name: "BTC fixture", datasetSnapshot: snapshot, initialCapital: 1000, feeRatePercent: 0, slippageBps: 0, scoreFormulaId: "MVP_MANUAL_V1", workerRuntimeVersion: "1", workerRuntimeSha256: "b".repeat(64), evaluationRuntimeVersion: "1", evaluationRuntimeSha256: "c".repeat(64) }, { scopeIdempotencyKey: "scope-key" });
-        const accepted = await service.startManual({ userId: "user-1" }, { leaderboardScopeId: scope.id, strategyDefinitions: [definition], compositeDefinition: composite, maxAttempts: 2 }, { submissionIdempotencyKey: "submission-key" });
+        const accepted = await service.startManual({ userId: "user-1" }, { leaderboardScopeId: scope.id, strategyDefinitionIds: [definition.id], compositeDefinitionId: composite.id, executionPolicy: { stopLossPercent: 5, takeProfitPercent: 5 }, maxAttempts: 2 }, { submissionIdempotencyKey: "submission-key" });
         (0, vitest_1.expect)(accepted).toMatchObject({ candidateId: accepted.jobId, status: "QUEUED" });
-        await (0, vitest_1.expect)(service.startManual({ userId: "user-1" }, { leaderboardScopeId: scope.id, strategyDefinitions: [definition], compositeDefinition: composite, maxAttempts: 2 }, { submissionIdempotencyKey: "submission-key" })).resolves.toEqual(accepted);
+        await (0, vitest_1.expect)(service.startManual({ userId: "user-1" }, { leaderboardScopeId: scope.id, strategyDefinitionIds: [definition.id], compositeDefinitionId: composite.id, executionPolicy: { stopLossPercent: 5, takeProfitPercent: 5 }, maxAttempts: 2 }, { submissionIdempotencyKey: "submission-key" })).resolves.toEqual(accepted);
         const job = queue.jobs.get(accepted.jobId);
         (0, vitest_1.expect)(job).toMatchObject({ jobId: accepted.candidateId, maxAttempts: 2 });
         await (0, vitest_1.expect)(service.processQueueJob(job, { attemptNumber: 1, fenceToken: "worker-claim-1" })).rejects.toThrow("TRANSIENT_STRATEGY_ARTIFACT_FAILURE");
@@ -211,7 +212,18 @@ const candle = (timestamp, open, close) => ({
         (0, vitest_1.expect)(trades.items).toHaveLength(1);
         const experiment = await service.readExperimentSummary({ userId: "user-1" }, progress.experimentResultId);
         (0, vitest_1.expect)(experiment.metrics).toMatchObject({ numberOfTrades: 1, candidateId: accepted.candidateId });
+        (0, vitest_1.expect)(experiment).toMatchObject({ initialCapital: 1000, wins: 1, losses: 0, breakevens: 0, simulatorVersion: "1.0.0", benchmarkTimezone: "UTC", fillPolicyId: "NEXT_OPEN_OHLC_STOP_FIRST_V2", decimalPolicyId: "MVP_DECIMAL_HALF_UP_V1" });
+        (0, vitest_1.expect)(experiment.executionPolicy?.sha256).toMatch(/^[a-f0-9]{64}$/);
+        (0, vitest_1.expect)(experiment.endingEquity).toBeCloseTo(1000 + (experiment.totalProfitAmount ?? 0), 8);
         await (0, vitest_1.expect)(service.verifyReplay({ userId: "user-1" }, experiment.id)).resolves.toMatchObject({ status: "MATCH", comparedTradeCount: 1 });
+        const replayAccepted = await service.startReplayVerification({ userId: "user-1" }, experiment.id);
+        (0, vitest_1.expect)(replayAccepted).toMatchObject({ experimentId: experiment.id, status: "QUEUED" });
+        (0, vitest_1.expect)(queue.jobs.get(replayAccepted.replayJobId)).toMatchObject({ replayJobId: replayAccepted.replayJobId, experimentId: experiment.id, mismatchSampleLimit: 50 });
+        await (0, vitest_1.expect)(service.readReplayVerification({ userId: "user-1" }, replayAccepted.replayJobId)).resolves.toMatchObject({ status: "QUEUED", sourceAttemptId: experiment.backtestAttemptId });
+        await service.processReplayVerification(replayAccepted.replayJobId);
+        await (0, vitest_1.expect)(service.readReplayVerification({ userId: "user-1" }, replayAccepted.replayJobId)).resolves.toMatchObject({ status: "MATCH", comparedTradeCount: 1, totalMismatchCount: 0, truncated: false, mismatches: [] });
+        await (0, vitest_1.expect)(service.processReplayVerification(replayAccepted.replayJobId)).resolves.toBeUndefined();
+        await (0, vitest_1.expect)(service.readReplayVerification({ userId: "another-user" }, replayAccepted.replayJobId)).rejects.toThrow("REPLAY_VERIFICATION_NOT_FOUND");
         await (0, vitest_1.expect)(service.status({ userId: "another-user" }, accepted.candidateId)).rejects.toThrow("BACKTEST_CANDIDATE_NOT_FOUND");
         transientFailures = 1;
         const failed = await service.startManual({ userId: "user-1" }, { leaderboardScopeId: scope.id, strategyDefinitions: [definition], compositeDefinition: composite, maxAttempts: 1 }, { submissionIdempotencyKey: "terminal-failure-key" });
@@ -219,5 +231,85 @@ const candle = (timestamp, open, close) => ({
         await (0, vitest_1.expect)(service.status({ userId: "user-1" }, failed.candidateId)).resolves.toMatchObject({ status: "TERMINAL_FAILURE_PENDING", failureKind: "RETRY_EXHAUSTED" });
         await (0, vitest_1.expect)(service.processQueueTerminalSignal({ schemaVersion: 1, jobId: failed.candidateId, status: "RETRIES_EXHAUSTED", attemptsMade: 1 })).resolves.toMatchObject({ status: "FAILED" });
         await (0, vitest_1.expect)(service.status({ userId: "user-1" }, failed.candidateId)).resolves.toMatchObject({ status: "FAILED", failureKind: "RETRY_EXHAUSTED" });
+    });
+    (0, vitest_1.it)("lets a matching in-flight worker finish audit trades after cancellation without reopening the candidate", async () => {
+        const dependencies = (0, service_1.createInMemoryBacktestingDependencies)();
+        const repository = dependencies.repository;
+        const now = "2025-01-01T00:00:00.000Z";
+        const candidate = {
+            candidateId: "cancelled-candidate", ownerUserId: "user-1", origin: "MANUAL", selectionMode: "SINGLE",
+            leaderboardScopeId: "scope-1", status: "QUEUED", attempts: [], maxAttempts: 1, completionAttemptCount: 0,
+            completionMaxAttempts: 5, strategyDefinitions: [], compositeDefinition: { id: "composite-1", userId: "user-1", logicalFamilyKey: "test", version: 1, method: "WEIGHTED_SCORE", components: [], createdAt: now },
+            queueJobId: "cancelled-candidate", createdAt: now, updatedAt: now,
+        };
+        await repository.createCandidate(candidate);
+        const claim = await repository.claimWorkerAttempt({ candidateId: candidate.candidateId, queueJobId: candidate.queueJobId, deliveryAttempt: 1, attemptId: "cancelled-candidate:attempt:1", fenceToken: "fence-1", now, leaseExpiresAt: "2025-01-01T00:01:00.000Z", workerRuntimeVersion: "worker-1", workerRuntimeSha256: "a".repeat(64) });
+        (0, vitest_1.expect)(claim).toBeDefined();
+        await repository.updateCandidate({ ...claim.candidate, status: "CANCELLED", activeLeaseExpiresAt: undefined });
+        const trade = { id: "audit-trade", sequence: 1, pair: "BTCUSDT", settlementAsset: "USDT", backtestAttemptId: claim.attempt.attemptId, signal: "LONG", entryTime: now, marketEntryPrice: 100, entryPrice: 100, stopLoss: null, takeProfit: null, exitTime: "2025-01-01T00:00:30.000Z", marketExitPrice: 101, exitPrice: 101, exitReason: "RANGE_END", quantity: 1, notionalEntryValue: 100, equityBeforeTrade: 100, equityAfterTrade: 101, grossProfit: 1, feeAmount: 0, slippageBps: 0, slippageAmount: 0, profit: 1, resultPercent: 1, result: "WIN" };
+        await repository.persistWorkerSuccess({ candidate: claim.candidate, attempt: claim.attempt, fenceToken: "fence-1", result: { status: "COMPLETED", candidateId: candidate.candidateId, attemptId: claim.attempt.attemptId, workerRuntimeVersion: "worker-1", workerRuntimeSha256: "a".repeat(64), startedAt: now, completedAt: "2025-01-01T00:00:30.000Z", trades: [trade] } });
+        const storedCandidate = await repository.readCandidate(candidate.candidateId);
+        (0, vitest_1.expect)(storedCandidate?.status).toBe("CANCELLED");
+        (0, vitest_1.expect)(storedCandidate?.activeFenceToken).toBeUndefined();
+        await (0, vitest_1.expect)(repository.readAttempt(claim.attempt.attemptId)).resolves.toMatchObject({ status: "COMPLETED", auditOnly: true, tradeCount: 1 });
+        await (0, vitest_1.expect)(repository.listTrades(claim.attempt.attemptId)).resolves.toHaveLength(1);
+        await (0, vitest_1.expect)(repository.findExperimentByCandidate(candidate.candidateId)).resolves.toBeUndefined();
+    });
+    (0, vitest_1.it)("reconciles an expired worker lease into one failed Attempt and a bounded retry", async () => {
+        const dependencies = (0, service_1.createInMemoryBacktestingDependencies)();
+        const repository = dependencies.repository;
+        const queue = dependencies.queue;
+        const service = (0, service_1.createBacktestingService)(dependencies);
+        const now = "2025-01-01T00:00:00.000Z";
+        const candidate = {
+            candidateId: "expired-candidate", ownerUserId: "user-1", origin: "MANUAL", selectionMode: "SINGLE",
+            leaderboardScopeId: "scope-1", status: "QUEUED", attempts: [], maxAttempts: 2, completionAttemptCount: 0,
+            completionMaxAttempts: 5, strategyDefinitions: [], compositeDefinition: { id: "composite-1", userId: "user-1", logicalFamilyKey: "test", version: 1, method: "WEIGHTED_SCORE", components: [], createdAt: now },
+            queueJobId: "expired-candidate", createdAt: now, updatedAt: now,
+        };
+        const job = { schemaVersion: 1, jobId: candidate.queueJobId, candidateId: candidate.candidateId, leaderboardScopeId: candidate.leaderboardScopeId, maxAttempts: candidate.maxAttempts, workerRuntimeVersion: "worker-1", workerRuntimeSha256: "a".repeat(64), enqueuedAt: now };
+        await repository.createQueuedSubmission({ candidate, dispatch: { job, state: "DISPATCHED", dispatchAttempts: 1, createdAt: now, updatedAt: now } });
+        const claim = await repository.claimWorkerAttempt({ candidateId: candidate.candidateId, queueJobId: candidate.queueJobId, deliveryAttempt: 1, attemptId: "expired-candidate:attempt:1", fenceToken: "fence-1", now, leaseExpiresAt: "2025-01-01T00:01:00.000Z", workerRuntimeVersion: "worker-1", workerRuntimeSha256: "a".repeat(64) });
+        (0, vitest_1.expect)(claim).toBeDefined();
+        await (0, vitest_1.expect)(service.reconcileQueue()).resolves.toMatchObject({ dispatched: 1, pending: 0 });
+        const recoveredCandidate = await repository.readCandidate(candidate.candidateId);
+        (0, vitest_1.expect)(recoveredCandidate?.status).toBe("RETRY_WAIT");
+        (0, vitest_1.expect)(recoveredCandidate).not.toHaveProperty("activeFenceToken");
+        await (0, vitest_1.expect)(repository.readAttempt(claim.attempt.attemptId)).resolves.toMatchObject({ status: "FAILED", failureCategory: "INFRASTRUCTURE", failureCode: "BACKTEST_WORKER_LEASE_EXPIRED" });
+        (0, vitest_1.expect)(queue.jobs.has(candidate.queueJobId)).toBe(true);
+        await (0, vitest_1.expect)(repository.recoverAbandonedAttempt({ candidateId: candidate.candidateId, now: "2025-01-01T00:02:00.000Z", error: "duplicate" })).resolves.toBe(false);
+    });
+    (0, vitest_1.it)("creates one synthetic infrastructure Attempt when terminal queue evidence has no Attempt row", async () => {
+        const dependencies = (0, service_1.createInMemoryBacktestingDependencies)();
+        const repository = dependencies.repository;
+        const now = "2025-01-01T00:00:00.000Z";
+        const candidate = {
+            candidateId: "synthetic-candidate", ownerUserId: "user-1", origin: "MANUAL", selectionMode: "SINGLE",
+            leaderboardScopeId: "scope-1", status: "QUEUED", attempts: [], maxAttempts: 1, completionAttemptCount: 0,
+            completionMaxAttempts: 5, strategyDefinitions: [], compositeDefinition: { id: "composite-1", userId: "user-1", logicalFamilyKey: "test", version: 1, method: "WEIGHTED_SCORE", components: [], createdAt: now },
+            queueJobId: "synthetic-candidate", createdAt: now, updatedAt: now,
+        };
+        await repository.createCandidate(candidate);
+        await repository.repairTerminalQueueFailure({ candidateId: candidate.candidateId, error: "BACKTEST_QUEUE_TERMINAL_FAILURE", now });
+        await repository.repairTerminalQueueFailure({ candidateId: candidate.candidateId, error: "duplicate", now });
+        await (0, vitest_1.expect)(repository.readCandidate(candidate.candidateId)).resolves.toMatchObject({ status: "TERMINAL_FAILURE_PENDING", failureKind: "INFRASTRUCTURE" });
+        const attempts = await repository.listAttempts(candidate.candidateId);
+        (0, vitest_1.expect)(attempts).toHaveLength(1);
+        await (0, vitest_1.expect)(repository.readAttempt(`${candidate.candidateId}:recovery:attempt:1`)).resolves.toMatchObject({ status: "FAILED", failureCategory: "INFRASTRUCTURE", failureCode: "BACKTEST_QUEUE_TERMINAL_FAILURE" });
+    });
+    (0, vitest_1.it)("returns the original in-memory Search candidate for a repeated iteration reservation", async () => {
+        const repository = (0, service_1.createInMemoryBacktestingDependencies)().repository;
+        const now = "2025-01-01T00:00:00.000Z";
+        const candidate = {
+            candidateId: "search-candidate-1", ownerUserId: "user-1", origin: "SEARCH", selectionMode: "COMPOSITE",
+            leaderboardScopeId: "scope-1", searchRunId: "search-run-1", iterationNumber: 1, status: "QUEUED", attempts: [], maxAttempts: 1, completionAttemptCount: 0,
+            completionMaxAttempts: 5, strategyDefinitions: [], compositeDefinition: { id: "composite-1", userId: "user-1", logicalFamilyKey: "test", version: 1, method: "MAJORITY_VOTE", components: [], createdAt: now },
+            queueJobId: "search-candidate-1", createdAt: now, updatedAt: now,
+        };
+        const first = await repository.createQueuedSubmission({ candidate, dispatch: { job: { schemaVersion: 1, jobId: candidate.queueJobId, candidateId: candidate.candidateId, leaderboardScopeId: candidate.leaderboardScopeId, maxAttempts: 1, workerRuntimeVersion: "1", workerRuntimeSha256: "a".repeat(64), enqueuedAt: now }, state: "PENDING", dispatchAttempts: 0, createdAt: now, updatedAt: now } });
+        const duplicate = await repository.createQueuedSubmission({ candidate: { ...candidate, candidateId: "search-candidate-duplicate", queueJobId: "search-candidate-duplicate" }, dispatch: { job: { schemaVersion: 1, jobId: "search-candidate-duplicate", candidateId: "search-candidate-duplicate", leaderboardScopeId: candidate.leaderboardScopeId, maxAttempts: 1, workerRuntimeVersion: "1", workerRuntimeSha256: "a".repeat(64), enqueuedAt: now }, state: "PENDING", dispatchAttempts: 0, createdAt: now, updatedAt: now } });
+        (0, vitest_1.expect)(duplicate.candidateId).toBe(first.candidateId);
+        await (0, vitest_1.expect)(repository.readCandidate("search-candidate-duplicate")).resolves.toBeUndefined();
+        await (0, vitest_1.expect)(repository.readDispatch(first.queueJobId)).resolves.toMatchObject({ state: "PENDING" });
     });
 });

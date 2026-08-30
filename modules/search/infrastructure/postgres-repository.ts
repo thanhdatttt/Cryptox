@@ -36,6 +36,22 @@ export class PostgresSearchRunRepository implements SearchRunRepository {
   async insert(input: SearchRun): Promise<SearchRun> { await this.pool.query("INSERT INTO search_runs (id, owner_user_id, leaderboard_scope_id, generator_type, search_space, stop_condition, max_in_flight, state, next_iteration, active_duration_ms, active_since, best_score, last_improvement_at_candidates, created_at, started_at, updated_at, ended_at, stop_reason, last_error) VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)", [input.searchRunId, input.ownerUserId, input.leaderboardScopeId, input.generatorType, JSON.stringify(input.searchSpace), JSON.stringify(input.stopCondition), input.maxInFlight, input.state, input.nextIteration, input.activeDurationMs, input.activeSince ?? null, input.bestScore ?? null, input.lastImprovementAtCandidates ?? null, input.createdAt, input.startedAt ?? null, input.updatedAt, input.endedAt ?? null, input.stopReason ?? null, input.lastError ?? null]); return input; }
   async save(input: SearchRun, unitOfWork?: CancellationUnitOfWork): Promise<SearchRun> { const client: SearchSqlClient = unitOfWork?.query ? { query: (text, values) => unitOfWork.query!(text, values) } : this.pool; await client.query("UPDATE search_runs SET state = $2, next_iteration = $3, active_duration_ms = $4, active_since = $5, best_score = $6, last_improvement_at_candidates = $7, updated_at = $8, ended_at = $9, stop_reason = $10, last_error = $11 WHERE id = $1", [input.searchRunId, input.state, input.nextIteration, input.activeDurationMs, input.activeSince ?? null, input.bestScore ?? null, input.lastImprovementAtCandidates ?? null, input.updatedAt, input.endedAt ?? null, input.stopReason ?? null, input.lastError ?? null]); return input; }
   async listRunning(): Promise<SearchRun[]> { const result = await this.pool.query<SearchRunRow>(`SELECT ${this.fields()} FROM search_runs WHERE state = 'RUNNING'`, []); return result.rows.map(run); }
+  async withRunLock<T>(ownerUserId: string, id: string, operation: (run: SearchRun | undefined, unitOfWork?: CancellationUnitOfWork) => Promise<T>): Promise<T> {
+    if (!this.pool.connect) return operation(await this.getByOwner(ownerUserId, id));
+    const client = await this.pool.connect();
+    await client.query("BEGIN", []);
+    let closed = false;
+    const unitOfWork: CancellationUnitOfWork = { kind: "CANCELLATION", id: `search-fill-${randomUUID()}`, query: <Row>(text: string, values: unknown[]) => client.query<Row>(text, values), run: async <R>(callback: () => Promise<R>) => callback(), onRollback: () => undefined, commit: async () => { if (!closed) { await client.query("COMMIT", []); closed = true; client.release(); } }, rollback: async () => { if (!closed) { try { await client.query("ROLLBACK", []); } finally { closed = true; client.release(); } } } };
+    try {
+      const result = await client.query<SearchRunRow>(`SELECT ${this.fields()} FROM search_runs WHERE id = $1 AND owner_user_id = $2 FOR UPDATE`, [id, ownerUserId]);
+      const value = await operation(result.rows[0] ? run(result.rows[0]) : undefined, unitOfWork);
+      await unitOfWork.commit();
+      return value;
+    } catch (error) {
+      await unitOfWork.rollback();
+      throw error;
+    }
+  }
 }
 
 export const createPostgresSearchDependencies = (pool: SearchSqlClient, input: Omit<SearchModuleDependencies, "searchRunRepository" | "generators" | "beginCancellation"> & { generators?: SearchModuleDependencies["generators"]; idGenerator?: () => string; beginCancellation?: SearchModuleDependencies["beginCancellation"] }): SearchModuleDependencies => ({ ...createInMemorySearchDependencies(), ...input, idGenerator: input.idGenerator ?? randomUUID, generators: input.generators ?? createInMemorySearchDependencies().generators, searchRunRepository: new PostgresSearchRunRepository(pool) });

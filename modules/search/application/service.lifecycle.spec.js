@@ -54,6 +54,7 @@ const config = {
         };
         const runtime = (0, service_1.createSearchModule)(dependencies);
         const started = await runtime.start(auth, config);
+        await runtime.fillAvailableSlots(started.searchRunId);
         const beforeStatus = { generated, submitted, saves };
         await (0, vitest_1.expect)(runtime.status(auth, started.searchRunId)).resolves.toMatchObject({
             searchRunId: started.searchRunId,
@@ -72,6 +73,7 @@ const config = {
                 generatedBy: "RANDOM",
                 strategyDefinitions: [],
                 compositeDefinition: {},
+                executionPolicyIntent: { mode: "TWO_SIDED_ONE_X_V1" },
             }),
         };
         dependencies.backtestCoordinator = {
@@ -97,6 +99,7 @@ const config = {
         };
         const runtime = (0, service_1.createSearchModule)(dependencies);
         const started = await runtime.start(auth, config);
+        await runtime.fillAvailableSlots(started.searchRunId);
         (0, vitest_1.expect)(submitted).toBe(1);
         active = 0;
         await runtime.onCandidateFinished(started.searchRunId);

@@ -33,4 +33,49 @@ describe("PostgresSearchRunRepository", () => {
     expect(second).toMatch(/^[0-9a-f-]{36}$/);
     expect(second).not.toBe(first);
   });
+
+  it("holds a PostgreSQL row lock while filling and commits the same unit of work", async () => {
+    const calls: string[] = [];
+    const row = {
+      id: run.searchRunId,
+      owner_user_id: run.ownerUserId,
+      leaderboard_scope_id: run.leaderboardScopeId,
+      generator_type: run.generatorType,
+      search_space: run.searchSpace,
+      stop_condition: run.stopCondition,
+      max_in_flight: run.maxInFlight,
+      state: run.state,
+      next_iteration: run.nextIteration,
+      active_duration_ms: run.activeDurationMs,
+      active_since: run.activeSince,
+      best_score: null,
+      last_improvement_at_candidates: null,
+      created_at: run.createdAt,
+      started_at: run.startedAt,
+      updated_at: run.updatedAt,
+      ended_at: null,
+      stop_reason: null,
+      last_error: null,
+    };
+    const client = {
+      query: async <Row>(text: string, _values: unknown[]) => { calls.push(text); return { rows: text.includes("FOR UPDATE") ? [row as Row] : [] }; },
+      release: () => { calls.push("RELEASE"); },
+    };
+    const repository = new PostgresSearchRunRepository({
+      query: async <Row>(text: string, _values: unknown[]) => ({ rows: [] as Row[] }),
+      connect: async () => client,
+    });
+
+    await repository.withRunLock(run.ownerUserId, run.searchRunId, async (locked, unitOfWork) => {
+      expect(locked?.searchRunId).toBe(run.searchRunId);
+      expect(unitOfWork?.kind).toBe("CANCELLATION");
+      await repository.save({ ...locked!, nextIteration: 3 }, unitOfWork);
+    });
+
+    expect(calls[0]).toBe("BEGIN");
+    expect(calls.some((text) => text.includes("FOR UPDATE"))).toBe(true);
+    expect(calls.some((text) => text.startsWith("UPDATE search_runs"))).toBe(true);
+    expect(calls).toContain("COMMIT");
+    expect(calls.at(-1)).toBe("RELEASE");
+  });
 });

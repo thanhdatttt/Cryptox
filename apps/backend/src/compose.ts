@@ -82,8 +82,8 @@ export function composeAllModules(options: { profile?: RuntimeProfile; env?: Nod
     ? createBacktestingModule(createPostgresBacktestingDependencies(postgres, { marketData, strategy, evaluation, queue, completion, beginCompletion: (input) => createPostgresCompletionUnitOfWork(postgres, input), clock: { now: () => new Date().toISOString() } }))
     : createBacktestingModule({ ...inMemoryBacktesting, marketData, strategy, evaluation, queue, completion });
   search = postgres
-    ? createSearchModule(createPostgresSearchDependencies(postgres, { backtestCoordinator: backtesting, leaderboardService: leaderboard, beginCancellation: () => createPostgresCancellationUnitOfWork(postgres), clock: { now: () => new Date().toISOString() } }))
-    : createSearchModule({ ...createInMemorySearchDependencies(), backtestCoordinator: backtesting, leaderboardService: leaderboard, clock: { now: () => new Date().toISOString() } });
+    ? createSearchModule(createPostgresSearchDependencies(postgres, { strategyService: strategy, backtestCoordinator: backtesting, leaderboardService: leaderboard, beginCancellation: () => createPostgresCancellationUnitOfWork(postgres), clock: { now: () => new Date().toISOString() } }))
+    : createSearchModule({ ...createInMemorySearchDependencies(), strategyService: strategy, backtestCoordinator: backtesting, leaderboardService: leaderboard, clock: { now: () => new Date().toISOString() } });
   const sentiment = createSentimentModule({
     analysis: config.durable
       ? createOpenAiCompatibleSentimentAdapter({ apiKey: config.strategyLlmApiKey!, model: config.strategyModelName!, modelVersion: config.strategyModelVersion, endpoint: config.strategyModelEndpoint, timeoutMs: config.strategyModelTimeoutMs })

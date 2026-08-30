@@ -24,6 +24,7 @@ describe("PostgresBacktestingRepository", () => {
 
     expect(calls.some((call) => call.text.startsWith("INSERT INTO backtest_input_snapshots") && call.values.includes(snapshot.id))).toBe(true);
     expect(calls.some((call) => call.text.startsWith("INSERT INTO backtest_benchmark_scopes") && call.values.includes(scope.ownerUserId))).toBe(true);
+    expect(calls.some((call) => call.text.includes("ON CONFLICT (search_run_id, iteration_number) DO NOTHING"))).toBe(true);
     expect(calls.some((call) => call.text.startsWith("INSERT INTO backtest_candidates") && call.values.includes("submission-key"))).toBe(true);
     expect(calls.some((call) => call.text.startsWith("INSERT INTO backtest_queue_dispatches") && call.values.includes(candidate.candidateId))).toBe(true);
     expect(calls.some((call) => call.text.startsWith("INSERT INTO backtest_attempts") && call.values.includes(attempt.attemptId))).toBe(true);

@@ -23,6 +23,7 @@ export declare class PostgresSearchRunRepository implements SearchRunRepository 
     insert(input: SearchRun): Promise<SearchRun>;
     save(input: SearchRun, unitOfWork?: CancellationUnitOfWork): Promise<SearchRun>;
     listRunning(): Promise<SearchRun[]>;
+    withRunLock<T>(ownerUserId: string, id: string, operation: (run: SearchRun | undefined, unitOfWork?: CancellationUnitOfWork) => Promise<T>): Promise<T>;
 }
 export declare const createPostgresSearchDependencies: (pool: SearchSqlClient, input: Omit<SearchModuleDependencies, "searchRunRepository" | "generators" | "beginCancellation"> & {
     generators?: SearchModuleDependencies["generators"];

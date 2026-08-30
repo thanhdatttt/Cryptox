@@ -11,17 +11,19 @@ function dependencies(tested = 0) {
     const deps = (0, index_1.createInMemorySearchDependencies)();
     let submissions = 0;
     let cancellations = 0;
-    deps.generators.RANDOM = { type: "RANDOM", generate: () => ({ generatedBy: "RANDOM", strategyDefinitions: [], compositeDefinition: {} }) };
+    let queued = 0;
+    let completed = tested;
+    deps.generators.RANDOM = { type: "RANDOM", generate: () => ({ generatedBy: "RANDOM", strategyDefinitions: [], compositeDefinition: {}, executionPolicyIntent: { mode: "TWO_SIDED_ONE_X_V1" } }) };
     deps.backtestCoordinator = {
         readBenchmarkScope: async (_auth, scopeId) => ({ id: scopeId }),
-        submitSearchCandidate: async (_auth, _command) => { submissions += 1; return { candidateId: `candidate-${submissions}`, jobId: `job-${submissions}`, status: "QUEUED" }; },
-        summarizeSearchCandidates: async (_auth, searchRunId) => summary(searchRunId, tested),
+        submitSearchCandidate: async (_auth, _command) => { submissions += 1; queued += 1; return { candidateId: `candidate-${submissions}`, jobId: `job-${submissions}`, status: "QUEUED" }; },
+        summarizeSearchCandidates: async (_auth, searchRunId) => ({ ...summary(searchRunId, completed), queuedCount: queued, active: Array.from({ length: queued }, (_unused, index) => ({ candidateId: `candidate-${index + 1}`, origin: "SEARCH", selectionMode: "COMPOSITE", searchRunId, leaderboardScopeId: "scope", status: "QUEUED", attempts: [], maxAttempts: 1, completionAttemptCount: 0, completionMaxAttempts: 5, createdAt: "2025-01-01T00:00:00.000Z", updatedAt: "2025-01-01T00:00:00.000Z" })), }),
         cancelSearchCandidates: async (_auth, _searchRunId, _unitOfWork) => { cancellations += 1; return { candidateIds: ["candidate-1"] }; },
         removePendingJobs: async () => undefined,
     };
     deps.leaderboardService = { rankSearchRun: async () => [] };
     deps.clock = { now: () => "2025-01-01T00:00:00.000Z" };
-    return { deps, submissions: () => submissions, cancellations: () => cancellations };
+    return { deps, submissions: () => submissions, cancellations: () => cancellations, finish: (count = 1) => { const finished = Math.min(count, queued); queued -= finished; completed += finished; } };
 }
 const owner = { userId: "user-1" };
 const config = { searchSpace: { availableStrategies: [{ id: "strategy-1", userId: owner.userId }] }, stopCondition: { maxCandidates: 3 }, generatorType: "RANDOM", leaderboardScopeId: "scope", maxInFlight: 2 };
@@ -33,20 +35,31 @@ const config = { searchSpace: { availableStrategies: [{ id: "strategy-1", userId
         const fixture = { deps: (0, index_1.createInMemorySearchDependencies)() };
         const runtime = (0, index_1.createSearchModule)(fixture.deps);
         let submitted;
+        const definition = { id: "owned-definition", userId: owner.userId, logicalFamilyKey: "strategy:owned", strategyName: "TEST", implementationVersion: "1", implementationSha256: "a".repeat(64), version: 1, parameters: {}, createdAt: "2025-01-01T00:00:00.000Z" };
+        const persistedComposite = { id: "persisted-composite", userId: owner.userId, logicalFamilyKey: "composite:MAJORITY_VOTE:owned-definition", version: 1, method: "MAJORITY_VOTE", components: [{ strategyDefinitionId: definition.id, weight: 0 }], createdAt: "2025-01-01T00:00:00.000Z" };
+        fixture.deps.strategyService = {
+            readDefinitions: async (_userId, ids) => ids.map(() => definition),
+            defineComposite: async () => persistedComposite,
+            readComposite: async () => persistedComposite,
+        };
         fixture.deps.backtestCoordinator = {
             ...fixture.deps.backtestCoordinator,
             submitSearchCandidate: async (_auth, command) => { submitted = command; return { candidateId: "candidate-owner", jobId: "job-owner", status: "QUEUED" }; },
         };
-        const definition = { id: "owned-definition", userId: owner.userId, logicalFamilyKey: "strategy:owned", strategyName: "TEST", implementationVersion: "1", implementationSha256: "a".repeat(64), version: 1, parameters: {}, createdAt: "2025-01-01T00:00:00.000Z" };
         await runtime.start(owner, { ...config, searchSpace: { availableStrategies: [definition] }, stopCondition: { maxCandidates: 1 }, maxInFlight: 1 });
-        (0, vitest_1.expect)(submitted?.compositeDefinition?.userId).toBe(owner.userId);
+        await runtime.fillAvailableSlots("search-run-1");
+        (0, vitest_1.expect)(submitted?.compositeDefinitionId).toBe(persistedComposite.id);
     });
-
     (0, vitest_1.it)("fills bounded slots and completes when a poll observes the final deterministic candidate", async () => {
         const fixture = dependencies();
         const runtime = (0, index_1.createSearchModule)(fixture.deps);
         const { searchRunId } = await runtime.start(owner, config);
+        await runtime.fillAvailableSlots(searchRunId);
         (0, vitest_1.expect)(fixture.submissions()).toBe(2);
+        fixture.finish();
+        await runtime.onCandidateFinished(searchRunId);
+        (0, vitest_1.expect)(fixture.submissions()).toBe(3);
+        fixture.finish(2);
         await runtime.onCandidateFinished(searchRunId);
         (0, vitest_1.expect)(await runtime.status(owner, searchRunId)).toMatchObject({ state: "COMPLETED", maxInFlight: 2, nextIteration: 4, stopReason: "MAX_CANDIDATES" });
         (0, vitest_1.expect)(fixture.submissions()).toBe(3);
@@ -55,10 +68,12 @@ const config = { searchSpace: { availableStrategies: [{ id: "strategy-1", userId
         const stopped = dependencies(3);
         const stoppedRuntime = (0, index_1.createSearchModule)(stopped.deps);
         const stoppedRun = await stoppedRuntime.start(owner, config);
+        await stoppedRuntime.fillAvailableSlots(stoppedRun.searchRunId);
         await (0, vitest_1.expect)(stoppedRuntime.status(owner, stoppedRun.searchRunId)).resolves.toMatchObject({ state: "COMPLETED", stopReason: "MAX_CANDIDATES" });
         const active = dependencies();
         const activeRuntime = (0, index_1.createSearchModule)(active.deps);
         const activeRun = await activeRuntime.start(owner, config);
+        await activeRuntime.fillAvailableSlots(activeRun.searchRunId);
         await activeRuntime.cancel(owner, activeRun.searchRunId);
         await activeRuntime.cancel(owner, activeRun.searchRunId);
         await (0, vitest_1.expect)(activeRuntime.status(owner, activeRun.searchRunId)).resolves.toMatchObject({ state: "CANCELLED", stopReason: "USER_CANCELLED" });
@@ -75,8 +90,8 @@ const config = { searchSpace: { availableStrategies: [{ id: "strategy-1", userId
             { pair: "BTCUSDT", timeframe: "1h", timestamp: "2025-01-01T02:00:00.000Z", open: 106, high: 111, low: 105, close: 110, volume: 1, isClosed: true },
         ];
         const definition = { id: "definition-1", userId: owner.userId, logicalFamilyKey: "strategy:test", strategyName: "TEST", implementationVersion: "1", implementationSha256: "b".repeat(64), version: 1, parameters: {}, createdAt: snapshot.createdAt };
-        const compositeDefinition = { id: "generated", userId: owner.userId, logicalFamilyKey: "generated", version: 1, method: "MAJORITY_VOTE", components: [{ strategyDefinitionId: definition.id, weight: 1 }], createdAt: snapshot.createdAt };
-        const strategy = { readDefinitions: async (_userId, ids) => ids.map((id) => ({ ...definition, id })), readComposite: async (_userId, id) => ({ ...compositeDefinition, id }), resolveStrategy: async () => ({ name: "test", category: "TREND", analyze: (context) => context.candles.length === 1 ? "BUY" : "HOLD" }), combineSignals: (_composite, signals) => signals[0]?.signal ?? "HOLD", buildVisualization: () => [] };
+        const compositeDefinition = { id: "generated", userId: owner.userId, logicalFamilyKey: "generated", version: 1, method: "MAJORITY_VOTE", components: [{ strategyDefinitionId: definition.id, weight: 0 }], createdAt: snapshot.createdAt };
+        const strategy = { readDefinitions: async (_userId, ids) => ids.map((id) => ({ ...definition, id })), defineComposite: async (_userId, command) => ({ ...compositeDefinition, id: "persisted-composite", method: command.method, components: command.components, thresholds: command.thresholds }), readComposite: async (_userId, id) => ({ ...compositeDefinition, id }), resolveStrategy: async () => ({ name: "test", category: "TREND", analyze: (context) => context.candles.length === 1 ? "BUY" : "HOLD" }), combineSignals: (_composite, signals) => signals[0]?.signal ?? "HOLD", buildVisualization: () => [] };
         let sequence = 0;
         const queue = new bootstrap_1.InMemoryBacktestQueue();
         let leaderboard;
@@ -84,13 +99,14 @@ const config = { searchSpace: { availableStrategies: [{ id: "strategy-1", userId
         const backtesting = (0, api_1.createBacktestingService)({ ...(0, api_1.createInMemoryBacktestingDependencies)(), queue, marketData: { readDatasetSnapshot: async () => ({ snapshot, candles }) }, strategy, evaluation: (0, bootstrap_2.createEvaluationModule)(), completion: { score: (scopeId, metrics) => leaderboard.score(scopeId, metrics), submit: async (experiment, unitOfWork) => { await leaderboard.submit(experiment, unitOfWork); }, notifySearchCandidateFinished: async (searchRunId) => { await search.onCandidateFinished(searchRunId); } }, clock: { now: () => "2025-01-01T03:00:00.000Z" }, idGenerator: () => `id-${sequence++}` });
         const scope = await backtesting.createBenchmarkScope({ userId: "user-1" }, { name: "fixture", datasetSnapshot: snapshot, initialCapital: 1000, feeRatePercent: 0, slippageBps: 0, scoreFormulaId: "MVP_MANUAL_V1", workerRuntimeVersion: "1", workerRuntimeSha256: "c".repeat(64), evaluationRuntimeVersion: "1", evaluationRuntimeSha256: "d".repeat(64) }, { scopeIdempotencyKey: "scope-key" });
         leaderboard = (0, bootstrap_3.createLeaderboardModule)({ ...(0, bootstrap_3.createInMemoryLeaderboardDependencies)(), scopeRepository: (0, bootstrap_3.createBacktestingScopeRepository)(backtesting), experimentReader: (0, bootstrap_3.createBacktestingExperimentReader)(backtesting), clock: { now: () => "2025-01-01T03:00:00.000Z" } });
-        search = (0, index_1.createSearchModule)({ ...(0, index_1.createInMemorySearchDependencies)(), backtestCoordinator: backtesting, leaderboardService: leaderboard, clock: { now: () => "2025-01-01T03:00:00.000Z" }, idGenerator: () => "search-run-1" });
+        search = (0, index_1.createSearchModule)({ ...(0, index_1.createInMemorySearchDependencies)(), strategyService: strategy, backtestCoordinator: backtesting, leaderboardService: leaderboard, clock: { now: () => "2025-01-01T03:00:00.000Z" }, idGenerator: () => "search-run-1" });
         const started = await search.start(owner, { searchSpace: { availableStrategies: [definition] }, stopCondition: { maxCandidates: 2 }, generatorType: "RANDOM", leaderboardScopeId: scope.id, maxInFlight: 1 });
+        await search.fillAvailableSlots(started.searchRunId);
         const first = (await backtesting.listSearchCandidates(owner, started.searchRunId, { limit: 10 })).items[0];
         await backtesting.processQueueJob(queue.jobs.get(first.candidateId), { attemptNumber: 1, fenceToken: "worker-1" });
         await backtesting.processCompletion(first.candidateId);
         const middle = await search.status(owner, started.searchRunId);
-        (0, vitest_1.expect)(middle).toMatchObject({ state: "RUNNING", candidatesTested: 2, queuedCount: 1 });
+        (0, vitest_1.expect)(middle).toMatchObject({ state: "RUNNING", candidatesTested: 1, queuedCount: 1 });
         const second = (await backtesting.listSearchCandidates(owner, started.searchRunId, { limit: 10 })).items.find((candidate) => candidate.candidateId !== first.candidateId);
         await backtesting.processQueueJob(queue.jobs.get(second.candidateId), { attemptNumber: 1, fenceToken: "worker-2" });
         await backtesting.processCompletion(second.candidateId);

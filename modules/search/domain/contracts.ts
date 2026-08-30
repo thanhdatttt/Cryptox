@@ -1,7 +1,7 @@
 import type { CompositeStrategyDefinition, StrategyDefinition } from "modules/strategy/api";
 export type GeneratorType = "RANDOM" | "DOMAIN_GUIDED" | "GENETIC";
 export type StrategyCategory = "TREND" | "MOMENTUM" | "VOLATILITY" | "STRUCTURE" | "INFORMATION";
-export interface GeneratedCandidate { strategyDefinitions: StrategyDefinition[]; compositeDefinition: CompositeStrategyDefinition; generatedBy: GeneratorType; }
+export interface GeneratedCandidate { strategyDefinitions: StrategyDefinition[]; compositeDefinition: CompositeStrategyDefinition; executionPolicyIntent: { mode: "TWO_SIDED_ONE_X_V1"; stopLossPercent?: number; takeProfitPercent?: number }; generatedBy: GeneratorType; }
 export interface SearchSpaceConfig { availableStrategies: StrategyDefinition[]; domainRules?: { requiredCategories: StrategyCategory[] }; maxComponents?: number; }
 export interface StrategyGenerator { readonly type: GeneratorType; generate(searchSpace: SearchSpaceConfig): GeneratedCandidate; }
 type StopConditionFields = { maxCandidates?: number; maxDurationSeconds?: number; noImprovementAfterIterations?: number };
