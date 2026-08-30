@@ -1,6 +1,5 @@
 import { createHash } from "node:crypto";
-import type { NewsExtractionProvenance } from "../api/contracts";
-import type { NormalizedNewsItemRecord } from "./ports";
+import type { NewsExtractionProvenance, NormalizedNewsItemRecord } from "./ports";
 
 const PROVIDER_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{0,63}$/;
 

@@ -15,7 +15,7 @@ import type {
   StrategySelectionProvenance,
 } from "@cryptox/strategy";
 import {
-  type BacktestingModulePublicApi,
+  type BacktestingApplicationApi,
   type BacktestConfiguration,
   type BacktestSubmissionAccepted,
   type CandidateFailureCode,
@@ -28,11 +28,10 @@ import {
   type SearchCandidateSummary,
   type StartManualBacktestCommand,
   type SubmitSearchCandidateCommand,
+  type SyntheticPaperExecutionConfiguration,
+  type Trade,
   type TradePage,
   type TradePageRequest,
-  type SyntheticPaperExecutionConfiguration,
-} from "../api/contracts";
-import {
   type BacktestExecutionPort,
   type BacktestExecutionRequest,
   type BacktestTerminalOutcome,
@@ -259,10 +258,10 @@ type Dependencies = BacktestingApplicationDependencies<
   BacktestingCandidate,
   StartManualBacktestCommand | SubmitSearchCandidateCommand,
   Experiment,
-  import("../api/contracts").Trade
+  Trade
 >;
 
-export interface BacktestingApplication extends BacktestingModulePublicApi {
+export interface BacktestingApplication extends BacktestingApplicationApi {
   runCandidate(request: CandidateExecutionRequest, signal: AbortSignal): Promise<CandidateRunResult>;
 }
 
@@ -285,7 +284,7 @@ export function createBacktestingApplication(
   const execution = dependencies.execution as BacktestExecutionPort<CandidateExecutionRequest, CandidateRunResult>;
   const completionUnitOfWork = dependencies.completionUnitOfWork as BacktestingCompletionUnitOfWork<
     Experiment,
-    import("../api/contracts").Trade
+    Trade
   >;
   const finalizingCandidates = new Set<string>();
 

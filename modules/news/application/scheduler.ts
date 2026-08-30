@@ -1,7 +1,7 @@
 import type {
   CollectNewsCommand,
   NewsModulePublicApi,
-} from "../api/contracts";
+} from "./ports";
 
 export const DEFAULT_NEWS_REFRESH_INTERVAL_MINUTES = 5 as const;
 const MIN_NEWS_REFRESH_INTERVAL_MINUTES = 1;

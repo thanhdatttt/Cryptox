@@ -1,20 +1,4 @@
-import type { EvaluationMetrics } from "@cryptox/evaluation";
-import type {
-  MarketDataProvenance,
-  Pair,
-  Timeframe,
-  TimeRange,
-} from "@cryptox/market-data";
-import type {
-  Signal,
-  StrategySelection,
-  StrategySelectionProvenance,
-  StrategyVisualizationPoint,
-} from "@cryptox/strategy";
-import type {
-  AuthenticatedRequestContext,
-  AuthenticatedUserId,
-} from "modules/auth/api";
+import type { BacktestingApplicationApi } from "../application/ports";
 
 export const BACKTEST_EXECUTION_V1_ID = "BACKTEST_EXECUTION_V1" as const;
 export const SYNTHETIC_SHORT_PAPER_V1_ID = "SYNTHETIC_SHORT_PAPER_V1" as const;
@@ -99,49 +83,6 @@ export const CANDIDATE_STATUSES = [
   "FAILED",
   "CANCELLED",
 ] as const;
-export type CandidateStatus = (typeof CANDIDATE_STATUSES)[number];
-
-export type CandidateOrigin =
-  | { kind: "MANUAL"; leaderboardScopeId: string }
-  | {
-      kind: "SEARCH";
-      searchRunId: string;
-      leaderboardScopeId: string;
-      iterationNumber: number;
-    };
-
-export interface MarketInputSelectionIdentity {
-  pair: Pair;
-  timeframe: Timeframe;
-  range: TimeRange;
-}
-
-export type MarketInputSelection = MarketInputSelectionIdentity &
-  (
-    | { datasetId: string; datasetVersion?: string }
-    | { datasetId?: never; datasetVersion?: never }
-  );
-
-export interface BacktestConfiguration {
-  executionProfileId: typeof BACKTEST_EXECUTION_V1_ID;
-  initialCapital: number;
-  feeRatePercent: number;
-  slippageBps: number;
-  /** Optional to preserve the original long-only V1 request shape. */
-  paperExecution?: SyntheticPaperExecutionConfiguration;
-}
-
-export interface SyntheticPaperExecutionConfiguration {
-  executionProfileId: typeof SYNTHETIC_SHORT_PAPER_V1_ID;
-  positionMode: "LONG" | "SYNTHETIC_SHORT";
-  exitPolicyId: typeof STOP_LOSS_WINS_V1_ID;
-  feeRatePercent: 0.08;
-  adverseSlippageBps: 5;
-  decimalScale: typeof PAPER_DECIMAL_SCALE;
-  roundingMode: "HALF_UP";
-  stopLoss?: string;
-  takeProfit?: string;
-}
 
 export const SYNTHETIC_SHORT_PAPER_V1 = {
   id: SYNTHETIC_SHORT_PAPER_V1_ID,
@@ -153,212 +94,34 @@ export const SYNTHETIC_SHORT_PAPER_V1 = {
   executionClass: "ACADEMIC_CANDLE_SIMULATION_ONLY",
 } as const;
 
-export interface StartManualBacktestCommand {
-  leaderboardScopeId: string;
-  strategySelection: StrategySelection;
-  marketInput: MarketInputSelection;
-  configuration: BacktestConfiguration;
-}
+export type {
+  BacktestConfiguration,
+  BacktestSubmissionAccepted,
+  CandidateFailure,
+  CandidateFailureCode,
+  CandidateOrigin,
+  CandidatePage,
+  CandidatePageRequest,
+  CandidateProgress,
+  CandidateStatus,
+  CodeProvenance,
+  CompletedBacktestResult,
+  Experiment,
+  ExperimentVisualization,
+  MarketInputSelection,
+  MarketInputSelectionIdentity,
+  OverlayTracePoint,
+  ReplayAvailability,
+  ReplayUnavailableInput,
+  SearchCandidateSummary,
+  SignalTracePoint,
+  StartManualBacktestCommand,
+  SubmitSearchCandidateCommand,
+  SyntheticPaperExecutionConfiguration,
+  Trade,
+  TradeMarker,
+  TradePage,
+  TradePageRequest,
+} from "../application/ports";
 
-export interface SubmitSearchCandidateCommand extends StartManualBacktestCommand {
-  searchRunId: string;
-  leaderboardScopeId: string;
-  iterationNumber: number;
-}
-
-export interface BacktestSubmissionAccepted {
-  candidateId: string;
-  status: "ACCEPTED";
-}
-
-export type CandidateFailureCode =
-  | "INVALID_REQUEST"
-  | "SATURATED"
-  | "STRATEGY_FAILED"
-  | "SIMULATION_FAILED"
-  | "EVALUATION_FAILED"
-  | "RANKING_FAILED"
-  | "CANCELLED";
-
-export interface CandidateFailure {
-  code: CandidateFailureCode;
-  message: string;
-}
-
-export interface CandidateProgress {
-  candidateId: string;
-  ownerUserId: AuthenticatedUserId;
-  origin: CandidateOrigin;
-  strategySelection: StrategySelection;
-  marketInput: MarketInputSelection;
-  status: CandidateStatus;
-  experimentId?: string;
-  failure?: CandidateFailure;
-  createdAt: string;
-  startedAt?: string;
-  completedAt?: string;
-  durationMs?: number;
-  updatedAt: string;
-}
-
-export interface SignalTracePoint {
-  source: StrategySelection;
-  timestamp: string;
-  signal: Signal;
-  executionNotBefore: string;
-}
-
-export interface TradeMarker {
-  tradeId: string;
-  kind: "ENTRY" | "EXIT";
-  timestamp: string;
-  price: number;
-}
-
-export interface OverlayTracePoint {
-  strategyDefinitionId: string;
-  point: StrategyVisualizationPoint;
-}
-
-export interface ExperimentVisualization {
-  signals: readonly SignalTracePoint[];
-  overlays: readonly OverlayTracePoint[];
-  tradeMarkers: readonly TradeMarker[];
-}
-
-export interface Trade {
-  id: string;
-  experimentId: string;
-  sequence: number;
-  pair: Pair;
-  entrySignalAt: string;
-  entryTime: string;
-  entryPrice: number;
-  exitSignalAt?: string;
-  exitTime: string;
-  exitPrice: number;
-  positionMode?: "LONG" | "SYNTHETIC_SHORT";
-  exitReason: "STRATEGY_EXIT" | "RANGE_END" | "STOP_LOSS" | "TAKE_PROFIT";
-  quantity: number;
-  notionalEntryValue: number;
-  grossProfit: number;
-  feeAmount: number;
-  slippageBps: number;
-  profit: number;
-  resultPercent: number;
-  result: "WIN" | "LOSS" | "BREAKEVEN";
-}
-
-export interface CompletedBacktestResult {
-  status: "SUCCEEDED";
-  candidateId: string;
-  startedAt: string;
-  completedAt: string;
-  initialCapital: number;
-  endingCapital: number;
-  equityCurve: ReadonlyArray<{ timestamp: string; value: number }>;
-  trades: readonly Trade[];
-  visualization: ExperimentVisualization;
-}
-
-export interface CodeProvenance {
-  applicationVersion?: string;
-  gitCommit?: string;
-}
-
-export type ReplayUnavailableInput = "HISTORICAL_DATA" | "EXECUTABLE_CODE";
-export type ReplayAvailability =
-  | {
-      guarantee: "EXACT_REPLAY_AVAILABLE";
-      unavailableInputs: readonly [];
-      limitation?: never;
-    }
-  | {
-      guarantee: "TRACEABLE";
-      unavailableInputs: readonly [ReplayUnavailableInput, ...ReplayUnavailableInput[]];
-      limitation: string;
-    };
-
-export interface Experiment {
-  id: string;
-  candidateId: string;
-  searchRunId?: string;
-  strategy: StrategySelectionProvenance;
-  marketData: MarketDataProvenance;
-  configuration: BacktestConfiguration;
-  metrics: EvaluationMetrics;
-  rankingConfigurationId: string;
-  code: CodeProvenance;
-  replay: ReplayAvailability;
-  visualization: ExperimentVisualization;
-  createdAt: string;
-  paperExecutionProvenance?: SyntheticPaperExecutionConfiguration;
-}
-
-export interface SearchCandidateSummary {
-  searchRunId: string;
-  activeCandidateIds: readonly string[];
-  submittedCandidateCount: number;
-  completedCandidateCount: number;
-  failedCandidateCount: number;
-  averageBacktestDurationMs: number | null;
-}
-
-export interface CandidatePageRequest {
-  limit: number;
-  cursor?: string;
-}
-
-export interface CandidatePage {
-  items: readonly CandidateProgress[];
-  nextCursor?: string;
-}
-
-export interface TradePageRequest {
-  limit: number;
-  cursor?: string;
-}
-
-export interface TradePage {
-  items: readonly Trade[];
-  nextCursor?: string;
-}
-
-export interface BacktestingModulePublicApi {
-  startManual(
-    context: AuthenticatedRequestContext,
-    command: StartManualBacktestCommand,
-  ): Promise<BacktestSubmissionAccepted>;
-  submitSearchCandidate(
-    context: AuthenticatedRequestContext,
-    command: SubmitSearchCandidateCommand,
-  ): Promise<BacktestSubmissionAccepted>;
-  status(context: AuthenticatedRequestContext, candidateId: string): Promise<CandidateProgress>;
-  summarizeSearchCandidates(
-    context: AuthenticatedRequestContext,
-    searchRunId: string,
-  ): Promise<SearchCandidateSummary>;
-  listSearchCandidates(
-    context: AuthenticatedRequestContext,
-    searchRunId: string,
-    page: CandidatePageRequest,
-  ): Promise<CandidatePage>;
-  cancelSearchCandidates(
-    context: AuthenticatedRequestContext,
-    searchRunId: string,
-  ): Promise<{ candidateIds: readonly string[] }>;
-  cancelCandidate(context: AuthenticatedRequestContext, candidateId: string): Promise<void>;
-  readExperiment(
-    context: AuthenticatedRequestContext,
-    experimentId: string,
-  ): Promise<Experiment>;
-  listSearchExperiments(
-    context: AuthenticatedRequestContext,
-    searchRunId: string,
-  ): Promise<readonly Experiment[]>;
-  listExperimentTrades(
-    context: AuthenticatedRequestContext,
-    experimentId: string,
-    page: TradePageRequest,
-  ): Promise<TradePage>;
-}
+export interface BacktestingModulePublicApi extends BacktestingApplicationApi {}

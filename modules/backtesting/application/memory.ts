@@ -8,7 +8,7 @@ import type {
   StartManualBacktestCommand,
   SubmitSearchCandidateCommand,
   Trade,
-} from "../api/contracts";
+} from "./ports";
 import type {
   BacktestingApplicationDependencies,
   BacktestingCompletionUnitOfWork,

@@ -48,6 +48,21 @@ export interface RankingConfiguration {
   createdAt: string;
 }
 
+export type ScoredEvaluation =
+  | {
+      leaderboardScopeId: string;
+      rankingConfigurationId: string;
+      overallScore: number;
+      rankEligible: true;
+    }
+  | {
+      leaderboardScopeId: string;
+      rankingConfigurationId: string;
+      overallScore: number;
+      rankEligible: false;
+      rankExclusionReason: "NO_TRADES";
+    };
+
 export class LeaderboardScoringDomainError extends Error {
   public readonly name = "LeaderboardScoringDomainError";
 
@@ -161,18 +176,7 @@ export function scoreEvaluation(
   leaderboardScopeId: string,
   configuration: RankingConfiguration,
   metrics: RankingEvaluationMetrics,
-): {
-  leaderboardScopeId: string;
-  rankingConfigurationId: string;
-  overallScore: number;
-  rankEligible: true;
-} | {
-  leaderboardScopeId: string;
-  rankingConfigurationId: string;
-  overallScore: number;
-  rankEligible: false;
-  rankExclusionReason: "NO_TRADES";
-} {
+): ScoredEvaluation {
   assertRankingConfiguration(configuration);
   assertFiniteMetrics(metrics);
 

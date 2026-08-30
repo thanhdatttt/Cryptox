@@ -1,12 +1,30 @@
 import type { EvaluationMetrics } from "@cryptox/evaluation";
+import type { AuthenticatedRequestContext } from "modules/auth/api";
 import type {
-  AuthenticatedRequestContext,
-  AuthenticatedUserId,
-} from "modules/auth/api";
-import type { RankingConfiguration } from "../domain/ranking";
+  CreateLeaderboardScopeCommand,
+  LeaderboardEntry,
+  LeaderboardScope,
+  LeaderboardSubmission,
+  LeaderboardSubmissionResult,
+  RankableExperiment,
+  SearchRunRankingEntry,
+} from "../application/ports";
+import type {
+  RankingConfiguration,
+  ScoredEvaluation,
+} from "../domain/ranking";
 
 export { LINEAR_REQUIRED_V1, LINEAR_REQUIRED_V1_ID } from "../domain/ranking";
-export type { RankingConfiguration, RankingFormula } from "../domain/ranking";
+export type { RankingConfiguration, RankingFormula, ScoredEvaluation } from "../domain/ranking";
+export type {
+  CreateLeaderboardScopeCommand,
+  LeaderboardEntry,
+  LeaderboardScope,
+  LeaderboardSubmission,
+  LeaderboardSubmissionResult,
+  RankableExperiment,
+  SearchRunRankingEntry,
+} from "../application/ports";
 
 export const LEADERBOARD_COMPARISON_IDENTITY_V1 = {
   id: "LEADERBOARD_COMPARISON_IDENTITY_V1",
@@ -15,88 +33,9 @@ export const LEADERBOARD_COMPARISON_IDENTITY_V1 = {
   submissionPolicy: "SAME_LEADERBOARD_SCOPE_ID_ONLY",
 } as const;
 
-export interface LeaderboardScope {
-  id: string;
-  ownerUserId: AuthenticatedUserId;
-  name: string;
-  k: number;
-  rankingConfigurationId: string;
-  comparisonKey: string;
-  createdAt: string;
-}
-
-export interface CreateLeaderboardScopeCommand {
-  name: string;
-  k?: number;
-  rankingConfigurationId: string;
-  comparisonKey: string;
-}
-
-export type ScoredEvaluation =
-  | {
-      leaderboardScopeId: string;
-      rankingConfigurationId: string;
-      overallScore: number;
-      rankEligible: true;
-    }
-  | {
-      leaderboardScopeId: string;
-      rankingConfigurationId: string;
-      overallScore: number;
-      rankEligible: false;
-      rankExclusionReason: "NO_TRADES";
-    };
-
 export interface LeaderboardScoringError {
   code: "INVALID_METRICS";
   message: string;
-}
-
-export interface LeaderboardEntry {
-  id: string;
-  rank: number;
-  candidateId: string;
-  searchRunId?: string;
-  experimentId: string;
-  leaderboardScopeId: string;
-  rankingConfigurationId: string;
-  score: number;
-  addedAt: string;
-}
-
-export interface SearchRunRankingEntry {
-  rank: number;
-  searchRunId: string;
-  leaderboardScopeId: string;
-  candidateId: string;
-  experimentId: string;
-  rankingConfigurationId: string;
-  score: number;
-}
-
-export interface RankableExperiment {
-  executionState: "SUCCEEDED";
-  experimentId: string;
-  candidateId: string;
-  searchRunId?: string;
-  metrics: EvaluationMetrics;
-  /** Read-only provenance reference; ranking must not alter execution provenance. */
-  extensionProvenance?: {
-    searchProfileId?: string;
-    paperExecutionProfileId?: string;
-    newsExtractionTemplateVersion?: number;
-  };
-}
-
-export interface LeaderboardSubmissionResult {
-  admitted: boolean;
-  entry?: LeaderboardEntry;
-  evictedExperimentId?: string;
-}
-
-export interface LeaderboardSubmission {
-  leaderboardScopeId: string;
-  experiment: RankableExperiment;
 }
 
 export interface LeaderboardModulePublicApi {

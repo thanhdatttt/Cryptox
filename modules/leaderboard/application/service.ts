@@ -6,19 +6,18 @@ import {
   LeaderboardScoringDomainError,
   LINEAR_REQUIRED_V1,
   scoreEvaluation,
-} from "../domain/ranking";
-import {
-  type CreateLeaderboardScopeCommand,
-  type LeaderboardEntry,
-  type LeaderboardModulePublicApi,
-  type LeaderboardScope,
-  type LeaderboardSubmission,
-  type LeaderboardSubmissionResult,
-  type RankableExperiment,
   type RankingConfiguration,
   type ScoredEvaluation,
-  type SearchRunRankingEntry,
-} from "../api/contracts";
+} from "../domain/ranking";
+import type {
+  CreateLeaderboardScopeCommand,
+  LeaderboardEntry,
+  LeaderboardScope,
+  LeaderboardSubmission,
+  LeaderboardSubmissionResult,
+  RankableExperiment,
+  SearchRunRankingEntry,
+} from "./ports";
 import type {
   LeaderboardApplicationDependencies,
 } from "./ports";
@@ -342,7 +341,7 @@ function factsForExperiment(
 
 export function createLeaderboardApplication(
   dependencies: Dependencies,
-): LeaderboardModulePublicApi {
+) {
   const scopes = new Map<string, LeaderboardScope>();
   const configurations = new Map<string, RankingConfiguration>();
   const facts = new Map<string, RankingFacts>();

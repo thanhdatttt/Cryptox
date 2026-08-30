@@ -1,5 +1,69 @@
+import type { EvaluationMetrics } from "@cryptox/evaluation";
 import type { AuthenticatedUserId } from "modules/auth/api";
-import type { RankableExperiment } from "../api/contracts";
+
+export interface LeaderboardScope {
+  id: string;
+  ownerUserId: AuthenticatedUserId;
+  name: string;
+  k: number;
+  rankingConfigurationId: string;
+  comparisonKey: string;
+  createdAt: string;
+}
+
+export interface CreateLeaderboardScopeCommand {
+  name: string;
+  k?: number;
+  rankingConfigurationId: string;
+  comparisonKey: string;
+}
+
+export interface LeaderboardEntry {
+  id: string;
+  rank: number;
+  candidateId: string;
+  searchRunId?: string;
+  experimentId: string;
+  leaderboardScopeId: string;
+  rankingConfigurationId: string;
+  score: number;
+  addedAt: string;
+}
+
+export interface SearchRunRankingEntry {
+  rank: number;
+  searchRunId: string;
+  leaderboardScopeId: string;
+  candidateId: string;
+  experimentId: string;
+  rankingConfigurationId: string;
+  score: number;
+}
+
+export interface RankableExperiment {
+  executionState: "SUCCEEDED";
+  experimentId: string;
+  candidateId: string;
+  searchRunId?: string;
+  metrics: EvaluationMetrics;
+  /** Read-only provenance reference; ranking must not alter execution provenance. */
+  extensionProvenance?: {
+    searchProfileId?: string;
+    paperExecutionProfileId?: string;
+    newsExtractionTemplateVersion?: number;
+  };
+}
+
+export interface LeaderboardSubmissionResult {
+  admitted: boolean;
+  entry?: LeaderboardEntry;
+  evictedExperimentId?: string;
+}
+
+export interface LeaderboardSubmission {
+  leaderboardScopeId: string;
+  experiment: RankableExperiment;
+}
 
 export interface LeaderboardScopeRepository<TScope, TCreateCommand> {
   insert(ownerUserId: AuthenticatedUserId, command: TCreateCommand): Promise<TScope>;

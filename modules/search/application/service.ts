@@ -12,19 +12,22 @@ import type {
   CandidateGenerationRequest,
   GeneratorType,
   GeneratedCandidate,
+  SearchSpaceConfig,
+} from "../domain/random-generator";
+import type {
   SearchCandidateTemplate,
-  SearchModulePublicApi,
+  SearchApplicationApi,
   SearchRunPage,
   SearchRunPageRequest,
   SearchRunState,
   SearchRunStatus,
   SearchRunStopReason,
-  SearchSpaceConfig,
   SeededDiscoveryProvenance,
   StartSearchCommand,
   StopCondition,
-} from "../api/contracts";
-import type { SearchApplicationDependencies, StrategyGeneratorPort } from "./ports";
+  SearchApplicationDependencies,
+  StrategyGeneratorPort,
+} from "./ports";
 import {
   DomainGuidedStrategyGenerator,
   type DomainGuidedGeneratorOptions,
@@ -406,7 +409,7 @@ function makeContext(ownerUserId: AuthenticatedUserId): AuthenticatedRequestCont
 export function createSearchApplication(
   dependencies: Dependencies,
   options: SearchApplicationOptions = {},
-): SearchModulePublicApi {
+): SearchApplicationApi {
   const clock = options.clock ?? { now: () => new Date().toISOString() };
   const idGenerator = options.idGenerator ?? (() => crypto.randomUUID());
   const pollIntervalMs = options.pollIntervalMs ?? 10;

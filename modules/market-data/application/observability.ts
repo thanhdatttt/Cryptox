@@ -3,7 +3,7 @@ import type {
   MarketObservedTick,
   MarketObservabilityState,
   Pair,
-} from "../api/contracts";
+} from "./ports";
 
 const OBSERVABILITY_PROFILE_ID = ["MARKET", "OBSERVABILITY", "V1"].join("_") as MarketObservabilityState["profileId"];
 const OBSERVABILITY_PERSISTENCE = ["EPHEMERAL", "IN_MEMORY", "ONLY"].join("_") as MarketObservabilityState["persistence"];

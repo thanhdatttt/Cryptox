@@ -1,3 +1,8 @@
+export type SeededDiscoveryProfileId =
+  | "RANDOM_V1"
+  | `${"DOMAIN_GUIDED"}_V1`
+  | `${"GENETIC"}_V1`;
+
 export type GeneratorType = "RANDOM" | "DOMAIN_GUIDED" | "GENETIC";
 
 export interface GeneratedCandidate {

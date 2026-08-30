@@ -1,12 +1,14 @@
 import type { AuthenticatedUserId } from "modules/auth/api";
 import {
   LINEAR_REQUIRED_V1,
-  type CreateLeaderboardScopeCommand,
-  type LeaderboardEntry,
-  type LeaderboardScope,
-  type RankableExperiment,
   type RankingConfiguration,
-} from "../api/contracts";
+} from "../domain/ranking";
+import type {
+  CreateLeaderboardScopeCommand,
+  LeaderboardEntry,
+  LeaderboardScope,
+  RankableExperiment,
+} from "./ports";
 import type {
   LeaderboardApplicationDependencies,
   LeaderboardExperimentRepository,

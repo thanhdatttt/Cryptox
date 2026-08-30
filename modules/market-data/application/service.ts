@@ -1,3 +1,4 @@
+import { MARKET_TIMEFRAMES } from "./ports";
 import type {
   DatasetSnapshotCreateCommand,
   DatasetSnapshotPage,
@@ -14,7 +15,7 @@ import type {
   MarketDataUpdate,
   MarketSubscription,
   Pair,
-} from "../api/contracts";
+} from "./ports";
 import type {
   Candle,
 } from "../domain/contracts";
@@ -29,7 +30,6 @@ import type {
 } from "./ports";
 import { InMemoryMarketObservability } from "./observability";
 
-const MARKET_TIMEFRAMES = ["1m", "5m", "15m", "1h", "4h", "1d"] as const;
 const DEFAULT_MAX_RANGE_CANDLES = 100_000;
 const DEFAULT_PAGE_LIMIT = 1_000;
 const DEFAULT_MAX_SUBSCRIPTIONS = 4;

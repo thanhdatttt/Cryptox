@@ -1,5 +1,5 @@
 import type { AuthenticatedUserId } from "modules/auth/api";
-import type { SearchRunStatus } from "../api/contracts";
+import type { SearchRunStatus } from "./ports";
 import type { SearchRunRepository } from "./ports";
 
 function pageItems(
