@@ -2,15 +2,99 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-076`
+Instruction ID: `INS-077`
 
-Status: `HOLD`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
-## INS-076 — Post-INS-075 independent audit hold
+## INS-077 — S-04 controlled LLM authoring
 
-This current signal records the independent Instructor review after `INS-075`.
+This current signal supersedes `INS-076 / HOLD` and authorizes exactly one
+bounded `S-04` implementation. It authorizes no other packet, retry,
+replacement, duplicate, or downstream promotion.
+
+### Reviewed checkpoint and authority
+
+- Branch: `MVP_IMPLEMENTATION`; reviewed base is
+  `723d1700bd39c4417cbfe13ca6a56bdb8a4ce378` (`docs(control): hold after
+  INS-075 audit`). The working tree was clean at review and no Cryptox Manager
+  or worker was active.
+- The authority chain agrees: `DEC-007`, `ADR-009`, the approved
+  `CSL-R-ST-05`/`CSL-R-RP-02` requirements and safe-content join
+  `CSL-R-NW-02`, `openspec/specs/strategy/spec.md`, and the `S-04` packet in
+  `MVP_PLAN.md`/`TASKS.md` define the same controlled authoring boundary.
+- Start dependencies are verified from `TASKS.md`: `C-02`, `S-01`, and the
+  URL-origin prerequisite `N-03`/`N-03A` are `DONE`. `S-05`, `S-06`, `Q-02`,
+  `B-03`, and `M-03` are also `DONE`. `F-03`, `AU-02`, and `I-03` are
+  integration dependencies only and remain blocked; they are not authorized by
+  this signal.
+- The operational board remains `34 DONE`, `1 REVIEW` (`M-02`), and
+  `8 BLOCKED`. `TASKS.md` remains the sole operational-state authority.
+
+### Exact Manager and worker authorization
+
+- Create exactly one fresh Manager in the canonical same-directory checkout
+  `D:/agy-cli-projects/AOS/Cryptox`, branch `MVP_IMPLEMENTATION`, using model
+  `gpt-5.6-luna` with `max` reasoning. The Manager must read `AGENTS.md` and
+  `docs/control/prompts/ORCHESTRATOR_START.md` completely, verify this signal
+  and base checkpoint from Git, check the DAG/dependencies and active-task list,
+  and stop if any material premise or source/business state drifted.
+- The Manager may create exactly one fresh Strategy application worker for
+  `S-04`, with a disjoint source write scope. No second worker, retry,
+  replacement, worktree, branch, or duplicate Manager is allowed.
+- The Manager alone may update `docs/implementation/TASKS.md` and
+  `docs/implementation/HANDOFF.md`; the worker must not edit any control-plane
+  artifact. The Manager must stop after the S-04 review/checkpoint.
+
+### Packet, requirements, and exact write scope
+
+- Packet: `S-04 — Controlled LLM_AUTHORING_V1 Strategy Drafts`.
+- Requirement IDs: `CSL-R-ST-05`, `CSL-R-RP-02`, and the safe imported-content
+  join in `CSL-R-NW-02`.
+- Allowed implementation scope: `modules/strategy/api/**` excluding
+  `contracts.ts` and contract-only tests; `modules/strategy/application/**`
+  for authoring implementation/repositories excluding the canonical
+  `ports.ts`; `modules/strategy/infrastructure/**` for the provider adapter;
+  and focused Strategy authoring tests. Existing frozen contracts may be read
+  and consumed but not changed.
+- Forbidden scope: `modules/strategy/api/contracts.ts`,
+  `modules/strategy/application/ports.ts`, canonical REST contracts,
+  `modules/strategy/domain/**`, `modules/news/**`, direct URL fetching or News
+  persistence, migrations, dependencies, frontend, backend composition,
+  credentials/secrets, queues/distributed execution, automatic approval, and
+  every unrelated source or control-plane file.
+
+### Acceptance, validation, and stop condition
+
+- Implement a provider-neutral, configured OpenAI-compatible demo adapter that
+  makes at most one request per prompt or approved-News-item submission, has a
+  hard 45-second timeout, performs no retry/queue behavior, and never exposes
+  or persists provider secrets, raw prompts, or raw completions.
+- Produce a structured draft only; deterministic schema/domain validation must
+  precede any persistence. Missing configuration, timeout, provider failure,
+  malformed draft, rejected validation, and rejected approval must have no
+  persistence side effect.
+- Require an explicit authenticated Save/Approve action to create exactly one
+  immutable owner-scoped Strategy Definition version with safe authoring origin
+  metadata. Cross-user reads/mutations must have the approved not-found
+  behavior. An URL-origin submission may use only the existing safe News public
+  boundary and approved News item; Strategy must never fetch the URL directly.
+- Add focused unit/contract/owner-approval/no-write/timeout/provenance tests,
+  then run applicable Strategy tests and package typecheck/build/lint plus
+  repository scope, architecture, artifact, deferred-scope, and diff checks.
+  Configured real-provider or PostgreSQL/browser evidence is recorded as
+  `PASS` only when actually run; unavailable evidence remains `UNVERIFIED` or
+  `BLOCKED`, never inherited from fixtures or skipped tests.
+- Move only `S-04` through the normal operational sequence
+  `BLOCKED -> READY -> IN_PROGRESS -> REVIEW -> DONE` when evidence warrants
+  it. Do not start or promote `F-03`, `AU-02`, `I-01`, `I-02`, `I-03`, `E-02`,
+  `L-02`, `M-02`, or any other packet. After one Manager checkpoint commit
+  attempt and report, stop for independent Instructor review.
+
+## Historical INS-076 — Post-INS-075 independent audit hold
+
+This historical signal recorded the independent Instructor review after `INS-075`.
 It authorizes no Manager, worker, implementation, retry, replacement, closure
 review, downstream promotion, or other task-state transition.
 
