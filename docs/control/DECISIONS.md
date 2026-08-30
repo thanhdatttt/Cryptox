@@ -1158,3 +1158,38 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [MVP plan](../implementation/MVP_PLAN.md), [Task state](../implementation/TASKS.md),
 [Latest checkpoint](../implementation/HANDOFF.md), `DEC-031`, `INS-110`, and
 commit `5fc0bb2`.
+
+## DEC-033 — Fresh explicit ENV-06 application-boundary reconciliation authorization
+
+Status: `APPROVED`
+
+Authority: Fresh Instructor review after `INS-111 / HOLD` at `17db62f`, the
+integrated ENV-05 checkpoint `5fc0bb2`, and the independent `arch:check` result.
+
+Decision: The Instructor authorizes exactly one fresh `INS-112 /
+APPROVED_FOR_EXECUTION` attempt for `ENV-06 — Remaining Application Contract
+Boundary Reconciliation`. It is limited to one fresh same-directory Manager
+using `gpt-5.6-luna` with reasoning `max` and exactly three fresh disjoint
+internal workers with the module scopes recorded in `INSTRUCTOR.md`. It
+authorizes no ENV-05 retry, I-01R closure, I-01 resumption, I-02, I-03,
+extension, replacement, duplicate, worktree, or downstream execution.
+
+Why: ENV-05 truthfully repaired its authorized scope, but the strict active
+architecture gate still reports `28` application-to-own-API dependencies in
+the Backtesting, Search, News, Market Data, and Leaderboard application
+boundaries. The remaining source reconciliation is necessary to satisfy the
+accepted `api -> application -> domain` layering and must preserve public
+exports and behavior. Changing the checker to hide type-only edges, lowering
+severity, or adding a broad allowlist is not approved.
+
+Affected: `ENV-06`, `ENV-05`, `I-01R`, `I-01`, `MVP_PLAN.md`, `TASKS.md`,
+`HANDOFF.md`, `INS-112`, and the integration DAG. Requirements, approved
+functional image amendments, accepted ADRs, contracts, completed packet
+states, `I-02`, `I-03`, and deferred scope remain unchanged.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [Architecture](../architecture.md),
+[ADR-005](../adr/ADR_005_module_first_structure.md),
+[MVP plan](../implementation/MVP_PLAN.md), [Task state](../implementation/TASKS.md),
+[Latest checkpoint](../implementation/HANDOFF.md), `DEC-032`, `INS-111`, and
+commit `17db62f`.

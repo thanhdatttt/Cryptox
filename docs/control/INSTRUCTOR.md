@@ -2,13 +2,117 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-111`
+Instruction ID: `INS-112`
 
-Status: `HOLD`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
-## INS-111 — HOLD after ENV-05 architecture-gate review
+## INS-112 — Remaining application contract boundary reconciliation
+
+This signal supersedes `INS-111 / HOLD` after the Instructor verified the
+integrated ENV-05 checkpoint and its remaining architecture findings. It
+authorizes exactly one new operational packet, `ENV-06`, and no other task.
+
+### Reviewed checkpoint and applicability
+
+- The canonical checkout is `D:/agy-cli-projects/AOS/Cryptox` on
+  `MVP_IMPLEMENTATION`, at `17db62f` (`chore(control): hold after ENV-05
+  review`). The tracked tree is clean at this checkpoint; the app-generated
+  `.codex/config.toml` remains untracked, outside Cryptox scope, and must stay
+  untouched, unstaged, and undeleted.
+- The authoritative task board has `41 DONE`, `3 REVIEW` (`I-01R`, `I-01`,
+  `ENV-05`), and `2 BLOCKED` (`I-02`, `I-03`) rows, `46` rows total. Existing
+  rows must remain unchanged; the Manager must add exactly one `ENV-06` row
+  and own only its state transitions.
+- The exact ENV-05 output is integrated at `5fc0bb2`. Independent
+  `npm run arch:check` still reports `28` active application-to-own-API
+  violations across Backtesting, Search, News, Market Data, and Leaderboard;
+  no competing Cryptox Manager, worker, retry, replacement, duplicate, or
+  downstream task is active.
+- Governing authority is `CSL-R-AR-01`–`03`, `CSL-R-RP-02`, `CSL-R-DL-01`,
+  ADR-005's accepted `api -> application -> domain` layering, `DEC-032`,
+  `DEC-033`, the current `MVP_PLAN.md` ENV-06 packet, and the active
+  `mvp-implementation` artifacts read directly. OpenSpec CLI remains
+  `UNVERIFIED`.
+
+### Exact Manager and worker authorization
+
+- Create exactly one fresh Manager in the canonical checkout, same directory,
+  no worktree and no historical Manager reuse, with model `gpt-5.6-luna` and
+  reasoning `max`. The Manager must read `AGENTS.md`,
+  `docs/control/prompts/ORCHESTRATOR_START.md`, the current signal, checkpoint,
+  task DAG, requirements, accepted ADRs, architecture, data model, relevant
+  specs, and the complete ENV-06 plan before acting.
+- The Manager must create exactly three fresh internal workers in parallel
+  with disjoint module scopes below; no user-visible child task, duplicate,
+  replacement, retry, unapproved writer, branch, or worktree is allowed.
+  Workers must not edit control-plane artifacts or commit.
+- Worker A may edit only `modules/backtesting/application/service.ts`,
+  `modules/backtesting/application/memory.ts`,
+  `modules/backtesting/application/ports.ts`,
+  `modules/backtesting/api/contracts.ts`,
+  `modules/search/application/service.ts`,
+  `modules/search/application/memory.ts`,
+  `modules/search/application/ports.ts`,
+  `modules/search/api/contracts.ts`,
+  `modules/search/domain/random-generator.ts`, and focused tests under the
+  Backtesting/Search module directories only. It may remove only the current
+  application-to-own-API dependencies with lower-layer-owned types/constants
+  and stable public re-exports.
+- Worker B may edit only `modules/news/application/service.ts`,
+  `modules/news/application/scheduler.ts`,
+  `modules/news/application/ports.ts`,
+  `modules/news/application/normalization.ts`,
+  `modules/news/api/contracts.ts`,
+  `modules/market-data/application/service.ts`,
+  `modules/market-data/application/observability.ts`,
+  `modules/market-data/application/ports.ts`,
+  `modules/market-data/api/contracts.ts`, and focused tests under the
+  News/Market Data module directories only. It may remove only the current
+  application-to-own-API dependencies while preserving News/Sentiment
+  isolation and ephemeral Market Data behavior.
+- Worker C may edit only `modules/leaderboard/application/service.ts`,
+  `modules/leaderboard/application/memory.ts`,
+  `modules/leaderboard/application/ports.ts`,
+  `modules/leaderboard/api/contracts.ts`,
+  `modules/leaderboard/domain/ranking.ts`, and focused tests under the
+  Leaderboard module directory only. It may remove only the current
+  application-to-own-API dependencies while preserving ranking formula,
+  eligibility, ownership, provenance, and public exports.
+- The Manager alone may add and update the `ENV-06` row in
+  `docs/implementation/TASKS.md` and replace `docs/implementation/HANDOFF.md`.
+  It may perform only governance, review, integration glue, conflict
+  resolution, or a genuinely tiny review fix inside the authorized paths.
+  It may not change ENV-05, I-01R, I-01, I-02, I-03, or any other row.
+
+### Acceptance, validation, prohibitions and stop condition
+
+- The Manager must verify the current architecture finding set before edits.
+  `npm run arch:check` must pass with all active rules intact. No
+  `dependencyTypesNot` shortcut, broad allowlist, severity downgrade,
+  known-violation baseline, or coverage bypass is authorized.
+- Run focused tests for every changed module, workspace test/build/typecheck/
+  lint, artifacts/source-sidecar, deferred-scope and its 13-case suite,
+  runtime smoke, secret/log, whitespace, exact-path, and `git diff --check`.
+  Docker/PostgreSQL, OpenSpec CLI, configured live providers, browser/demo,
+  and final integrated runtime evidence remain `BLOCKED`/`UNVERIFIED` unless
+  actually observed. Fixtures and skips are not PASS evidence.
+- Preserve all public module exports, REST/WebSocket contracts, runtime
+  behavior, algorithms, schemas/migrations, providers, ownership,
+  provenance, and existing task states. Do not edit `.dependency-cruiser.js`,
+  `scripts/check-architecture-rules.mjs`, packages, apps, infra root,
+  dependencies, OpenSpec/requirements/ADR artifacts, deferred features,
+  queues, distributed protocols, or downstream code.
+- The Manager may move only `ENV-06` through
+  `BLOCKED -> READY -> IN_PROGRESS -> REVIEW`, and to `DONE` only when the
+  exact architecture findings are gone and every bounded gate passes. It
+  must stop after one coherent checkpoint commit attempt; if Git denies
+  staging/commit, record the exact error once and do not retry. It must not
+  close ENV-05/I-01R, resume I-01, start I-02/I-03, or promote downstream
+  work. A fresh Instructor review must follow.
+
+## Historical INS-111 — HOLD after ENV-05 architecture-gate review
 
 This signal supersedes `INS-110 / APPROVED_FOR_EXECUTION` after the Manager
 completed the one authorized ENV-05 attempt. It authorizes no implementation,

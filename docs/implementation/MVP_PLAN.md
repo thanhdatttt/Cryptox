@@ -184,7 +184,7 @@ P-00 DONE -> C-01 DONE -> A-00 DONE -> C-01A READY
          +-------------------------------> I-01 <-----------------------+
 
 E-01 READY --------------------------------> B-02
-F-01 READY -> F-AUTH --(AU-01 integrate)--> F-02 -----------------> I-01S -> I-01R -> ENV-05 -> I-01 -> I-02
+F-01 READY -> F-AUTH --(AU-01 integrate)--> F-02 -----------------> I-01S -> I-01R -> ENV-05 -> ENV-06 -> I-01 -> I-02
 ```
 
 The revised critical join is:
@@ -193,12 +193,14 @@ The revised critical join is:
 A-00 -> C-01A
   -> { S-01 -> B-01 | D-01 -> L-01 } -> B-02 -> Q-01 integration
   -> { AU-01 | Q-01 integration } -> AU-02
-  -> { AU-02 | F-01 -> F-AUTH -> F-02 | real-provider lanes } -> I-01S -> I-01R -> ENV-05 -> I-01 -> I-02
+  -> { AU-02 | F-01 -> F-AUTH -> F-02 | real-provider lanes } -> I-01S -> I-01R -> ENV-05 -> ENV-06 -> I-01 -> I-02
 ```
 
 E-01 and F-01 remain independently READY after A-00 but are not started by A-00.
 M-01/M-02, real built-ins, News/Sentiment, Search integration, Auth/frontend, and
 real-provider evidence complete before I-01/I-02, not before unrelated pure work.
+The ENV-05 gate must be reviewed before the separately authorized ENV-06
+application-boundary reconciliation; neither gate authorizes I-01 by itself.
 
 The legacy diagram and wave rows above preserve the original program shape at
 the A-00 checkpoint. The current operational states are owned by `TASKS.md` and
@@ -293,6 +295,7 @@ provider, provenance, and no-secret evidence for this extension frontier.
 | 5R | I-01 review identifies a missing public Strategy composition seam | `I-01S` only | Strategy-owned public registry/composition seam is reviewed and available to the runtime boundary |
 | 6R | I-01 review identifies missing public module bootstrap/persistence seams | `I-01R` only | Public module composition and owned persistence seams are reviewed and available to the runtime boundary |
 | 6V | I-01R review identifies validator, architecture, and runtime-smoke boundary drift | `ENV-05` only | Required gates enforce the accepted architecture and current truthful readiness boundary |
+| 6A | ENV-05 review identifies remaining application-to-own-API violations | `ENV-06` only | Strict architecture rules pass with application boundaries reconciled |
 | 6 | I-01S and I-01R plus the existing I-01/AU-02 prerequisites | Fresh reviewed I-01 resumption | Runnable integrated backend/frontend with real-provider preflight |
 | 7 | I-02 | Independent test/reviewer agents | Full MVP DoD, two-user isolation, and real demo evidence |
 
@@ -1007,6 +1010,94 @@ strict artifact repositories; unrelated cleanup.
   review. It must not close I-01R, resume I-01, start I-02/I-03, or promote any
   downstream packet. **Parallel:** YES, maximum three workers;
   **Critical:** YES to I-01R.
+
+### ENV-06 — Remaining Application Contract Boundary Reconciliation
+
+- **Requirement IDs / authority:** `CSL-R-AR-01`–`03`, `CSL-R-RP-02`,
+  `CSL-R-DL-01`, ADR-005's accepted `api -> application -> domain` direction,
+  `DEC-032`, and the exact `application-does-not-import-own-api` findings
+  recorded by ENV-05; validation prerequisite for accepting `I-01R` and
+  resuming `I-01`.
+- **State / owner / wave:** BLOCKED / fresh Manager plus three disjoint
+  internal workers / 6A.
+- **Start dependencies:** ENV-05 is `REVIEW /
+  NEEDS_INSTRUCTOR_REVIEW` after its exact delta was integrated at `5fc0bb2`,
+  the current Instructor checkpoint is `INS-111 / HOLD`, and no implementation
+  writer is active. The Manager must verify the exact current architecture
+  output before adding the ENV-06 row; this packet must not assume that the
+  finding set is unchanged.
+- **Integration dependencies:** A fresh Instructor review of ENV-06 and the
+  resulting I-01R evidence. This packet does not authorize I-01R closure, I-01,
+  I-02, I-03, extensions, or final/demo claims.
+- **Objective:** Remove the currently reported application-to-own-API
+  dependencies while preserving public module exports, REST/WebSocket
+  contracts, runtime behavior, and the strict architecture rules. Internal
+  application/domain types and immutable values may be relocated to the
+  appropriate lower-layer-owned files in the exact scopes below, with
+  compatibility re-exports where needed. This is source-boundary plumbing,
+  not a contract or feature redesign.
+- **Worker A — Backtesting and Search:** only
+  `modules/backtesting/application/service.ts`,
+  `modules/backtesting/application/memory.ts`,
+  `modules/backtesting/application/ports.ts`,
+  `modules/backtesting/api/contracts.ts`,
+  `modules/search/application/service.ts`,
+  `modules/search/application/memory.ts`,
+  `modules/search/application/ports.ts`,
+  `modules/search/api/contracts.ts`,
+  `modules/search/domain/random-generator.ts`, and focused tests under
+  those two module directories only. It may remove only the current
+  application-to-own-API dependencies using lower-layer-owned types/constants
+  and stable public re-exports.
+- **Worker B — News and Market Data:** only
+  `modules/news/application/service.ts`,
+  `modules/news/application/scheduler.ts`,
+  `modules/news/application/ports.ts`,
+  `modules/news/application/normalization.ts`,
+  `modules/news/api/contracts.ts`,
+  `modules/market-data/application/service.ts`,
+  `modules/market-data/application/observability.ts`,
+  `modules/market-data/application/ports.ts`,
+  `modules/market-data/api/contracts.ts`, and focused tests under those two
+  module directories only. It may remove only the current
+  application-to-own-API dependencies while preserving News/Sentiment
+  isolation and ephemeral Market Data behavior.
+- **Worker C — Leaderboard:** only
+  `modules/leaderboard/application/service.ts`,
+  `modules/leaderboard/application/memory.ts`,
+  `modules/leaderboard/application/ports.ts`,
+  `modules/leaderboard/api/contracts.ts`,
+  `modules/leaderboard/domain/ranking.ts`, and focused tests under the
+  Leaderboard module directory only. It may remove only the current
+  application-to-own-API dependencies while preserving ranking formula,
+  eligibility, ownership, provenance, and public exports.
+- **Manager-owned scope:** only the new `ENV-06` row and latest
+  `HANDOFF.md` checkpoint in `docs/implementation/`; the Manager alone moves
+  ENV-06 through the operational state sequence and may not change ENV-05,
+  I-01R, I-01, I-02, I-03, or any other row.
+- **Forbidden:** changing `.dependency-cruiser.js` or architecture-rule
+  severity/coverage to hide findings, feature/UI behavior, REST/WebSocket
+  behavior, algorithms, schemas/migrations, provider behavior, backend,
+  frontend, packages, infra root, dependencies, OpenSpec/requirements/ADR
+  artifacts, deferred scope, queues, distributed protocols, retries,
+  replacements, duplicates, worktrees, or downstream execution. Type-only
+  edges may not be made invisible by a broad checker exception; if the exact
+  finding set requires a path outside these scopes, stop with
+  `NEEDS_INSTRUCTOR_REVIEW`.
+- **Acceptance/tests:** Re-run and record the exact current finding set before
+  editing. `npm run arch:check` must pass with all active rules intact and no
+  known-violation baseline or broad ignore. Run focused tests for every changed
+  module, workspace test/build/typecheck/lint, artifacts/source-sidecar,
+  deferred-scope and its 13-case suite, runtime smoke, secret/log,
+  whitespace, exact-path, and `git diff --check`. Docker/PostgreSQL,
+  OpenSpec CLI, configured real providers, browser/demo, and final integrated
+  runtime evidence remain explicitly `BLOCKED`/`UNVERIFIED` when unavailable.
+- **Stop condition:** The Manager moves only ENV-06 through
+  `BLOCKED -> READY -> IN_PROGRESS -> REVIEW`, records `DONE` only when the
+  exact architecture finding set is gone and all bounded evidence passes, and
+  stops for fresh Instructor review. It must not close ENV-05/I-01R, resume
+  I-01, start I-02/I-03, or promote downstream work. **Parallel:** YES,
+  exactly three disjoint workers; **Critical:** YES to I-01R.
 
 ### I-01 — Runtime, Transports and Observability Integration
 
