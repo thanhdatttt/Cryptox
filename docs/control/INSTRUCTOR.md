@@ -2,13 +2,63 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-073`
+Instruction ID: `INS-074`
 
-Status: `APPROVED_FOR_EXECUTION`
+Status: `HOLD`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
-## INS-073 — N-03A News auto-refresh completion and N-03 closure
+## INS-074 — Independent post-INS-073 audit hold
+
+This is the current Instructor signal and supersedes `INS-073 /
+APPROVED_FOR_EXECUTION`. The N-03A implementation and N-03 closure passed
+independent review and were integrated at commit `f320b5f1d7731d121db27e788cffa4a8033dc7fd`.
+Execution is now on HOLD because the latest Manager checkpoint still contains
+one stale statement about the worker paths being uncommitted.
+
+### Verified checkpoint
+
+- Branch: `MVP_IMPLEMENTATION`; current HEAD is `f320b5f1d7731d121db27e788cffa4a8033dc7fd`.
+- The working tree was clean after the audited integration commit. The commit
+  contains only the three reviewed N-03A News paths and the Manager-owned
+  `TASKS.md`/`HANDOFF.md` checkpoint changes; the Instructor did not implement
+  feature code.
+- `TASKS.md` records `N-03A=DONE` and `N-03=DONE`; `M-02` remains
+  `REVIEW/UNVERIFIED`; `AU-02`, `S-04`, `E-02`, `L-02`, `F-03`, `I-01`,
+  `I-02`, and `I-03` remain `BLOCKED`.
+- The INS-073 Manager and its single News worker are complete and archived;
+  no Cryptox Manager, worker, duplicate, or retry is active.
+
+### Independent evidence
+
+- N-03A scheduler `5/5`, News `35/35`, Sentiment `19/19`, and public News API
+  `3/3` passed.
+- Root workspace tests passed `346` with `6` environment-gated skips; skips
+  are not PASS evidence. Root/package typecheck, build, lint, architecture,
+  artifacts, deferred-scope/checker, and diff checks exited successfully.
+- The worker changed only `modules/news/application/scheduler.ts`,
+  `modules/news/application/scheduler.spec.ts`, and the minimal scheduler
+  export in `modules/news/api/bootstrap.ts`. No contracts, infrastructure,
+  migration, dependency, or unrelated source path changed.
+
+### Reconciliation required before the next feature authorization
+
+- The latest `HANDOFF.md` correctly records the Manager's one staging failure,
+  but its final sentence still says the reviewed worker paths remain
+  uncommitted. That is stale after `f320b5f`.
+- The Instructor will not edit `TASKS.md` or `HANDOFF.md`. A fresh Manager must
+  receive a separate control-only authorization to reconcile those two files
+  with the actual integrated commit, then stop. No feature implementation,
+  retry, replacement, downstream promotion, `M-02`, `AU-02`, `I-01`, `I-02`,
+  or deferred packet is authorized under this HOLD.
+
+### Evidence limitations
+
+Real configured News/Binance, PostgreSQL/Docker runtime, browser/demo runtime,
+OpenSpec CLI, and link/DAG automation remain `UNVERIFIED` or `BLOCKED` where
+applicable. Fixtures and skipped tests are not promoted to PASS.
+
+## Historical INS-073 — N-03A News auto-refresh completion and N-03 closure
 
 This replaceable signal supersedes `INS-072 / HOLD` and authorizes exactly one
 fresh Manager and exactly one fresh News worker for the residual `N-03A`
