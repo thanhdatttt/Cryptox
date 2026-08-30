@@ -1,4 +1,7 @@
-import type { EvaluationMetrics } from "@cryptox/evaluation";
+import {
+  REQUIRED_METRICS_V1_ID,
+  type EvaluationMetrics,
+} from "@cryptox/evaluation";
 import {
   LINEAR_REQUIRED_V1,
   type RankingConfiguration,
@@ -33,8 +36,12 @@ function hasExactKeys(value: object, keys: readonly string[]): boolean {
   return actual.length === keys.length && actual.every((key, index) => key === [...keys].sort()[index]);
 }
 
-function assertFiniteMetrics(metrics: EvaluationMetrics): void {
-  if (metrics === null || typeof metrics !== "object") {
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+export function assertFiniteMetrics(metrics: EvaluationMetrics): void {
+  if (!isRecord(metrics)) {
     throw new LeaderboardScoringDomainError("INVALID_METRICS", "metrics must be an object");
   }
 
@@ -51,6 +58,7 @@ function assertFiniteMetrics(metrics: EvaluationMetrics): void {
   if (
     typeof metrics.candidateId !== "string" ||
     metrics.candidateId.trim().length === 0 ||
+    metrics.evaluationProfileId !== REQUIRED_METRICS_V1_ID ||
     !Number.isInteger(metrics.numberOfTrades) ||
     metrics.numberOfTrades < 0
   ) {
@@ -60,6 +68,9 @@ function assertFiniteMetrics(metrics: EvaluationMetrics): void {
 
 export function assertRankingConfiguration(configuration: RankingConfiguration): void {
   if (
+    !isRecord(configuration) ||
+    typeof configuration.id !== "string" ||
+    configuration.id.trim().length === 0 ||
     configuration.profileId !== LINEAR_REQUIRED_V1.id ||
     configuration.version !== LINEAR_REQUIRED_V1.version ||
     configuration.minimumNumberOfTrades !== LINEAR_REQUIRED_V1.eligibility.minimumNumberOfTrades
@@ -72,6 +83,7 @@ export function assertRankingConfiguration(configuration: RankingConfiguration):
 
   const weights = configuration.formula;
   if (
+    !isRecord(weights) ||
     !hasExactKeys(weights, REQUIRED_FORMULA_KEYS) ||
     weights.totalReturnPercentWeight !== LINEAR_REQUIRED_V1.formula.totalReturnPercentWeight ||
     weights.winRatePercentWeight !== LINEAR_REQUIRED_V1.formula.winRatePercentWeight ||
@@ -88,9 +100,11 @@ export function assertRankingConfiguration(configuration: RankingConfiguration):
   }
 
   if (
+    !Array.isArray(configuration.tieBreakers) ||
     configuration.tieBreakers.length !== LINEAR_REQUIRED_V1.tieBreakers.length ||
     configuration.tieBreakers.some(
       (tieBreaker, index) =>
+        !isRecord(tieBreaker) ||
         tieBreaker.field !== LINEAR_REQUIRED_V1.tieBreakers[index]?.field ||
         tieBreaker.direction !== LINEAR_REQUIRED_V1.tieBreakers[index]?.direction,
     )

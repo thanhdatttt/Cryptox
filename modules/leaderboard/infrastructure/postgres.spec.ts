@@ -94,7 +94,42 @@ describe("Leaderboard PostgreSQL adapter", () => {
       .resolves.toMatchObject([{ experimentId: "experiment-1", score: 19.5 }]);
     await dependencies.entryRepository.deactivateForScopeOwner("user-1" as never, "entry-1");
     expect(queries[0]?.text).toContain("s.owner_user_id = $1::uuid");
+    expect(queries[0]?.text).not.toContain("LIMIT $3");
+    expect(queries[0]?.values).toEqual(["user-1", "scope-1"]);
     expect(queries[1]?.text).toContain("s.owner_user_id = $2::uuid");
+    await dependencies.close();
+  });
+
+  it("returns the owner-scoped existing row when a duplicate insert conflicts", async () => {
+    const existingRow = {
+      id: "entry-existing",
+      rank: 1,
+      candidate_id: "candidate-1",
+      search_run_id: null,
+      experiment_id: "experiment-1",
+      leaderboard_scope_id: "scope-1",
+      ranking_configuration_id: "ranking-v1",
+      score: 19.5,
+      added_at: "2026-08-29T00:00:00.000Z",
+    };
+    const { pool, queries } = fakePool([[], [existingRow]]);
+    const dependencies = createPostgresLeaderboardDependencies({ connectionString: "", pool });
+
+    await expect(dependencies.entryRepository.insertForScopeOwner("user-1" as never, {
+      candidateId: "candidate-1",
+      experimentId: "experiment-1",
+      leaderboardScopeId: "scope-1",
+      rankingConfigurationId: "ranking-v1",
+      score: 19.5,
+      addedAt: "2026-08-29T00:00:00.000Z",
+    })).resolves.toMatchObject({ id: "entry-existing", experimentId: "experiment-1" });
+    expect(queries[0]?.text).toContain(
+      "ON CONFLICT (leaderboard_scope_id, experiment_id) DO NOTHING",
+    );
+    expect(queries[0]?.values?.[1]).toBe("user-1");
+    expect(queries[0]?.values?.[8]).toBe("scope-1");
+    expect(queries[1]?.text).toContain("s.owner_user_id = $1::uuid");
+    expect(queries[1]?.values).toEqual(["user-1", "scope-1", "experiment-1"]);
     await dependencies.close();
   });
 });

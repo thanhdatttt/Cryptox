@@ -47,7 +47,7 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 | N-03 | DONE | E1 | YES | INS-045 Manager `01a04f09-60b5-7113-8901-bfb50ff23ecd` + exactly one fresh News-Sentiment boundary worker Singer `01a04f0e-de55-78a2-bf64-88b2ac7eb4db` (completed); INS-073 closure review | `MVP_IMPLEMENTATION` / N-03 source checkpoint `d4161ec458c869ff18fa89dd9732df260629c915`; containing INS-073 checkpoint | `BLOCKED -> READY -> IN_PROGRESS -> REVIEW -> DONE`; original News 30/30 and Sentiment 19/19 PASS; N-03A scheduler 5/5 and News total 35/35; root 346 passed / 6 skipped (environment-gated PostgreSQL/integration/E2E skips are not PASS); scope, architecture, artifacts, typecheck, build, lint, checker, and diff checks PASS; real-provider/PostgreSQL/runtime/OpenSpec/link-DAG evidence remains UNVERIFIED/BLOCKED |
 | N-03A | DONE | E1 residual | YES | INS-073 Manager `01a050a6-bc83-70a3-9030-6f6f8435a4f7` + exactly one fresh News application worker `01a050be-e4f6-7c71-b289-8f12758b273c` | `MVP_IMPLEMENTATION` / integrated at `f320b5f1d7731d121db27e788cffa4a8033dc7fd` (`feat(news): complete N-03A refresh scheduler`); source paths `modules/news/application/scheduler.ts`, `modules/news/application/scheduler.spec.ts`, and `modules/news/api/bootstrap.ts` | `READY -> IN_PROGRESS -> REVIEW -> DONE`; `CSL-R-NW-02`, `CSL-R-RP-02`, `CSL-R-OB-01`; News scheduler 5/5, News total 35/35, Sentiment 19/19, API 3/3, root 346 passed / 6 environment-gated skips; scope, architecture, artifacts, typecheck, build, lint, checker, and diff checks PASS; real-provider/PostgreSQL/runtime/OpenSpec/link-DAG evidence remains UNVERIFIED/BLOCKED |
 | E-02 | DONE | E2 | Integration | INS-081 Manager `01a05141-3fce-7ff3-bceb-eded75852526` / Evaluation worker Bacon `01a05145-6769-7100-b367-e3173484ce8c` | `MVP_IMPLEMENTATION` / containing INS-081 checkpoint | DONE under INS-081; independent decimal-boundary review and required validation complete; no downstream packet started |
-| L-02 | BLOCKED | E2 | YES | Future Leaderboard worker | — | Not started; extension-aware ranking/provenance evidence required |
+| L-02 | DONE | E2 | YES | INS-083 Manager `01a05171-cd4c-73e2-aa50-0d2b12073856` / exactly one internal Leaderboard worker Harvey `01a05179-85a0-7570-b59a-4b0ebca94fc6` | `MVP_IMPLEMENTATION` / INS-083 Manager checkpoint prepared; worker source paths and validation are recorded in `HANDOFF.md` | `BLOCKED -> READY -> IN_PROGRESS -> REVIEW -> DONE`; dependencies verified DONE; Manager review accepted the bounded implementation; no downstream packet started |
 | F-03 | BLOCKED | E3 | YES | Future Frontend worker | — | Not started; DEC-007 functional-state projections required |
 | I-03 | BLOCKED | E4 | YES | Manager / future integration worker | — | Not started; final extension integration/reproducibility proof required |
 | ENV-01 | DONE | E0a | YES | Manager / Infrastructure-and-tooling worker `01a04d08-19c8-76e1-ad32-57471e75f430` | `MVP_IMPLEMENTATION` / containing INS-030 ENV-01 checkpoint commit | Independent review PASS; Docker/migration/checker/root validation PASS; OpenSpec CLI UNVERIFIED |
@@ -66,9 +66,9 @@ after one fresh worker and independent Manager review; its fixture evidence and
 current deferred-scope checker gate pass, while real-provider/database evidence
 remains blocked or unverified. `N-03` remains `REVIEW`; `M-02` remains
 `REVIEW/UNVERIFIED`; `ENV-03` is
-`DONE` after its closure. `S-04` is `DONE` under `INS-077`; `E-02`,
-`L-02`, `F-03`, and `I-03` remain `BLOCKED`. No downstream packet was
-authorized or started.
+`DONE` after its closure. `S-04` is `DONE` under `INS-077`; `E-02` and `L-02`
+are `DONE`, while `F-03` and `I-03` remain `BLOCKED`. No downstream packet
+was authorized or started.
 The existing legacy rows, including
 `M-02` at `REVIEW`, `AU-02` at `BLOCKED`, and `I-01`/`I-02` at `BLOCKED`, retain
 their states and evidence. DEC-007 feature behavior remains unimplemented in
@@ -1098,13 +1098,14 @@ acceptance criteria and handoff requirements are in the linked packets in
 
 - **Requirement IDs:** `CSL-R-LB-01`, `CSL-R-SE-03`, `CSL-R-BT-02`,
   `CSL-R-RP-02`, `CSL-R-OB-01`, `CSL-R-OW-01`.
-- **State / owner / wave:** BLOCKED / Leaderboard worker / E2.
+- **State / owner / wave:** DONE / INS-083 Manager `01a05171-cd4c-73e2-aa50-0d2b12073856` / single internal Leaderboard worker Harvey `01a05179-85a0-7570-b59a-4b0ebca94fc6` / E2.
 - **Dependencies:** `C-02`, Q-02, B-03, E-02, L-01; downstream F-03/I-03.
 - **Exact write scope:** `modules/leaderboard/**` excluding canonical contracts,
   migrations, Strategy/Search generation, Backtesting simulation, and frontend.
 - **Acceptance/validation:** Same-owner finite Top-K admission, deterministic
   ties/idempotency, discoverable Search/paper/decimal/definition/ranking
   provenance without mutation/leakage, and Leaderboard/DB/global checks.
+- **Execution note:** INS-083 authorized exactly one fresh internal Leaderboard worker Harvey `01a05179-85a0-7570-b59a-4b0ebca94fc6` in the canonical same-directory checkout; Harvey completed without editing control-plane artifacts or creating a commit, branch, worktree, or another worker. Manager independently reviewed and validated the bounded result.
 - **Full packet:** [`MVP_PLAN.md#l-02--extension-aware-ranking-and-provenance-admission`](MVP_PLAN.md#l-02--extension-aware-ranking-and-provenance-admission)
 
 ### F-03 — DEC-007 Functional-State Frontend Projections
@@ -1166,7 +1167,8 @@ remains UNVERIFIED or BLOCKED. `ENV-04` is DONE under INS-061 after exactly one
 fresh checker-tooling worker completed, the Manager independently reviewed the
 exact Search profile allowlist and preserved deferred-scope rejection, and the
 committed implementation checkpoint `5032582` was reconciled.
-`E-02`, `L-02`, `F-03`, and `I-03` remain BLOCKED. No downstream packet was
+`E-02` and `L-02` are DONE under their exact authorized worker dispatches;
+`F-03` and `I-03` remain BLOCKED. No downstream packet was
 authorized or started. AU-02 and
 I-01/I-02 remain blocked; no legacy DONE packet is treated as evidence for an
 unrelated DEC-007 requirement.

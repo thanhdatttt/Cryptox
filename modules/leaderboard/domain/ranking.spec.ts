@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { LINEAR_REQUIRED_V1, type RankingConfiguration } from "../api/contracts";
-import { assertRankingConfiguration, scoreEvaluation } from "./ranking";
+import { assertFiniteMetrics, assertRankingConfiguration, scoreEvaluation } from "./ranking";
 
 const configuration = (): RankingConfiguration => ({
   id: "ranking-v1",
@@ -32,6 +32,16 @@ function expectInvalidConfiguration(action: () => unknown): void {
   throw new Error("expected INVALID_CONFIGURATION");
 }
 
+function expectInvalidMetrics(action: () => unknown): void {
+  try {
+    action();
+  } catch (error) {
+    expect(error).toMatchObject({ code: "INVALID_METRICS" });
+    return;
+  }
+  throw new Error("expected INVALID_METRICS");
+}
+
 describe("LINEAR_REQUIRED_V1 configuration guard", () => {
   it("rejects altered formula weights even when profile and version match", () => {
     const altered = configuration();
@@ -54,5 +64,20 @@ describe("LINEAR_REQUIRED_V1 configuration guard", () => {
     const missing = configuration();
     missing.tieBreakers = missing.tieBreakers.slice(0, 4) as RankingConfiguration["tieBreakers"];
     expectInvalidConfiguration(() => assertRankingConfiguration(missing));
+  });
+
+  it("requires finite metrics from the approved Evaluation profile", () => {
+    expectInvalidMetrics(() => assertFiniteMetrics({
+      ...metrics,
+      totalReturnPercent: Number.NaN,
+    }));
+    expectInvalidMetrics(() => assertFiniteMetrics({
+      ...metrics,
+      evaluationProfileId: "OTHER_PROFILE" as never,
+    }));
+    expectInvalidMetrics(() => assertFiniteMetrics({
+      ...metrics,
+      numberOfTrades: 1.5,
+    }));
   });
 });

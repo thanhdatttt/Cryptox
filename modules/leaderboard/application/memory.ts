@@ -31,8 +31,12 @@ function cloneConfiguration(configuration: RankingConfiguration): RankingConfigu
   return {
     ...configuration,
     formula: { ...configuration.formula },
-    tieBreakers: [...configuration.tieBreakers] as RankingConfiguration["tieBreakers"],
+    tieBreakers: configuration.tieBreakers.map((tieBreaker) => ({ ...tieBreaker })) as unknown as RankingConfiguration["tieBreakers"],
   };
+}
+
+function cloneExperiment(experiment: StoredExperiment): StoredExperiment {
+  return structuredClone(experiment);
 }
 
 function cloneEntry(entry: StoredEntry): LeaderboardEntry {
@@ -45,7 +49,7 @@ export class InMemoryLeaderboardRepositories {
   idGenerator: () => string = () => crypto.randomUUID();
   readonly scopes = new Map<string, LeaderboardScope>();
   readonly configurations = new Map<string, RankingConfiguration>([
-    [DEFAULT_CONFIGURATION.id, DEFAULT_CONFIGURATION],
+    [DEFAULT_CONFIGURATION.id, cloneConfiguration(DEFAULT_CONFIGURATION)],
   ]);
   readonly entries = new Map<string, StoredEntry>();
   readonly experiments = new Map<string, StoredExperiment>();
@@ -87,7 +91,9 @@ export class InMemoryLeaderboardRepositories {
       if (!scope || scope.ownerUserId !== ownerUserId) return [];
       return [...this.entries.values()]
         .filter((entry) => entry.active && entry.leaderboardScopeId === scopeId)
-        .sort((left, right) => left.rank - right.rank || left.id.localeCompare(right.id))
+        .sort((left, right) =>
+          left.rank - right.rank || (left.id < right.id ? -1 : left.id > right.id ? 1 : 0),
+        )
         .slice(0, k)
         .map(cloneEntry);
     },
@@ -115,7 +121,13 @@ export class InMemoryLeaderboardRepositories {
       const stored: StoredEntry = {
         ...entry,
         id: `entry-${this.idGenerator()}`,
-        rank: 0,
+        rank:
+          Math.max(
+            0,
+            ...[...this.entries.values()]
+              .filter((candidate) => candidate.active && candidate.leaderboardScopeId === entry.leaderboardScopeId)
+              .map((candidate) => candidate.rank),
+          ) + 1,
         active: true,
       };
       this.entries.set(stored.id, stored);
@@ -146,16 +158,19 @@ export class InMemoryLeaderboardRepositories {
   readonly experimentRepository: LeaderboardExperimentRepository = {
     getByOwnerAndId: async (ownerUserId, experimentId) => {
       const experiment = this.experiments.get(experimentId);
-      return experiment?.ownerUserId === ownerUserId ? { ...experiment } : undefined;
+      return experiment?.ownerUserId === ownerUserId ? cloneExperiment(experiment) : undefined;
     },
     listByOwnerAndSearchRun: async (ownerUserId, searchRunId) =>
       [...this.experiments.values()]
         .filter((experiment) => experiment.ownerUserId === ownerUserId && experiment.searchRunId === searchRunId)
-        .map((experiment) => ({ ...experiment })),
+        .map(cloneExperiment),
   };
 
   addExperiment(ownerUserId: AuthenticatedUserId, experiment: RankableExperiment): void {
-    this.experiments.set(experiment.experimentId, { ...experiment, ownerUserId });
+    this.experiments.set(
+      experiment.experimentId,
+      cloneExperiment({ ...experiment, ownerUserId }),
+    );
   }
 
   createDependencies(): LeaderboardApplicationDependencies<

@@ -1,6 +1,7 @@
 import type { EvaluationMetrics } from "@cryptox/evaluation";
 import type { AuthenticatedRequestContext, AuthenticatedUserId } from "modules/auth/api";
 import {
+  assertFiniteMetrics,
   assertRankingConfiguration,
   LeaderboardScoringDomainError,
   scoreEvaluation,
@@ -44,11 +45,20 @@ type RankingFacts = {
   searchRunId?: string;
   score: number;
   metrics: EvaluationMetrics;
+  extensionProvenance?: NonNullable<RankableExperiment["extensionProvenance"]>;
 };
 
 type RuntimeRankableExperiment = RankableExperiment & {
-  readonly ownerUserId?: AuthenticatedUserId;
+  readonly ownerUserId?: unknown;
 };
+
+type ExtensionProvenance = NonNullable<RankableExperiment["extensionProvenance"]>;
+
+const EXTENSION_PROVENANCE_FIELDS = new Set([
+  "searchProfileId",
+  "paperExecutionProfileId",
+  "newsExtractionTemplateVersion",
+]);
 
 function requireContext(context: AuthenticatedRequestContext): AuthenticatedUserId {
   if (
@@ -66,6 +76,13 @@ function requiredString(value: unknown, code: string): string {
     throw new LeaderboardApplicationError(code);
   }
   return value.trim();
+}
+
+function requiredIdentifier(value: unknown, code: string): string {
+  if (typeof value !== "string" || value.trim().length === 0 || value !== value.trim()) {
+    throw new LeaderboardApplicationError(code);
+  }
+  return value;
 }
 
 function validateK(k: unknown): number {
@@ -88,7 +105,151 @@ function cloneConfiguration(configuration: RankingConfiguration): RankingConfigu
   return {
     ...configuration,
     formula: { ...configuration.formula },
-    tieBreakers: [...configuration.tieBreakers] as RankingConfiguration["tieBreakers"],
+    tieBreakers: configuration.tieBreakers.map((tieBreaker) => ({ ...tieBreaker })) as unknown as RankingConfiguration["tieBreakers"],
+  };
+}
+
+function cloneExtensionProvenance(
+  provenance: ExtensionProvenance | undefined,
+): ExtensionProvenance | undefined {
+  return provenance === undefined ? undefined : { ...provenance };
+}
+
+function extensionProvenanceMatch(
+  authoritative: ExtensionProvenance | undefined,
+  supplied: ExtensionProvenance | undefined,
+): boolean {
+  // The submission projection keeps extension provenance optional. When it is
+  // omitted, the owner-scoped Experiment read remains authoritative; when it
+  // is supplied, it must agree with that read-through value.
+  if (supplied === undefined) return true;
+  return (
+    authoritative?.searchProfileId === supplied.searchProfileId &&
+    authoritative?.paperExecutionProfileId === supplied.paperExecutionProfileId &&
+    authoritative?.newsExtractionTemplateVersion === supplied.newsExtractionTemplateVersion
+  );
+}
+
+function optionalIdentifierMatches(
+  authoritative: string | undefined,
+  supplied: string | undefined,
+): boolean {
+  return supplied === undefined || authoritative === supplied;
+}
+
+function factsKey(
+  ownerUserId: AuthenticatedUserId,
+  scopeId: string,
+  experimentId: string,
+): string {
+  return ownerUserId + "\u0000" + scopeId + "\u0000" + experimentId;
+}
+
+function validateExtensionProvenance(value: unknown): ExtensionProvenance | undefined {
+  if (value === undefined) return undefined;
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    throw new LeaderboardApplicationError("INELIGIBLE_EXPERIMENT", "extension provenance must be an object");
+  }
+
+  const record = value as Record<string, unknown>;
+  if (Object.keys(record).some((field) => !EXTENSION_PROVENANCE_FIELDS.has(field))) {
+    throw new LeaderboardApplicationError("INELIGIBLE_EXPERIMENT", "extension provenance contains an unsupported field");
+  }
+
+  const searchProfileId = record.searchProfileId;
+  if (
+    searchProfileId !== undefined &&
+    (typeof searchProfileId !== "string" ||
+      searchProfileId.trim().length === 0 ||
+      searchProfileId !== searchProfileId.trim())
+  ) {
+    throw new LeaderboardApplicationError("INELIGIBLE_EXPERIMENT", "search profile provenance is invalid");
+  }
+
+  const paperExecutionProfileId = record.paperExecutionProfileId;
+  if (
+    paperExecutionProfileId !== undefined &&
+    (typeof paperExecutionProfileId !== "string" ||
+      paperExecutionProfileId.trim().length === 0 ||
+      paperExecutionProfileId !== paperExecutionProfileId.trim())
+  ) {
+    throw new LeaderboardApplicationError("INELIGIBLE_EXPERIMENT", "paper execution provenance is invalid");
+  }
+
+  const newsExtractionTemplateVersion = record.newsExtractionTemplateVersion;
+  if (
+    newsExtractionTemplateVersion !== undefined &&
+    (typeof newsExtractionTemplateVersion !== "number" ||
+      !Number.isSafeInteger(newsExtractionTemplateVersion) ||
+      newsExtractionTemplateVersion < 1)
+  ) {
+    throw new LeaderboardApplicationError("INELIGIBLE_EXPERIMENT", "news extraction provenance is invalid");
+  }
+
+  if (
+    searchProfileId === undefined &&
+    paperExecutionProfileId === undefined &&
+    newsExtractionTemplateVersion === undefined
+  ) {
+    return undefined;
+  }
+
+  return {
+    ...(searchProfileId === undefined ? {} : { searchProfileId }),
+    ...(paperExecutionProfileId === undefined ? {} : { paperExecutionProfileId }),
+    ...(newsExtractionTemplateVersion === undefined ? {} : { newsExtractionTemplateVersion }),
+  };
+}
+
+function normalizeRankableExperiment(value: unknown): RuntimeRankableExperiment {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    throw new LeaderboardApplicationError("INELIGIBLE_EXPERIMENT");
+  }
+
+  const record = value as Record<string, unknown>;
+  const experimentId = requiredIdentifier(record.experimentId, "INELIGIBLE_EXPERIMENT");
+  const candidateId = requiredIdentifier(record.candidateId, "INELIGIBLE_EXPERIMENT");
+  if (record.executionState !== LINEAR_REQUIRED_V1.eligibility.requiredExecutionState) {
+    throw new LeaderboardApplicationError("INELIGIBLE_EXPERIMENT");
+  }
+
+  const metrics = record.metrics;
+  if (metrics === null || typeof metrics !== "object" || Array.isArray(metrics)) {
+    throw new LeaderboardApplicationError("INELIGIBLE_EXPERIMENT");
+  }
+  const metricRecord = metrics as Record<string, unknown>;
+  if (metricRecord.candidateId !== candidateId) {
+    throw new LeaderboardApplicationError("INELIGIBLE_EXPERIMENT");
+  }
+
+  const searchRunId = record.searchRunId;
+  if (searchRunId !== undefined) {
+    requiredIdentifier(searchRunId, "INELIGIBLE_EXPERIMENT");
+  }
+
+  const suppliedOwnerUserId = record.ownerUserId;
+  if (suppliedOwnerUserId !== undefined && (typeof suppliedOwnerUserId !== "string" || suppliedOwnerUserId.trim().length === 0)) {
+    throw new LeaderboardApplicationError("INELIGIBLE_EXPERIMENT");
+  }
+
+  const extensionProvenance = validateExtensionProvenance(record.extensionProvenance);
+  const normalizedMetrics = {
+    candidateId,
+    totalReturnPercent: metricRecord.totalReturnPercent,
+    winRatePercent: metricRecord.winRatePercent,
+    numberOfTrades: metricRecord.numberOfTrades,
+    maxDrawdownMagnitudePercent: metricRecord.maxDrawdownMagnitudePercent,
+    evaluationProfileId: metricRecord.evaluationProfileId,
+  } as EvaluationMetrics;
+
+  return {
+    executionState: "SUCCEEDED",
+    experimentId,
+    candidateId,
+    ...(searchRunId === undefined ? {} : { searchRunId: searchRunId as string }),
+    metrics: normalizedMetrics,
+    ...(extensionProvenance === undefined ? {} : { extensionProvenance }),
+    ...(suppliedOwnerUserId === undefined ? {} : { ownerUserId: suppliedOwnerUserId }),
   };
 }
 
@@ -120,9 +281,10 @@ function compareEntries(
   left: LeaderboardEntry,
   right: LeaderboardEntry,
   facts: Map<string, RankingFacts>,
+  ownerUserId: AuthenticatedUserId,
 ): number {
-  const leftFacts = facts.get(left.leaderboardScopeId + "\u0000" + left.experimentId);
-  const rightFacts = facts.get(right.leaderboardScopeId + "\u0000" + right.experimentId);
+  const leftFacts = facts.get(factsKey(ownerUserId, left.leaderboardScopeId, left.experimentId));
+  const rightFacts = facts.get(factsKey(ownerUserId, right.leaderboardScopeId, right.experimentId));
   return (
     compareMetric(left.score, right.score, "DESCENDING") ||
     compareMetric(
@@ -136,7 +298,7 @@ function compareEntries(
       "ASCENDING",
     ) ||
     compareMetric(leftFacts?.metrics.winRatePercent, rightFacts?.metrics.winRatePercent, "DESCENDING") ||
-    left.experimentId.localeCompare(right.experimentId)
+    (left.experimentId < right.experimentId ? -1 : left.experimentId > right.experimentId ? 1 : 0)
   );
 }
 
@@ -153,9 +315,10 @@ function uniqueEntries(entries: readonly LeaderboardEntry[]): LeaderboardEntry[]
 function rankEntries(
   entries: readonly LeaderboardEntry[],
   facts: Map<string, RankingFacts>,
+  ownerUserId: AuthenticatedUserId,
 ): LeaderboardEntry[] {
   return uniqueEntries(entries)
-    .sort((left, right) => compareEntries(left, right, facts))
+    .sort((left, right) => compareEntries(left, right, facts, ownerUserId))
     .map((entry, index) => ({ ...entry, rank: index + 1 }));
 }
 
@@ -171,6 +334,9 @@ function factsForExperiment(
     ...(experiment.searchRunId === undefined ? {} : { searchRunId: experiment.searchRunId }),
     score,
     metrics: { ...experiment.metrics },
+    ...(experiment.extensionProvenance === undefined
+      ? {}
+      : { extensionProvenance: cloneExtensionProvenance(experiment.extensionProvenance) }),
   };
 }
 
@@ -205,17 +371,33 @@ export function createLeaderboardApplication(
     scopeId: string,
   ): Promise<LeaderboardScope> => {
     const cached = scopes.get(scopeId);
-    if (cached && cached.ownerUserId === ownerUserId) return cloneScope(cached);
-    const scope = await dependencies.scopeRepository.getByOwnerAndId(ownerUserId, scopeId);
+    const scope = cached?.ownerUserId === ownerUserId
+      ? cached
+      : await dependencies.scopeRepository.getByOwnerAndId(ownerUserId, scopeId);
     if (!scope) throw new LeaderboardApplicationError("NOT_FOUND");
-    scopes.set(scope.id, cloneScope(scope));
-    return cloneScope(scope);
+    if (
+      scope.id !== scopeId ||
+      scope.ownerUserId !== ownerUserId ||
+      typeof scope.name !== "string" ||
+      scope.name.trim().length === 0 ||
+      !Number.isInteger(scope.k) ||
+      scope.k < 1 ||
+      typeof scope.rankingConfigurationId !== "string" ||
+      scope.rankingConfigurationId.trim().length === 0 ||
+      typeof scope.comparisonKey !== "string" ||
+      scope.comparisonKey.trim().length === 0
+    ) {
+      throw new LeaderboardApplicationError("INVALID_SCOPE");
+    }
+    const stored = cloneScope(scope);
+    scopes.set(scope.id, stored);
+    return cloneScope(stored);
   };
 
   const readConfiguration = async (configurationId: string): Promise<RankingConfiguration> => {
     await ensureInitialized();
     const cached = configurations.get(configurationId);
-    if (cached) return cached;
+    if (cached) return cloneConfiguration(cached);
     const configuration = await dependencies.configurationRepository.getById(configurationId);
     if (!configuration) throw new LeaderboardApplicationError("RANKING_CONFIGURATION_NOT_FOUND");
     try {
@@ -228,69 +410,97 @@ export function createLeaderboardApplication(
     }
     const stored = cloneConfiguration(configuration);
     configurations.set(configurationId, stored);
-    return stored;
+    return cloneConfiguration(stored);
   };
 
   const hydrateFacts = async (
     ownerUserId: AuthenticatedUserId,
     entries: readonly LeaderboardEntry[],
-  ): Promise<void> => {
-    if (!dependencies.experimentRepository) return;
-    await Promise.all(
-      entries.map(async (entry) => {
-        const key = entry.leaderboardScopeId + "\u0000" + entry.experimentId;
-        if (facts.has(key)) return;
+  ): Promise<LeaderboardEntry[]> => {
+    if (!dependencies.experimentRepository) return entries.map(cloneEntry);
+    const hydrated = await Promise.all(
+      entries.map(async (entry): Promise<LeaderboardEntry | undefined> => {
+        const key = factsKey(ownerUserId, entry.leaderboardScopeId, entry.experimentId);
+        if (facts.has(key)) return cloneEntry(entry);
         const experiment = await dependencies.experimentRepository!.getByOwnerAndId(
           ownerUserId,
           entry.experimentId,
         );
-        if (!experiment || experiment.candidateId !== entry.candidateId) return;
-        facts.set(key, factsForExperiment(ownerUserId, experiment, entry.score));
+        if (!experiment) return undefined;
+
+        let normalized: RuntimeRankableExperiment;
+        try {
+          normalized = normalizeRankableExperiment(experiment);
+          assertFiniteMetrics(normalized.metrics);
+        } catch {
+          return undefined;
+        }
+        if (
+          normalized.candidateId !== entry.candidateId ||
+          normalized.searchRunId !== entry.searchRunId ||
+          normalized.metrics.numberOfTrades < LINEAR_REQUIRED_V1.eligibility.minimumNumberOfTrades
+        ) {
+          return undefined;
+        }
+        facts.set(key, factsForExperiment(ownerUserId, normalized, entry.score));
+        return cloneEntry(entry);
       }),
     );
+    return hydrated.filter((entry): entry is LeaderboardEntry => entry !== undefined);
   };
 
   const assertAdmissibleExperiment = async (
     ownerUserId: AuthenticatedUserId,
     submission: LeaderboardSubmission,
   ): Promise<RuntimeRankableExperiment> => {
-    const experiment = submission.experiment as RuntimeRankableExperiment;
-    if (
-      !experiment ||
-      typeof experiment !== "object" ||
-      experiment.executionState !== LINEAR_REQUIRED_V1.eligibility.requiredExecutionState ||
-      typeof experiment.experimentId !== "string" ||
-      experiment.experimentId.trim().length === 0 ||
-      typeof experiment.candidateId !== "string" ||
-      experiment.candidateId.trim().length === 0 ||
-      !experiment.metrics ||
-      typeof experiment.metrics !== "object" ||
-      experiment.metrics.candidateId !== experiment.candidateId
-    ) {
+    if (!submission || typeof submission !== "object" || Array.isArray(submission)) {
       throw new LeaderboardApplicationError("INELIGIBLE_EXPERIMENT");
     }
-
+    const experiment = normalizeRankableExperiment(submission.experiment);
     if (experiment.ownerUserId !== undefined && experiment.ownerUserId !== ownerUserId) {
       throw new LeaderboardApplicationError("NOT_FOUND");
+    }
+
+    try {
+      assertFiniteMetrics(experiment.metrics);
+    } catch (error) {
+      if (error instanceof LeaderboardScoringDomainError) {
+        throw new LeaderboardApplicationError(error.code, error.message);
+      }
+      throw error;
     }
 
     const persisted = await dependencies.experimentRepository?.getByOwnerAndId(
       ownerUserId,
       experiment.experimentId,
     );
+    if (!dependencies.experimentRepository) {
+      throw new LeaderboardApplicationError("EXPERIMENT_OWNERSHIP_UNVERIFIED");
+    }
+    if (!persisted) throw new LeaderboardApplicationError("NOT_FOUND");
+
+    let authoritative: RuntimeRankableExperiment;
+    try {
+      authoritative = normalizeRankableExperiment(persisted);
+      assertFiniteMetrics(authoritative.metrics);
+    } catch (error) {
+      if (error instanceof LeaderboardApplicationError && error.code === "INELIGIBLE_EXPERIMENT") {
+        throw error;
+      }
+      if (error instanceof LeaderboardScoringDomainError) {
+        throw new LeaderboardApplicationError(error.code, error.message);
+      }
+      throw error;
+    }
     if (
-      dependencies.experimentRepository &&
-      (!persisted ||
-        persisted.executionState !== "SUCCEEDED" ||
-        persisted.candidateId !== experiment.candidateId ||
-        !metricsMatch(persisted.metrics, experiment.metrics))
+      authoritative.candidateId !== experiment.candidateId ||
+      !optionalIdentifierMatches(authoritative.searchRunId, experiment.searchRunId) ||
+      !metricsMatch(authoritative.metrics, experiment.metrics) ||
+      !extensionProvenanceMatch(authoritative.extensionProvenance, experiment.extensionProvenance)
     ) {
       throw new LeaderboardApplicationError("NOT_FOUND");
     }
-    if (!dependencies.experimentRepository && experiment.ownerUserId === undefined) {
-      throw new LeaderboardApplicationError("EXPERIMENT_OWNERSHIP_UNVERIFIED");
-    }
-    return experiment;
+    return authoritative;
   };
 
   const getActiveEntries = async (
@@ -298,8 +508,7 @@ export function createLeaderboardApplication(
     scope: LeaderboardScope,
   ): Promise<LeaderboardEntry[]> => {
     const entries = await dependencies.entryRepository.getActiveTopK(ownerUserId, scope.id, scope.k);
-    await hydrateFacts(ownerUserId, entries);
-    return rankEntries(entries, facts);
+    return rankEntries(await hydrateFacts(ownerUserId, entries), facts, ownerUserId).slice(0, scope.k);
   };
 
   const score = (leaderboardScopeId: string, metrics: EvaluationMetrics): ScoredEvaluation => {
@@ -364,15 +573,14 @@ export function createLeaderboardApplication(
     return list
       .map((configuration) => {
         assertRankingConfiguration(configuration);
-        configurations.set(configuration.id, cloneConfiguration(configuration));
-        return configuration;
+        const stored = cloneConfiguration(configuration);
+        configurations.set(configuration.id, stored);
+        return cloneConfiguration(stored);
       })
-      .sort((left, right) => left.version - right.version || left.id.localeCompare(right.id))
-      .map((configuration) => ({
-        ...configuration,
-        formula: { ...configuration.formula },
-        tieBreakers: [...configuration.tieBreakers] as RankingConfiguration["tieBreakers"],
-      }));
+      .sort((left, right) =>
+        left.version - right.version || (left.id < right.id ? -1 : left.id > right.id ? 1 : 0),
+      )
+      .map(cloneConfiguration);
   };
 
   const topK = async (
@@ -399,8 +607,8 @@ export function createLeaderboardApplication(
       await readConfiguration(scope.rankingConfigurationId);
       ownerEntries.push(entry);
     }
-    await hydrateFacts(ownerUserId, ownerEntries);
-    return rankEntries(ownerEntries, facts).map((entry) => ({
+    const hydratedEntries = await hydrateFacts(ownerUserId, ownerEntries);
+    return rankEntries(hydratedEntries, facts, ownerUserId).map((entry) => ({
       rank: entry.rank,
       searchRunId: runId,
       leaderboardScopeId: entry.leaderboardScopeId,
@@ -430,7 +638,7 @@ export function createLeaderboardApplication(
         }
         throw error;
       }
-      const factKey = scope.id + "\u0000" + experiment.experimentId;
+      const factKey = factsKey(ownerUserId, scope.id, experiment.experimentId);
       facts.set(factKey, factsForExperiment(ownerUserId, experiment, scored.overallScore));
       if (!scored.rankEligible) return { admitted: false };
 
@@ -458,7 +666,11 @@ export function createLeaderboardApplication(
         score: scored.overallScore,
         addedAt: dependencies.clock.now(),
       };
-      const ordered = rankEntries([...activeEntries, { ...candidate, id: "__candidate__", rank: 0 }], facts);
+      const ordered = rankEntries(
+        [...activeEntries, { ...candidate, id: "__candidate__", rank: 0 }],
+        facts,
+        ownerUserId,
+      );
       if (ordered.length > scope.k && ordered[scope.k]?.id === "__candidate__") {
         return { admitted: false };
       }

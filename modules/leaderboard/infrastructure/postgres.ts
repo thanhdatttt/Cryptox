@@ -105,6 +105,34 @@ function timestampColumn(value: unknown, field: string): string {
   return new Date(timestamp).toISOString();
 }
 
+function jsonObjectColumn(value: unknown, field: string): Record<string, unknown> {
+  let parsed = value;
+  if (typeof parsed === "string") {
+    try {
+      parsed = JSON.parse(parsed) as unknown;
+    } catch {
+      throw new Error(`invalid leaderboard ${field} in persistence`);
+    }
+  }
+  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+    throw new Error(`invalid leaderboard ${field} in persistence`);
+  }
+  return parsed as Record<string, unknown>;
+}
+
+function jsonArrayColumn(value: unknown, field: string): readonly unknown[] {
+  let parsed = value;
+  if (typeof parsed === "string") {
+    try {
+      parsed = JSON.parse(parsed) as unknown;
+    } catch {
+      throw new Error(`invalid leaderboard ${field} in persistence`);
+    }
+  }
+  if (!Array.isArray(parsed)) throw new Error(`invalid leaderboard ${field} in persistence`);
+  return parsed;
+}
+
 function configurationFromRow(row: ConfigurationRow): RankingConfiguration {
   return {
     id: row.id,
@@ -112,12 +140,12 @@ function configurationFromRow(row: ConfigurationRow): RankingConfiguration {
     version: integerColumn(row.version, "version") as RankingConfiguration["version"],
     name: row.name,
     ...(row.description === null ? {} : { description: row.description }),
-    formula: row.formula,
+    formula: jsonObjectColumn(row.formula, "formula") as RankingConfiguration["formula"],
     minimumNumberOfTrades: integerColumn(
       row.minimum_number_of_trades,
       "minimum_number_of_trades",
     ) as RankingConfiguration["minimumNumberOfTrades"],
-    tieBreakers: row.tie_breakers,
+    tieBreakers: jsonArrayColumn(row.tie_breakers, "tie_breakers") as RankingConfiguration["tieBreakers"],
     createdAt: timestampColumn(row.created_at, "created_at"),
   };
 }
@@ -262,12 +290,38 @@ export function createPostgresLeaderboardDependencies(
     },
   };
 
+  const findEntryByScopeOwnerAndExperiment = async (
+    ownerUserId: AuthenticatedUserId,
+    scopeId: string,
+    experimentId: string,
+  ): Promise<LeaderboardEntry | undefined> => {
+    const result = await pool.query<EntryRow>(
+      `
+        SELECT e.id::text, e.rank, e.candidate_id::text,
+          e.search_run_id::text, e.experiment_id::text,
+          e.leaderboard_scope_id::text, e.ranking_configuration_id,
+          e.score, e.added_at::text
+        FROM leaderboard_entries e
+        INNER JOIN leaderboard_scopes s ON s.id = e.leaderboard_scope_id
+        WHERE s.owner_user_id = $1::uuid AND s.id = $2::uuid
+          AND e.experiment_id = $3::uuid
+        LIMIT 1
+      `,
+      [ownerUserId, scopeId, experimentId],
+    );
+    return result.rows[0] ? entryFromRow(result.rows[0]) : undefined;
+  };
+
   const entryRepository = {
     getActiveTopK: async (
       ownerUserId: AuthenticatedUserId,
       scopeId: string,
       k: number,
     ): Promise<readonly LeaderboardEntry[]> => {
+      // The application layer must hydrate every active candidate before applying
+      // the frozen metric tie-break sequence. Limiting by the persisted rank here
+      // can hide a newly admitted entry whose rank is appended before reordering.
+      void k;
       const result = await pool.query<EntryRow>(
         `
           SELECT e.id::text, e.rank, e.candidate_id::text,
@@ -278,9 +332,8 @@ export function createPostgresLeaderboardDependencies(
           INNER JOIN leaderboard_scopes s ON s.id = e.leaderboard_scope_id
           WHERE s.owner_user_id = $1::uuid AND e.leaderboard_scope_id = $2::uuid
           ORDER BY e.rank ASC, e.experiment_id ASC
-          LIMIT $3
         `,
-        [ownerUserId, scopeId, k],
+        [ownerUserId, scopeId],
       );
       return result.rows.map(entryFromRow);
     },
@@ -309,15 +362,24 @@ export function createPostgresLeaderboardDependencies(
     ): Promise<LeaderboardEntry> => {
       const result = await pool.query<EntryRow>(
         `
+          WITH locked_scope AS (
+            SELECT id
+            FROM leaderboard_scopes
+            WHERE owner_user_id = $2::uuid AND id = $9::uuid
+            FOR UPDATE
+          ), next_rank AS (
+            SELECT s.id, COALESCE(MAX(e.rank), 0) + 1 AS rank
+            FROM locked_scope s
+            LEFT JOIN leaderboard_entries e ON e.leaderboard_scope_id = s.id
+            GROUP BY s.id
+          )
           INSERT INTO leaderboard_entries
             (id, rank, candidate_id, search_run_id, experiment_id,
              leaderboard_scope_id, ranking_configuration_id, score, added_at)
-          SELECT $1::uuid, COALESCE(MAX(e.rank), 0) + 1, $3::uuid, $4::uuid,
-            $5::uuid, s.id, $6, $7, $8::timestamptz
-          FROM leaderboard_scopes s
-          LEFT JOIN leaderboard_entries e ON e.leaderboard_scope_id = s.id
-          WHERE s.owner_user_id = $2::uuid AND s.id = $9::uuid
-          GROUP BY s.id
+          SELECT $1::uuid, next_rank.rank, $3::uuid, $4::uuid,
+            $5::uuid, next_rank.id, $6, $7, $8::timestamptz
+          FROM next_rank
+          ON CONFLICT (leaderboard_scope_id, experiment_id) DO NOTHING
           RETURNING id::text, rank, candidate_id::text, search_run_id::text,
             experiment_id::text, leaderboard_scope_id::text,
             ranking_configuration_id, score, added_at::text
@@ -335,7 +397,15 @@ export function createPostgresLeaderboardDependencies(
         ],
       );
       const row = result.rows[0];
-      if (!row) throw new Error("leaderboard entry insert returned no row");
+      if (!row) {
+        const existing = await findEntryByScopeOwnerAndExperiment(
+          ownerUserId,
+          entry.leaderboardScopeId,
+          entry.experimentId,
+        );
+        if (existing) return existing;
+        throw new Error("NOT_FOUND");
+      }
       return entryFromRow(row);
     },
     deactivateForScopeOwner: async (
@@ -357,21 +427,7 @@ export function createPostgresLeaderboardDependencies(
       scopeId: string,
       experimentId: string,
     ): Promise<LeaderboardEntry | undefined> => {
-      const result = await pool.query<EntryRow>(
-        `
-          SELECT e.id::text, e.rank, e.candidate_id::text,
-            e.search_run_id::text, e.experiment_id::text,
-            e.leaderboard_scope_id::text, e.ranking_configuration_id,
-            e.score, e.added_at::text
-          FROM leaderboard_entries e
-          INNER JOIN leaderboard_scopes s ON s.id = e.leaderboard_scope_id
-          WHERE s.owner_user_id = $1::uuid AND s.id = $2::uuid
-            AND e.experiment_id = $3::uuid
-          LIMIT 1
-        `,
-        [ownerUserId, scopeId, experimentId],
-      );
-      return result.rows[0] ? entryFromRow(result.rows[0]) : undefined;
+      return findEntryByScopeOwnerAndExperiment(ownerUserId, scopeId, experimentId);
     },
   };
 

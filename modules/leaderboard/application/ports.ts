@@ -73,7 +73,10 @@ export interface LeaderboardApplicationDependencies<
 }
 
 export interface ExtensionProvenanceReadPort {
-  readExperimentExtensionProvenance(experimentId: string): Promise<{
+  readExperimentExtensionProvenance(
+    ownerUserId: AuthenticatedUserId,
+    experimentId: string,
+  ): Promise<{
     searchProfileId?: string;
     paperExecutionProfileId?: string;
     newsExtractionTemplateVersion?: number;

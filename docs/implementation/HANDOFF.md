@@ -1,3 +1,123 @@
+# INS-083 Execution Checkpoint — L-02 Extension-Aware Ranking and Provenance Admission
+
+## Resume here
+
+- **Authorization:** `INS-083 / APPROVED_FOR_EXECUTION` authorizes exactly one
+  fresh Manager and exactly one internal Leaderboard worker for L-02 only. No
+  retry, replacement, duplicate, second worker, downstream promotion, or other
+  packet is authorized.
+- **Manager:** `01a05171-cd4c-73e2-aa50-0d2b12073856` in the canonical
+  same-directory checkout `D:/agy-cli-projects/AOS/Cryptox` on branch
+  `MVP_IMPLEMENTATION`; no worktree or alternate branch is used.
+- **Starting checkpoint:** `a201afe001b22bab8bc018f73ca5bb3485a424dc`
+  (`docs(control): authorize L-02 leaderboard admission`), with reviewed base
+  `ebb890df75f8d081aa5e15c1532fe0d626a51671`. The base is an ancestor and the
+  only delta before execution was the committed `docs/control/INSTRUCTOR.md`
+  authorization; source, business state, and the task DAG were clean and
+  applicable.
+- **Dependencies:** `C-02`, `Q-02`, `B-03`, `E-02`, and completed `L-01` were
+  verified `DONE` from `TASKS.md`; `F-03`, baseline `I-01`, and `I-03` remain
+  blocked integration dependencies. `M-02` remains `REVIEW/UNVERIFIED` and
+  `AU-02` remains blocked. No downstream packet was started.
+- **Worker:** exactly one internal worker, Harvey
+  (`01a05179-85a0-7570-b59a-4b0ebca94fc6`), was dispatched in the same
+  canonical checkout with no commit, branch, worktree, or control-plane edit
+  authorized. No other Cryptox worker or Manager is active; historical tasks
+  are not resumed, retried, replaced, or reused.
+- **State transition:** L-02 moved exactly `BLOCKED -> READY -> IN_PROGRESS ->
+  REVIEW -> DONE`; all other task states are unchanged. Harvey completed within
+  `modules/leaderboard/**` excluding the frozen `api/contracts.ts`, and the
+  Manager independently reviewed and validated the result.
+
+## Execution boundary
+
+- The public Leaderboard contract, including the existing
+  `RankableExperiment.extensionProvenance` shape, remains frozen. The worker may
+  not edit contracts, migrations, dependencies, other modules, frontend, or
+  backend composition.
+- The Manager owns review, validation, `TASKS.md`, `HANDOFF.md`, and the one
+  coherent checkpoint-commit attempt. The worker must not edit control-plane
+  artifacts or move task state.
+
+## Worker result and independent review
+
+- **Worker checkpoint:** Harvey reported completion of owner-scoped admission
+  and reads, finite `REQUIRED_METRICS_V1` validation, deterministic
+  `LINEAR_REQUIRED_V1` Top-K/ties, duplicate safety, frozen extension
+  provenance read-through, PostgreSQL owner predicates/conflict handling, and
+  focused tests. The worker made no commit and did not edit control-plane
+  artifacts.
+- **Worker source/test/documentation paths:**
+  `modules/leaderboard/application/memory.ts`,
+  `modules/leaderboard/application/ports.ts`,
+  `modules/leaderboard/application/service.ts`,
+  `modules/leaderboard/application/service.spec.ts`,
+  `modules/leaderboard/api/bootstrap.spec.ts`,
+  `modules/leaderboard/domain/ranking.ts`,
+  `modules/leaderboard/domain/ranking.spec.ts`,
+  `modules/leaderboard/infrastructure/postgres.ts`,
+  `modules/leaderboard/infrastructure/postgres.spec.ts`, and
+  `modules/leaderboard/infrastructure/README.md`. Manager-only control paths
+  are `docs/implementation/TASKS.md` and this checkpoint.
+- **Scope and boundary review:** PASS. The frozen
+  `modules/leaderboard/api/contracts.ts` content hash remains
+  `702130a2c2469024668f77493f832993d005d916`, equal to `HEAD`; no migration,
+  dependency, other module, frontend, backend composition, or deferred-scope
+  file changed. Leaderboard imports only its own API/domain/application ports
+  plus public Auth/Evaluation contracts. Exact changed-path review passed.
+- **Behavior review:** PASS. The Manager verified trusted context and
+  owner-filtered scope/entry/SearchRun access, unauthenticated rejection,
+  authoritative owner-scoped Experiment read-through, rejection of failed,
+  malformed, non-finite, wrong-profile, and zero-trade results, immutable
+  projections, fixed formula/tie order, positive K, duplicate admission, and
+  PostgreSQL uniqueness/owner predicates. No Experiment, Trade, or Evaluation
+  record is mutated or copied into Leaderboard storage.
+
+## Validation evidence
+
+- **PASS:** `npm test --workspace @cryptox/leaderboard` — 7 files, 22 tests.
+- **PASS:** Leaderboard package typecheck, build, and lint.
+- **PASS:** root `npm test` — 383 tests passed and 6 environment-gated tests
+  skipped; root typecheck, build, lint, architecture, artifacts,
+  deferred-scope, 13-test scope suite, exact-scope review, and `git diff
+  --check` all passed.
+- **PASS (limited):** runtime smoke proved `/live=200`, `/ready=503`, and
+  `/health=404`; it is not real provider or database evidence.
+- **BLOCKED:** `npm run db:local:validate` could not run because Docker Compose
+  is unavailable in this environment (`docker: unknown command: docker compose`;
+  Docker config access was also denied). Live PostgreSQL migration and database
+  integration therefore remain unverified; fake-pool adapter tests passed.
+- **UNVERIFIED:** OpenSpec CLI is unavailable (`openspec` is not recognized).
+  Configured Binance/News providers, browser/demo, and final cross-module
+  runtime integration were not exercised here and remain unverified.
+
+## Provenance and persistence limitation
+
+The frozen public `RankableExperiment.extensionProvenance` projection supplies
+only `searchProfileId`, `paperExecutionProfileId`, and
+`newsExtractionTemplateVersion`; L-02 validates and reads those values without
+changing them. An entry retains the Experiment ID and ranking-configuration
+identity, so the authoritative public Experiment projection remains the place
+to inspect strategy/composite version, Search seed/configuration/dataset/code,
+full paper execution/decimal settings, and finite Evaluation metrics where
+those upstream projections provide them. Leaderboard deliberately does not
+duplicate that module-owned provenance or claim exact replay. PostgreSQL uses
+the existing delete-on-eviction schema and keeps no tombstone, so active
+duplicate admission is idempotent but re-admission after eviction cannot be
+distinguished without a history schema change, which is outside INS-083.
+
+## Stop boundary
+
+- INS-083 is exhausted after L-02 `DONE`. `M-02` remains `REVIEW`, and
+  `AU-02`, `F-03`, `I-01`, `I-02`, and `I-03` remain unchanged and blocked or
+  unverified as previously recorded. No downstream packet was promoted or
+  started.
+- The single coherent Manager staging/commit attempt failed with `fatal: Unable
+  to create 'D:/agy-cli-projects/AOS/Cryptox/.git/index.lock': Permission
+  denied`; it was not retried. The exact source/control delta is awaiting
+  Instructor independent audit and commit. Renewed Instructor authorization is
+  required for any further packet, retry, integration, or downstream promotion.
+
 # INS-081 Execution Checkpoint — E-02 Extension Evaluation and Decimal-Boundary Reconciliation
 
 ## Resume here
