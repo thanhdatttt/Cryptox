@@ -21,7 +21,7 @@ const evaluator: Evaluator = {
       throw error satisfies EvaluationError;
     }
 
-    if (typeof input.candidateId !== "string" || input.candidateId.length === 0) {
+    if (typeof input.candidateId !== "string" || input.candidateId.trim().length === 0) {
       const error = new EvaluationDomainError(
         "INVALID_INPUT",
         "candidateId must be a non-empty string",

@@ -26,6 +26,68 @@ function validInput(overrides: Partial<EvaluationInput> = {}): EvaluationInput {
 describe("REQUIRED_METRICS_V1 evaluator", () => {
   const { evaluator, runtimeVersion } = createEvaluationModule();
 
+  it("evaluates decimal-normalized Long and synthetic Short result projections", () => {
+    const long = evaluator.evaluate({
+      candidateId: "paper-long",
+      initialCapital: 1_000,
+      endingCapital: 1_027.32547793,
+      trades: [{ profit: 27.32547793, result: "WIN", decimalScale: 8 }],
+      equityCurve: [
+        { timestamp: "long-start", value: 1_000 },
+        { timestamp: "long-end", value: 1_027.32547793 },
+      ],
+    });
+    const short = evaluator.evaluate({
+      candidateId: "paper-short",
+      initialCapital: 1_000,
+      endingCapital: 972.67452207,
+      trades: [{ profit: -27.32547793, result: "LOSS", decimalScale: 8 }],
+      equityCurve: [
+        { timestamp: "short-start", value: 1_000 },
+        { timestamp: "short-end", value: 972.67452207 },
+      ],
+    });
+
+    expect(long).toEqual({
+      candidateId: "paper-long",
+      totalReturnPercent: 2.732547793,
+      winRatePercent: 100,
+      numberOfTrades: 1,
+      maxDrawdownMagnitudePercent: 0,
+      evaluationProfileId: "REQUIRED_METRICS_V1",
+    });
+    expect(short).toEqual({
+      candidateId: "paper-short",
+      totalReturnPercent: -2.732547793,
+      winRatePercent: 0,
+      numberOfTrades: 1,
+      maxDrawdownMagnitudePercent: 2.732547793,
+      evaluationProfileId: "REQUIRED_METRICS_V1",
+    });
+  });
+
+  it("keeps eight-place decimal boundaries deterministic without binary drift", () => {
+    const metrics = evaluator.evaluate(
+      validInput({
+        initialCapital: 1_000,
+        endingCapital: 1_000.00000001,
+        trades: [{ profit: 0.00000001, result: "WIN", decimalScale: 8 }],
+        equityCurve: [
+          { timestamp: "boundary-start", value: 1_000 },
+          { timestamp: "boundary-end", value: 1_000.00000001 },
+        ],
+      }),
+    );
+
+    expect(metrics.totalReturnPercent).toBe(0.000000001);
+    expect(metrics.maxDrawdownMagnitudePercent).toBe(0);
+    expect(
+      Object.values(metrics)
+        .filter((value) => typeof value === "number")
+        .every(Number.isFinite),
+    ).toBe(true);
+  });
+
   it("calculates the four golden metrics using the documented formulas", () => {
     expect(evaluator.evaluate(validInput())).toEqual({
       candidateId: "candidate-1",
@@ -115,6 +177,30 @@ describe("REQUIRED_METRICS_V1 evaluator", () => {
     expect(() => evaluator.evaluate(validInput({ initialCapital: 0 }))).toThrow(
       expect.objectContaining({ code: "INVALID_INPUT" }),
     );
+  });
+
+  it("rejects a paper scale marker that is not the approved eight-place boundary", () => {
+    expect(() =>
+      evaluator.evaluate(
+        validInput({
+          trades: [{ profit: 1, result: "WIN", decimalScale: 7 as 8 }],
+        }),
+      ),
+    ).toThrow(expect.objectContaining({ code: "INVALID_INPUT" }));
+  });
+
+  it("keeps equal maximum-capital values finite without overflowing intermediate arithmetic", () => {
+    const metrics = evaluator.evaluate(
+      validInput({
+        initialCapital: Number.MAX_VALUE,
+        endingCapital: Number.MAX_VALUE,
+        trades: [],
+        equityCurve: [{ timestamp: "max-capital", value: Number.MAX_VALUE }],
+      }),
+    );
+
+    expect(metrics.totalReturnPercent).toBe(0);
+    expect(metrics.maxDrawdownMagnitudePercent).toBe(0);
   });
 
   it("rejects non-finite metric output caused by numeric overflow", () => {

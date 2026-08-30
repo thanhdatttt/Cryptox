@@ -1,3 +1,80 @@
+# INS-081 Execution Checkpoint — E-02 Extension Evaluation and Decimal-Boundary Reconciliation
+
+## Resume here
+
+- **Authorization:** `INS-081 / APPROVED_FOR_EXECUTION` authorized exactly one
+  fresh Manager and the single `E-02` packet. No retry, replacement, duplicate,
+  downstream promotion, or other packet was authorized.
+- **Manager:** `01a05141-3fce-7ff3-bceb-eded75852526` in the canonical
+  same-directory checkout `D:/agy-cli-projects/AOS/Cryptox` on branch
+  `MVP_IMPLEMENTATION`; no worktree or alternate branch was used.
+- **Starting checkpoint:** `87e9bc46f0b93ba565fb72884e0cb108407b010a`
+  (`docs(control): authorize E-02 evaluation reconciliation`), with reviewed
+  base `856f0973acf7066149777c566bef847180cc270d`. The starting delta was the
+  reviewed `INSTRUCTOR.md` authorization only; source, business state, and task
+  DAG were clean and applicable.
+- **Dependencies:** `C-02` DONE, `B-03` DONE under `INS-069` with source
+  checkpoint `692754051f2c43bf7ab70a453adb1b9c9d3ca6d4`, and `E-01` DONE at
+  `a20a7c5`. `L-02`, `F-03`, and `I-03` remain BLOCKED. `M-02` remains
+  REVIEW/UNVERIFIED and `AU-02` remains blocked pending its human decision.
+  No downstream packet was started.
+- **Worker:** exactly one internal worker, Bacon
+  (`01a05145-6769-7100-b367-e3173484ce8c`), worked in the same canonical
+  checkout with no commit. Bacon returned a completed checkpoint and did not
+  edit control artifacts or the frozen contract.
+- **State transition:** E-02 moved exactly
+  `BLOCKED -> READY -> IN_PROGRESS -> REVIEW -> DONE`; no other task state was
+  changed.
+
+## Implementation and review
+
+- **Authorized paths changed:**
+  `modules/evaluation/domain/evaluator.ts`,
+  `modules/evaluation/api/bootstrap.ts`,
+  `modules/evaluation/api/bootstrap.spec.ts`, and
+  `modules/evaluation/README.md`, plus this Manager-owned checkpoint and
+  `docs/implementation/TASKS.md`.
+- Evaluation now consumes the completed decimal-normalized paper-result shape
+  through its public boundary and computes only the four required deterministic
+  metrics. Rational/integer decimal arithmetic, strict structural and finite
+  input validation, overflow rejection, zero/flat handling, and immutable input
+  behavior were independently reviewed. Evaluation does not reconstruct fills,
+  fees, slippage, rounding, entry/exit behavior, simulation, ranking, or score.
+- Decimal Long and synthetic Short projections, zero trades, flat/zero curves,
+  malformed/sparse/non-finite/non-positive-denominator inputs, invalid decimal
+  scale, and arithmetic overflow were independently exercised. A full B-03-shaped
+  result and actual B-03 simulator output for Long and Synthetic Short were
+  passed through Evaluation with finite required outputs.
+- `modules/evaluation/api/contracts.ts` was not edited; its pre/post content
+  hash remained `c5e1f7fd7a92d96879bc9ff15fb2d9b99eeda429`.
+
+## Validation evidence
+
+- **PASS:** focused E-02 bootstrap tests `17/17`; complete Evaluation package
+  tests `19/19`; Evaluation typecheck, build, and lint.
+- **PASS:** root test command (377 passed; 6 environment-gated skips), root
+  typecheck, root build, and root lint.
+- **PASS:** architecture gate (76 modules / 198 dependencies), artifacts gate,
+  deferred-scope gate, scope tests `13/13`, exact authorized-path review,
+  cross-module import review, and `git diff --check`.
+- **UNVERIFIED:** OpenSpec CLI evidence because `openspec` is unavailable in
+  this environment.
+- **UNVERIFIED/BLOCKED:** live Binance/provider, PostgreSQL/Docker, browser/demo,
+  and other live-runtime evidence. Fixture and local simulator evidence does
+  not promote those checks.
+
+## Stop boundary
+
+- E-02 is DONE. `L-02`, `F-03`, `I-03`, `I-01`, `I-02`, `M-02`, and `AU-02`
+  were not started or promoted. Stop here; the next nominal packet requires a
+  fresh applicable Instructor authorization.
+- **Commit:** The one coherent Manager checkpoint staging/commit attempt was
+  made once and was denied before staging: `fatal: Unable to create
+  'D:/agy-cli-projects/AOS/Cryptox/.git/index.lock': Permission denied`. No
+  retry was made. The six-file checkpoint remains uncommitted in the working
+  tree; current HEAD is still the reviewed starting checkpoint until an
+  authorized environment can commit it.
+
 # INS-077 Execution Checkpoint — S-04 Controlled LLM Authoring Review
 
 ## Resume here

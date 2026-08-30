@@ -15,6 +15,10 @@ For a valid completed backtest:
   `(peak - currentValue) / peak * 100` in the supplied equity-point order. Empty,
   singleton, flat, and all-zero curves have drawdown 0. Equity values must be
   finite and non-negative.
+- Decimal-normalized paper values are read through their finite decimal number
+  representation and evaluated with integer/rational arithmetic before the
+  public number conversion. Evaluation does not round inputs or reconstruct
+  fills, fees, slippage, or entry/exit behavior.
 
 Candidate identity, every required numeric input, trade result, and equity-point
 shape are validated. Non-finite input is rejected as `INVALID_INPUT`; a finite
