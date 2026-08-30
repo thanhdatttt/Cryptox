@@ -17,6 +17,8 @@ import type { SearchModulePublicApi, SearchModuleRuntime } from "modules/search/
 import { createInMemorySearchDependencies, createPostgresCancellationUnitOfWork, createPostgresSearchDependencies, createSearchModule } from "modules/search/api/bootstrap";
 import { createDeterministicSentimentAdapter, createSentimentModule, PostgresSentimentResultRepository, PostgresSentimentSnapshotRepository } from "modules/sentiment/api/bootstrap";
 import { createOpenAiStrategyGenerationAdapter, createPostgresStrategyDependencies, createStrategyModule } from "modules/strategy/api/bootstrap";
+import { createAuthModule, createInMemoryAuthDependencies } from "modules/auth/api";
+import { loadBackendRuntimeConfig, type RuntimeProfile } from "./runtime-config";
 
 export interface BackendModules extends Record<string, unknown> {
   auth: AuthModulePublicApi;
@@ -32,13 +34,13 @@ export interface BackendModules extends Record<string, unknown> {
   stopRuntime(): Promise<void>;
 }
 
-export function composeAllModules(): BackendModules {
-  const postgres = process.env.DATABASE_URL ? new Pool({ connectionString: process.env.DATABASE_URL }) : undefined;
-  const marketDataProvider = (process.env.MARKET_DATA_PROVIDER ?? "BINANCE").toUpperCase();
-  if (marketDataProvider !== "BINANCE" && marketDataProvider !== "DEMO") throw new Error(`Unsupported MARKET_DATA_PROVIDER: ${marketDataProvider}`);
+export function composeAllModules(options: { profile?: RuntimeProfile; env?: NodeJS.ProcessEnv } = {}): BackendModules {
+  const config = loadBackendRuntimeConfig(options.env ?? process.env, options.profile);
+  const postgres = config.databaseUrl ? new Pool({ connectionString: config.databaseUrl }) : undefined;
+  const marketDataProvider = config.marketDataProvider;
   const inMemoryBacktesting = createInMemoryBacktestingDependencies();
-  const queue = process.env.REDIS_URL ? new BullMqBacktestQueue(process.env.REDIS_URL) : inMemoryBacktesting.queue;
-  const latestValueCache = process.env.REDIS_URL ? createRedisLatestValueCache(process.env.REDIS_URL) : undefined;
+  const queue = config.durable ? new BullMqBacktestQueue(config.redisUrl!) : inMemoryBacktesting.queue;
+  const latestValueCache = config.durable ? createRedisLatestValueCache(config.redisUrl!) : undefined;
   const marketData = createMarketDataModule({
     candleRepository: postgres ? new PostgresCandleRepository(postgres) : undefined,
     snapshotRepository: postgres ? new PostgresSnapshotRepository(postgres) : undefined,
@@ -49,11 +51,12 @@ export function composeAllModules(): BackendModules {
   const strategy = strategyDependencies
     ? createStrategyModule({
       ...strategyDependencies,
-      ...(process.env.OPENAI_API_KEY?.trim() ? {
+      ...(config.strategyLlmApiKey && config.strategyModelEndpoint && config.strategyModelName ? {
         generationAdapter: createOpenAiStrategyGenerationAdapter({
-          apiKey: process.env.OPENAI_API_KEY,
-          model: process.env.STRATEGY_MODEL_NAME ?? "gpt-4o-mini",
-          modelVersion: process.env.STRATEGY_MODEL_VERSION,
+          apiKey: config.strategyLlmApiKey,
+          model: config.strategyModelName,
+          modelVersion: config.strategyModelVersion,
+          endpoint: config.strategyModelEndpoint,
         }),
       } : {}),
     })
@@ -91,7 +94,7 @@ export function composeAllModules(): BackendModules {
     newsRepository: postgres ? new PostgresNewsRepository(postgres) : undefined,
     sentiment,
   });
-  const completionListener = process.env.REDIS_URL ? new BullMqBacktestCompletionListener(process.env.REDIS_URL, backtesting) : undefined;
+  const completionListener = config.durable ? new BullMqBacktestCompletionListener(config.redisUrl!, backtesting) : undefined;
   let recoveryTimer: NodeJS.Timeout | undefined;
   const reconcileRuntime = async (): Promise<void> => {
     await backtesting.reconcileQueue();
@@ -108,14 +111,14 @@ export function composeAllModules(): BackendModules {
     leaderboard,
     news,
     sentiment,
-    auth: createConfiguredAuthModule(),
+    auth: config.durable ? createConfiguredAuthModule({ profile: config.profile, databaseUrl: config.databaseUrl, jwtSecret: config.jwtSecret }) : createAuthModule(createInMemoryAuthDependencies({ jwtSecret: config.jwtSecret ?? "cryptox-test-profile-secret" })),
   } as unknown as BackendModules;
   Object.defineProperties(modules, {
     startRuntime: { enumerable: false, value: async () => {
       await completionListener?.waitUntilReady();
       await reconcileRuntime();
       if (!recoveryTimer) {
-        recoveryTimer = setInterval(() => { void reconcileRuntime(); }, Number(process.env.BACKTEST_RECOVERY_INTERVAL_MS ?? "1000"));
+        recoveryTimer = setInterval(() => { void reconcileRuntime(); }, config.backtestRecoveryIntervalMs);
         recoveryTimer.unref();
       }
     } },

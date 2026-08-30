@@ -3,7 +3,7 @@ export type { User, UserRepository } from "../domain/contracts";
 export { AuthException } from "../domain/errors";
 export interface AuthContext { userId: string; }
 export interface AuthModulePublicApi { register(email: string, password: string): Promise<void>; login(email: string, password: string): Promise<{ token: string }>; verify(token: string): Promise<{ userId: string }>; }
-const defaultService = createAuthModule(createInMemoryAuthDependencies());
+const defaultService = createAuthModule(createInMemoryAuthDependencies({ jwtSecret: "cryptox-test-profile-secret" }));
 export const register: AuthModulePublicApi["register"] = (email, password) => defaultService.register(email, password);
 export const login: AuthModulePublicApi["login"] = (email, password) => defaultService.login(email, password);
 export const verify: AuthModulePublicApi["verify"] = (token) => defaultService.verify(token);

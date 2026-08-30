@@ -54,7 +54,6 @@ class Hs256JwtCodec implements TokenCodec {
   }
 }
 
-const defaultSecret = (): string => process.env.JWT_SECRET?.trim() || "cryptox-local-development-secret-change-me";
 const isDuplicateError = (error: unknown): boolean => error instanceof AuthException && error.code === "EMAIL_ALREADY_EXISTS" || typeof error === "object" && error !== null && "code" in error && (error as { code?: unknown }).code === "23505";
 
 export interface AuthModuleRuntime {
@@ -63,18 +62,22 @@ export interface AuthModuleRuntime {
   verify(token: string): Promise<{ userId: string }>;
 }
 
-export function createInMemoryAuthDependencies(): AuthModuleDependencies {
-  return { userRepository: new MemoryUserRepository(), jwtSecret: defaultSecret(), clock: { now }, passwordHasher: bcryptHasher, idGenerator: randomUUID };
+export function createInMemoryAuthDependencies(options: { jwtSecret?: string } = {}): AuthModuleDependencies {
+  const jwtSecret = options.jwtSecret?.trim() ?? (process.env.NODE_ENV?.toLowerCase() === "test" ? "cryptox-test-only-secret" : undefined);
+  if (!jwtSecret) throw new AuthException("CONFIGURATION_ERROR", "JWT secret is required for an in-memory Auth runtime.");
+  return { userRepository: new MemoryUserRepository(), jwtSecret, clock: { now }, passwordHasher: bcryptHasher, idGenerator: randomUUID };
 }
 
-export function createAuthModule(dependencies: InternalDependencies = createInMemoryAuthDependencies()): AuthModuleRuntime {
-  const defaults = createInMemoryAuthDependencies();
-  const repository = dependencies.userRepository ?? defaults.userRepository;
-  const jwtSecret = dependencies.jwtSecret?.trim() || defaults.jwtSecret;
-  const clock = dependencies.clock ?? defaults.clock!;
-  const passwordHasher = dependencies.passwordHasher ?? defaults.passwordHasher!;
-  const tokenCodec = dependencies.tokenCodec ?? new Hs256JwtCodec(jwtSecret);
-  const idGenerator = dependencies.idGenerator ?? defaults.idGenerator!;
+export function createAuthModule(dependencies?: InternalDependencies): AuthModuleRuntime {
+  const provided = dependencies ?? {};
+  const defaults = dependencies ?? createInMemoryAuthDependencies();
+  const repository = provided.userRepository ?? defaults.userRepository!;
+  const jwtSecret = provided.jwtSecret?.trim() ?? defaults.jwtSecret;
+  if (!jwtSecret) throw new AuthException("CONFIGURATION_ERROR", "JWT secret is required.");
+  const clock = provided.clock ?? defaults.clock!;
+  const passwordHasher = provided.passwordHasher ?? defaults.passwordHasher!;
+  const tokenCodec = provided.tokenCodec ?? new Hs256JwtCodec(jwtSecret);
+  const idGenerator = provided.idGenerator ?? defaults.idGenerator!;
 
   return {
     async register(email, password) {
