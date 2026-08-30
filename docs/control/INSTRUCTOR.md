@@ -2,11 +2,67 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-077`
+Instruction ID: `INS-078`
 
-Status: `APPROVED_FOR_EXECUTION`
+Status: `HOLD`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-078 — Post-INS-077 independent audit HOLD
+
+This current signal supersedes `INS-077 / APPROVED_FOR_EXECUTION`. The
+authorized S-04 implementation is accepted at its bounded packet boundary and
+the control plane is now held pending the next Instructor frontier review. It
+authorizes no Manager, worker, retry, replacement, duplicate, downstream
+promotion, or other task-state transition.
+
+### Verified checkpoint and acceptance
+
+- Branch: `MVP_IMPLEMENTATION`; the reviewed S-04 source/control checkpoint is
+  committed at `01db873` (`feat(strategy): implement controlled LLM authoring`)
+  on top of `3184d7a` (`INS-077 / APPROVED_FOR_EXECUTION`). The working tree is
+  clean after the parent Instructor committed the exact Manager-reported delta
+  that Git refused to stage for the Manager.
+- Manager `01a050e8-b340-7df1-8724-0e52e00f234d` used exactly one internal
+  Strategy worker, Helmholtz `01a050f1-73b9-7c51-975b-19d6247ef96d`, in the
+  canonical same-directory checkout. No competing Cryptox Manager/worker is
+  active; the Manager was archived after completion. No downstream packet was
+  started.
+- Only `S-04` moved through `BLOCKED -> READY -> IN_PROGRESS -> REVIEW ->
+  DONE`. The current board is `35 DONE`, `1 REVIEW` (`M-02`), and `7 BLOCKED`
+  (`AU-02`, `E-02`, `L-02`, `F-03`, `I-01`, `I-02`, `I-03`).
+- The exact source delta is limited to the eight authorized Strategy
+  API/application/infrastructure source/test paths; the Manager-owned control
+  delta is limited to `TASKS.md` and `HANDOFF.md`. Frozen contracts/ports,
+  News, migrations, dependencies, frontend, backend composition, domain/plugin
+  code, and unrelated files are unchanged.
+- Independent validation PASS: Strategy `15` test files / `116` tests, root
+  workspace tests, root build/typecheck/lint, architecture, artifacts,
+  deferred-scope, `test:scope-check` `13/13`, and `git diff --check`.
+  Environment-gated tests remain skips, not passes.
+- Truthful limitations remain: OpenSpec CLI is unavailable (`UNVERIFIED`),
+  live configured provider and browser/demo evidence are `UNVERIFIED`, and
+  Docker/PostgreSQL validation is `BLOCKED`/`UNVERIFIED` because this host
+  lacks usable `docker compose` access. No fixture or skipped test is promoted
+  to live evidence.
+
+### HOLD conditions and next review
+
+- Re-read the current `MVP_PLAN.md`, `TASKS.md`, `HANDOFF.md`, requirements,
+  accepted ADRs, architecture, data model, active capability/change specs, and
+  the source/tests for the selected frontier before any new signal.
+- Verify Git cleanliness, the absence of active Manager/worker tasks, current
+  dependency satisfaction, and a disjoint write scope. Do not infer authority
+  from a `READY` row or from S-04 completion.
+- The next review may consider `E-02` because its recorded start dependencies
+  (`C-02`, `B-03`, `E-01`) are `DONE`; it must not be treated as authorized by
+  this HOLD. `L-02`, `F-03`, `I-01`, `I-02`, `I-03`, `AU-02`, and the
+  `M-02` review state remain separately gated.
+- Any next implementation authorization must name its packet, requirement IDs,
+  exact write scope, acceptance criteria, validation, dependencies,
+  prohibitions, and stop condition. A fresh same-directory Manager must use
+  `gpt-5.6-luna` with `max` reasoning and internal subagents only; no
+  user-facing `create_thread` dispatch is permitted for workers.
 
 ## INS-077 — S-04 controlled LLM authoring
 
