@@ -2,13 +2,62 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-089`
+Instruction ID: `INS-090`
 
-Status: `APPROVED_FOR_EXECUTION`
+Status: `HOLD`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
-## INS-089 — F-03 Residual Screen Projections
+## INS-090 — Post-INS-089 F-03 Review HOLD
+
+This current signal supersedes `INS-089 / APPROVED_FOR_EXECUTION`. It records the
+Instructor review after the bounded F-03 screen projection run and grants no
+execution authority while the Manager-owned checkpoint is reconciled.
+
+### Reviewed checkpoint
+
+- The canonical checkout is `D:/agy-cli-projects/AOS/Cryptox`, branch
+  `MVP_IMPLEMENTATION`, clean at `6a4e86e` (`feat(frontend): complete F-03
+  screen projections`). The commit contains exactly the two authorized screen
+  paths and the Manager-owned `TASKS.md`/`HANDOFF.md` checkpoint records.
+- The fresh INS-089 Manager completed with exactly one internal Frontend worker
+  (Darwin); both are inactive/closed. No competing Cryptox Manager or worker is
+  active, and no retry, replacement, duplicate, worktree, branch, or downstream
+  task was started.
+- F-03 remains `REVIEW / NEEDS_INSTRUCTOR_REVIEW` in the operational board until
+  a fresh Manager reconciles the checkpoint to `6a4e86e` and, if the packet
+  boundary is satisfied, performs the sole authorized `REVIEW -> DONE` state
+  transition. The board is `37 DONE`, `2 REVIEW` (`M-02`, `F-03`), and `4
+  BLOCKED` (`AU-02`, `I-01`, `I-02`, `I-03`).
+
+### Independent evidence review
+
+- **PASS:** F-03 focused screen tests 3/3; Frontend 33/33; root tests 385 pass
+  with 6 environment-gated skips; root/Frontend typecheck, build, and lint;
+  architecture, artifacts, deferred-scope, scope tests 13/13, runtime smoke,
+  and whitespace/diff checks.
+- **BLOCKED/UNVERIFIED:** Docker/PostgreSQL validation is `BLOCKED` because
+  Docker Compose is unavailable and Docker config access is denied. OpenSpec
+  CLI, live Binance/News/provider traffic, real feature REST/market-WebSocket
+  composition, and browser/demo evidence remain `UNVERIFIED` or `BLOCKED`.
+  These limitations do not become PASS and remain integration/final-demo gates
+  owned by later authorized work.
+- The source review found no new transport, persistence, provider call,
+  frontend business calculation, client-identity/cache bypass, hard-coded
+  strategy-name branch, deferred-scope leakage, or forbidden-path change. The
+  UI keeps unavailable state explicit and renders only supplied DTO/state.
+
+### Current boundary
+
+- This HOLD authorizes nothing: no worker, no implementation packet, no M-02,
+  AU-02, I-01, I-02, I-03, no retry/replacement, and no downstream promotion.
+- A separate fresh Manager may be authorized only for governance checkpoint
+  reconciliation and packet-state closure against committed `6a4e86e`. That
+  Manager must not create a worker or edit source. If the checkpoint is not
+  internally consistent, it must leave F-03 in `REVIEW` and report
+  `NEEDS_INSTRUCTOR_REVIEW`.
+
+## Historical INS-089 — F-03 Residual Screen Projections
 
 This current signal supersedes `INS-088 / HOLD` and authorizes exactly one
 fresh Manager and exactly one internal Frontend worker to complete the

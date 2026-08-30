@@ -491,3 +491,34 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [MVP plan](../implementation/MVP_PLAN.md), [Task state](../implementation/TASKS.md),
 [N-03 checkpoint](../implementation/HANDOFF.md), and
 [INS-072](./INSTRUCTOR.md).
+
+## DEC-015 — F-03 frontend packet-boundary closure review
+
+Status: `APPROVED`
+
+Authority: Instructor review after the `INS-089` bounded F-03 residual checkpoint
+and independently audited commit `6a4e86e`
+
+Decision: The F-03 screen projection implementation may be considered for packet
+closure only at its approved frontend boundary: projection of supplied DTO/state,
+explicit unavailable states for absent LLM and seeded-start transport, generic
+descriptor/composite/search/paper/News metadata, and packet regression evidence.
+The committed implementation does not claim real-provider, PostgreSQL,
+feature-transport, browser/demo, or final all-requirements evidence; those remain
+integration and final-demo gates owned by separately authorized `I-03`, `I-01`,
+`AU-02`, and `I-02` work.
+
+Why: The bounded F-03 source and tests now satisfy the local packet acceptance
+without inventing transport or business logic, while the previous Manager
+checkpoint was necessarily stale after the Instructor's exact audit commit. A
+fresh governance-only Manager must reconcile `TASKS.md` and `HANDOFF.md` to the
+commit before any state transition is treated as authoritative.
+
+Affected: F-03 packet closure review, `TASKS.md`, `HANDOFF.md`, `INS-090`, and the
+E3-to-E4 boundary. No source scope, requirement baseline, deferred scope, or
+downstream authorization is changed by this decision.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+[F-03 authorization](./INSTRUCTOR.md), and commit `6a4e86e`.
