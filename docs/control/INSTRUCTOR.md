@@ -2,15 +2,99 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-098`
+Instruction ID: `INS-099`
 
-Status: `HOLD`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
-## INS-098 — HOLD after AU-02 ownership-integration attempt
+## INS-099 — AU-02 Completion Ownership Matrix
 
-This current signal supersedes `INS-097 / APPROVED_FOR_EXECUTION` at
+This current signal supersedes `INS-098 / HOLD` at `8e73cb9` and is issued
+after a fresh Instructor review found that the previously blocked host database
+premise has changed. It authorizes exactly one fresh Manager and exactly one
+fresh internal worker for one bounded AU-02 completion attempt. This is an
+explicit new authorization after verified environment recovery, not an
+automatic retry; no duplicate, replacement, second worker, or downstream work
+is authorized.
+
+### Reviewed authority and applicability
+
+- The canonical checkout is `D:/agy-cli-projects/AOS/Cryptox`, branch
+  `MVP_IMPLEMENTATION`, at `8e73cb9` (`docs(control): hold after AU-02
+  attempt`). There is no tracked source, business-state, or control-plane
+  drift. The only working-tree delta is the 33-byte app-generated
+  `.codex/config.toml` (`model_reasoning_summary = "auto"`), which is outside
+  Cryptox scope and must remain untouched, unstaged, and undeleted.
+- `TASKS.md` is authoritative at `39 DONE`, `1 REVIEW` (`AU-02`), and
+  `3 BLOCKED` (`I-01`, `I-02`, `I-03`). The previous AU-02 attempt under
+  `INS-097` produced no source/test changes and was closed in `REVIEW` under
+  `INS-098`; no other task was changed.
+- AU-02 dependencies `AU-01`, `D-01`, `S-01`, `L-01`, `B-02`, Q-01 real
+  integration, and F-AUTH are recorded `DONE`. I-01, I-02, and I-03 remain
+  blocked and are not authorized here.
+- Read-only environment revalidation found the local containers
+  `cryptox-local-postgres-dev-1` and `cryptox-local-postgres-test-1` healthy,
+  with ports `55432` and `55433` open. Using the documented
+  `CRYPTOX_LOCAL_POSTGRES_PASSWORD` from `infra/db/local.env` without printing
+  its value, host `pg` connections and `SELECT current_database()` succeeded
+  for `cryptox_development` and `cryptox_test`. This restores the documented
+  application-level PostgreSQL connectivity gate. The Docker Compose plugin
+  itself remains unavailable and must stay `UNVERIFIED`; no credential change,
+  extraction, volume reset, install, cloud database, or secret request is
+  allowed.
+- No competing Cryptox Manager or worker is active. The fresh Manager must use
+  the same canonical checkout, model `gpt-5.6-luna`, and reasoning `max`, with
+  no worktree, alternate checkout, branch, cloud task, or historical Manager.
+
+### Exact Manager and worker scope
+
+- Create exactly one fresh internal worker/subagent. The worker may edit only
+  cross-module AU-02 ownership/security integration tests and narrowly
+  necessary owner-scoped fixes under `modules/auth/**`, `modules/strategy/**`,
+  `modules/search/**`, `modules/backtesting/**`, `modules/leaderboard/**`, and
+  `apps/backend/src/**`.
+- Canonical contracts, `packages/contracts/**`, migrations, dependencies,
+  generated artifacts, News, Market Data, frontend, unrelated backend routes,
+  architecture policy, pure algorithms, and I-01/I-02/I-03 or any other
+  packet are excluded. If an essential change falls outside the allowed paths,
+  stop and report `NEEDS_INSTRUCTOR_REVIEW`.
+- Use public module APIs at cross-module boundaries and preserve Auth
+  independence for pure Strategy, Backtest, Evaluation, and ranking
+  calculations. Do not add enterprise identity, tenant/RBAC, JWT/refresh
+  tokens, queues/distributed infrastructure, general risk, live trading, or
+  sensitive logging.
+- The Manager may update only `docs/implementation/TASKS.md` and
+  `docs/implementation/HANDOFF.md`, may transition only AU-02 through the
+  normal operational states (including the explicit `REVIEW → READY` reopen
+  for this fresh authorization), and must review the worker diff before
+  integration. No Manager-side feature implementation or control-file edit is
+  permitted.
+
+### Acceptance and validation
+
+- Prove the complete resource-by-resource A/B matrix: unauthenticated 401;
+  cross-user 404/no-leak and same-owner success for applicable read, update,
+  delete, cancel, list, submit, and rank operations; trusted server-derived
+  identity; client `userId`/`ownerUserId` spoof resistance; SearchRun to
+  Candidate owner propagation; same-owner Leaderboard admission and
+  cross-owner rejection; approved shared-data visibility; and no password,
+  raw credential, cookie, session-token, token-digest, or credential logging.
+- Required evidence must cover the real host PostgreSQL/Auth/Search path now
+  available, not only fixtures or in-memory adapters. AU-02 may be marked
+  `DONE` only when the full matrix and applicable integration evidence pass.
+- Run focused tests, affected package tests, typecheck, build, lint,
+  architecture/dependency, generated-artifact, deferred-scope, test-scope,
+  whitespace, exact-diff, and relevant global gates. Docker Compose/OpenSpec
+  CLI and any unavailable external check remain `BLOCKED`/`UNVERIFIED`.
+- Do not start or promote I-01, I-02, I-03, any downstream/deferred packet, or
+  any retry/replacement/duplicate. Make one coherent Manager checkpoint
+  staging/commit attempt only; if Git denies it, report the exact error and do
+  not retry. Stop after this authorization is exhausted.
+
+## Historical INS-098 — HOLD after AU-02 ownership-integration attempt
+
+This historical signal superseded `INS-097 / APPROVED_FOR_EXECUTION` at
 `7febd0f`. The exact Manager checkpoint is independently audited and persisted
 at `6f83d3c`. This HOLD authorizes no worker, retry, replacement, downstream
 packet, or final-MVP claim.

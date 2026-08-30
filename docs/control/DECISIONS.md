@@ -644,3 +644,35 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [MVP plan](../implementation/MVP_PLAN.md), [Task state](../implementation/TASKS.md),
 [Latest checkpoint](../implementation/HANDOFF.md), `INS-097`, and commit
 `6f83d3c`.
+
+## DEC-020 — AU-02 application database gate revalidated
+
+Status: `APPROVED`
+
+Authority: Fresh Instructor review after `INS-098 / HOLD` at `8e73cb9`
+
+Decision: The previously unavailable host PostgreSQL premise is no longer a
+blocker for a fresh, explicit AU-02 completion authorization. The Instructor
+may issue one bounded AU-02 authorization requiring the complete cross-module
+ownership matrix and real Auth/Search integration. This decision is not an
+automatic retry, does not reopen any other packet, and does not relax the
+prohibition on duplicate workers, retries, scope expansion, or downstream work.
+
+Why: The local Docker containers remain healthy and the documented password
+from `infra/db/local.env` successfully authenticated read-only host connections
+to the database names defined by `infra/docker-compose.yml`:
+`cryptox_development` on port `55432` and `cryptox_test` on port `55433`.
+`SELECT current_database()` returned the expected database name for both
+connections. The password value was not printed or changed. Docker Compose CLI
+availability remains `UNVERIFIED`, but direct documented PostgreSQL access is
+now available for the AU-02 application-level gate.
+
+Affected: AU-02 and `INS-099`. I-01, I-02, I-03, all deferred scope, the
+requirements baseline, ownership rules, and all other task states remain
+unchanged until the separately authorized Manager proves AU-02.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [ADR-008](../adr/ADR_008_simple_auth_and_per_user_ownership.md),
+[MVP plan](../implementation/MVP_PLAN.md), [Task state](../implementation/TASKS.md),
+[Latest checkpoint](../implementation/HANDOFF.md), `INS-098`, and commit
+`8e73cb9`.
