@@ -2,13 +2,106 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-102`
+Instruction ID: `INS-103`
 
-Status: `HOLD`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
-## INS-102 — Independent review after INS-101 AU-02 completion
+## INS-103 — Runtime, transport and observability integration
+
+This signal supersedes `INS-102 / HOLD` after a fresh Instructor review. It
+authorizes exactly one new I-01 attempt: one fresh Manager in the canonical
+same-directory checkout and one fresh sequential internal worker. I-01 is the
+only authorized task; no extension packet, I-02, I-03, retry, replacement,
+duplicate, worktree, or downstream execution is authorized.
+
+### Reviewed checkpoint and applicability
+
+- The canonical checkout is `D:/agy-cli-projects/AOS/Cryptox` on
+  `MVP_IMPLEMENTATION`, at `9f0841a83da6bd917185d3d692b5c9f27f07cdff`
+  (`docs(control): hold after INS-101 AU-02 review`). The tracked tree is
+  clean and `git diff --check` is clean. The only working-tree delta is the
+  untouched app-generated untracked `.codex/config.toml`, outside Cryptox
+  scope; it must remain untouched, unstaged, and undeleted.
+- `TASKS.md` is authoritative at `40 DONE`, `0 REVIEW`, and `3 BLOCKED`
+  (`I-01`, `I-02`, `I-03`). AU-02 is independently accepted `DONE` in
+  `DEC-023`; no task is promoted by this signal before the Manager verifies
+  the same state.
+- I-01 start dependencies are verified `DONE`: AU-01, AU-02, B-02, M-01,
+  M-02, S-02, S-03, Q-01 integration, N-01, N-02, F-01, F-AUTH, and F-02.
+  The prior M-02 checkpoint contains public Binance realtime smoke evidence.
+- Read-only provider preflight from this environment reached Binance public
+  historical data with HTTP 200 and a two-item kline array, and reached the
+  CoinDesk public RSS source with HTTP 200 and RSS items. The CoinDesk JSON
+  API without an API key returned HTTP 401 and remains unavailable; no secret
+  is requested or inferred. I-01 must use an actually configured real source
+  and record any unavailable provider as `UNVERIFIED` or `BLOCKED`.
+- No competing Cryptox Manager, Orchestrator, or worker is active. The prior
+  INS-101 Manager is idle/closed and must not be reused.
+
+### Exact Manager/worker scope
+
+- Create exactly one fresh internal worker and run it sequentially. The
+  Manager may perform governance/checkpoint work and narrow integration glue;
+  all bounded implementation work with an independent write scope must be
+  delegated under `AGENTS.md`.
+- The implementation boundary is `apps/backend/**`, including backend tests,
+  thin REST/market-WebSocket transport mappers, composition/readiness code,
+  and an example configuration if needed. A single root `package-lock.json`
+  update and the corresponding `apps/backend/package.json` dependency entry
+  are allowed only if one narrowly necessary market-WebSocket server runtime
+  dependency is genuinely required; no other dependency expansion is allowed.
+- Compose the approved Auth and capability public APIs through the backend,
+  derive identity only from the server-side Auth session context, and expose
+  the existing frozen REST DTOs/parsers without changing contracts. The
+  protected transport must cover the existing Auth, market-history, Strategy,
+  Search, Backtesting, Leaderboard, and News client/API surface, with 401 for
+  unauthenticated access and 404/no-leak for authenticated cross-owner access.
+- Compose market history/realtime through the approved Binance adapters and
+  the narrow market-only WebSocket contract, including normalized candles,
+  connection/failure state, and `MARKET_OBSERVABILITY_V1`. Compose real
+  PostgreSQL application/Auth state, the bounded local Backtest execution
+  path, application-generated Leaderboard results, and a configured real News
+  source (CoinDesk RSS is an available candidate) with local `LEXICON_V1`
+  sentiment. Fixtures may remain test-only and must never silently become the
+  final/demo runtime.
+- Readiness and failure projections must be truthful: liveness remains
+  independent, readiness does not report `ready` for missing required real
+  providers or persistence, provider failures remain visible, and News /
+  Sentiment failure does not break core market/strategy/backtest paths. The
+  final/demo preflight must reject mock-only required configuration.
+
+### Acceptance, validation, prohibitions and stop condition
+
+- I-01 may become `DONE` only after the composed backend serves the frozen
+  REST contracts and market-only WebSocket, passes Auth/session, 401/404
+  ownership, trusted-identity/spoof-resistance, one manual Backtest, one
+  bounded SearchRun, Candidate/Experiment/Trade, Leaderboard, market history,
+  News/Sentiment, readiness, provider-failure, and observability evidence.
+- Run backend HTTP/WS integration tests, real process-local PostgreSQL Auth
+  and application checks where configured, live Binance historical/realtime
+  and real News-source smoke where available, then build, typecheck, lint,
+  all workspace tests, architecture/dependency, source-sidecar,
+  deferred-scope, test-scope, runtime, secret-log, whitespace, and
+  exact-diff gates. Every skip or unavailable tool/provider is
+  `UNVERIFIED`/`BLOCKED`, never `PASS`.
+- Controllers must remain thin mappers/delegators; no business logic may be
+  placed in controllers. Do not change `packages/contracts/**`, any module
+  source under `modules/**`, migrations or database schema, `infra/**`,
+  `apps/frontend/**`, architecture/requirements/ADR/OpenSpec artifacts, or
+  any unrelated route. If an essential fix requires an excluded path, stop
+  with `NEEDS_INSTRUCTOR_REVIEW` and leave I-01 at `REVIEW`/`BLOCKED`.
+- Do not add a general event bus, non-market WebSocket, fake-ready status,
+  mock fallback in final configuration, Redis/BullMQ/worker topology, live
+  trading, deferred feature, contract drift, or frontend business logic.
+- The Manager may transition only I-01 through `BLOCKED -> READY ->
+  IN_PROGRESS -> REVIEW` and to `DONE` only when every gate passes. Make one
+  coherent commit attempt for the authorized implementation and Manager
+  checkpoint files; if Git denies it, record the exact error and do not retry.
+  Stop when I-01 is exhausted and do not start or promote I-02/I-03.
+
+## Historical INS-102 — Independent review after INS-101 AU-02 completion
 
 This signal replaces `INS-101 / APPROVED_FOR_EXECUTION` after the Instructor's
 independent review. It is a checkpoint only and authorizes no implementation,

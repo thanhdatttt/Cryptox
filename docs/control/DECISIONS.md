@@ -780,3 +780,37 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [MVP plan](../implementation/MVP_PLAN.md), [Task state](../implementation/TASKS.md),
 [Latest checkpoint](../implementation/HANDOFF.md), `INS-101`, and commit
 `422d47fad516f0e57930f91e3da88b22cb726183`.
+
+## DEC-024 — Fresh explicit I-01 integration authorization
+
+Status: `APPROVED`
+
+Authority: Fresh Instructor review after `INS-102 / HOLD` at `9f0841a`
+
+Decision: The Instructor may issue exactly one bounded `INS-103 /
+APPROVED_FOR_EXECUTION` for I-01 Runtime, Transports and Observability
+Integration. The authorization is limited to one fresh same-directory Manager
+and one fresh sequential internal worker, the backend integration boundary,
+and the exact acceptance/validation/prohibitions recorded in `INSTRUCTOR.md`.
+It does not authorize I-02, I-03, extension work, a retry, or any excluded
+module/contract/migration/frontend change.
+
+Why: AU-02 is independently accepted at `422d47f` and its governance HOLD is
+persisted at `9f0841a`; all I-01 start dependencies are recorded `DONE` in
+`TASKS.md`; the tracked checkout is clean; and no competing Cryptox execution
+writer is active. Read-only live preflight reached Binance historical data and
+CoinDesk RSS, while the unauthenticated CoinDesk JSON endpoint correctly
+remains unavailable because no API key is configured. The latter is retained
+as an environment limitation rather than treated as PASS, and I-01 must
+select only a real configured News source or report the unavailable path
+truthfully.
+
+Affected: I-01, `TASKS.md`, `HANDOFF.md`, `INS-103`, and the baseline runtime
+integration join. I-02 and I-03, all deferred scope, requirements, contracts,
+accepted architecture, and all other task states remain unchanged until a
+separate reviewed authorization.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`INS-102`, `DEC-007`, and commit `9f0841a`.
