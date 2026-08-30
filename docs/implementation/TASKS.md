@@ -26,7 +26,7 @@ Valid states: `BLOCKED`, `READY`, `IN_PROGRESS`, `REVIEW`, `DONE`.
 | B-01 | DONE | 3 | YES | Manager / reviewed Backtesting domain worker | `MVP_IMPLEMENTATION` / `afbd88c` | Focused 9/9, Backtesting 18/18, independent review, and reproducible root workspace gate PASS |
 | B-02 | DONE | 4 | YES | Manager / B-02 review-closure worker | `MVP_IMPLEMENTATION` / `a24aa00` | Packet-boundary DoD proven: Backtesting 33/33, package typecheck/lint/build, Auth PostgreSQL 3/3, owner isolation, provenance, rollback, cancellation/saturation, and one-terminal-outcome evidence PASS; cross-module Experiment/Leaderboard atomicity remains UNVERIFIED for I-01 |
 | AU-01 | DONE | 2 | YES | Orchestrator / Kepler / Banach + independent Auth reviewer | `MVP_IMPLEMENTATION` / `a9b026b` | PostgreSQL Auth 11/11 and backend 9/9 PASS on dedicated PostgreSQL 16.10; independent review PASS; full `verify:stage4a` PASS; OpenSpec CLI UNVERIFIED |
-| AU-02 | BLOCKED | 4 | YES | Manager (INS-021 worker Gibbs `01a04bf2-c013-7e73-a2b7-0b7781ac0a52` stopped) | `MVP_IMPLEMENTATION` / containing INS-021 control checkpoint (no AU-02 source commit) | INS-021 final retry stopped after the bounded window: no early matrix source/test diff or accepted evidence; observed package-test attempts yielded no accepted result; no source changes; `NEEDS_HUMAN_DECISION` |
+| AU-02 | REVIEW | 4 | YES | INS-097 Manager `01a05289-9805-72a3-b811-fda8a7d89eed` / exactly one fresh worker Bacon `01a0528f-4f6b-7ee3-be7f-5787c2b40005` | `MVP_IMPLEMENTATION` / this INS-097 Manager checkpoint; no AU-02 source commit | `BLOCKED → READY → IN_PROGRESS → REVIEW`; worker made no source/test changes; existing per-module evidence passes, complete A/B matrix and real PostgreSQL/Auth/Search gate remain UNVERIFIED/BLOCKED |
 | Q-01 | DONE | 3–4 | Integration | Ohm (`01a04bab-a02c-7221-9382-acf9a9a7d192`) | `MVP_IMPLEMENTATION` / `317ca0d` | Persisted SearchRun writes serialized with delayed-write regression; Search 22 passed / 1 skipped, package/global gates PASS; real PostgreSQL public Search→Backtesting→Leaderboard integration passed twice with terminal-state and ownership evidence |
 | N-01 | DONE | 2 | Integration | Manager / Plato (`01a04b84-e18e-7d82-ac56-14f20939bdee`) | `MVP_IMPLEMENTATION` / `04bf234` | News 14/14, typecheck/lint/build, architecture and scope gates PASS; live CoinDesk and real PostgreSQL remain UNVERIFIED |
 | N-02 | DONE | 2 | Integration | Manager / Sagan (`01a04b85-d5d2-7c81-95cd-08cb04249e04`) | `MVP_IMPLEMENTATION` / `04bf234` | Sentiment 16/16, typecheck/lint/build, architecture and scope gates PASS; real PostgreSQL remains UNVERIFIED |
@@ -73,9 +73,10 @@ boundary; external feature transport and real-provider/browser evidence remain
 unavailable for downstream integration; `I-03` remains `BLOCKED`. No downstream
 packet was authorized or started.
 The existing legacy rows, including
-`M-02` at `DONE`, `AU-02` at `BLOCKED`, and `I-01`/`I-02` at `BLOCKED`, retain
-their states and evidence. DEC-007 feature behavior remains unimplemented in
-the separately gated downstream packets.
+`M-02` at `DONE` and `I-01`/`I-02` at `BLOCKED`, retain their states and
+evidence. `AU-02` is the sole current implementation packet and is
+`REVIEW` under `INS-097` after the one-worker attempt; DEC-007 feature behavior
+remains unimplemented in the separately gated downstream packets.
 
 `ENV-02` was the sole implementation packet named by `INS-039`; it was
 persisted as `BLOCKED`, moved to `READY`, executed by exactly one scoped worker,
@@ -347,7 +348,7 @@ started and no worker was created for closure.
 
 - **Requirement IDs:** `CSL-R-OW-01`, `CSL-R-AU-01`, `CSL-R-ST-04`,
   `CSL-R-SE-01`, `CSL-R-SE-02`, `CSL-R-BT-01`, `CSL-R-LB-01`, `CSL-R-OB-01`
-- **State / owner / wave:** BLOCKED / Manager (INS-021 worker Gibbs `01a04bf2-c013-7e73-a2b7-0b7781ac0a52` stopped) / Wave 4
+- **State / owner / wave:** REVIEW / INS-097 Manager `01a05289-9805-72a3-b811-fda8a7d89eed`; exactly one fresh AU-02 worker Bacon `01a0528f-4f6b-7ee3-be7f-5787c2b40005` / Wave 4
 - **Critical / parallelism:** YES / NO with active private-resource writers
 - **Start dependencies:** AU-01, D-01, S-01, L-01, B-02, Q-01 real integration
 - **Integration dependencies:** F-AUTH and I-01
@@ -355,8 +356,8 @@ started and no worker was created for closure.
   Strategy, Search, Backtesting, and Leaderboard.
 - **Write scope:** Cross-module security/integration tests and narrowly approved
   owner-scoped fixes; no unrelated capability implementation.
-- **Latest branch / commit:** `MVP_IMPLEMENTATION` / containing INS-021 control checkpoint; no AU-02 source commit.
-- **Validation:** INS-021 verified AU-01, D-01, S-01, L-01, B-02, Q-01 real integration, and F-AUTH DONE. AU-02 reached BLOCKED→READY→IN_PROGRESS for the one final implementation-first retry owned by Gibbs, then was stopped after the bounded window. The worker produced no early matrix source/test diff, accepted security evidence, or commit; `DATABASE_URL` was absent and real PostgreSQL/Auth/Search integration is UNVERIFIED. The current tree has no allowed source changes. No further retry is authorized under INS-021; `NEEDS_HUMAN_DECISION` is required.
+- **Latest branch / commit:** `MVP_IMPLEMENTATION` / `7febd0f0a8aa6d57825ecddb42794d8a742493ad` authorization checkpoint; no AU-02 source commit. This fresh attempt records `BLOCKED → READY → IN_PROGRESS → REVIEW` under INS-097; the sole worker made no source/test changes.
+- **Validation:** INS-097 reverified AU-01, D-01, S-01, L-01, B-02, Q-01 real integration, and F-AUTH DONE before dispatch. Bacon's bounded attempt ran the existing Auth, Strategy, Search, Backtesting, and Leaderboard suites with their recorded per-module PASS results, but produced no accepted cross-module matrix. The prior INS-021 attempt remains historical and is not retried. PostgreSQL containers were previously observed healthy internally, but documented host application credentials failed authentication and Docker Compose is unavailable; real PostgreSQL/Auth/Search evidence is therefore UNVERIFIED/BLOCKED. The `.codex/config.toml` delta remains untracked and untouched.
 - **Full packet:** [`MVP_PLAN.md#au-02--per-user-ownership-security-integration`](MVP_PLAN.md#au-02--per-user-ownership-security-integration)
 
 ### Q-01 — Seeded Random Search and SearchRun Lifecycle
@@ -1179,7 +1180,8 @@ committed implementation checkpoint `5032582` was reconciled.
 `E-02` and `L-02` are DONE under their exact authorized worker dispatches;
 `M-02` is `DONE` under INS-095 at its approved packet-local realtime boundary
 after the fresh public Binance smoke; `F-03` is `DONE` under INS-091 at its
-approved packet-local frontend screen/test boundary. `AU-02`, `I-01`, `I-02`,
-and `I-03` remain BLOCKED.
+approved packet-local frontend screen/test boundary. `AU-02` is
+`REVIEW` under INS-097 after exactly one fresh worker made no source/test
+change; `I-01`, `I-02`, and `I-03` remain BLOCKED.
 No downstream packet was authorized, started, or promoted; no legacy DONE
 packet is treated as evidence for an unrelated DEC-007 requirement.

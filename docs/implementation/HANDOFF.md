@@ -1,4 +1,127 @@
-# INS-095 Manager Checkpoint — M-02 Realtime Evidence Closure Review
+# INS-097 Manager Checkpoint — AU-02 Per-User Ownership Security Integration
+
+## Resume here
+
+- **Authorization:** `INS-097 / APPROVED_FOR_EXECUTION` is committed at
+  `7febd0f0a8aa6d57825ecddb42794d8a742493ad` and supersedes `INS-096 / HOLD`
+  at `389db3b`. It authorizes exactly one fresh Manager and exactly one fresh
+  internal worker for one bounded AU-02 attempt. No retry, replacement,
+  duplicate, downstream packet, or I-01/I-02/I-03 work is authorized.
+- **Manager and checkout:** Manager `01a05289-9805-72a3-b811-fda8a7d89eed` is
+  operating in `D:/agy-cli-projects/AOS/Cryptox` on `MVP_IMPLEMENTATION` at
+  `7febd0f0a8aa6d57825ecddb42794d8a742493ad`. The reviewed checkpoint is
+  `389db3b`; the only delta from it is the committed Instructor signal, which
+  changes only `docs/control/INSTRUCTOR.md`. The only working-tree delta is the
+  app-generated untracked `.codex/config.toml`, which remains untouched,
+  unstaged, and undeleted.
+- **Task transition:** The board was `39 DONE`, `0 REVIEW`, and `4 BLOCKED`
+  (`AU-02`, `I-01`, `I-02`, `I-03`). AU-02 was verified READY from its DONE
+  dependencies, moved to `IN_PROGRESS`, and after the sole worker returned is
+  now `REVIEW`; no other task moved. The worker is Bacon
+  `01a0528f-4f6b-7ee3-be7f-5787c2b40005`.
+- **Worker boundary:** Exactly one internal worker will implement and test only
+  cross-module AU-02 ownership/security integration, with narrowly necessary
+  owner-scoped fixes, under `modules/auth/**`, `modules/strategy/**`,
+  `modules/search/**`, `modules/backtesting/**`, `modules/leaderboard/**`, and
+  `apps/backend/src/**`. Canonical contracts, migrations, dependencies,
+  generated files, News, Market Data, frontend, unrelated routes, architecture
+  policy, pure algorithm work, and other packets are excluded.
+- **Environment boundary:** The Instructor-recorded internal PostgreSQL health
+  and read-only checks are accepted as prior observations. Documented host
+  application access failed authentication and Docker Compose is unavailable;
+  no credential extraction, password change, volume reset, secret request,
+  software installation, cloud database, or environment expansion is allowed.
+
+## Initial validation and stop boundary
+
+- The applicable requirements are `CSL-R-AU-01`, `CSL-R-OW-01`, `CSL-R-ST-04`,
+  `CSL-R-SE-01`, `CSL-R-SE-02`, `CSL-R-BT-01`, `CSL-R-LB-01`, and
+  `CSL-R-OB-01`, governed by ADR-008 and the AU-02 packet in `MVP_PLAN.md`.
+- Required evidence is the resource-by-resource A/B matrix: unauthenticated
+  rejection; cross-user 404/no-leak for applicable read/update/delete/cancel/
+  list/submit/rank operations; same-owner success; trusted identity;
+  client-identity spoof resistance; Search Candidate owner propagation;
+  same-owner Leaderboard admission; shared-data visibility; and no secret
+  logging, plus applicable real PostgreSQL/Auth/Search integration.
+- No validation claim is made at this start checkpoint. The Manager will review
+  the worker diff, run the authorized focused and global checks, keep unavailable
+  checks `BLOCKED`/`UNVERIFIED`, and stop after one AU-02 attempt.
+
+## Worker result and Manager review boundary
+
+- Bacon was the only worker created for INS-097. After the bounded attempt
+  exceeded the Manager's safe wait window, the Manager requested a safe stop;
+  Bacon returned a completed handoff with no changed paths, no source/test fix,
+  no staging, and no commit. No replacement, retry, or second worker was used.
+- The worker's focused baseline results were: Auth 8 passed / 3 PostgreSQL
+  skips; Strategy 116 passed; Search 32 passed / 1 real-integration skip;
+  Backtesting 43 passed; Leaderboard 22 passed. These are existing package
+  evidence, not a complete AU-02 acceptance matrix.
+- Worker matrix classification: existing Auth/backend 401 behavior PASS at the
+  fixture/unit boundary but real E2E BLOCKED; existing per-module owner-scoped
+  read/mutation, same-owner, trusted-identity, spoof-resistance,
+  SearchRun-to-Candidate, Leaderboard admission, shared-data, and sensitive-log
+  checks PASS at their existing boundaries; complete cross-module isolation and
+  real integration remain UNVERIFIED/BLOCKED. No worker implementation was
+  accepted for closure.
+- The Manager independently reviewed the returned no-op diff and confirms that
+  no allowed source path changed. AU-02 therefore remains `REVIEW`, not `DONE`,
+  pending a renewed authorization and the complete matrix with applicable real
+  PostgreSQL/Auth/Search evidence.
+
+## Manager validation evidence
+
+- **PASS:** `npm run verify:stage4a` completed successfully. It ran all workspace
+  builds and typechecks, the full workspace test suites (`385` passed with `6`
+  environment-gated skips), dependency-cruiser plus architecture fixtures,
+  source-sidecar checks, deferred-scope checks, and backend runtime smoke
+  (`/live=200`, `/ready=503`, `/health=404`). The skips are not live integration
+  evidence.
+- **PASS:** `npm run lint` exited `0` across all workspaces, including backend
+  Auth-E2E and contract-test typechecks.
+- **PASS:** `npm run test:scope-check` exited `0` with `13/13` tests; deferred
+  scope remains enforced.
+- **PASS:** `git diff --check` reported no whitespace errors.
+- **PASS:** Exact changed-path review found only the Manager-owned
+  `docs/implementation/TASKS.md` and `docs/implementation/HANDOFF.md` deltas;
+  there are no AU-02 source/test changes. The untracked app-generated
+  `.codex/config.toml` remains untouched, unstaged, and undeleted.
+- **PASS:** Worker static review and existing redaction tests found no password,
+  raw credential, cookie, raw session-token, token-digest, or credential log
+  leakage. No new source was added by this attempt.
+- **UNVERIFIED:** The OpenSpec CLI is unavailable on the host; no installation
+  or network fallback was attempted.
+- **BLOCKED / UNVERIFIED:** The required real PostgreSQL/Auth/Search integration
+  gate cannot be accepted. The Instructor-recorded local containers were
+  healthy for internal read-only checks, but documented host application access
+  failed authentication and Docker Compose is unavailable. No credentials were
+  extracted, changed, reset, requested, or retried; fixture/per-module evidence
+  cannot substitute for this gate.
+- **UNVERIFIED:** The complete cross-module A/B matrix is not proven because the
+  worker produced no integration test or owner-scoped fix. Existing per-module
+  tests pass, but they do not establish the required real two-user boundary.
+
+## Closure and explicit stop boundary
+
+- The resulting board is `39 DONE`, `1 REVIEW` (`AU-02`), and `3 BLOCKED`
+  (`I-01`, `I-02`, `I-03`). AU-02 does not meet `DONE`.
+- No source/business/control artifact outside the two Manager-owned checkpoint
+  files changed; no downstream packet was started, promoted, retried, or
+  reopened. The single authorized worker attempt is exhausted.
+- Renewed Instructor review is required before any further AU-02 attempt or
+  before I-01/I-02/I-03 work. The next review must address the unavailable real
+  PostgreSQL/Auth/Search gate and the missing complete matrix.
+- **Commit scope:** one coherent Manager staging/commit attempt is authorized
+  for exactly `docs/implementation/TASKS.md` and this file. `.codex/config.toml`
+  and all other paths must remain unstaged. The exact Git result and final HEAD
+  are reported at the stop boundary; no commit retry is permitted.
+- **Exact Git result:** The single staging/commit attempt was denied at staging
+  with `fatal: Unable to create 'D:/agy-cli-projects/AOS/Cryptox/.git/index.lock': Permission denied`.
+  No commit was created and no retry was made. The exact two-file Manager
+  control-plane delta remains unstaged for parent-Instructor audit; the
+  app-generated `.codex/config.toml` remains untracked and unstaged.
+
+# Historical INS-095 Manager Checkpoint — M-02 Realtime Evidence Closure Review
 
 ## Resume here
 
