@@ -2,11 +2,52 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-079`
+Instruction ID: `INS-080`
 
-Status: `APPROVED_FOR_EXECUTION`
+Status: `HOLD`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-080 — Post-INS-079 reconciliation audit HOLD
+
+This current signal supersedes `INS-079 / APPROVED_FOR_EXECUTION`. The stale
+S-04 checkpoint language has been reconciled and the control plane is held for
+the next frontier review. It authorizes no Manager, worker, retry,
+replacement, duplicate, downstream promotion, or task-state transition.
+
+### Verified checkpoint
+
+- Branch: `MVP_IMPLEMENTATION`; the accepted reconciliation is committed at
+  `bf363c8` (`docs(control): reconcile INS-077 checkpoint`) on top of the
+  `a3190c7` INS-079 authorization. The working tree is clean after the parent
+  Instructor audited and committed the exact two-file Manager delta.
+- INS-079 Manager `01a0512e-04cb-7013-ae35-6790ea321f6b` changed only
+  `docs/implementation/TASKS.md` and `docs/implementation/HANDOFF.md`, created
+  no worker, preserved all task states, and was archived after completion. Its
+  single Git staging attempt was denied; no Manager retry occurred.
+- The current board remains `35 DONE`, `1 REVIEW` (`M-02`), and `7 BLOCKED`
+  (`AU-02`, `E-02`, `L-02`, `F-03`, `I-01`, `I-02`, `I-03`). S-04 remains
+  `DONE`, now pointing to accepted checkpoint `01db873`.
+- Independent checks for the reconciliation passed: exact two-file scope,
+  control consistency, `git diff --check`, scope tests `13/13`, scope,
+  artifacts, and architecture checks. No source/business-state drift was
+  introduced.
+
+### HOLD conditions and next review
+
+- Re-read the governing requirements, accepted ADRs, architecture, data model,
+  active capability/change specs, `MVP_PLAN.md`, `TASKS.md`, and `HANDOFF.md`
+  for the selected frontier. Verify Git cleanliness, no active Manager/worker,
+  dependencies, and write-scope disjointness before a new signal.
+- The next candidate is `E-02` only if its documented start dependencies and
+  decimal Evaluation boundary are still verified. This HOLD does not authorize
+  E-02 or any other packet. `L-02` must remain behind E-02; `F-03` behind all
+  required E2 work; `I-03` behind E2/E3 plus baseline I-01/AU-02.
+- `AU-02` retains its `NEEDS_HUMAN_DECISION` blocker, and M-02 remains
+  `REVIEW/UNVERIFIED`; neither may be silently promoted or bundled into a new
+  implementation authorization.
+- OpenSpec CLI, Docker/PostgreSQL, real provider, Binance/News, and
+  browser/demo evidence remain `UNVERIFIED`/`BLOCKED` where unavailable.
 
 ## INS-079 — Reconcile the committed INS-077 checkpoint
 
