@@ -2,13 +2,68 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-086`
+Instruction ID: `INS-087`
 
-Status: `HOLD`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
-## INS-086 — Post-INS-085 F-03 Partial Review HOLD
+## INS-087 — F-03 Checkpoint Record Reconciliation
+
+This current signal supersedes `INS-086 / HOLD` for one governance-only
+reconciliation. It authorizes exactly one fresh Manager in the canonical
+checkout to reconcile the stale Manager-owned `TASKS.md` and `HANDOFF.md`
+records with already committed, Instructor-audited Git evidence. It authorizes
+no source implementation, F-03 residual work, worker, downstream packet,
+retry, replacement, duplicate, or user-facing child task.
+
+### Reconciliation authority and boundary
+
+- The canonical checkout is `D:/agy-cli-projects/AOS/Cryptox`, branch
+  `MVP_IMPLEMENTATION`, clean at current control signal commit `376dcbc`
+  (`docs(control): hold after partial F-03 review`). The audited F-03 source
+  checkpoint is `122569c` (`feat(frontend): add market observability projection
+  seams`) and is an ancestor of the current HEAD; no source/business-state
+  drift is present.
+- The stale record is precise: `TASKS.md` F-03 and the top `HANDOFF.md`
+  checkpoint still describe the audited source/control delta as uncommitted at
+  `abc868c`, although the Instructor already committed the exact 11-path delta
+  at `122569c`. The current `INS-086 / HOLD` is committed at `376dcbc`.
+- `TASKS.md` remains authoritative at `37 DONE`, `2 REVIEW` (`M-02`, `F-03`),
+  and `4 BLOCKED` (`AU-02`, `I-01`, `I-02`, `I-03`). F-03 remains
+  `REVIEW / NEEDS_INSTRUCTOR_REVIEW`; no task state may be promoted, reopened,
+  or otherwise changed by this instruction.
+- The completed INS-085 Manager and Descartes worker are closed. No active
+  Cryptox Manager or worker competes in the canonical checkout. Create exactly
+  one fresh Manager with model `gpt-5.6-luna` and reasoning `max`, same
+  directory and no worktree. Because this is governance-only, no worker is
+  required or permitted.
+
+### Manager-only work
+
+- Read `AGENTS.md` and `docs/control/prompts/ORCHESTRATOR_START.md` completely,
+  then verify Git, `INSTRUCTOR.md`, `DECISIONS.md`, `TASKS.md`, `HANDOFF.md`,
+  the F-03 packet, and the committed `122569c`/`376dcbc` evidence.
+- Update only Manager-owned `docs/implementation/TASKS.md` and
+  `docs/implementation/HANDOFF.md` so they accurately state that the exact
+  nine effective frontend source paths plus `TASKS.md`/`HANDOFF.md` were
+  audited and committed at `122569c`, that the current Instructor HOLD is
+  `INS-086` at `376dcbc`, and that no uncommitted F-03 delta remains. Preserve
+  F-03 `REVIEW / NEEDS_INSTRUCTOR_REVIEW`, all validation classifications,
+  missing projection coverage, and the stop boundary. Do not change any source,
+  contract, plan, requirement, ADR, OpenSpec, or Instructor decision.
+- The reconciliation must retain the actual evidence: frontend 31/31, root
+  383 with 6 environment-gated skips, typecheck/build/lint, architecture,
+  artifacts, deferred-scope, scope 13/13, runtime health smoke, and whitespace
+  PASS; Docker/PostgreSQL BLOCKED; OpenSpec CLI, live providers, real feature
+  transport, and browser/demo UNVERIFIED or BLOCKED. It must not claim F-03
+  DONE or final real-provider evidence.
+- Make at most one coherent Manager checkpoint commit attempt. If Git rejects
+  it, do not retry; return the exact error and leave the Instructor to audit
+  and commit. Stop immediately after the reconciliation checkpoint; do not
+  create a worker or start F-03, M-02, AU-02, I-01, I-02, or I-03.
+
+## Historical INS-086 — Post-INS-085 F-03 Partial Review HOLD
 
 This current signal supersedes `INS-085 / APPROVED_FOR_EXECUTION` and grants no
 execution authority. The F-03 execution is exhausted at a safe review
