@@ -2,88 +2,59 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-071`
+Instruction ID: `INS-072`
 
-Status: `APPROVED_FOR_EXECUTION`
+Status: `HOLD`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
-## INS-071 — M-03 realtime market delivery closure review
+## INS-072 — post-M-03 frontier review
 
-This replaceable signal supersedes `INS-070 / HOLD` and authorizes exactly one
-fresh Manager-owned closure packet: `M-03`. It authorizes no feature
-implementation, worker, retry, or downstream start.
+This replaceable signal supersedes `INS-071 / APPROVED_FOR_EXECUTION`. The
+M-03 closure authorization is exhausted and no new implementation, closure,
+worker, or downstream packet is authorized by this `HOLD`.
 
 ### Reviewed checkpoint and current frontier
 
-- Branch: `MVP_IMPLEMENTATION`; current HEAD is `e583af5`
-  (`docs(control): hold after B-03 closure`); the parent Instructor reviewed
-  the governance-only delta and Git is clean at the checkpoint.
-- The operational board contains 31 `DONE`, 3 `REVIEW` (`M-02`, `M-03`,
-  `N-03`), and 8 `BLOCKED` (`AU-02`, `S-04`, `I-01`, `I-02`, `E-02`, `L-02`,
-  `F-03`, `I-03`) rows, 42 rows total. This is packet-state progress only and
-  is not final MVP acceptance.
-- C-02, C-03, ENV-01, ENV-02, ENV-03, ENV-04, Q-02, B-03, S-05, and S-06 are
-  recorded `DONE`. B-03 closure moved exactly `REVIEW -> DONE` under INS-069;
-  no downstream packet was promoted.
-- M-03 source remains at `b73b298`; its focused evidence is 31 passed and one
-  environment-gated PostgreSQL test skipped. Its implementation paths are
-  unchanged since that checkpoint. N-03 source remains at
-  `d4161ec458c869ff18fa89dd9732df260629c915` and its recorded auto-refresh
-  scheduler gap remains `PARTIAL/UNVERIFIED`; it is not eligible for closure
-  on the current evidence. M-02 remains historical `REVIEW/UNVERIFIED`.
+- Branch: `MVP_IMPLEMENTATION`; current HEAD is `280b280`
+  (`checkpoint(m-03): close realtime market delivery`). The parent Instructor
+  independently audited the Manager diff and Git is clean at the checkpoint.
+- The operational board contains 32 `DONE`, 2 `REVIEW` (`M-02`, `N-03`), and 8
+  `BLOCKED` (`AU-02`, `S-04`, `I-01`, `I-02`, `E-02`, `L-02`, `F-03`, `I-03`)
+  rows, 42 rows total. Packet-state progress is therefore 76.2%; this is not
+  final MVP acceptance.
+- M-03 moved exactly `REVIEW -> DONE` under INS-071. Its nine implementation/
+  test paths remain identical to source checkpoint `b73b298`; focused Market
+  Data evidence is 31 passed with one environment-gated PostgreSQL test
+  skipped, and the market WebSocket contract suite is 5/5. B-03, Q-02, C-03,
+  ENV-03, and ENV-04 remain `DONE`; no downstream packet was promoted.
 - The current checker has 13/13 focused tests passing; the relevant local
-  architecture, artifact, scope, typecheck, build, lint, and diff gates have
-  passed in the reviewed checkpoints. Real PostgreSQL, configured Binance and
-  News providers, browser/demo runtime, link/DAG automation, and OpenSpec CLI
+  architecture, artifact, scope, typecheck, build, lint, and diff gates pass in
+  the reviewed checkpoints. Real PostgreSQL, configured Binance and News
+  providers, browser/demo runtime, link/DAG automation, and OpenSpec CLI
   evidence remain `UNVERIFIED` or `BLOCKED` where recorded. No unavailable
   check, fixture, or skipped test is treated as `PASS`.
 
-### Authorized packet
+### Pending Instructor review
 
-- M-03 remains `REVIEW` after its accepted source checkpoint `b73b298`. The
-  parent Instructor verified that the eleven implementation/test paths in the
-  M-03 checkpoint are unchanged in the current source tree. The focused Market
-  Data evidence is 31 passed and one environment-gated PostgreSQL test skipped;
-  the skip is not PASS evidence.
-- Create exactly one fresh Manager in the canonical same-directory checkout
-  `D:/agy-cli-projects/AOS/Cryptox`, branch `MVP_IMPLEMENTATION`, with model
-  `gpt-5.6-luna` and `xhigh` reasoning. It must read `AGENTS.md` and
-  `docs/control/prompts/ORCHESTRATOR_START.md` completely, then verify this
-  signal, Git, TASKS, HANDOFF, the DAG, dependencies, and active tasks.
-- No worker is authorized or needed: this is a Manager-only closure review.
-  No source implementation, branch, worktree, retry, replacement, duplicate,
-  or downstream start is authorized.
-- The Manager may edit only `docs/implementation/TASKS.md` and
-  `docs/implementation/HANDOFF.md`. If evidence remains sound, move only M-03
-  `REVIEW -> DONE` and update the M-03 checkpoint. Leave M-02, N-03, S-04,
-  E-02, L-02, F-03, I-01, I-02, I-03, AU-02, and every other state unchanged.
-- Verify the approved M-03 behavior: same-timestamp replacement and later-
-  timestamp delivery, duplicate/out-of-order suppression, bounded gap
-  recovery, reconnect/shutdown behavior, provider event and received times,
-  latency, connection state, restart-empty semantics, an independent latest
-  100-tick ring per pair, and the strictly ephemeral observability boundary
-  excluded from historical input, dataset snapshots, Backtesting, and replay.
-- Re-run or verify focused Market Data and market-WebSocket tests, the current
-  checker 13/13, `scope:check`, architecture, artifacts, typecheck, build,
-  lint, and diff checks. Real Binance readiness must be reported honestly;
-  no live configuration is present, so real Binance remains `UNVERIFIED`, and
-  the PostgreSQL-gated test remains `BLOCKED`/`UNVERIFIED`. Root skips,
-  fixtures, and unavailable OpenSpec/browser/link-DAG checks must not be
-  promoted to PASS.
-- If a material premise is false, keep M-03 `REVIEW`, record the exact blocker,
-  and stop. Commit one coherent Manager checkpoint containing only the two
-  authorized control files, then stop immediately. This closure does not
-  authorize N-03, S-04, E-02, L-02, F-03, I-03, I-01, I-02, AU-02, M-02, or
-  any other packet.
+- N-03 remains `REVIEW` because its implementation has a recorded
+  `PARTIAL/UNVERIFIED` auto-refresh scheduler gap; the existing 1–5 minute
+  setting and five-minute default do not prove a scheduler. Any completion
+  work would need a fresh, separately bounded authorization with exact News/
+  Sentiment write scope and a worker, after confirming the required behavior
+  against the plan and source.
+- M-02 remains historical `REVIEW/UNVERIFIED` and is not retried or silently
+  promoted. S-04 remains blocked on N-03 and controlled LLM-authoring evidence.
+  E-02 and later joins remain blocked by their stated DAG dependencies. AU-02
+  remains a human-decision item and is not retried.
 
-### Preserved pending frontier
+### Stop condition
 
-- N-03 requires a separate review of the missing auto-refresh scheduler before
-  closure or any narrowly scoped completion authorization. S-04 remains
-  blocked on N-03 and controlled LLM-authoring evidence. E-02 and all later
-  joins remain blocked by their stated DAG dependencies. AU-02 remains a
-  human-decision item and is not retried.
+- No Manager or worker may be created under INS-072. Before any next signal,
+  the Instructor must recheck Git, the current checkpoint, the task DAG, and
+  active task status. Any new authorization must name one bounded packet or
+  explicitly safe closure/completion scope, exact write scope, acceptance and
+  validation evidence, dependencies, prohibitions, and stop condition.
 
 ### References
 
