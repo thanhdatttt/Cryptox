@@ -2417,3 +2417,58 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-061`, `INS-140`, and `S-04N`.
+
+## DEC-063 — Authorize final I-02 revalidation after E5R closure
+
+Status: `APPROVED`
+
+Authority: Independent Instructor audit under `INS-141 / DEC-062` accepted the
+S-04N control checkpoint and persisted its exact Manager-authored delta at
+`cf598c3`. The board is 55 rows with 53 `DONE` and only `S-04N` plus `I-02` at
+`REVIEW`; no implementation task or Cryptox Manager/worker is active. Local
+Docker PostgreSQL is reachable, both services are healthy, and the repository
+migration validator passed real up/constraints/down/remigrate evidence.
+
+Decision: Issue exactly one fresh same-directory Manager authorization
+`INS-142 / APPROVED_FOR_EXECUTION` for the safe group `S-04N` control-row
+closure plus final revalidation of the existing `I-02` packet. The Manager may
+reconcile only `S-04N REVIEW -> DONE`, then explicitly re-enter only
+`I-02 REVIEW -> READY -> IN_PROGRESS`, and must stop at an I-02 `REVIEW`
+checkpoint for independent Instructor audit. This re-entry is not a retry and
+does not authorize optional scope or a new product packet.
+
+The Manager may create at most three hidden internal reviewer/test subagents
+with disjoint scopes: backend I-02 test paths, frontend I-02 test paths, and a
+read-only traceability/demo reviewer or README-only documentation worker. They
+must not create user-visible tasks or edit production source, contracts,
+migrations, infra, environment, control-plane files, or paths outside their
+scopes. Shared Docker/database resources require sequential write-capable work.
+The Manager alone owns `TASKS.md` and `HANDOFF.md`.
+
+Acceptance is the full I-02 DoD in `MVP_PLAN.md`/`TASKS.md`: real local Auth
+session and two-user isolation; Binance four-chart historical/realtime flow;
+strategy/composite, bounded search/progress, owner-specific leaderboard and
+Experiment results; visualization/metrics/provenance; real News plus local
+LEXICON sentiment; controlled provider/failure behavior; mock-only rejection;
+all architecture scenarios; clean install/migration/build/typecheck/tests,
+two E2E runs, and exact final diff evidence. Unavailable or skipped evidence
+remains `UNVERIFIED`/`BLOCKED`. The runtime LLM contract is
+`LLM_AUTHORING_ENDPOINT`/`LLM_AUTHORING_MODEL`/`LLM_AUTHORING_API_KEY`; no
+chat secret may be echoed, stored, or silently mapped from `GEMINI_*`.
+
+No second Manager, worker retry/replacement, source implementation, migration,
+provider adapter, arbitrary URL, autonomous/unconfigured LLM, deferred scope,
+cloud database, secret request, downstream task, or unapproved fix is allowed.
+One checkpoint staging/commit attempt is allowed; a Git denial is recorded once
+without retry.
+
+Affected: `S-04N`, `I-02`, `TASKS.md`, `HANDOFF.md`, `INS-141`, `INS-142`,
+`MVP_PLAN.md`, and the final MVP checkpoint. Existing requirements, functional
+image authority, ADRs, contracts, architecture, data model, and deferred scope
+remain unchanged.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [Architecture](../architecture.md),
+[Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-062`, `INS-141`, and `I-02`.

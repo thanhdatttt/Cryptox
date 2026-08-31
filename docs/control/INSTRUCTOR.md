@@ -2,11 +2,103 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-141`
+Instruction ID: `INS-142`
 
-Status: `HOLD`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-142 — APPROVED_FOR_EXECUTION for final I-02 revalidation
+
+This signal supersedes `INS-141 / HOLD` and authorizes exactly one fresh
+same-directory Manager for the explicitly bounded group `S-04N` control-row
+closure plus the existing `I-02` final revalidation. It is not a new product
+scope or a retry. No other task or downstream packet is authorized.
+
+### Reviewed checkpoint and applicability
+
+- Canonical checkout: `D:\\agy-cli-projects\\AOS\\Cryptox`, branch
+  `MVP_IMPLEMENTATION`, committed HEAD `cf598c36a2c9464f4192f4bb791d75c22d50cf0a`
+  (`INS-141 / DEC-062`). Git is clean except the app-generated untracked
+  `.codex/config.toml`; `infra/db/local.env` is an ignored local credential
+  created by the repository helper and must not be committed, printed, or
+  included in any report.
+- The authoritative board has 55 rows: `53 DONE` and two `REVIEW`
+  (`S-04N`, `I-02`), with no `READY`, `IN_PROGRESS`, or `BLOCKED` row. I-01,
+  I-03, and S-04I through S-04M are DONE. No Cryptox Manager, worker, retry,
+  replacement, duplicate, or downstream task is active.
+- S-04N's combined checkpoint was independently accepted at source/checker
+  integration `16a347e`; no source or business-state drift exists. Local
+  Docker PostgreSQL services are healthy and the repository migration validator
+  passed real up/constraints/down/remigrate evidence. This does not by itself
+  prove application runtime, external providers, or browser/demo acceptance.
+
+### Exact Manager and hidden-worker authorization
+
+- Create exactly one fresh Manager in canonical same-directory checkout
+  `D:/agy-cli-projects/AOS/Cryptox`, branch `MVP_IMPLEMENTATION`, model
+  `gpt-5.6-luna`, reasoning `max`. No worktree, branch, cloud task, duplicate,
+  retry, replacement, or user-visible worker task. The Manager must read
+  `AGENTS.md` and `docs/control/prompts/ORCHESTRATOR_START.md` completely and
+  reverify the current signal, Git, task board, handoff, plan, requirements,
+  accepted ADRs, architecture, data model, active specs/change, DAG, and active
+  task list before editing.
+- Under the authorization, the Manager may first reconcile only
+  `S-04N: REVIEW -> DONE` from the already accepted control evidence. It may
+  then explicitly re-enter only `I-02: REVIEW -> READY -> IN_PROGRESS`; no
+  other task state may change. At the end it must leave I-02 at `REVIEW` for
+  independent Instructor audit, unless the repository's normal task protocol
+  and the recorded evidence unambiguously support a different state without
+  bypassing that audit; do not invent completion.
+- The Manager may create at most three fresh hidden internal reviewer/test
+  subagents, with disjoint write scopes and no user-visible tasks. Because the
+  backend, frontend, Docker, and local database share runtime resources, run
+  write-capable workers sequentially unless isolation is proven. The scopes are:
+  1. backend/runtime E2E evidence and test-only correction, limited to
+     `apps/backend/src/i02.backend.e2e.spec.ts` and the new
+     `apps/backend/src/i02.runtime.e2e.spec.ts` path if needed;
+  2. frontend/browser E2E evidence and test-only correction, limited to
+     `apps/frontend/src/i02.frontend.e2e.spec.tsx` and the new
+     `apps/frontend/src/i02.runtime.e2e.spec.tsx` path if needed; and
+  3. read-only requirements/architecture/traceability/demo reviewer, with no
+     write scope, or a documentation worker limited to `README.md` if a
+     truthful verified run instruction is required.
+- Workers may read the entire repository and run relevant checks, but may not
+  edit production source, contracts, migrations, infra, environment files,
+  `docs/control/*`, `TASKS.md`, `HANDOFF.md`, or any path outside their exact
+  scope. A production defect, migration need, provider adapter change, or
+  scope discrepancy is a stop/report condition, not permission to broaden the
+  packet. The Manager alone owns `TASKS.md` and `HANDOFF.md`.
+
+### Acceptance, validation, and prohibitions
+
+- Prove the I-02 packet against the governing requirement set: real local
+  register/login/session/logout and two-user isolation; real Binance BTCUSDT
+  four-chart historical/realtime market-only flow; definitions/composite;
+  bounded Random Search and progress; owner-specific Top-K and selected
+  Experiment; signals, entry/exit, overlays, four metrics and provenance;
+  real-source News with local `LEXICON_V1` sentiment; controlled provider and
+  failure demonstrations; mock-only final configuration rejection; and all
+  eight architecture change scenarios.
+- Run clean-install evidence where feasible, real local migration validation,
+  build, typecheck, all workspace tests, architecture/artifact/scope/runtime
+  gates, the E2E flow twice, exact-path/whitespace/secret-log/diff checks, and
+  a clean tracked Git checkpoint. Every unavailable or skipped check is
+  `UNVERIFIED`/`BLOCKED`, never PASS.
+- The runtime LLM configuration is the repository's
+  `LLM_AUTHORING_ENDPOINT`, `LLM_AUTHORING_MODEL`, and
+  `LLM_AUTHORING_API_KEY` contract. Do not silently map `GEMINI_*`, do not
+  echo or store the chat-supplied secret, and do not claim a real LLM request
+  unless a safe OpenAI-compatible endpoint/model/key is already configured and
+  actually exercised. The same truthfulness rule applies to Binance, News,
+  browser/demo, Docker, and OpenSpec CLI evidence.
+- No optional/deferred scope, redesign, autonomous or unconfigured LLM,
+  arbitrary URL retrieval, live trading/generalized risk, enterprise Auth,
+  queue/distributed infrastructure, new dependency, cloud database, secret
+  request, source fix outside the exact test/doc scopes, second Manager,
+  duplicate/retry/replacement, or downstream packet is authorized. Make one
+  checkpoint staging/commit attempt and stop at `REVIEW`; if Git denies it,
+  record the exact error once and do not retry.
 
 ## INS-141 — HOLD after S-04N residual closure reconciliation
 

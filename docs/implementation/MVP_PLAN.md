@@ -1285,6 +1285,15 @@ strict artifact repositories; unrelated cleanup.
 - **Risks:** External outage. **DoD:** Full DoD below, change archived, final checkpoint.
   **Parallel:** Reviewer/test work only. **Critical:** YES.
 
+The current E5R re-entry is a fresh final revalidation of this existing packet,
+not a new product scope: after `I-03` and the accepted `S-04N` checkpoint, an
+Instructor authorization may explicitly close the already-reviewed `S-04N`
+control row and re-enter `I-02` from `REVIEW` through `READY` before any
+execution begins. The Manager must not treat a `REVIEW` row as executable
+without that explicit re-entry authorization. Final I-02 acceptance remains
+subject to independent Instructor review; no fixture, skip, or unavailable
+environment may be promoted to a live PASS claim.
+
 ## DEC-007 reconciliation and extension packets
 
 The following packets are allocated by `RB-01`. `RB-01` is the only packet
