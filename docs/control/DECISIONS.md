@@ -2602,7 +2602,7 @@ Decision: Accept the exact N-03R source/test delta at the Instructor review
 boundary and persist `INS-145 / HOLD`. The implementation changes
 only `apps/backend/src/runtime.ts` and
 `apps/backend/src/runtime.news-composition.spec.ts`. Independent
-runtime tests pass `2/2`, News scheduler tests pass `5/5__,
+runtime tests pass `2/2`, News scheduler tests pass `5/5`,
 backend tests pass `31` with one environment-gated skip, and
 typecheck, build, lint, architecture, artifacts, deferred-scope, whitespace,
 and exact-path checks pass. N-03R remains `REVIEW` operationally
@@ -2635,3 +2635,53 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-065`, `INS-144`, `N-03R`,
 `I-02D`, and `I-02`.
+
+## DEC-067 — Authorize I-02D continuation and N-03R control closure
+
+Status: `APPROVED`
+
+Authority: Independent Instructor review after `INS-144 / DEC-065`
+completed the bounded N-03R implementation and its Manager checkpoint, while
+the sequential I-02D worker terminated with a platform usage-limit error before
+editing `README.md`. The exact N-03R delta was independently tested,
+reviewed, committed, and placed under `INS-145 / HOLD`.
+
+Decision: Authorize exactly one fresh same-directory Manager under
+`INS-146 / APPROVED_FOR_EXECUTION` for the existing residual rows
+only. The Manager may close N-03R `REVIEW -> DONE` after rechecking
+the committed evidence, then re-enter I-02D `BLOCKED -> READY ->
+IN_PROGRESS -> REVIEW` and dispatch at most one fresh hidden
+README-only worker. The fresh worker attempt is authorized as a continuation
+after the prior terminal platform failure; it is not an automatic retry in
+INS-144 and adds no product scope.
+
+The worker may edit only `README.md`. It must make install/run,
+architecture, demo, validation, fixture/live, required environment, and
+deferred-scope documentation truthful, with every command/path existing or
+explicitly environment-dependent. It must not claim unavailable CoinDesk,
+LLM, browser/demo, OpenSpec, or other evidence as PASS and must not include
+credentials. No source, contract, migration, infrastructure, requirement,
+ADR, OpenSpec, or control-plane edit is authorized for the worker. The Manager
+alone updates `TASKS.md` and `HANDOFF.md`.
+
+I-02 remains `REVIEW`; no final I-02 revalidation or downstream task
+may start. The Manager must use gpt-5.6-luna with max reasoning in the same
+canonical checkout, create no user-visible task, and stop after N-03R closure
+and I-02D `REVIEW`. If the fresh worker terminates again, the Manager
+must record I-02D `BLOCKED` without retry or replacement. One
+explicit-path staging/commit attempt is allowed; a Git permission denial is
+recorded without retry. Any source drift, task-DAG conflict, or out-of-scope
+need is `NEEDS_INSTRUCTOR_REVIEW`.
+
+Affected: `N-03R`, `I-02D`, `I-02`,
+`TASKS.md`, `HANDOFF.md`, `INS-145`,
+`INS-146`, and `DEC-067`. Existing assignment, functional
+image authority, requirements, ADRs, contracts, architecture, data model, and
+deferred scope remain unchanged.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [Architecture](../architecture.md),
+[Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-066`, `INS-145`, `INS-146`,
+`N-03R`, `I-02D`, and `I-02`.

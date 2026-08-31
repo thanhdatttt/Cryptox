@@ -2,13 +2,81 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-145`
+Instruction ID: `INS-146`
 
-Status: `HOLD`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
-## INS-145 — HOLD after N-03R acceptance and I-02D quota interruption
+## INS-146 — APPROVED_FOR_EXECUTION for I-02D recovery and N-03R closure
+
+This signal supersedes INS-145 / HOLD. The Instructor has accepted the
+bounded N-03R source/test delta and its review evidence at commit 82693c6.
+The existing I-02D row is BLOCKED because its prior README-only worker
+terminated with a platform usage-limit error before changing README.md. This
+authorization is a controlled continuation of that existing residual, not a
+new product task, and it does not authorize final I-02 promotion.
+
+### Reviewed checkpoint and applicability
+
+- Canonical checkout: D:\agy-cli-projects\AOS\Cryptox; branch
+  MVP_IMPLEMENTATION; reviewed HEAD 82693c6. Git is clean except for the
+  pre-existing app-generated .codex/config.toml, which remains excluded.
+- TASKS.md is the sole operational authority with 57 rows:
+  54 DONE, N-03R REVIEW, I-02 REVIEW, I-02D BLOCKED, and no READY or
+  IN_PROGRESS rows. The previous Manager and both workers are terminal; no
+  Manager, worker, retry, replacement, duplicate, or downstream task is
+  active.
+- N-03R's exact runtime/test delta is committed and independently validated:
+  runtime 2/2, News scheduler 5/5, backend 31 passed with one
+  environment-gated skip, plus typecheck, build, lint, architecture,
+  artifacts, deferred-scope, whitespace, and exact-path checks. Real
+  CoinDesk, configured LLM, browser/demo, OpenSpec, and consolidated live
+  architecture evidence remain BLOCKED/UNVERIFIED.
+
+### Authorized work and scopes
+
+Exactly one fresh same-directory Manager is authorized in the canonical
+checkout, using gpt-5.6-luna with max reasoning and no worktree. The Manager
+may perform the following two bounded actions:
+
+1. Re-read the committed N-03R evidence and move only N-03R
+   REVIEW -> DONE if the packet boundary remains valid. This is a
+   control-plane closure; no N-03R worker or source edit is authorized.
+2. Re-enter only the existing I-02D row BLOCKED -> READY -> IN_PROGRESS
+   and dispatch at most one fresh hidden internal worker for the exact
+   README.md-only scope. This fresh authorization permits a new attempt after
+   the prior worker's terminal platform usage-limit failure; it is not an
+   automatic retry within INS-144. The worker may edit only README.md and
+   must make install/run, architecture, demo, validation, fixture/live,
+   environment, and deferred-scope guidance truthful.
+
+The Manager alone may update TASKS.md and HANDOFF.md. Workers may not edit
+control-plane files, source, contracts, migrations, infrastructure,
+requirements, ADRs, OpenSpec, or any path other than README.md. I-02 must
+remain REVIEW; no downstream task or final revalidation may start. No
+credential, arbitrary provider, LLM mapping, browser/demo claim, or deferred
+scope is authorized.
+
+### Acceptance and stop condition
+
+N-03R may be marked DONE only after the Manager confirms the committed exact
+paths and evidence. I-02D is accepted only if every documented command/path
+exists or is explicitly environment-dependent, real-data and fixture
+boundaries are truthful, the existing LLM_AUTHORING_* contract is documented
+without values, and unavailable CoinDesk/LLM/browser/OpenSpec evidence is not
+claimed as PASS. No Gemini key or other chat secret may be used.
+
+Run the README-relevant path/link/secret/diff checks and the applicable
+focused/relevant repository gates; classify unavailable tools and providers
+as BLOCKED/UNVERIFIED. Make at most one explicit-path staging/commit attempt.
+If the fresh worker hits another terminal error, do not retry or replace it;
+record I-02D BLOCKED and stop. When N-03R is closed and I-02D reaches REVIEW,
+stop before I-02 revalidation. Any source, contract, migration, provider
+redesign, task-DAG conflict, or other out-of-scope need is
+NEEDS_INSTRUCTOR_REVIEW.
+
+## Historical INS-145 — HOLD after N-03R acceptance and I-02D quota interruption
 
 This signal supersedes INS-144 / APPROVED_FOR_EXECUTION. The Instructor
 independently accepts the bounded N-03R implementation evidence and exact
