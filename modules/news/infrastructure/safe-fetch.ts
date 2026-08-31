@@ -378,6 +378,10 @@ function safeFetchFromPinnedHttps(): SafeNewsFetch {
             callback(new Error("validated address is invalid"), "", 0);
             return;
           }
+          if (_options.all) {
+            callback(null, [{ address: init.resolvedAddress, family }]);
+            return;
+          }
           callback(null, init.resolvedAddress, family);
         },
       }, (response) => {

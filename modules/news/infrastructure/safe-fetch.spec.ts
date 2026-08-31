@@ -1,9 +1,24 @@
-import { describe, expect, it } from "vitest";
+import type { LookupAddress, LookupOptions } from "node:dns";
+import { describe, expect, it, vi } from "vitest";
+
+const mockedHttpsRequest = vi.hoisted(() => vi.fn());
+vi.mock("node:https", () => ({ request: mockedHttpsRequest }));
+
 import {
   SafeNewsFetchError,
   createSafeNewsUrlFetcher,
   type SafeNewsFetch,
 } from "./safe-fetch";
+
+type LookupCallback = (error: NodeJS.ErrnoException | null, address: string | LookupAddress[], family?: number) => void;
+type PinnedLookup = (hostname: string, options: LookupOptions, callback: LookupCallback) => void;
+type PinnedRequestOptions = {
+  readonly method?: string;
+  readonly headers?: Readonly<Record<string, string>>;
+  readonly signal?: AbortSignal;
+  readonly servername?: string;
+  readonly lookup?: PinnedLookup;
+};
 
 function response(status: number, headers: Record<string, string>, body = "ok") {
   return {
@@ -23,6 +38,85 @@ function makeFetcher(fetcher: SafeNewsFetch, options: Partial<Parameters<typeof 
 }
 
 describe("safe News URL fetch [CSL-R-NW-02, ADR-009]", () => {
+  it("uses the Node multi-address lookup shape while pinning the validated address and TLS server name", async () => {
+    const lookupResults: Array<{
+      readonly mode: "all" | "single";
+      readonly error: NodeJS.ErrnoException | null;
+      readonly address: string | LookupAddress[];
+      readonly family?: number;
+    }> = [];
+    const request = {
+      once: vi.fn().mockReturnThis(),
+      end: vi.fn(),
+    };
+    let requestOptions: PinnedRequestOptions | undefined;
+    let responseCallback: ((response: {
+      readonly statusCode: number;
+      readonly headers: Readonly<Record<string, string>>;
+      readonly [Symbol.asyncIterator]: () => AsyncIterator<Uint8Array>;
+    }) => void) | undefined;
+
+    mockedHttpsRequest.mockImplementation((_input: URL, options: PinnedRequestOptions, callback: typeof responseCallback) => {
+      requestOptions = options;
+      responseCallback = callback;
+      request.end.mockImplementation(() => {
+        const lookup = requestOptions?.lookup;
+        if (!lookup || !responseCallback) throw new Error("mocked HTTPS request was not configured");
+        lookup("news.example.test", { all: true }, (error, address, family) => {
+          lookupResults.push({ mode: "all", error, address, family });
+        });
+        lookup("news.example.test", { all: false }, (error, address, family) => {
+          lookupResults.push({ mode: "single", error, address, family });
+        });
+        responseCallback({
+          statusCode: 200,
+          headers: { "content-type": "application/rss+xml" },
+          async *[Symbol.asyncIterator]() {
+            yield new TextEncoder().encode("<rss><channel /></rss>");
+          },
+        });
+      });
+      return request;
+    });
+
+    const fetcher = createSafeNewsUrlFetcher({
+      sources: [{ id: "configured-source", allowedHosts: ["news.example.test"] }],
+      resolve: async () => ["93.184.216.34"],
+    });
+
+    await expect(fetcher.fetch({
+      url: "https://news.example.test/article",
+      sourceId: "configured-source",
+      timeoutMs: 20_000,
+      maximumRedirects: 3,
+      maximumBodyBytes: 1_048_576,
+    })).resolves.toMatchObject({
+      canonicalUrl: "https://news.example.test/article",
+      body: "<rss><channel /></rss>",
+      contentType: "application/rss+xml",
+    });
+    expect(mockedHttpsRequest).toHaveBeenCalledTimes(1);
+    expect(requestOptions).toMatchObject({
+      method: "GET",
+      servername: "news.example.test",
+    });
+    expect(lookupResults).toEqual([
+      {
+        mode: "all",
+        error: null,
+        address: [{ address: "93.184.216.34", family: 4 }],
+        family: undefined,
+      },
+      {
+        mode: "single",
+        error: null,
+        address: "93.184.216.34",
+        family: 4,
+      },
+    ]);
+    expect(request.end).toHaveBeenCalledTimes(1);
+  });
+
   it("requires an allowlisted HTTPS destination before contacting a provider", async () => {
     let calls = 0;
     const fetcher = makeFetcher(async () => {
