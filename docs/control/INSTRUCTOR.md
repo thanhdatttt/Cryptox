@@ -2,13 +2,87 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-149`
+Instruction ID: `INS-150`
 
-Status: `HOLD`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
-## INS-149 — HOLD after INS-148 final I-02 revalidation
+## INS-150 — APPROVED_FOR_EXECUTION for I-02 remote market client fix
+
+This signal supersedes INS-149 / HOLD. During an Instructor-side browser check
+of the local app in explicit remote mode, the frontend displayed
+`Failed to execute 'fetch' on 'Window': Illegal invocation` for all four market
+charts. The backend was live and ready against local PostgreSQL, and the error
+was observed at the remote market client boundary rather than inferred from a
+fixture or test failure. This is a narrowly bounded I-02 implementation fix,
+not permission to redesign the frontend or reopen unrelated packets.
+
+### Reviewed checkpoint and applicability
+
+- Canonical checkout: `D:\\agy-cli-projects\\AOS\\Cryptox`, branch
+  `MVP_IMPLEMENTATION`, starting HEAD `69d7982`. Tracked Git state is clean;
+  only the pre-existing app-generated `.codex/config.toml` is untracked and
+  must remain excluded. The current board is 57 rows: `56 DONE`, only `I-02`
+  `REVIEW`, with no other active task.
+- No Cryptox Manager, worker, retry, replacement, or duplicate is active.
+  `I-02D` is already DONE. The current source/business checkpoint is unchanged
+  except for the reproduced browser defect; no other source gap is authorized
+  by this instruction.
+- The relevant code search shows Auth and Feature clients already call global
+  `fetch` through receiver-preserving wrappers. Only the default market client
+  seam in `apps/frontend/src/market/clients.ts` passes the browser global
+  directly and reproduces the observed error.
+
+### Authorized Manager and worker scope
+
+Exactly one fresh same-directory Manager is authorized in the canonical
+checkout, using `gpt-5.6-luna` with `max` reasoning and no worktree. The Manager
+must re-enter only the existing `I-02` row through
+`REVIEW -> READY -> IN_PROGRESS` and may create exactly one fresh hidden
+internal implementation worker. The worker must receive the independent write
+scope below and may not edit control-plane artifacts.
+
+- Governing requirements: `CSL-R-MD-01`, `CSL-R-MD-02`, `CSL-R-MD-03`,
+  `CSL-R-FE-01`, configured-runtime portions of `CSL-R-RD-01`, and the
+  corresponding I-02 / `CSL-R-DM-01` browser acceptance.
+- Exact worker write scope: `apps/frontend/src/market/clients.ts` and
+  `apps/frontend/src/market/clients.spec.ts` only. A regression test may be
+  added or adjusted only in the named test file. The worker must preserve the
+  existing REST/WebSocket contracts, remote URLs, credentials policy, and
+  independent chart behavior.
+- The intended correction is limited to preserving the browser `fetch`
+  receiver when the default market fetch seam is invoked. It must not add a
+  provider, change API routes/contracts, alter Auth/Feature clients, change
+  chart calculations, introduce fixtures, or modify backend/module code.
+- The Manager owns review/integration and `TASKS.md` / `HANDOFF.md` only. It
+  may not implement feature code in place of the worker except for a genuinely
+  minimal merge/conflict fix. No second worker, verifier, retry, replacement,
+  user-visible task, or downstream task is authorized.
+
+### Acceptance, validation, and stop condition
+
+- In a real local browser using `VITE_MARKET_SOURCE=remote`, the four existing
+  chart instances must reach the backend history boundary without the
+  `Illegal invocation` error; the remote market source must remain non-fixture
+  and the WebSocket path must remain the existing narrow market boundary.
+- The named frontend regression test must fail on the old unbound default and
+  pass with the correction. Run the focused market-client/I-02 frontend tests,
+  frontend typecheck, lint, build as proportionate, and exact-path,
+  whitespace, diff, architecture/artifact/scope checks as applicable. Record
+  live browser evidence separately from fixture tests.
+- No credential may be requested, printed, committed, or entered into the
+  browser. The existing missing CoinDesk, provider-neutral LLM, and OpenSpec
+  evidence remains `BLOCKED`/`UNVERIFIED`; this instruction does not authorize
+  mapping `GEMINI_*`, adding News/LLM configuration, or claiming final I-02
+  DONE solely from this fix.
+- If the defect requires changes outside the two named frontend files, or if
+  the browser failure is caused by a backend/API/architecture gap, stop at
+  `REVIEW` / `NEEDS_INSTRUCTOR_REVIEW` with exact evidence. Otherwise the
+  Manager must stop after this bounded fix and I-02 revalidation, with no
+  downstream promotion and at most one coherent commit attempt.
+
+## Historical INS-149 — HOLD after INS-148 final I-02 revalidation
 
 This signal supersedes INS-148 / APPROVED_FOR_EXECUTION. The Instructor has
 independently reviewed the Manager checkpoint and keeps the system at a safe

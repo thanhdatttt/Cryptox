@@ -2814,3 +2814,41 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-069`, `INS-148`, `INS-149`, `I-02D`, and `I-02`.
+
+## DEC-071 — Authorize narrow I-02 remote market client fix
+
+Status: `APPROVED`
+
+Authority: Instructor browser verification at the committed `INS-149 / HOLD`
+checkpoint `69d7982`. The local backend returned live/readiness success with
+PostgreSQL, but the frontend in explicit remote market mode rendered
+`Failed to execute 'fetch' on 'Window': Illegal invocation` for all four
+charts. Source inspection shows that the Auth and Feature clients already use
+receiver-preserving browser fetch wrappers; the unbound default exists only in
+the market client seam.
+
+Decision: Authorize exactly one fresh same-directory Luna/max Manager under
+`INS-150 / APPROVED_FOR_EXECUTION` to re-enter the existing `I-02` row and
+delegate exactly one hidden worker. The worker may change only
+`apps/frontend/src/market/clients.ts` and
+`apps/frontend/src/market/clients.spec.ts`, adding a regression test for the
+browser receiver behavior. The fix must preserve the existing remote REST and
+market-WebSocket contracts and must not add providers, fixtures, API changes,
+Auth/Feature changes, or any backend/module scope.
+
+Acceptance requires the focused regression and I-02 frontend tests, relevant
+typecheck/lint/build and repository gates, and a real local browser check in
+remote mode showing the four charts no longer fail at the fetch boundary.
+Fixture tests remain fixture evidence. Missing CoinDesk credential, configured
+`LLM_AUTHORING_*`, OpenSpec CLI, and any other unavailable final-demo evidence
+remain `BLOCKED`/`UNVERIFIED`; no `GEMINI_*` mapping or chat credential use is
+authorized. If the issue crosses the exact two-file scope, the Manager must
+stop for renewed Instructor review. No downstream packet is authorized.
+
+Affected: `I-02`, `TASKS.md`, `HANDOFF.md`, `INS-149`, and `INS-150`.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [Architecture](../architecture.md),
+[Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-070`, `INS-149`, `INS-150`, and `I-02`.
