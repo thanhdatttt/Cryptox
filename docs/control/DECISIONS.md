@@ -3707,3 +3707,39 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-089`, `INS-168`, and `INS-169`.
+
+## DEC-091 — Hold at final I-02 live/demo verification boundary
+
+Status: `HOLD`
+
+Authority: Instructor review after the accepted INS-168 OpenSpec correction and
+INS-169 control reconciliation. The repository is clean at
+`8d95df88fd158630e87f67bf0c4f4bc7917cda2f`, apart from the pre-existing
+untracked `.codex/config.toml`. The accepted spec/control integration is
+independently verified: OpenSpec `1.11.0` `11/11 PASS`, scenario preservation
+`64/64`, nested requirement coverage `47/47`, LF-only active specs, and the
+applicable scope/architecture/artifact/secret/whitespace/diff gates pass.
+
+The local Docker environment is now genuinely available: Docker server
+`28.5.1`, repository `db:local:prepare`, healthy PostgreSQL 17 dev/test
+containers, and `db:local:validate` PASS for migration up, constraints, down,
+and remigrate. This does not prove the final application/demo requirements.
+The operational board remains 58 rows, 57 `DONE`, only `I-02` `REVIEW`, with
+no active Manager or worker.
+
+Keep the repository on `HOLD`. The remaining I-02 boundary is real configured
+Auth/ownership E2E, Binance history/realtime/four-chart/recovery, application
+generated Backtest/Evaluation/Leaderboard data, real News and isolated
+Sentiment, full configured Gemini 3.6 LLM_AUTHORING_V1 REST Save/Approve and
+failure behavior, clean install/reprovision, authenticated browser/demo, and
+the eight architecture scenarios plus final README/traceability. All approved
+REQUIRED IDs remain in scope; unavailable or fixture-only evidence is not final
+PASS. A fresh authorization is required before execution.
+
+Affected: `I-02`, `INS-169`, `INS-170`, and the final live/demo acceptance
+boundary.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-090`, `INS-169`, and `INS-170`.

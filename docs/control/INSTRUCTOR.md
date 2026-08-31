@@ -2,11 +2,71 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-169`
+Instruction ID: `INS-170`
 
-Status: `APPROVED_FOR_EXECUTION`
+Status: `HOLD`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-170 — HOLD after accepted OpenSpec/control reconciliation
+
+This is the Instructor's safe checkpoint after INS-168 and INS-169 were
+independently reviewed and integrated. The OpenSpec/spec-format and stale
+checkpoint defects are closed. The repository is not yet MVP-complete because
+the final live/demo acceptance evidence remains unproven.
+
+### Verified checkpoint
+
+- Canonical checkout: `D:\\agy-cli-projects\\AOS\\Cryptox`, branch
+  `MVP_IMPLEMENTATION`, HEAD `8d95df88fd158630e87f67bf0c4f4bc7917cda2f`
+  (`chore(control): reconcile accepted spec checkpoint`). The tracked tree is
+  clean; the only untracked item is the pre-existing `.codex/config.toml`,
+  which remains excluded. No source/business-state drift is present.
+- `TASKS.md` is authoritative at 58 rows: 57 `DONE`, only `I-02` `REVIEW`,
+  and no other `BLOCKED`, `READY`, or `IN_PROGRESS` row. I-01, I-02D, I-03,
+  N-03S, and N-03R remain `DONE`; no Manager or worker is active.
+- Active OpenSpec validation is independently `11/11 PASS` with CLI `1.11.0`;
+  the ten capability specs preserve `64/64` scenario blocks, `47/47` nested
+  requirements, correct placement, one evaluation invariant, and LF-only
+  bytes. Scope, architecture, artifacts, secret, whitespace, and diff gates
+  pass.
+- Docker server `28.5.1` is available. Repository `db:local:prepare` created
+  the ignored local credential, started healthy PostgreSQL 17 development and
+  test containers, and `db:local:validate` passed up, constraints, down, and
+  remigrate. This is local-environment evidence, not full application E2E.
+
+### Remaining I-02 final-verification boundary
+
+The final packet must prove, with real configured runtime data and no silent
+fixture substitution, every REQUIRED ID in the approved baseline, including
+`CSL-R-AU-01`, `CSL-R-OW-01`, `CSL-R-RD-01`, `CSL-R-MD-01`–`03`,
+`CSL-R-FE-01`, `CSL-R-ST-01`–`07`, `CSL-R-SE-01`–`03`, `CSL-R-BT-01`–`02`,
+`CSL-R-EV-01`, `CSL-R-LB-01`, `CSL-R-VIS-01`, `CSL-R-NW-01`–`02`,
+`CSL-R-SN-01`, `CSL-R-RP-01`–`02`, `CSL-R-AR-01`–`03`, `CSL-R-OB-01`,
+`CSL-R-DL-01`, and `CSL-R-DM-01`.
+
+Specifically still unproven are: real PostgreSQL Auth registration/login,
+current-user, expiry, logout, and two-user negative ownership E2E; configured
+Binance historical and realtime BTCUSDT delivery, four-chart behavior, and
+disconnect/gap recovery; application-generated backtest/metrics/Leaderboard
+results; real News source and isolated LEXICON sentiment; full configured
+Gemini 3.6 LLM_AUTHORING_V1 REST draft -> deterministic validation -> explicit
+Save/Approve persistence and failure/no-side-effect behavior; clean install and
+reprovision; authenticated browser/demo evidence; and the eight assignment
+architecture-change scenarios plus final README/demo traceability.
+
+Historical fixture tests, boundary-only LLM smoke, prior packet evidence,
+skipped tests, unavailable Manager tools, or local DB health may not be
+promoted to final live PASS.
+
+### HOLD boundary
+
+The next authorization may cover only final I-02 verification of this existing
+scope, with read-only evidence workers and narrowly reviewed fixes only where
+the current packet explicitly permits them. It may not add requirements,
+redesign architecture, activate deferred scope, substitute fixtures for real
+providers, require user secrets in chat, or change the approved Gemini
+provider protocol without a separate Instructor decision.
 
 ## INS-169 — APPROVED_FOR_EXECUTION for post-integration control reconciliation
 
