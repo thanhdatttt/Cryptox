@@ -1448,3 +1448,42 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-038`, `INS-117`, and commit `5c215d0`.
+
+## DEC-040 — ENV-05 and I-01R accepted; HOLD before I-01 review
+
+Status: `APPROVED`
+
+Authority: Independent Instructor review after the fresh `INS-118` Manager
+checkpoint, exact integration at `1fab40d`, current deterministic validation,
+and fresh local Docker/PostgreSQL evidence.
+
+Decision: Accept exactly the bounded `ENV-05` and `I-01R` closure transitions
+from `REVIEW` to `DONE` under `INS-118`, preserve the Manager's operational
+checkpoint, and replace the signal with `INS-119 / HOLD`. Do not resume `I-01`,
+start `I-02`/`I-03`, promote any extension, or infer final/demo acceptance
+without a separate fresh authorization.
+
+Why: The Manager changed only the two authorized task rows and latest handoff;
+the source/business tree remained unchanged. Independent review confirmed the
+four public seams, scope/deferred `13/13`, strict architecture `0`, correct
+runtime smoke, workspace `409` passed with `8` expected environment-gated
+skips, build/typecheck/lint, artifacts, secret/log, exact-path, whitespace,
+and diff checks. Fresh Instructor execution additionally confirmed local
+migration validation and Strategy PostgreSQL integration `2/2`, exit `0`,
+including owner/version/provenance, cross-owner rejection, and clean teardown.
+The single authorized verifier timed out and was closed, so its result remains
+`UNVERIFIED`; it was not used as a PASS. OpenSpec CLI and external
+provider/browser/demo/final evidence remain `UNVERIFIED`/`BLOCKED` where
+unavailable. The next safe action is a new Instructor review of `I-01`, not an
+automatic promotion.
+
+Affected: `ENV-05`, `I-01R`, `I-01`, `I-02`, `I-03`, `MVP_PLAN.md`, `TASKS.md`,
+`HANDOFF.md`, `INS-118`, `INS-119`, and the integration DAG. Requirements,
+approved functional image amendments, accepted ADRs, integrated source,
+completed packet states, and deferred scope remain unchanged.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [Architecture](../architecture.md),
+[Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-039`, `INS-118`, and commit `1fab40d`.

@@ -2,11 +2,61 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-118`
+Instruction ID: `INS-119`
 
-Status: `APPROVED_FOR_EXECUTION`
+Status: `HOLD`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-119 — HOLD after ENV-05 and I-01R independent review
+
+This signal supersedes `INS-118 / APPROVED_FOR_EXECUTION` after the Instructor
+independently reviewed the exact Manager checkpoint, current source/diff,
+control-plane transitions, deterministic gates, and fresh local PostgreSQL and
+migration evidence. `ENV-05` and `I-01R` are accepted as `DONE` at their
+bounded closure frontier. No new implementation packet is authorized while
+this signal is current.
+
+### Reviewed checkpoint and outcome
+
+- The canonical checkout is `D:/agy-cli-projects/AOS/Cryptox` on
+  `MVP_IMPLEMENTATION` at `1fab40d` (`chore(control): integrate ENV-05 and
+  I-01R closure checkpoint`). The integrated Manager delta contains only the
+  existing `TASKS.md` and latest `HANDOFF.md` operational artifacts; the sole
+  pre-existing untracked path remains the untouched app-generated
+  `.codex/config.toml`.
+- The authoritative board has 49 rows: `46 DONE`, `1 REVIEW` (`I-01`), and
+  `2 BLOCKED` (`I-02`, `I-03`). No other task state changed, and no Cryptox
+  Manager or worker remains active after the INS-118 checkpoint.
+- `ENV-05` and `I-01R` each moved exactly `REVIEW -> DONE` under INS-118.
+  The Manager changed no source, test, tooling, configuration, contract,
+  schema, migration, provider, UI, or unrelated path. The one authorized
+  Godel verifier used Luna `max`/priority with write scope `none`, timed out,
+  and was closed without retry; that verifier result is `UNVERIFIED` and is
+  not represented as a PASS.
+- Independent deterministic evidence remains green: Backtesting `4/4`, Search
+  `4/4`, Strategy `11/11`, Sentiment `2/2`; workspace `409` passed with `8`
+  expected environment-gated skips; scope/deferred `13/13`; strict
+  architecture `0` violations; runtime smoke `/live=200`, `/ready=503`,
+  `/health=404`; artifacts, build, typecheck, lint, secret/log, exact-path,
+  whitespace, and diff checks pass.
+- Fresh Instructor local evidence confirms migration validation (`up`,
+  constraints, `down`, remigrate) and Strategy PostgreSQL integration `2/2`,
+  exit `0`, including same-owner composite persistence, exact component
+  versions, owner-filtered reads, cross-owner rejection, and clean teardown.
+  OpenSpec CLI, configured external providers, browser/demo, and final
+  integration evidence remain `UNVERIFIED`/`BLOCKED` where unavailable.
+
+### HOLD boundary
+
+- Preserve `ENV-05` and `I-01R` as `DONE` with the exact audited commits and
+  evidence. Keep `I-01` at `REVIEW`, `I-02` and `I-03` at `BLOCKED`, and all
+  extension/deferred scope unchanged.
+- Do not infer that closing the seam/validation packets resumes `I-01`. The
+  next authorization requires a fresh Instructor review of the current I-01
+  source/business frontier, exact requirements and dependencies, runtime/
+  provider/demo obligations, write-scope safety, and absence of active
+  Cryptox execution tasks.
 
 ## INS-118 — ENV-05 and I-01R closure validation
 
