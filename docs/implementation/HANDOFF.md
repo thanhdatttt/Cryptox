@@ -1,119 +1,121 @@
-# I-02 Final Revalidation Execution Checkpoint — INS-148 / DEC-069
+# I-02 Remote Market Client Repair Execution Checkpoint — INS-150 / DEC-071
 
-## Authority and reviewed checkpoint
+## Authority and applicability
 
-- Current signal: `INS-148 / APPROVED_FOR_EXECUTION`; durable decision:
-  `DEC-069`.
+- Current signal: `INS-150 / APPROVED_FOR_EXECUTION`; durable decision:
+  `DEC-071`.
 - Canonical checkout: `D:\agy-cli-projects\AOS\Cryptox`, branch
-  `MVP_IMPLEMENTATION`, same directory. Starting authorization HEAD is
-  `a01e832f486e25e7785172b697dad8fc0a277bcf`; accepted source/documentation
-  base is `19f0de6` and the accepted I-02D README checkpoint is `f2fb6f9`.
+  `MVP_IMPLEMENTATION`, same directory. The authorization checkpoint is
+  `31c7f7391cfb599b98fa080735ceccceeab23a13`; its reviewed source/business
+  checkpoint is `69d7982`. The only diff from `69d7982` to the authorization
+  checkpoint is the committed control-plane update in
+  `docs/control/INSTRUCTOR.md` and `docs/control/DECISIONS.md`; no source,
+  test, contract, migration, infrastructure, environment, requirement, ADR,
+  OpenSpec, or generated-path drift was found.
 - The pre-existing app-generated untracked `.codex/config.toml` remains
-  excluded. No production source, test, contract, migration, infrastructure,
-  environment, requirement, ADR, OpenSpec, or generated path is authorized to
-  change in this execution.
-- Before re-entry, `TASKS.md` was verified at 57 rows: 55 `DONE`, `I-02D`
-  `REVIEW`, `I-02` `REVIEW`, and no `READY`, `IN_PROGRESS`, or `BLOCKED` rows.
-  The accepted I-02D evidence and committed README were re-read; only the
-  authorized control closure was applied. `I-02` was then re-entered through
-  `REVIEW -> READY -> IN_PROGRESS`.
+  excluded. No credential, token, cookie, password, or secret was requested,
+  printed, entered into the browser, or added to the repository.
+- Before re-entry, `TASKS.md` had 57 operational rows: `56 DONE`, only `I-02`
+  in `REVIEW`, and no other `READY`, `IN_PROGRESS`, `BLOCKED`, or `REVIEW`
+  row. `I-02D` remains `DONE`. No other Cryptox Manager/worker, retry,
+  replacement, duplicate, or user-visible worker was active or dispatched.
+- The checked-in active `mvp-implementation` proposal, design, market-data and
+  frontend capability specifications, and delivery specification were read and
+  are consistent with this bounded repair. The local OpenSpec CLI was not
+  available; formal CLI status/instruction validation is `UNVERIFIED` and was
+  not used as acceptance evidence.
 
-## Worker/verifier scope
+## Governing requirements and authorized boundary
 
-- No implementation worker is authorized or required. I-02D was already
-  independently accepted; its `REVIEW -> DONE` transition is Manager-owned
-  control closure only.
-- At most two fresh hidden internal read-only verifiers may be used, with
-  disjoint scopes and sequential execution in the shared checkout:
-  backend/runtime/REST/provider boundary checks and frontend/presentation/demo
-  projection checks. They may not edit files, request or print credentials,
-  use the chat-supplied Gemini secret, or create/retry/replace any worker.
-- No downstream task is authorized. If a source gap, redesign need, or task-DAG
-  conflict appears, stop and report `NEEDS_INSTRUCTOR_REVIEW`.
+- Governing requirements: `CSL-R-MD-01`, `CSL-R-MD-02`, `CSL-R-MD-03`,
+  `CSL-R-FE-01`, configured-runtime portions of `CSL-R-RD-01`, and the
+  corresponding `CSL-R-DM-01` browser acceptance; applicable decisions are
+  `DEC-071` and `INS-150`, with ADR-001 as the market WebSocket boundary.
+- I-02 was re-entered exactly through `REVIEW -> READY -> IN_PROGRESS` under
+  `INS-150`. Only one fresh hidden internal implementation worker was
+  authorized. No downstream task was started or promoted.
+- Worker write scope was exactly `apps/frontend/src/market/clients.ts` and
+  `apps/frontend/src/market/clients.spec.ts`. The Manager-owned control scope
+  was limited to this checkpoint and `docs/implementation/TASKS.md`.
 
-## I-02 acceptance and validation boundary
+## Worker result and independent review
 
-The revalidation must truthfully cover the existing packet: Auth/session/logout
-and two-user isolation; Binance historical/realtime behavior; Strategy
-definitions/composites; bounded Search progress/results; user-specific
-Leaderboard; signals, markers, overlays, four metrics, and provenance; real
-News plus local Sentiment; provider/failure isolation; fixture-versus-live
-labeling; and all eight architecture change scenarios. Applicable focused and
-full tests, build/typecheck/lint, architecture/artifact/deferred-scope,
-runtime, clean-install, exact-path, and secret checks are classified from the
-current environment. Unavailable Docker/Compose, PostgreSQL/Auth, CoinDesk,
-LLM, browser/demo, OpenSpec, or consolidated live architecture evidence stays
-`BLOCKED` or `UNVERIFIED`; fixtures, skips, README wording, and historical
-results are not promoted to live PASS.
+- Russell (`01a05875-42d3-7f03-982a-c8a768b6c4a9`) completed once. No commit,
+  branch, worktree, child worker, retry, replacement, or control-plane edit was
+  made by the worker.
+- `clients.ts` now uses the receiver-preserving `browserMarketFetch` wrapper
+  as the default `RestMarketDataClient` seam. `clients.spec.ts` adds a focused
+  regression that demonstrates the old unbound browser-like fetch raises
+  `Illegal invocation` and that the default wrapper succeeds.
+- The existing REST URL, POST method, credentials policy, DTO validation,
+  WebSocket client, subscription/reconnect behavior, and chart independence
+  are unchanged. The worker changed only the two named paths.
+- Manager review found the exact intended five-line source change and the
+  focused regression only; no backend, module, transport contract, provider,
+  fixture selection, chart calculation, or generated-path change was present.
 
-## Execution status
+## Validation evidence
 
-- I-02D: `DONE` — control-only closure under INS-148; accepted README and
-  prior Manager evidence unchanged.
-- I-02: `REVIEW` — final revalidation completed by the two authorized hidden
-  read-only verifiers; no production edit.
-- Final I-02 outcome is `REVIEW`, not `DONE`: repository and fixture-backed
-  evidence passed where available, but the required live/provider/runtime and
-  browser/demo boundary is not proven in this environment. No source gap,
-  redesign need, or task-DAG conflict was found, so this is not
-  `NEEDS_INSTRUCTOR_REVIEW`.
-- Final board: 57 operational rows, 56 `DONE`, I-02 `REVIEW`, and no
-  `READY`, `IN_PROGRESS`, or `BLOCKED` rows. The Manager stops at I-02 and
-  starts no downstream work.
+- Worker-reported focused market-client test: `5/5` PASS; frontend typecheck,
+  lint, and diff check PASS.
+- Independent focused market-client test: `5/5` PASS.
+- Independent I-02 frontend test: `5/5` PASS.
+- Full frontend suite: `14` files, `50/50` tests PASS.
+- Full workspace suite: `449` tests PASS, `9` environment-gated skips, `0`
+  failures. Skips and deterministic fixture tests are not live-provider
+  evidence.
+- Frontend typecheck, frontend lint, frontend production build, root
+  typecheck, root lint, and root build: PASS.
+- Architecture check: PASS (`189` modules / `642` dependencies); the reported
+  `9` forbidden dependency fixtures are the existing intentional diagnostics.
+  Artifact check: PASS. Deferred-scope check: PASS. Deferred-scope tests:
+  `15/15` PASS. `git diff --check`: PASS. Exact tracked-path review: PASS;
+  before the final commit the only tracked paths are the two authorized source
+  paths plus Manager-owned `TASKS.md` and `HANDOFF.md`.
 
-## Verifier status and evidence
+## Live versus fixture evidence
 
-- Backend verifier `01a05850-7411-7062-9beb-7484c50a880c` (`Nash`):
-  completed once and was closed; no retry or replacement; changed paths: none.
-  Backend I-02 suite was 6/6 and focused REST/capability/runtime/WS/provider
-  seam groups were 2/2, 5/5, 2/2, 2/2, and 2/2, all fixture-only and therefore
-  `UNVERIFIED` as live acceptance. Workspace tests were 448 passed, 9
-  environment-gated skips, 0 failed; backend was 31 passed and 1 skipped.
-  Typecheck and lint passed. Runtime smoke passed with `/live=200`,
-  `/ready=503`, and `/health=404`; the required configured runtime was not
-  available. Architecture, artifact, and deferred-scope checks passed with
-  189 modules / 642 dependencies, 9 intentional fixtures, and 15/15 scope
-  tests.
-- Frontend verifier `01a05858-c5ea-7243-a9ad-dcbb8ed9d74b` (`Anscombe`):
-  completed once and was closed; no retry or replacement; changed paths: none.
-  Frontend tests passed 14/14 files and 49/49 tests, including I-02 5/5 and
-  projection screens 3/3, all fixture-only. Frontend typecheck and lint passed.
-  Browser/demo was `BLOCKED` (no open localhost tab); frontend build was
-  `UNVERIFIED` because it would generate files.
-- Live PostgreSQL/Auth, Binance historical/realtime, real News, LLM-assisted
-  behavior, and browser/demo evidence are `BLOCKED` or `UNVERIFIED` because
-  no configured live provider/runtime was available. Docker Compose was
-  unavailable and daemon access was denied. The local OpenSpec CLI was
-  unavailable. Clean-install/build evidence was not rerun because clean
-  install/build would generate or alter dependency/build artifacts outside the
-  authorized control-only change.
-- Git integrity remained `PASS`: HEAD stayed at `a01e832f486e25e7785172b697dad8fc0a277bcf`,
-  the accepted source diff since `19f0de6` remained empty, and verifier paths
-  remained unchanged. The only intended tracked changes are
-  `docs/implementation/TASKS.md` and `docs/implementation/HANDOFF.md`;
-  untracked `.codex/config.toml` remains excluded.
+- Live configured backend probe: `/live=200`, `/ready=200`; the optional News
+  provider was degraded. The real market history boundary returned HTTP 200
+  with 100 `BTCUSDT` candles and `provider=binance` for the bounded request.
+- Live local browser probe used `VITE_MARKET_SOURCE=remote`, the repository's
+  same-origin `/api` market REST proxy, and the existing market WebSocket URL.
+  The UI displayed `Configured market provider`, rendered exactly four market
+  chart articles, showed no history error banners, and the browser console had
+  no warning/error entries. The four charts therefore passed the repaired
+  history/fetch boundary without `Illegal invocation`.
+- The browser was not authenticated and no credential was entered. The market
+  WebSocket consequently ended in its expected unauthenticated/disconnected
+  state; authenticated realtime delivery, two-user Auth isolation, and the
+  complete final demo remain `BLOCKED`/`UNVERIFIED` and are not claimed from
+  this repair.
+- Missing configured CoinDesk News, provider-neutral `LLM_AUTHORING_*`, full
+  authenticated browser/demo evidence, clean-install evidence, and formal
+  OpenSpec CLI evidence remain `BLOCKED`/`UNVERIFIED`. No `GEMINI_*` value was
+  mapped or used. These limitations do not identify a new source gap in the
+  two-file market repair.
 
-## Final validation boundary
+## Final task state and stop boundary
 
-The authorized packet’s Auth/session/logout and two-user isolation, Binance,
-Strategy, bounded Search, user Leaderboard, signals/markers/overlays, four
-metrics/provenance, News/Sentiment, provider/failure isolation,
-fixture-versus-live labeling, and eight architecture scenarios are not all
-live-proven by this run. Fixture tests and repository checks remain useful
-`PASS` evidence for their respective deterministic contracts, but they do not
-promote I-02 to `DONE`. The exact blockers are the unavailable configured
-PostgreSQL/Auth and external-provider/runtime evidence, absent browser/demo
-session, unavailable Docker Compose/OpenSpec, and unrun clean-install/build
-checks.
+- I-02 transition: `REVIEW -> READY -> IN_PROGRESS -> REVIEW` under `INS-150`.
+  The bounded repair is accepted at its authorized packet boundary, but I-02
+  is not promoted to `DONE` from this fix because the broader final-demo
+  evidence remains incomplete.
+- `I-02D` remains `DONE`; all other rows remain unchanged. `I-03` and every
+  downstream/newly unlocked packet remain untouched. The Manager stops here.
+- Renewed Instructor review remains required before any I-02 promotion or
+  downstream execution. No new implementation authorization is requested by
+  this checkpoint.
 
-## Control checkpoint
+## Commit boundary
 
-- One explicit-path staging/commit attempt is permitted for these two
-  Manager-owned files only. If Git denies creation of `.git/index.lock`, record
-  the exact denial once and do not retry.
-- Checkpoint result: the one permitted explicit-path staging attempt was denied
-  once with `fatal: Unable to create 'D:/agy-cli-projects/AOS/Cryptox/.git/index.lock': Permission denied`.
-  No retry was made and no commit was created.
-- One explicit-path staging/commit attempt is permitted for the exact
-  Manager-owned `TASKS.md`/`HANDOFF.md` checkpoint. If Git denies creation of
-  `.git/index.lock`, record the exact denial once and do not retry.
+- At most one coherent explicit-path staging/commit attempt was authorized for
+  exactly these tracked files: `apps/frontend/src/market/clients.ts`,
+  `apps/frontend/src/market/clients.spec.ts`,
+  `docs/implementation/TASKS.md`, and `docs/implementation/HANDOFF.md`.
+  `.codex/config.toml` remained excluded. The single attempt was denied with
+  the exact Git error `fatal: Unable to create
+  'D:/agy-cli-projects/AOS/Cryptox/.git/index.lock': Permission denied`; no
+  retry was made.
+- The final branch, HEAD, status, and uncommitted commit outcome are
+  authoritative in Git at handoff completion.

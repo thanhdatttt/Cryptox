@@ -41,6 +41,41 @@ const historyRequest: MarketHistoryRequestDto = {
 };
 
 describe("typed market clients", () => {
+  it("preserves the browser fetch receiver for the default REST market seam", async () => {
+    const browserLike = {
+      fetch(this: unknown, _input: string, _init?: RequestInit) {
+        if (this !== undefined && this !== globalThis) {
+          throw new TypeError("Failed to execute 'fetch' on 'Window': Illegal invocation");
+        }
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            schemaVersion: REST_SCHEMA_VERSION,
+            pair: historyRequest.pair,
+            timeframe: historyRequest.timeframe,
+            candles: [],
+            missingRanges: [],
+          }),
+        });
+      },
+    };
+    const unboundBrowserFetch = browserLike.fetch;
+    vi.stubGlobal("fetch", unboundBrowserFetch);
+
+    try {
+      await expect(new RestMarketDataClient("/api", unboundBrowserFetch).readHistory(historyRequest)).rejects.toThrow(
+        /Illegal invocation/,
+      );
+      await expect(new RestMarketDataClient("/api").readHistory(historyRequest)).resolves.toMatchObject({
+        pair: historyRequest.pair,
+        timeframe: historyRequest.timeframe,
+      });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("uses the frozen history DTO and rejects a response for another market", async () => {
     const fetcher = vi.fn(async () => ({
       ok: true,

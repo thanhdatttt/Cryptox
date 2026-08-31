@@ -15,10 +15,13 @@ export interface FetchLike {
   (input: string, init?: RequestInit): Promise<Pick<Response, "ok" | "status" | "json">>;
 }
 
+/** Keep the browser's global fetch receiver intact when passed as a seam. */
+export const browserMarketFetch: FetchLike = (input, init) => fetch(input, init);
+
 export class RestMarketDataClient {
   public constructor(
     private readonly baseUrl: string,
-    private readonly fetcher: FetchLike = fetch,
+    private readonly fetcher: FetchLike = browserMarketFetch,
   ) {}
 
   public async readHistory(
