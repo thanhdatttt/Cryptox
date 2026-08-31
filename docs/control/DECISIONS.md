@@ -2009,3 +2009,50 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-051`, `INS-130`, `INS-131`, `S-04I`, `S-04J`, and commit `f872590`.
+
+## DEC-053 — Authorize S-04J residual LLM completion and approval integrity
+
+Status: `APPROVED`
+
+Authority: Instructor review after `DEC-052 / INS-131` held the repository at
+the independently committed S-04I partial checkpoint `f872590`. Git is clean
+for tracked files except the untouched app-generated `.codex/config.toml`, and
+no Cryptox Manager or worker is active.
+
+Decision: Issue exactly one fresh same-directory Manager authorization
+`INS-132 / APPROVED_FOR_EXECUTION` for the planned `S-04J` residual closure.
+The Manager may use exactly three hidden internal workers, strictly
+sequentially and with disjoint scopes: Strategy approval concurrency/
+idempotency, frontend LLM authoring composition, and the narrow deferred-scope
+checker boundary. The Manager owns the new S-04J row, `HANDOFF.md`, integration,
+and checkpoint commit, and may reconcile S-04I from `REVIEW` to `DONE` only if
+the combined acceptance is actually proven. No existing S-04I retry/reopen,
+I-02 transition, downstream packet, user-visible child task, worktree,
+duplicate, retry, replacement, migration, provider-specific adapter, or
+autonomous/unconfigured LLM behavior is authorized.
+
+Requirements and acceptance remain bounded to `CSL-R-ST-05`, `CSL-R-RP-02`,
+`CSL-R-OW-01`, and the configured-runtime part of `CSL-R-RD-01`. The Manager
+must preserve explicit server-side endpoint/model/key configuration, one
+bounded provider request, deterministic validation, explicit human approval,
+safe provenance, owner isolation, and no-secret behavior. The Strategy worker
+must prove exactly-one approval across separate authoring request contexts; the
+frontend worker must use the already composed typed REST boundary and expose
+the required authoring states/actions; the checker worker must fix only the
+canonical `packages/contracts/rest/strategy.ts` allowlist boundary.
+
+Evidence limitations remain truthful: unavailable PostgreSQL/Docker, real
+provider, browser/demo, OpenSpec, Binance, and News checks are not promoted to
+PASS. If the approval fix requires a migration or any other out-of-scope
+change, the Manager must stop at `NEEDS_INSTRUCTOR_REVIEW`.
+
+Affected: `S-04J`, `S-04I`, `I-02`, `TASKS.md`, `HANDOFF.md`, `INS-131`,
+`INS-132`, and the final MVP checkpoint. Existing requirements, approved
+functional image amendments, ADRs, contracts, architecture, data model, and
+deferred scope remain unchanged.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [Architecture](../architecture.md),
+[Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-052`, `INS-131`, `S-04I`, `S-04J`, and commit `b522724`.

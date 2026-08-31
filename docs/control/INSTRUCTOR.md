@@ -2,66 +2,91 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-131`
+Instruction ID: `INS-132`
 
-Status: `HOLD`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
-## INS-131 — HOLD after independent S-04I partial-composition audit
+## INS-132 — APPROVED_FOR_EXECUTION for S-04J residual LLM completion
 
-This signal supersedes `INS-130 / APPROVED_FOR_EXECUTION`. The bounded S-04I
-authorization is exhausted and the packet remains `REVIEW`; this HOLD
-authorizes no new Manager, worker, retry, replacement, duplicate, task-state
-transition, I-02 promotion, or downstream work.
+This signal supersedes `INS-131 / HOLD` and authorizes exactly one fresh
+same-directory Manager for the separately planned `S-04J` residual closure
+packet. It does not retry or reopen `S-04I`, promote `I-02`, or authorize any
+downstream work.
 
-### Independent review checkpoint
+### Reviewed checkpoint and applicability
 
 - Canonical checkout: `D:\\agy-cli-projects\\AOS\\Cryptox`, branch
-  `MVP_IMPLEMENTATION` at committed HEAD `f872590`
-  (`feat(strategy): checkpoint S-04I public composition`). This commit contains
-  the exact audited Manager delta and its `TASKS.md`/`HANDOFF.md` checkpoint;
-  only app-generated `.codex/config.toml` remains untracked and untouched.
+  `MVP_IMPLEMENTATION` at committed HEAD `b522724`
+  (`chore(control): hold after S-04I audit`). The reviewed source/business
+  checkpoint is `f872590` (`feat(strategy): checkpoint S-04I public
+  composition`); the only untracked item is untouched app-generated
+  `.codex/config.toml`.
 - `TASKS.md` is authoritative at exactly 50 rows: `48 DONE`, `I-02 REVIEW`,
-  and `S-04I REVIEW`. No Manager, worker, verifier, retry, replacement,
-  duplicate, or downstream Cryptox task is active; the fresh S-04I Manager is
-  idle and is not reused.
-- The S-04I source delta is limited to its authorized Strategy, REST/backend,
-  and test paths. The frontend worker returned no changes. The independent
-  audit found no unauthorized tracked path and accepted the source only as a
-  partial checkpoint, not as packet completion.
+  and `S-04I REVIEW`. No Cryptox Manager, worker, verifier, retry,
+  replacement, duplicate, or downstream task is active. Historical Managers
+  and workers must not be reused.
+- The current HOLD independently verified the S-04I partial delta and recorded
+  the missing frontend, cross-request approval-integrity proof, and exact
+  checker boundary as the distinct `S-04J` packet in `MVP_PLAN.md`.
 
-### Evidence
+### Authorized packet, requirements, and exact scope
 
-- PASS: focused S-04I tests `37/37`; workspace tests `433 passed`, with `8`
-  environment-gated skips; build, typecheck, lint, architecture (`187 modules /
-  631 dependencies`), artifacts, `test:scope-check` `13/13`, runtime smoke,
-  and `git diff --check`.
-- BLOCKED: PostgreSQL migration/integration validation and live Docker evidence.
-  Both `docker compose` and standalone `docker-compose` are present, but the
-  Docker daemon/named pipe is inaccessible from this environment with an
-  elevation error; no system install or cloud database was used.
-- BLOCKED/UNVERIFIED: live provider, browser authoring workflow, real Binance/
-  News, and OpenSpec CLI. The user supplied provider credentials are not
-  persisted or printed; no real LLM call is claimed by this checkpoint.
-- BLOCKED: live `npm run scope:check` reports only the exact boundary mismatch
-  `packages/contracts/rest/strategy.ts` versus the checker’s directory entry.
-  The checker was outside INS-130 and was not silently edited.
+- Packet: `S-04J — LLM_AUTHORING_V1 Residual Completion and Approval Integrity`.
+- Requirements: `CSL-R-ST-05`, `CSL-R-RP-02`, `CSL-R-OW-01`, and only the
+  configured-runtime portion of `CSL-R-RD-01`; `ADR_009`, the accepted S-04
+  seam, and the current REST contracts remain governing authority.
+- Manager: create exactly one fresh Manager in the canonical same-directory
+  checkout, model `gpt-5.6-luna`, reasoning `max`; no worktree, branch,
+  duplicate, retry, replacement, or user-visible worker task. The Manager must
+  read `AGENTS.md` and `docs/control/prompts/ORCHESTRATOR_START.md` completely,
+  verify this signal/checkpoint/DAG and active-task list, and stop on material
+  drift. Use internal hidden subagents only; request the available `priority`
+  service tier for each child when the child tool supports it.
+- Worker 1, exactly one and sequential: only
+  `modules/strategy/application/**` and
+  `modules/strategy/infrastructure/**` for the approval concurrency/idempotency
+  correction and focused tests. Prove two separately-created authenticated
+  authoring ports cannot create duplicate definitions for one owner/draft;
+  preserve owner isolation, immutable provenance, and no-secret persistence.
+  No canonical contract, migration, provider-specific adapter, or other module.
+  If a schema/migration is necessary, stop with `NEEDS_INSTRUCTOR_REVIEW`.
+- Worker 2, only after Worker 1 review: only `apps/frontend/src/**` for the
+  typed authoring client methods, private store state, panel, fixture coverage,
+  and focused tests. Compose prompt/approved-News input, DRAFT, VALIDATED,
+  APPROVED, failure, and unavailable states with explicit Save/Validate/
+  Approve actions. No provider credential, client business logic, arbitrary URL
+  fetch, or identity authority.
+- Worker 3, only after feature review: only
+  `scripts/check-deferred-scope.cjs` and
+  `scripts/check-deferred-scope.test.cjs` to correct the exact canonical REST
+  file boundary for `LLM_AUTHORING_V1` and add regression coverage. No other
+  checker rule may broaden.
+- Workers have disjoint write scopes and must not edit `AGENTS.md`,
+  `docs/control/**`, requirements, ADRs, `TASKS.md`, `HANDOFF.md`, migrations,
+  or unrelated source. The Manager alone may add the S-04J row, update
+  `HANDOFF.md`, integrate scoped output, commit, and reconcile `S-04I` to DONE
+  only after every S-04I/S-04J acceptance is proven. I-02 remains REVIEW.
 
-### Material gaps and next-review boundary
+### Acceptance, validation, and stop condition
 
-- `S-04I` remains `REVIEW` because the frontend authoring transport/state/panel
-  is still absent.
-- The application’s approval serialization is request-local: each REST request
-  creates a fresh authoring port. Independent tests prove sequential
-  idempotency, but not concurrent approvals from separate contexts; the
-  exactly-one invariant therefore remains unproven and is recorded as a new
-  residual rather than inferred PASS.
-- `MVP_PLAN.md` now records `S-04J` as a distinct residual closure packet for
-  approval integrity, frontend composition, and the narrow checker boundary.
-  A future Instructor review may authorize it with a fresh Manager, but this
-  HOLD does not authorize that work. `I-02` cannot move until the residual is
-  accepted and a separate final-verification authorization is issued.
+- The public frontend uses the typed REST DTOs already composed by S-04I; it
+  never exposes a provider key or raw prompt/completion. Provider requests stay
+  bounded and server-side, and unconfigured/failure paths remain fail-closed.
+- Concurrent approval from separate request contexts produces one immutable
+  owner-scoped definition and the same result; sequential idempotency,
+  unauthenticated/cross-owner/unsafe-field rejection, approved-News boundary,
+  and safe provenance remain proven.
+- Require focused Strategy/frontend/checker tests, workspace test/build/
+  typecheck/lint, architecture, artifacts, live scope/deferred checks, runtime
+  smoke, secret/log, exact-path, whitespace, and diff checks. PostgreSQL, real
+  provider, browser/demo, and OpenSpec evidence are `PASS` only when actually
+  run; otherwise they remain `UNVERIFIED`/`BLOCKED`.
+- The Manager must stop after one bounded S-04J checkpoint at `REVIEW`, report
+  exact paths/evidence/failures/unavailable checks, and not start I-02 or any
+  downstream packet. A fresh Instructor audit and separate authorization are
+  required for final I-02 verification.
 
 ## INS-129 — HOLD after independent I-02 review
 
