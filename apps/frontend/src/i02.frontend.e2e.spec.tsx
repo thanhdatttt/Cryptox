@@ -502,7 +502,8 @@ describe("I-02 frontend configured-mode and functional-state review", () => {
 
     expect(markup).toContain("Save draft");
     expect(markup).toContain("Approve draft");
-    expect(markup).toContain("disabled=\"\" aria-disabled=\"true\"");
+    expect(markup).toContain("<dt>State</dt><dd>READY</dd>");
+    expect(markup).toContain("<button class=\"feature-button\" type=\"submit\">Save draft</button>");
     expect(markup).toContain("Fixture evidence · real API integration is a later gate");
     expect(markup).not.toContain("live exchange order");
   });

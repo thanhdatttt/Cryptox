@@ -44,7 +44,14 @@ const approvedProfileBoundaries = {
     "modules/backtesting/application/",
     "modules/backtesting/infrastructure/",
   ],
-  "LLM_AUTHORING_V1": ["modules/strategy/api/contracts.ts", "modules/strategy/application/ports.ts", "packages/contracts/rest/strategy/", "infra/db/migrations/"],
+  "LLM_AUTHORING_V1": [
+    "modules/strategy/api/contracts.ts",
+    "modules/strategy/application/ports.ts",
+    "packages/contracts/rest/strategy.ts",
+    "infra/db/migrations/",
+    "apps/frontend/src/features/clients.ts",
+    "apps/frontend/src/features/fixture-client.ts",
+  ],
   "WEIGHTED_VOTE_V1": [
     "modules/strategy/api/contracts.ts",
     "modules/strategy/application/ports.ts",

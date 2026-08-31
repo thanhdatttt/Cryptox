@@ -7,6 +7,7 @@ import {
   AUTHORING_PROFILE_ID,
   AUTHORING_TIMEOUT_MS,
   createStrategyAuthoringApplication,
+  createStrategyAuthoringFactory,
   type StrategyAuthoringApplicationDependencies,
   type StrategyAuthoringDraftRecord,
 } from "./authoring";
@@ -238,6 +239,44 @@ describe("Strategy authoring application", () => {
     expect(Object.isFrozen(first)).toBe(true);
     expect(Object.isFrozen(first.parameters)).toBe(true);
     expect(JSON.stringify(first)).not.toMatch(/prompt|completion|secret|token|url/i);
+  });
+
+  it("serializes concurrent approval across separately-created authenticated ports", async () => {
+    const provider = makeProvider({ period: 20, mode: "FAST" });
+    const dependencies = makeDependencies(provider);
+    const authoringFactory = createStrategyAuthoringFactory(dependencies);
+    const firstPort = authoringFactory({ authenticatedUserId: userA });
+    const secondPort = authoringFactory({ authenticatedUserId: userA });
+    const draft = await firstPort.createDraft({ source: { kind: "PROMPT" }, prompt: "Draft it." });
+    const validated = await firstPort.validateDraft(draft);
+    const allocate = vi.spyOn(dependencies.definitionRepository, "allocateNextVersion");
+    const insert = vi.spyOn(dependencies.definitionRepository, "insert");
+    const originalGetByOwnerAndId = dependencies.draftRepository.getByOwnerAndId.bind(dependencies.draftRepository);
+    let firstApprovalRead = true;
+    vi.spyOn(dependencies.draftRepository, "getByOwnerAndId").mockImplementation(async (ownerUserId, draftId) => {
+      const stored = await originalGetByOwnerAndId(ownerUserId, draftId);
+      if (firstApprovalRead) {
+        firstApprovalRead = false;
+        await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      }
+      return stored;
+    });
+
+    const [first, second] = await Promise.all([
+      firstPort.approveDraft(validated.id),
+      secondPort.approveDraft(validated.id),
+    ]);
+
+    expect(first).toEqual(second);
+    expect(allocate).toHaveBeenCalledTimes(1);
+    expect(insert).toHaveBeenCalledTimes(1);
+    expect(dependencies.repositories.definitions.size).toBe(1);
+    expect(first).toMatchObject({ ownerUserId: userA, version: 1 });
+    expect(Object.isFrozen(first)).toBe(true);
+    expect(Object.isFrozen(first.parameters)).toBe(true);
+    expect(
+      (await dependencies.draftRepository.getByOwnerAndId(userA, validated.id))?.approvedDefinitionId,
+    ).toBe(first.id);
   });
 
   it("isolates owners and rejects unauthenticated composition", async () => {

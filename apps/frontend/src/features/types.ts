@@ -2,6 +2,11 @@ import type {
   BacktestSubmissionResponseDto,
   CandidateProgressResponseDto,
   CompositeStrategyDefinitionDto,
+  ApproveStrategyAuthoringDraftResponseDto,
+  CreateStrategyAuthoringDraftRequestDto,
+  StrategyAuthoringDraftActionRequestDto,
+  StrategyAuthoringDraftDto,
+  StrategyAuthoringDraftResponseDto,
   DefineCompositeRequestDto,
   DefineCompositeResponseDto,
   DefineStrategyRequestDto,
@@ -50,6 +55,17 @@ export interface FeatureClient {
   compositeDefinitions(): Promise<CompositeDefinitionsResponseDto>;
   defineStrategy(request: DefineStrategyRequestDto): Promise<DefineStrategyResponseDto>;
   defineComposite(request: DefineCompositeRequestDto): Promise<DefineCompositeResponseDto>;
+  createStrategyAuthoringDraft(
+    request: CreateStrategyAuthoringDraftRequestDto,
+  ): Promise<StrategyAuthoringDraftResponseDto>;
+  validateStrategyAuthoringDraft(
+    draftId: string,
+    request: StrategyAuthoringDraftActionRequestDto,
+  ): Promise<StrategyAuthoringDraftResponseDto>;
+  approveStrategyAuthoringDraft(
+    draftId: string,
+    request: StrategyAuthoringDraftActionRequestDto,
+  ): Promise<ApproveStrategyAuthoringDraftResponseDto>;
   searchRuns(): Promise<SearchRunsResponseDto>;
   startSearch(request: StartSearchRequestDto): Promise<StartSearchResponseDto>;
   searchStatus(searchRunId: string): Promise<SearchRunStatusResponseDto>;
@@ -66,29 +82,45 @@ export interface FeatureClient {
 export type FeatureWorkspaceStatus = "idle" | "loading" | "ready" | "error";
 export type NewsPanelStatus = "loading" | "ready" | "unavailable";
 
-/**
- * The frozen public contracts do not include an LLM draft workflow. Keep that
- * absence explicit instead of making a client-side draft look persisted.
- */
+export type FeatureAuthoringStatus =
+  | "READY"
+  | "DRAFT"
+  | "VALIDATED"
+  | "APPROVED"
+  | "REJECTED"
+  | "FAILURE"
+  | "UNAVAILABLE";
+
+export interface FeatureAuthoringActionAvailability {
+  readonly save: boolean;
+  readonly validate: boolean;
+  readonly approve: boolean;
+}
+
 export interface FeatureAuthoringState {
-  readonly status: "UNAVAILABLE";
-  readonly reason: "NO_FROZEN_PUBLIC_TRANSPORT";
-  readonly draft: "NOT_SUPPLIED";
-  readonly validation: "NOT_SUPPLIED";
-  readonly save: "DISABLED";
-  readonly approve: "DISABLED";
+  readonly status: FeatureAuthoringStatus;
+  /** Only server-returned safe draft fields may enter this private projection. */
+  readonly draft?: StrategyAuthoringDraftDto;
+  /** Present only after the server returns the approved definition. */
+  readonly definition?: StrategyDefinitionDto;
+  readonly actions: FeatureAuthoringActionAvailability;
   readonly message: string;
+  readonly reason?: string;
+  readonly failedAction?: "SAVE" | "VALIDATE" | "APPROVE";
 }
 
 export const UNAVAILABLE_AUTHORING_STATE: FeatureAuthoringState = {
   status: "UNAVAILABLE",
-  reason: "NO_FROZEN_PUBLIC_TRANSPORT",
-  draft: "NOT_SUPPLIED",
-  validation: "NOT_SUPPLIED",
-  save: "DISABLED",
-  approve: "DISABLED",
+  reason: "TRANSPORT_UNAVAILABLE",
+  actions: { save: false, validate: false, approve: false },
+  message: "Controlled LLM authoring is unavailable because its typed transport is not configured.",
+};
+
+export const READY_AUTHORING_STATE: FeatureAuthoringState = {
+  status: "READY",
+  actions: { save: true, validate: false, approve: false },
   message:
-    "Controlled LLM authoring is not yet composed: the frozen public REST contracts expose no draft, validation, Save, or Approve transport.",
+    "Choose a prompt or an approved News item. Save creates a server draft; Validate and Approve remain explicit.",
 };
 
 export interface FeatureWorkspaceState {

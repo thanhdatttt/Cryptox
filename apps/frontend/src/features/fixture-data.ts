@@ -18,6 +18,17 @@ export const FIXTURE_BACKTEST_CONFIGURATION: BacktestConfigurationDto = {
   slippageBps: 0,
 };
 
+export const FIXTURE_AUTHORING_PROVIDER = {
+  id: "fixture-authoring-provider",
+  modelId: "fixture-authoring-model",
+  configured: true,
+} as const;
+
+export const FIXTURE_AUTHORING_PARAMETERS = {
+  fastPeriod: 20,
+  slowPeriod: 50,
+} as const;
+
 export const FIXTURE_STRATEGY_DESCRIPTORS: readonly StrategyPluginDescriptorDto[] = [
   {
     name: "MA",
@@ -312,6 +323,19 @@ export function createFixtureNews(): NewsPageResponseDto {
           modelName: "LEXICON_V1",
           modelVersion: "1",
           analyzedAt: "2026-08-28T10:02:00.000Z",
+        },
+        extraction: {
+          sourceKind: "RSS",
+          canonicalUrl: "https://example.test/news/fixture-1",
+          normalizedContentHash: "fixture-news-hash-1",
+          template: {
+            id: "fixture-news-template-1",
+            sourceId: "fixture-news",
+            version: 1,
+            status: "APPROVED",
+          },
+          extractedAt: "2026-08-28T10:01:00.000Z",
+          normalizedRetainUntil: "2026-11-26T10:01:00.000Z",
         },
       },
       {

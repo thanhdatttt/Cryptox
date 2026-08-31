@@ -30,6 +30,29 @@ test("permits approved DEC-007 profiles only in named contract boundaries", () =
   }, (fixture) => assert.deepEqual(scanDeferredScope(fixture), []));
 });
 
+test("permits LLM authoring only in the canonical REST file and typed frontend transports", () => {
+  withFixture({
+    "packages/contracts/rest/strategy.ts": "export const profile = 'LLM_AUTHORING_V1';",
+    "apps/frontend/src/features/clients.ts": "export const profile = 'LLM_AUTHORING_V1';",
+    "apps/frontend/src/features/fixture-client.ts": "export const profile = 'LLM_AUTHORING_V1';",
+  }, (fixture) => assert.deepEqual(scanDeferredScope(fixture), []));
+});
+
+test("rejects LLM authoring in REST near-matches and unrelated frontend paths", () => {
+  const files = {
+    "packages/contracts/rest/strategy/legacy.ts": "export const profile = 'LLM_AUTHORING_V1';",
+    "packages/contracts/rest/strategy.tsx": "export const profile = 'LLM_AUTHORING_V1';",
+    "apps/frontend/src/features/clients-legacy.ts": "export const profile = 'LLM_AUTHORING_V1';",
+  };
+  withFixture(files, (fixture) => {
+    const findings = scanDeferredScope(fixture).join("\n");
+    for (const relativePath of Object.keys(files)) {
+      const escapedPath = relativePath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      assert.match(findings, new RegExp(`${escapedPath}: approved profile LLM_AUTHORING_V1 is outside its supported boundary`));
+    }
+  });
+});
+
 test("rejects approved Search profiles outside the exact canonical REST file", () => {
   const files = {
     "packages/contracts/rest/search/legacy.ts": "export const profiles = ['DOMAIN_GUIDED_V1', 'GENETIC_V1'];",

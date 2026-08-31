@@ -1,10 +1,49 @@
-import { REST_SCHEMA_VERSION, type BacktestSubmissionResponseDto, type CandidateProgressDto, type CandidateProgressResponseDto, type CompositeStrategyDefinitionDto, type DefineCompositeRequestDto, type DefineCompositeResponseDto, type DefineStrategyRequestDto, type DefineStrategyResponseDto, type ExperimentResponseDto, type LeaderboardTopKResponseDto, type NewsPageResponseDto, type SearchRunRankingEntryDto, type SearchRunStatusDto, type SearchRunStatusResponseDto, type StartManualBacktestRequestDto, type StartSearchRequestDto, type StartSearchResponseDto, type StrategyCatalogResponseDto, type StrategyDefinitionDto, type TradePageResponseDto } from "@cryptox/contracts/rest";
-import { createFixtureCompositeDefinition, createFixtureExperiment, createFixtureLeaderboard, createFixtureNews, createFixtureSearchRun, createFixtureStrategyDefinitions, FIXTURE_NOW } from "./fixture-data";
+import {
+  REST_SCHEMA_VERSION,
+  type ApproveStrategyAuthoringDraftResponseDto,
+  type BacktestSubmissionResponseDto,
+  type CandidateProgressDto,
+  type CandidateProgressResponseDto,
+  type CompositeStrategyDefinitionDto,
+  type CreateStrategyAuthoringDraftRequestDto,
+  type DefineCompositeRequestDto,
+  type DefineCompositeResponseDto,
+  type DefineStrategyRequestDto,
+  type DefineStrategyResponseDto,
+  type ExperimentResponseDto,
+  type LeaderboardTopKResponseDto,
+  type NewsItemDto,
+  type NewsPageResponseDto,
+  type SearchRunRankingEntryDto,
+  type SearchRunStatusDto,
+  type SearchRunStatusResponseDto,
+  type StartManualBacktestRequestDto,
+  type StartSearchRequestDto,
+  type StartSearchResponseDto,
+  type StrategyAuthoringDraftActionRequestDto,
+  type StrategyAuthoringDraftDto,
+  type StrategyAuthoringDraftResponseDto,
+  type StrategyCatalogResponseDto,
+  type StrategyDefinitionDto,
+  type TradePageResponseDto,
+} from "@cryptox/contracts/rest";
+import {
+  createFixtureCompositeDefinition,
+  createFixtureExperiment,
+  createFixtureLeaderboard,
+  createFixtureNews,
+  createFixtureSearchRun,
+  createFixtureStrategyDefinitions,
+  FIXTURE_AUTHORING_PARAMETERS,
+  FIXTURE_AUTHORING_PROVIDER,
+  FIXTURE_NOW,
+} from "./fixture-data";
 import type { FeatureClient } from "./types";
 import { FeatureClientError } from "./clients";
 
 export interface FixtureFeatureClientOptions {
   readonly ownerUserId: string;
+  readonly authoringBehavior?: "configured" | "unavailable" | "failure" | "rejected";
 }
 
 function response<T>(value: T): T {
@@ -17,13 +56,18 @@ export class FixtureFeatureClient implements FeatureClient {
   private readonly runs = new Map<string, SearchRunStatusDto>();
   private readonly candidates = new Map<string, CandidateProgressDto>();
   private readonly experimentsById = new Map<string, ReturnType<typeof createFixtureExperiment>>();
+  private readonly drafts = new Map<string, StrategyAuthoringDraftDto>();
+  private readonly loadedNewsItems = new Map<string, NewsItemDto>();
   private readonly ownerUserId: string;
+  private readonly authoringBehavior: NonNullable<FixtureFeatureClientOptions["authoringBehavior"]>;
   private nextDefinition = 3;
+  private nextDraft = 1;
   private nextRun = 2;
   private nextExperiment = 2;
 
   public constructor(options: FixtureFeatureClientOptions) {
     this.ownerUserId = options.ownerUserId;
+    this.authoringBehavior = options.authoringBehavior ?? "configured";
     this.definitions = [...createFixtureStrategyDefinitions(options.ownerUserId)];
     this.composites = [createFixtureCompositeDefinition(options.ownerUserId, this.definitions)];
     const initialRun = createFixtureSearchRun(options.ownerUserId, this.definitions);
@@ -88,6 +132,111 @@ export class FixtureFeatureClient implements FeatureClient {
       createdAt: FIXTURE_NOW,
     };
     this.composites.push(definition);
+    return { schemaVersion: REST_SCHEMA_VERSION, definition };
+  }
+
+  public async createStrategyAuthoringDraft(
+    request: CreateStrategyAuthoringDraftRequestDto,
+  ): Promise<StrategyAuthoringDraftResponseDto> {
+    this.assertAuthoringAvailable();
+    const source = request.source;
+    if (source.kind === "PROMPT" && !request.prompt?.trim()) {
+      throw new FeatureClientError(400, "The authoring request was rejected.", "INVALID_REQUEST");
+    }
+    if (source.kind === "APPROVED_NEWS_ITEM") {
+      const newsItem = this.loadedNewsItems.get(source.newsItemId);
+      if (!newsItem) {
+        throw new FeatureClientError(404, "The requested News item has not been loaded.", "NOT_FOUND");
+      }
+      if (newsItem.extraction?.template?.status !== "APPROVED") {
+        throw new FeatureClientError(
+          409,
+          "The selected News item does not have an approved extraction template.",
+          "NEWS_ITEM_NOT_APPROVED",
+        );
+      }
+    }
+
+    const id = `${this.ownerUserId}-authoring-draft-${this.nextDraft++}`;
+    const rejected = this.authoringBehavior === "rejected";
+    const draft: StrategyAuthoringDraftDto = {
+      id,
+      ownerUserId: this.ownerUserId,
+      profileId: "LLM_AUTHORING_V1",
+      source: source.kind === "PROMPT"
+        ? { kind: "PROMPT" }
+        : { kind: "APPROVED_NEWS_ITEM", newsItemId: source.newsItemId },
+      provider: { ...FIXTURE_AUTHORING_PROVIDER },
+      status: rejected ? "REJECTED" : "DRAFT",
+      ...(rejected
+        ? {
+            validation: {
+              valid: false,
+              reasons: ["INVALID_PROVIDER_DRAFT"],
+              validatedAt: FIXTURE_NOW,
+            },
+          }
+        : { structuredDraft: { ...FIXTURE_AUTHORING_PARAMETERS } }),
+      createdAt: FIXTURE_NOW,
+      updatedAt: FIXTURE_NOW,
+    };
+    this.drafts.set(id, draft);
+    return { schemaVersion: REST_SCHEMA_VERSION, draft };
+  }
+
+  public async validateStrategyAuthoringDraft(
+    draftId: string,
+    _request: StrategyAuthoringDraftActionRequestDto,
+  ): Promise<StrategyAuthoringDraftResponseDto> {
+    this.assertAuthoringAvailable();
+    const current = this.ownedDraft(draftId);
+    if (current.status === "REJECTED" || current.status === "APPROVED") {
+      return { schemaVersion: REST_SCHEMA_VERSION, draft: current };
+    }
+    const validated: StrategyAuthoringDraftDto = {
+      ...current,
+      status: "VALIDATED",
+      validation: { valid: true, reasons: [], validatedAt: FIXTURE_NOW },
+      updatedAt: FIXTURE_NOW,
+    };
+    this.drafts.set(draftId, validated);
+    return { schemaVersion: REST_SCHEMA_VERSION, draft: validated };
+  }
+
+  public async approveStrategyAuthoringDraft(
+    draftId: string,
+    _request: StrategyAuthoringDraftActionRequestDto,
+  ): Promise<ApproveStrategyAuthoringDraftResponseDto> {
+    this.assertAuthoringAvailable();
+    const current = this.ownedDraft(draftId);
+    if (current.status === "APPROVED" && current.approvedDefinitionId) {
+      return { schemaVersion: REST_SCHEMA_VERSION, definition: this.ownedDefinition(current.approvedDefinitionId) };
+    }
+    if (current.status !== "VALIDATED" || !current.structuredDraft) {
+      throw new FeatureClientError(409, "The authoring draft must be validated first.", "DRAFT_NOT_VALIDATED");
+    }
+
+    const definition: StrategyDefinitionDto = {
+      id: `${this.ownerUserId}-authoring-definition-${this.nextDefinition++}`,
+      ownerUserId: this.ownerUserId,
+      logicalFamilyKey: "fixture-llm-authoring",
+      strategyName: "MA",
+      implementationVersion: "1.0.0",
+      behaviorProfileId: "TECHNICAL_PROFILES_V1",
+      version: 1,
+      parameters: { ...current.structuredDraft },
+      authoringOrigin: current.source.kind === "PROMPT"
+        ? {
+            kind: "LLM_DRAFT",
+            draftId: current.id,
+            providerId: current.provider.id,
+            modelId: current.provider.modelId,
+          }
+        : { kind: "APPROVED_NEWS_ITEM", newsItemId: current.source.newsItemId, extractionTemplateVersion: 1 },
+      createdAt: FIXTURE_NOW,
+    };
+    this.definitions.push(definition);
+    this.drafts.set(draftId, { ...current, status: "APPROVED", approvedDefinitionId: definition.id, updatedAt: FIXTURE_NOW });
     return { schemaVersion: REST_SCHEMA_VERSION, definition };
   }
 
@@ -227,13 +376,31 @@ export class FixtureFeatureClient implements FeatureClient {
   }
 
   public async news(): Promise<NewsPageResponseDto> {
-    return createFixtureNews();
+    const page = createFixtureNews();
+    this.loadedNewsItems.clear();
+    for (const item of page.items) this.loadedNewsItems.set(item.id, item);
+    return page;
+  }
+
+  private assertAuthoringAvailable(): void {
+    if (this.authoringBehavior === "unavailable") {
+      throw new FeatureClientError(503, "This capability is temporarily unavailable.", "CAPABILITY_UNAVAILABLE");
+    }
+    if (this.authoringBehavior === "failure") {
+      throw new FeatureClientError(502, "The authoring request failed.", "AUTHORING_FAILED");
+    }
   }
 
   private ownedDefinition(id: string): StrategyDefinitionDto {
     const definition = this.definitions.find((item) => item.id === id);
     if (!definition) throw new FeatureClientError(404, "That private strategy was not found.", "NOT_FOUND");
     return definition;
+  }
+
+  private ownedDraft(id: string): StrategyAuthoringDraftDto {
+    const draft = this.drafts.get(id);
+    if (!draft) throw new FeatureClientError(404, "That private authoring draft was not found.", "NOT_FOUND");
+    return draft;
   }
 
   private ownedRun(id: string): SearchRunStatusDto {

@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import type {
   CompositeStrategyDefinitionDto,
+  CreateStrategyAuthoringDraftRequestDto,
   DefineCompositeRequestDto,
   DefineStrategyRequestDto,
   ExperimentDto,
   LeaderboardTopKResponseDto,
   NewsItemDto,
+  NewsPageResponseDto,
   SearchGeneratorTypeDto,
   SearchRunRankingEntryDto,
   SearchRunStatusDto,
@@ -147,9 +149,13 @@ export function FeatureWorkspace({ section, email, store }: FeatureWorkspaceProp
           descriptors={state.descriptors}
           definitions={state.strategyDefinitions}
           composites={state.compositeDefinitions}
+          news={state.news}
           pending={state.pendingAction}
           onCreateStrategy={(request) => void store.createStrategy(request)}
           onCreateComposite={(request) => void store.createComposite(request)}
+          onSaveAuthoring={(request) => void store.createStrategyAuthoringDraft(request)}
+          onValidateAuthoring={(draftId) => void store.validateStrategyAuthoringDraft(draftId)}
+          onApproveAuthoring={(draftId) => void store.approveStrategyAuthoringDraft(draftId)}
           onSelect={setSelection}
           activeSelection={activeSelection}
         />
@@ -173,10 +179,14 @@ interface StrategyBuilderProps {
   readonly descriptors: readonly StrategyPluginDescriptorDto[];
   readonly definitions: readonly StrategyDefinitionDto[];
   readonly composites: readonly CompositeStrategyDefinitionDto[];
+  readonly news?: NewsPageResponseDto;
   readonly pending?: string;
   readonly activeSelection?: StrategySelectionDto;
   readonly onCreateStrategy: (request: Omit<DefineStrategyRequestDto, "schemaVersion">) => void;
   readonly onCreateComposite: (request: Omit<DefineCompositeRequestDto, "schemaVersion">) => void;
+  readonly onSaveAuthoring: (request: Omit<CreateStrategyAuthoringDraftRequestDto, "schemaVersion">) => void;
+  readonly onValidateAuthoring: (draftId: string) => void;
+  readonly onApproveAuthoring: (draftId: string) => void;
   readonly onSelect: (selection: StrategySelectionDto) => void;
 }
 
@@ -185,10 +195,14 @@ function StrategyBuilder({
   descriptors,
   definitions,
   composites,
+  news,
   pending,
   activeSelection,
   onCreateStrategy,
   onCreateComposite,
+  onSaveAuthoring,
+  onValidateAuthoring,
+  onApproveAuthoring,
   onSelect,
 }: StrategyBuilderProps): React.ReactElement {
   const [descriptorName, setDescriptorName] = useState(descriptors[0]?.name ?? "");
@@ -233,7 +247,14 @@ function StrategyBuilder({
         </>
       ) : <p className="empty-state">No strategy descriptors are available.</p>}
 
-      <AuthoringPanel authoring={authoring} />
+      <AuthoringPanel
+        authoring={authoring}
+        news={news}
+        pending={pending}
+        onSave={onSaveAuthoring}
+        onValidate={onValidateAuthoring}
+        onApprove={onApproveAuthoring}
+      />
 
       <div className="subsection"><div className="subsection__heading"><h3>My definitions</h3><span>{definitions.length}</span></div>
         <div className="definition-list">{definitions.map((definition) => <StrategyDefinitionRow key={definition.id} definition={definition} activeSelection={activeSelection} onSelect={onSelect} />)}</div>
@@ -251,8 +272,128 @@ function DescriptorMetadata({ descriptor }: { readonly descriptor: StrategyPlugi
   return <section className="subsection" aria-labelledby="descriptor-metadata-title"><div className="subsection__heading"><h3 id="descriptor-metadata-title">Descriptor metadata</h3><span>{descriptor.name}</span></div><dl className="provenance-list"><dt>Behavior profile</dt><dd>{descriptor.behaviorProfileId}</dd><dt>Implementation version</dt><dd>{descriptor.implementationVersion}</dd><dt>Category</dt><dd>{descriptor.category}</dd></dl><div className="definition-list">{descriptor.parameters.length ? descriptor.parameters.map((parameter) => <div className="definition-row" key={parameter.key}><div><strong>{parameter.key}</strong><small>{parameter.label} · {parameter.type} · {parameter.required ? "required" : "optional"}</small></div><span>default {formatValue(parameter.defaultValue)}{parameter.minimum === undefined ? "" : ` · min ${formatNumber(parameter.minimum)}`}{parameter.maximum === undefined ? "" : ` · max ${formatNumber(parameter.maximum)}`}{parameter.options?.length ? ` · options ${parameter.options.join(" · ")}` : ""}</span></div>) : <div className="definition-row"><div><strong>Parameters</strong></div><span>{NOT_SUPPLIED}</span></div>}{descriptor.visualization.length ? descriptor.visualization.map((visualization) => <div className="definition-row" key={visualization.id}><div><strong>{visualization.label}</strong><small>{visualization.id} · {visualization.kind} · {visualization.pane}</small></div><span>{visualization.series.map((series) => `${series.key}: ${series.label}`).join(" · ") || NOT_SUPPLIED}</span></div>) : <div className="definition-row"><div><strong>Visualization</strong></div><span>{NOT_SUPPLIED}</span></div>}</div></section>;
 }
 
-function AuthoringPanel({ authoring }: { readonly authoring: FeatureAuthoringState }): React.ReactElement {
-  return <section className="subsection" aria-labelledby="authoring-title"><div className="subsection__heading"><h3 id="authoring-title">LLM authoring</h3><span>{authoring.status}</span></div><p className="warning-copy">{authoring.message}</p><dl className="provenance-list"><dt>State</dt><dd>{authoring.status}</dd><dt>Unavailable reason</dt><dd>{authoring.reason}</dd><dt>Draft</dt><dd>{authoring.draft}</dd><dt>Validation</dt><dd>{authoring.validation}</dd><dt>Save</dt><dd>{authoring.save}</dd><dt>Approve</dt><dd>{authoring.approve}</dd></dl><div className="feature-form__actions"><button className="feature-button" type="button" disabled aria-disabled="true">Save draft</button><button className="feature-button feature-button--quiet" type="button" disabled aria-disabled="true">Approve draft</button></div></section>;
+function AuthoringPanel({
+  authoring,
+  news,
+  pending,
+  onSave,
+  onValidate,
+  onApprove,
+}: {
+  readonly authoring: FeatureAuthoringState;
+  readonly news?: NewsPageResponseDto;
+  readonly pending?: string;
+  readonly onSave: (request: Omit<CreateStrategyAuthoringDraftRequestDto, "schemaVersion">) => void;
+  readonly onValidate: (draftId: string) => void;
+  readonly onApprove: (draftId: string) => void;
+}): React.ReactElement {
+  const approvedNewsItems = useMemo(
+    () => (news?.items ?? []).filter((item) => item.extraction?.template?.status === "APPROVED"),
+    [news?.items],
+  );
+  const [sourceKind, setSourceKind] = useState<"PROMPT" | "APPROVED_NEWS_ITEM">("PROMPT");
+  const [prompt, setPrompt] = useState("");
+  const [newsItemId, setNewsItemId] = useState(approvedNewsItems[0]?.id ?? "");
+
+  useEffect(() => {
+    if (!approvedNewsItems.some((item) => item.id === newsItemId)) {
+      setNewsItemId(approvedNewsItems[0]?.id ?? "");
+    }
+  }, [newsItemId, approvedNewsItems]);
+
+  const busy = Boolean(pending);
+  const saveEnabled = authoring.actions.save && !busy;
+  const validateEnabled = authoring.actions.validate && Boolean(authoring.draft?.id) && !busy;
+  const approveEnabled = authoring.actions.approve && Boolean(authoring.draft?.id) && !busy;
+
+  function submitSave(event: React.FormEvent<HTMLFormElement>): void {
+    event.preventDefault();
+    onSave(sourceKind === "PROMPT"
+      ? { source: { kind: "PROMPT" }, prompt }
+      : { source: { kind: "APPROVED_NEWS_ITEM", newsItemId } });
+  }
+
+  return (
+    <section className="subsection" aria-labelledby="authoring-title">
+      <div className="subsection__heading"><h3 id="authoring-title">LLM authoring</h3><span>{authoring.status}</span></div>
+      <p className="warning-copy" role={authoring.status === "FAILURE" || authoring.status === "UNAVAILABLE" ? "alert" : undefined}>{authoring.message}</p>
+      <form className="feature-form" onSubmit={submitSave}>
+        <label>Authoring source
+          <select
+            aria-label="Authoring source"
+            value={sourceKind}
+            disabled={!saveEnabled}
+            onChange={(event) => setSourceKind(event.target.value as "PROMPT" | "APPROVED_NEWS_ITEM")}
+          >
+            <option value="PROMPT">Prompt</option>
+            <option value="APPROVED_NEWS_ITEM">Approved News item</option>
+          </select>
+        </label>
+        {sourceKind === "PROMPT" ? (
+          <label>Prompt
+            <textarea
+              aria-label="Strategy authoring prompt"
+              rows={4}
+              value={prompt}
+              required
+              disabled={!saveEnabled}
+              onChange={(event) => setPrompt(event.target.value)}
+            />
+          </label>
+        ) : (
+          <label>Approved News item
+            <select
+              aria-label="Approved News item"
+              value={newsItemId}
+              required
+              disabled={!saveEnabled || approvedNewsItems.length === 0}
+              onChange={(event) => setNewsItemId(event.target.value)}
+            >
+              {approvedNewsItems.length ? approvedNewsItems.map((item) => (
+                <option key={item.id} value={item.id}>{item.title} · {item.id}</option>
+              )) : <option value="">No approved News items loaded</option>}
+            </select>
+          </label>
+        )}
+        <div className="feature-form__actions">
+          <button className="feature-button" type="submit" disabled={!saveEnabled}>Save draft</button>
+          <button
+            className="feature-button feature-button--quiet"
+            type="button"
+            disabled={!validateEnabled}
+            onClick={() => authoring.draft && onValidate(authoring.draft.id)}
+          >Validate draft</button>
+          <button
+            className="feature-button feature-button--quiet"
+            type="button"
+            disabled={!approveEnabled}
+            onClick={() => authoring.draft && onApprove(authoring.draft.id)}
+          >Approve draft</button>
+        </div>
+      </form>
+      <dl className="provenance-list">
+        <dt>State</dt><dd>{authoring.status}</dd>
+        <dt>Save</dt><dd>{authoring.actions.save ? "AVAILABLE" : "DISABLED"}</dd>
+        <dt>Validate</dt><dd>{authoring.actions.validate ? "AVAILABLE" : "DISABLED"}</dd>
+        <dt>Approve</dt><dd>{authoring.actions.approve ? "AVAILABLE" : "DISABLED"}</dd>
+        {authoring.reason ? <><dt>Unavailable reason</dt><dd>{authoring.reason}</dd></> : null}
+        {authoring.failedAction ? <><dt>Failed action</dt><dd>{authoring.failedAction}</dd></> : null}
+      </dl>
+      {authoring.draft ? <AuthoringDraftMetadata draft={authoring.draft} /> : null}
+      {authoring.definition ? <section className="subsection" aria-label="Approved strategy definition">
+        <div className="subsection__heading"><h4>Approved definition</h4><span>{authoring.definition.version}</span></div>
+        <dl className="provenance-list"><dt>Definition</dt><dd>{authoring.definition.id} · {authoring.definition.strategyName}</dd><dt>Authoring origin</dt><dd>{formatOrigin(authoring.definition.authoringOrigin)}</dd><dt>Parameters</dt><dd><code>{formatRecord(authoring.definition.parameters)}</code></dd></dl>
+      </section> : null}
+    </section>
+  );
+}
+
+function AuthoringDraftMetadata({ draft }: { readonly draft: NonNullable<FeatureAuthoringState["draft"]> }): React.ReactElement {
+  const validation = draft.validation;
+  const source = draft.source.kind === "PROMPT"
+    ? "PROMPT"
+    : `APPROVED_NEWS_ITEM · ${draft.source.newsItemId}`;
+  return <section className="subsection" aria-label="Authoring draft details"><div className="subsection__heading"><h4>Server draft</h4><span>{draft.status}</span></div><dl className="provenance-list"><dt>Draft id</dt><dd>{draft.id}</dd><dt>Source</dt><dd>{source}</dd><dt>Profile</dt><dd>{draft.profileId}</dd><dt>Provider</dt><dd>{draft.provider.id}</dd><dt>Model</dt><dd>{draft.provider.modelId}</dd><dt>Configured</dt><dd>{draft.provider.configured ? "true" : "false"}</dd><dt>Structured draft</dt><dd><code>{formatRecord(draft.structuredDraft)}</code></dd><dt>Validation</dt><dd>{validation ? `${validation.valid ? "VALID" : "INVALID"} · ${validation.reasons.join(" · ") || "no reasons"} · ${validation.validatedAt}` : NOT_SUPPLIED}</dd><dt>Approved definition id</dt><dd>{formatOptionalValue(draft.approvedDefinitionId)}</dd></dl></section>;
 }
 
 function StrategyDefinitionRow({

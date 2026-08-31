@@ -334,7 +334,7 @@ describe("fixture feature workspace", () => {
     expect(markup).toContain("LLM authoring");
     expect(markup).toContain("Save draft");
     expect(markup).toContain("Approve draft");
-    expect(markup).toMatch(/<button[^>]*disabled=""[^>]*>Save draft<\/button>/);
+    expect(markup).not.toMatch(/<button[^>]*disabled=""[^>]*>Save draft<\/button>/);
     expect(markup).toMatch(/<button[^>]*disabled=""[^>]*>Approve draft<\/button>/);
     expect(markup).toContain("MANUAL");
     expect(markup).toContain("LLM_DRAFT · draft draft-42 · provider provider-demo · model model-demo");
@@ -383,7 +383,7 @@ describe("fixture feature workspace", () => {
     expect(markup).toContain("Sentiment DEGRADED · TIMEOUT");
   });
 
-  it("keeps unavailable authoring, seeded start, News, and result state honest", async () => {
+  it("keeps transport-ready authoring, seeded start, News, and result state honest", async () => {
     const markup = await renderCachedState({
       ...defaultCache("user-empty"),
       descriptors: [],
@@ -400,7 +400,9 @@ describe("fixture feature workspace", () => {
       newsMessage: "News transport is not composed.",
     });
 
-    expect(markup).toContain("Controlled LLM authoring is not yet composed");
+    expect(markup).toContain("Choose a prompt or an approved News item. Save creates a server draft; Validate and Approve remain explicit.");
+    expect(markup).toContain("<dt>State</dt><dd>READY</dd>");
+    expect(markup).toContain("<dt>Save</dt><dd>AVAILABLE</dd>");
     expect(markup).toContain("Save draft");
     expect(markup).toContain("Approve draft");
     expect(markup).toContain("Seeded start not yet composed");

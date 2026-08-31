@@ -84,6 +84,13 @@ interface SafeNewsResult {
   readonly reason?: string;
 }
 
+// Each authenticated request receives a fresh authoring port. Keep approval
+// serialization outside that request-local factory so two ports in the
+// synchronous monolith share the same owner/draft critical section. The
+// persisted APPROVED draft remains the idempotency record; this queue is only
+// transient coordination and is never stored or exposed.
+const approvalChains = new Map<string, Promise<void>>();
+
 const FAILURE_REASONS = {
   invalidSource: "INVALID_SOURCE",
   invalidPrompt: "INVALID_PROMPT",
@@ -403,6 +410,25 @@ function definitionWithOrigin(
   });
 }
 
+function approvalKey(ownerUserId: AuthenticatedUserId, draftId: string): string {
+  return JSON.stringify([ownerUserId, draftId]);
+}
+
+function enqueueApproval<T>(
+  ownerUserId: AuthenticatedUserId,
+  draftId: string,
+  operation: () => Promise<T>,
+): Promise<T> {
+  const key = approvalKey(ownerUserId, draftId);
+  const previous = approvalChains.get(key) ?? Promise.resolve();
+  const result = previous.then(operation);
+  const settled = result.then(() => undefined, () => undefined);
+  approvalChains.set(key, settled);
+  return result.finally(() => {
+    if (approvalChains.get(key) === settled) approvalChains.delete(key);
+  });
+}
+
 export function createStrategyAuthoringApplication(
   ownerUserId: AuthenticatedUserId | undefined,
   dependencies: StrategyAuthoringApplicationDependencies,
@@ -411,7 +437,6 @@ export function createStrategyAuthoringApplication(
   assertComposition(dependencies);
   const factory = findFactory(dependencies.factories, dependencies.strategyName);
   const provider = providerMetadata(dependencies.provider);
-  let approvalChain = Promise.resolve();
 
   const createDraft = async (
     command: { source: AuthoringSource; prompt?: string },
@@ -565,9 +590,7 @@ export function createStrategyAuthoringApplication(
   };
 
   const approveDraft = async (draftId: string): Promise<AuthoringDefinitionRecord> => {
-    const result = approvalChain.then(() => approveOnce(draftId));
-    approvalChain = result.then(() => undefined, () => undefined);
-    return result;
+    return enqueueApproval(owner, draftId, () => approveOnce(draftId));
   };
 
   return { createDraft, validateDraft, approveDraft };
