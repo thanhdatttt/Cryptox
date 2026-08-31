@@ -77,11 +77,16 @@ exists.
 ## Approved MVP and deferred work
 
 The exact approved scope is maintained in [docs/requirements.md](docs/requirements.md).
-Authentication, ownership/multitenancy, AI/LLM strategy authoring, optional
-Long/Short and risk controls, mandatory Redis/BullMQ, distributed protocols,
-Genetic/Bayesian implementations, microservices, Kafka, CQRS, and Event Sourcing
-are deferred. Historical documents may discuss them only as history or future
-evolution.
+The approved MVP includes simple local email/password Auth V1 and per-user
+ownership, controlled `LLM_AUTHORING_V1`, synthetic Long/Short paper execution
+with bounded SL/TP, and bounded deterministic `RANDOM_V1`, `DOMAIN_GUIDED_V1`,
+and `GENETIC_V1` discovery. These are scope statements, not claims of verified
+implementation. Deferred scope includes enterprise identity/tenancy,
+generalized risk and live trading, autonomous or unconfigured LLM use, arbitrary
+URL retrieval, full discretionary SMC/Wyckoff, Bayesian or unbounded search,
+Redis/BullMQ and distributed execution, microservices, Kafka, CQRS, and Event
+Sourcing. Historical documents may discuss deferred work only as history or
+future evolution.
 
 Implementation/tooling inconsistencies discovered during documentation refinement
 are recorded in
