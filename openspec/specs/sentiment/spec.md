@@ -1,6 +1,6 @@
 # Sentiment Capability
 
-## Purpose and boundary
+## Purpose
 
 Sentiment analyzes neutral text inputs and stores provider-neutral Sentiment Results separately from News. It owns sentiment labels, scores, model/version provenance, and its persistence. News may call its public analysis/read boundary, but neither module accesses the other's internals.
 

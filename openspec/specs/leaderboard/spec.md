@@ -1,6 +1,6 @@
 # Leaderboard Capability
 
-## Purpose and boundary
+## Purpose
 
 Leaderboard owns score/ranking configuration, deterministic scoring, Top-K admission, and ranking reads for completed Experiments. It consumes evaluated results and does not run strategies, simulations, or metric calculations.
 

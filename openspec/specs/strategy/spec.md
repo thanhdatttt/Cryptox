@@ -1,6 +1,6 @@
 # Strategy Capability
 
-## Purpose and boundary
+## Purpose
 
 Strategy owns pure signal analysis, plugin registration and descriptors, immutable versioned Strategy Definitions, Composite Definitions, and signal-combination policy. Strategy code consumes only supplied context and performs no exchange, persistence, network, rendering, or notification I/O.
 

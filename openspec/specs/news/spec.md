@@ -1,6 +1,6 @@
 # News Capability
 
-## Purpose and boundary
+## Purpose
 
 News collects, normalizes, stores, deduplicates, and queries market news through replaceable provider adapters. It owns normalized News Items and their persistence. After storing an eligible item, it requests Sentiment through Sentiment's neutral public boundary; it does not own or write Sentiment results.
 

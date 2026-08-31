@@ -1,6 +1,6 @@
 # Search Capability
 
-## Purpose and boundary
+## Purpose
 
 Search owns Search Runs, search-space validation, strategy candidate generation, explicit stop conditions, and bounded orchestration. It supports the deterministic `RANDOM_V1`, `DOMAIN_GUIDED_V1`, and `GENETIC_V1` profiles. Search submits candidates through Backtesting's public execution boundary; it does not simulate trades, calculate metrics, rank results, or own execution persistence.
 

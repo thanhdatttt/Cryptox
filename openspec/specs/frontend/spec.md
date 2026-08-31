@@ -1,6 +1,6 @@
 # Frontend Capability
 
-## Purpose and boundary
+## Purpose
 
 The frontend presents market charts, descriptor-driven strategy selection/configuration, manual backtesting, Search Runs, results, rankings, trade markers, News, and Sentiment. It is a presentation client: business rules, provider normalization, strategy analysis, simulation, metric calculation, and ranking stay in backend capabilities.
 

@@ -1,6 +1,6 @@
 # Evaluation Capability
 
-## Purpose and boundary
+## Purpose
 
 Evaluation owns pure calculation and edge-case policy for backtest metrics. It consumes a completed backtest result and does not know strategy implementations, execute simulations, persist trades, or rank experiments.
 

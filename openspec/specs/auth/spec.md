@@ -1,6 +1,6 @@
 # Authentication Capability
 
-## Purpose and boundary
+## Purpose
 
 Auth owns simple local User credentials, Argon2id password verification,
 PostgreSQL-backed opaque sessions, expiry/revocation, and conversion of an incoming

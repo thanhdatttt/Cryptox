@@ -1,6 +1,6 @@
 # Backtesting Capability
 
-## Purpose and boundary
+## Purpose
 
 Backtesting owns manual and Search candidate submission, the Backtest Execution Port, bounded local MVP execution, deterministic historical simulation, execution progress/failure, Trades, and completed Experiment results. It delegates metric calculation to Evaluation and ranking to Leaderboard. Callers depend on the execution port, never on the executor mechanism.
 

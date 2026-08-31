@@ -1,6 +1,6 @@
 # Market Data Capability
 
-## Purpose and boundary
+## Purpose
 
 Market Data acquires Binance historical candlesticks and realtime updates, normalizes provider payloads, and exposes provider-neutral history and subscriptions. It owns candles, provider connection state, gap detection, and dataset provenance. Raw exchange payloads never cross the adapter boundary. REST is used for historical reads; the narrow market WebSocket is used only for normalized realtime market messages.
 
