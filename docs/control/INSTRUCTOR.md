@@ -2,11 +2,98 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-125`
+Instruction ID: `INS-126`
 
-Status: `HOLD`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-126 — APPROVED_FOR_EXECUTION for interrupted I-03 recovery/reconciliation
+
+This signal supersedes `INS-125 / HOLD` only for one bounded recovery review of
+the interrupted I-03 attempt. It is a reconciliation of preserved worker output,
+not a retry, replacement, duplicate, or reimplementation of the prior worker.
+
+### Reviewed checkpoint and applicability
+
+- Canonical checkout: `D:/agy-cli-projects/AOS/Cryptox`, branch
+  `MVP_IMPLEMENTATION`, current committed HEAD `db9898b`
+  (`chore(control): hold after interrupted I-03`). The source/business
+  checkpoint remains `5e06fdf`; `9601d77` is the superseded I-03 authorization
+  checkpoint. No source, business-state, requirement, dependency, or DAG drift
+  was found.
+- The expected current delta is exactly: the Manager-owned `I-03` row modified
+  in `docs/implementation/TASKS.md`; the preserved authorized worker artifact
+  `apps/backend/src/i03.boundary.integration.spec.ts`; and the untouched
+  app-generated `.codex/config.toml`. Any other path or material change is an
+  applicability failure and requires `NEEDS_INSTRUCTOR_REVIEW`.
+- `TASKS.md` is authoritative at 49 rows: `47 DONE`, `I-03 IN_PROGRESS`, and
+  `I-02 BLOCKED`. I-03 dependencies `C-02`, `M-03`, `S-04`, `S-05`, `S-06`,
+  `Q-02`, `B-03`, `N-03`, `E-02`, `L-02`, `F-03`, `I-01`, `AU-02` are recorded
+  `DONE`. No Cryptox Manager or worker is active; the prior INS-124 Manager and
+  worker are terminal system-error tasks.
+- The preserved artifact independently passed its focused `4/4` suite and
+  backend no-emit TypeScript check. That evidence is input to this recovery,
+  not I-03 completion. I-02 must remain `BLOCKED` throughout this signal.
+
+### Authorized packet
+
+- **Packet:** `I-03` — DEC-007 Boundary Integration and Reproducibility Proof.
+- **Objective:** One fresh Manager independently reviews the preserved artifact,
+  verifies its exact scope and public-boundary behavior, reruns applicable
+  validation, and either integrates it into one coherent Manager commit with a
+  refreshed `HANDOFF.md` and `I-03 IN_PROGRESS -> REVIEW -> DONE` transition,
+  or leaves I-03 at `REVIEW` and reports the exact missing evidence/blocker.
+- **Requirements:** All DEC-007 extension IDs; amended `CSL-R-MD-02`;
+  `CSL-R-AU-01`, `CSL-R-OW-01`, `CSL-R-RD-01`, `CSL-R-OB-01`, and
+  `CSL-R-AR-01`–`03` as the integration drivers.
+- **Write scope:** The preserved `apps/backend/src/i03.boundary.integration.spec.ts`,
+  `apps/backend/**`, thin REST/market-only WebSocket transport mappers, and
+  I-03-owned extension integration/E2E tests only. The Manager may stage and
+  commit the preserved artifact and may update only the existing I-03 row in
+  `docs/implementation/TASKS.md` plus the latest `docs/implementation/HANDOFF.md`.
+  No module algorithms, module persistence, migrations, frontend, contracts,
+  queue, distributed protocol, general event bus, or unrelated cleanup.
+- The recovery authorizes **no new implementation worker**. The prior worker's
+  output is the object under review; if it is insufficient, stop at `REVIEW` and
+  report `NEEDS_INSTRUCTOR_REVIEW` rather than retrying or replacing it. The
+  Manager may create at most one sequential internal read-only verifier with
+  write scope `none`; it may not create a second Manager, implementation worker,
+  retry, duplicate, worktree, or downstream task.
+
+### Acceptance and validation
+
+The Manager must review and evidence, using public module/bootstrap boundaries:
+
+- safe URL/import content to controlled Strategy authoring without direct URL
+  fetching from Strategy, prompt/provider-secret leakage, or unsafe persistence;
+- seeded Search to synthetic paper Backtesting to Evaluation to Leaderboard,
+  including generated results, owner propagation/isolation, same-input seeded
+  candidate/ranking reproducibility, and provenance;
+- News-to-Sentiment neutral boundary and failure isolation where applicable;
+- ephemeral market delivery through the market-only WebSocket boundary, with
+  bounded observability and no historical Backtesting coupling;
+- real-provider readiness/preflight for configured Binance, PostgreSQL, and
+  News requirements, truthful synthetic-paper labeling, and no mock-only final
+  claim; unavailable evidence stays `BLOCKED` or `UNVERIFIED`;
+- no-secret observability/logging and failure isolation, plus public-boundary,
+  architecture, deferred-scope, artifact, and changed-path checks.
+
+Run the focused I-03 suite, backend typecheck, applicable workspace test/build/
+typecheck/lint gates, architecture/artifact/deferred-scope/scope checks,
+`git diff --check`, and applicable local PostgreSQL/provider evidence. OpenSpec
+CLI, browser/final-demo, unavailable Docker/Compose, missing News credentials,
+or unavailable live providers must remain `UNVERIFIED`/`BLOCKED`, never `PASS`.
+
+### Prohibitions and stop condition
+
+- Do not edit Instructor governance, requirements, ADRs, architecture, data
+  model, OpenSpec artifacts, or any task other than the existing I-03 row and
+  latest handoff. Do not manually change task state outside the Manager.
+- Do not start, ready, promote, or otherwise modify `I-02` or any other packet.
+  The Manager stops after this recovery scope is exhausted and leaves the
+  repository at a reviewable checkpoint. A later Instructor review is required
+  before any I-02 authorization.
 
 ## INS-125 — HOLD after interrupted I-03 execution
 

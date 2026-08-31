@@ -1738,3 +1738,44 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-045`, `INS-124`, and commit `9601d77`.
+
+## DEC-047 — Authorize one I-03 recovery/reconciliation Manager
+
+Status: `APPROVED`
+
+Authority: Independent Instructor review after the account/quota environment
+was restored and the prior INS-124 Manager plus its one implementation worker
+were verified terminal. The current repository remains at `db9898b` with the
+expected interrupted delta: one Manager-owned I-03 row modified in
+`TASKS.md`, the preserved authorized worker artifact
+`apps/backend/src/i03.boundary.integration.spec.ts`, and untouched
+app-generated `.codex/config.toml`.
+
+Decision: Issue `INS-126 / APPROVED_FOR_EXECUTION` for exactly one fresh Manager
+in the canonical same-directory checkout to review and reconcile the preserved
+I-03 artifact. This is not a retry, replacement, duplicate, or reimplementation
+of the terminal INS-124 worker. The recovery Manager may independently inspect
+and validate the artifact, stage/commit it if accepted, and update only the
+existing I-03 operational row and latest `HANDOFF.md`. No new implementation
+worker is authorized; at most one sequential internal read-only verifier with
+write scope `none` may be used. If the artifact is insufficient, the Manager
+must leave I-03 at `REVIEW` and report `NEEDS_INSTRUCTOR_REVIEW` rather than
+retrying the worker.
+
+Evidence: the 49-row board is `47 DONE`, `I-03 IN_PROGRESS`, `I-02 BLOCKED`,
+with all recorded I-03 dependencies `DONE`; no active Cryptox Manager/worker
+exists; the artifact's focused suite is `4/4`; backend/workspace validation
+gates are recorded as passed where run; and unavailable OpenSpec, live-provider,
+credential, Docker/Compose, browser/demo checks remain `UNVERIFIED`/`BLOCKED`.
+I-02 remains blocked and receives no authorization from this decision.
+
+Affected: `I-03`, `I-02`, `TASKS.md`, `HANDOFF.md`, `INS-125`, `INS-126`, and
+the I-03 recovery checkpoint. Requirements, approved functional image
+amendments, accepted ADRs, contracts, architecture, data model, and deferred
+scope remain unchanged.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [Architecture](../architecture.md),
+[Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-046`, `INS-125`, and commit `db9898b`.
