@@ -1863,3 +1863,51 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-048`, `INS-127`, and commit `a58530f`.
+
+## DEC-050 — I-02 remains REVIEW; HOLD before any new finalization packet
+
+Status: `APPROVED`
+
+Authority: Independent Instructor audit after the single fresh Manager under
+`INS-128 / DEC-049` completed at the bounded checkpoint
+`c9d2a26`, with no active Cryptox Manager, worker, verifier, retry, replacement,
+duplicate, or downstream task remaining.
+
+Decision: Accept the I-02 checkpoint only as `REVIEW` —
+`NEEDS_INSTRUCTOR_REVIEW` — and supersede `INS-128 / APPROVED_FOR_EXECUTION`
+with `INS-129 / HOLD`. I-02 is not `DONE`, and this decision authorizes no
+implementation, task transition, downstream promotion, or reuse of the
+exhausted INS-128 scope.
+
+Evidence: the authoritative board remains exactly 49 rows, `48 DONE`, with
+only I-02 at `REVIEW`; the tracked tree remains clean except for untouched
+`.codex/config.toml`. Independent static and boundary gates pass, including
+architecture `184 modules / 615 dependencies`, scope/deferred `13/13`, and
+the full workspace suite against the local PostgreSQL test database (`433
+passed`, `0 skipped`); local migration validation and Auth E2E also pass.
+These results do not prove final configured provider/browser acceptance.
+
+The material remaining gap is explicit: the repository contains the tested
+provider-neutral LLM authoring application and OpenAI-compatible adapter, but
+the backend runtime does not compose a public authoring transport and the
+frontend explicitly keeps LLM authoring unavailable. No real LLM request or
+application API key usage is claimed. Real configured LLM, Binance, News, and
+browser/demo evidence remain `UNVERIFIED`/`BLOCKED`; OpenSpec CLI and source/
+spec status reconciliation remain unavailable or inconsistent. These findings
+were outside the bounded INS-128 scope and cannot be repaired implicitly.
+
+Next step: a fresh Instructor review may issue a separate bounded authorization
+for the missing LLM public composition and/or final configured-demo evidence,
+but only with explicit source/contract/runtime/frontend write scopes, required
+environment handling without secrets in chat, acceptance criteria, and a stop
+condition. No downstream work is promoted by this decision.
+
+Affected: `I-02`, `TASKS.md`, `HANDOFF.md`, `INS-128`, `INS-129`, and the final
+MVP checkpoint. Requirements, approved functional image amendments, accepted
+ADRs, existing completed packet source, and deferred scope remain unchanged.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [Architecture](../architecture.md),
+[Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-049`, `INS-128`, and commit `c9d2a26`.

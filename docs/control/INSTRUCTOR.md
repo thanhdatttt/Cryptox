@@ -2,11 +2,79 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-128`
+Instruction ID: `INS-129`
 
-Status: `APPROVED_FOR_EXECUTION`
+Status: `HOLD`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-129 — HOLD after independent I-02 review
+
+This signal supersedes `INS-128 / APPROVED_FOR_EXECUTION` after the single
+authorized I-02 Manager exhausted its bounded final-verification scope. I-02
+remains `REVIEW`, not `DONE`; this HOLD authorizes no implementation, no task
+transition, and no downstream promotion.
+
+### Independent review checkpoint
+
+- Canonical checkout: `D:\\agy-cli-projects\\AOS\\Cryptox`, branch
+  `MVP_IMPLEMENTATION`, current committed HEAD
+  `c9d2a26` (`chore(control): record I-02 checkpoint commit`). The tracked tree
+  is clean; the only remaining working-tree item is untouched app-generated
+  `.codex/config.toml`.
+- The accepted bounded Manager checkpoint is
+  `762b0e4c46c9f73d26a55507aeecd42be3f4cb77`, with the control-only follow-up
+  `c9d2a26`. The source/business checkpoint is unchanged and no source drift or
+  unauthorized path was found.
+- `TASKS.md` is authoritative at exactly 49 rows: `48 DONE` and only `I-02`
+  at `REVIEW`. No other task is `READY`, `IN_PROGRESS`, or `REVIEW`; no other
+  Cryptox Manager, worker, verifier, retry, replacement, duplicate, or
+  downstream task is active.
+
+### Independent acceptance and evidence
+
+- Accept the I-02 checkpoint as an honest bounded `REVIEW` checkpoint, not as
+  final MVP completion. The Manager's fixture-boundary backend/frontend tests,
+  clean install, full static gates, architecture (`184 modules / 615
+  dependencies`), artifacts, scope/deferred `13/13`, runtime smoke, and
+  whitespace/diff checks remain `PASS`.
+- Fresh Instructor execution against the local Docker PostgreSQL test database
+  independently passed `npm run db:local:validate` (up, constraints, down,
+  remigrate), the Auth E2E `1/1`, and the full workspace suite with `433 passed`
+  and `0 skipped`. This proves current local PostgreSQL-backed test evidence;
+  it does not by itself prove the complete two-user HTTP demo, live providers,
+  or configured browser acceptance.
+- The LLM implementation is currently partial: the provider-neutral application
+  and OpenAI-compatible adapter exist and are tested, but the backend runtime
+  does not compose that provider/public authoring transport, while the frontend
+  explicitly reports authoring `UNAVAILABLE`. No real LLM request or application
+  API key usage is claimed. This is a material gap against `CSL-R-ST-05` and
+  `CSL-R-RP-02`, and it was outside INS-128's allowed scope.
+
+### Unverified or blocked final evidence
+
+- Real configured LLM endpoint/model/key, public draft/validate/Save/Approve
+  transport, and configured frontend authoring flow are `UNVERIFIED`; no key is
+  committed, printed, or requested in chat.
+- Real Binance historical/realtime, real configured News, and configured
+  browser/demo evidence remain `BLOCKED`/`UNVERIFIED` where the environment or
+  configuration is unavailable. Fixture and injected-provider evidence is not
+  promoted to final PASS.
+- OpenSpec CLI remains unavailable. The active change checklist and several
+  requirement/spec status labels still disagree with the operational board and
+  current source; this requires an explicitly bounded reconciliation or
+  implementation authorization and must not be silently repaired here.
+
+### HOLD boundary
+
+- Do not mark I-02 `DONE`, edit `TASKS.md` or `HANDOFF.md` as Instructor, start
+  a downstream task, or reuse INS-128's authorization for new LLM transport,
+  contract, runtime, frontend, or provider work.
+- A future authorization must state separately whether it covers the missing
+  LLM public composition, final real-provider/demo revalidation, documentation
+  reconciliation, or only another bounded evidence packet. It must define exact
+  write scopes, acceptance criteria, validation, prohibitions, and stop
+  conditions before a fresh same-directory Manager is created.
 
 ## INS-128 — APPROVED_FOR_EXECUTION for I-02 final E2E/demo verification
 
