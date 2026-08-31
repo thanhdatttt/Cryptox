@@ -3822,3 +3822,46 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-092`, and `INS-172`.
+
+## DEC-094 — Authorize final I-02 evidence after dependency recovery
+
+Status: `APPROVED`
+
+Authority: Instructor review at the committed `INS-172 / HOLD` checkpoint
+`5364865`. INS-171 proved only a bounded subset of the final boundary. The
+Instructor independently restored the ignored dependency environment from the
+lockfile with `npm ci --no-audit --no-fund`; no tracked file, manifest, or
+lockfile changed. The board remains 58 rows, 57 `DONE`, only `I-02` `REVIEW`,
+and no Manager or worker is active.
+
+Authorize exactly one fresh same-directory `gpt-5.6-luna` Manager with `max`
+reasoning and up to three strictly sequential fresh hidden evidence-only
+workers, each with write scope `none`, no worktree, retry, replacement,
+duplicate, or user-visible worker task. The packet is limited to final I-02
+evidence for the already-approved scope: real News/RSS and isolated Sentiment;
+application-generated Backtest/Evaluation/Experiment/Leaderboard data;
+configured Gemini 3.6 through the existing OpenAI-compatible
+`LLM_AUTHORING_V1` lifecycle and failure behavior; induced Binance recovery;
+authenticated browser/demo; healthy build/test/reprovision; traceability; and
+the eight architecture scenarios. Existing evidence may be carried only when
+source/business state is unchanged.
+
+Workers may use restored ignored dependencies, process-scoped `.env` loading,
+the repository local PostgreSQL helper, and bounded HTTP/WebSocket/provider or
+browser probes. They may not edit or stage repository files, alter source or
+business state, emit secrets, substitute fixtures, or repair failures. The
+Manager alone may update `TASKS.md` and `HANDOFF.md`, re-enter only
+`I-02: REVIEW -> READY -> IN_PROGRESS -> REVIEW`, and must stop at `REVIEW`.
+Unavailable tools/providers remain `BLOCKED`/`UNVERIFIED`; I-02 cannot be
+marked `DONE` without the complete matrix and independent Instructor review.
+
+No feature implementation, source/config/dependency/migration/infrastructure
+repair, provider protocol change, deferred scope, pending OpenSpec task, or
+downstream promotion is authorized.
+
+Affected: `I-02`, `INS-172`, `DEC-093`, `TASKS.md`, and `HANDOFF.md`.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-093`, and `INS-173`.

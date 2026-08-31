@@ -2,11 +2,90 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-172`
+Instruction ID: `INS-173`
 
-Status: `HOLD`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-173 — APPROVED_FOR_EXECUTION for final I-02 evidence after environment recovery
+
+This instruction supersedes `INS-172 / HOLD` and authorizes one bounded final
+verification pass for the already-approved MVP. The ignored dependency
+environment has been restored from `package-lock.json`; this authorization does
+not expand product scope and does not authorize source repair, feature work, or
+deferred/pending OpenSpec implementation.
+
+### Applicability and packet
+
+- Canonical checkout: `D:\\agy-cli-projects\\AOS\\Cryptox`, branch
+  `MVP_IMPLEMENTATION`, authorization HEAD
+  `5364865` (`chore(control): hold after final I-02 verification`). Tracked
+  state is clean; the pre-existing untracked `.codex/config.toml` remains
+  excluded. No source or business-state drift is authorized.
+- `TASKS.md` is authoritative at 58 rows: 57 `DONE`, only `I-02` `REVIEW`,
+  and no other `READY`, `IN_PROGRESS`, or `BLOCKED` task. No Manager or worker
+  is active at dispatch.
+- The parent Instructor restored only ignored dependencies with elevated
+  `npm ci --no-audit --no-fund` after stopping the two identified Cryptox
+  backend/Vite processes that held the Rollup binary. This environment action
+  did not alter tracked files, manifests, or lockfiles. It must be rechecked by
+  the Manager and reported as fresh/carrying evidence.
+- The packet covers only the missing final I-02 evidence for the already
+  approved REQUIRED IDs: real News/RSS and isolated Sentiment; application-
+  generated Backtest/Evaluation/Experiment/Leaderboard data; configured Gemini
+  3.6 through the existing OpenAI-compatible `LLM_AUTHORING_V1` lifecycle;
+  induced WebSocket recovery/gap behavior; authenticated browser/demo; clean
+  validation and eight architecture scenarios. Existing PASS evidence may be
+  carried only when source/business state is unchanged.
+
+### Manager and worker limits
+
+- Create exactly one fresh same-directory Manager in the canonical checkout,
+  using `gpt-5.6-luna` with `max` reasoning; no worktree, branch, retry,
+  replacement, duplicate, or user-visible worker task.
+- The Manager may create at most three fresh hidden internal workers,
+  strictly sequentially because they share the checkout. Every worker is
+  evidence-only with write scope `none`: no tracked/untracked repository edits,
+  no stage/commit, no worker creation, no source/business-state mutation, and
+  no fixture substitution. They may use the restored ignored dependencies,
+  repository local DB helper, process-scoped `.env` loading, HTTP/WebSocket,
+  provider, and browser probes where available. Secrets, cookies, tokens,
+  passwords, DATABASE_URLs, and raw provider responses must never be emitted.
+- If a source/config/README/dependency/migration/infrastructure fix is needed,
+  stop that sub-check and report `NEEDS_INSTRUCTOR_REVIEW`; do not repair it.
+  Unavailable tools, providers, browser, or network remain `BLOCKED` or
+  `UNVERIFIED`.
+- The Manager alone may update `TASKS.md` and `HANDOFF.md`, and only for this
+  checkpoint. It may re-enter only `I-02` as
+  `REVIEW -> READY -> IN_PROGRESS -> REVIEW`; it must not mark I-02 `DONE`.
+  No downstream task or pending active-change task may start.
+
+### Acceptance and stop condition
+
+- Require a complete ID-by-ID matrix for all approved REQUIRED IDs, exact
+  sanitized commands/endpoints/results, live versus fixture versus carried
+  classification, and an explicit full-MVP-DoD decision. Required live paths
+  include two-user Auth/ownership, Binance four-timeframe history/realtime and
+  recovery, News/RSS/Sentiment, generated Backtest/Evaluation/Leaderboard,
+  LLM draft/validation/Save/Approve/provenance/failure behavior, browser/demo,
+  README/traceability, and all eight architecture scenarios.
+- Run build, typecheck, lint, full tests, runtime smoke, architecture,
+  artifacts, scope/deferred, secret/log, whitespace, and diff gates from the
+  restored dependency state. OpenSpec validation may be attempted only if the
+  Manager context can actually access it; its unavailability is not PASS. The
+  Instructor's previously verified OpenSpec `1.11.0` `11/11 PASS` remains
+  carried evidence unless independently refreshed.
+- The Manager may make at most one explicit-path checkpoint staging/commit
+  attempt containing only `TASKS.md` and `HANDOFF.md`. If denied, record the
+  exact error once and stop without retry. The Instructor will independently
+  review and persist the next HOLD or acceptance; missing final evidence keeps
+  I-02 at `REVIEW`.
+
+No feature implementation, source/config repair, provider protocol change,
+Gemini native SDK, automatic retry/fallback, credential request, fixture
+substitution, Docker/migration redesign, deferred scope, or final I-02
+promotion is authorized by this instruction.
 
 ## INS-172 — HOLD after final I-02 live/demo verification
 
