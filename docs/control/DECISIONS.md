@@ -3054,3 +3054,58 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-075`, `INS-154`, and `INS-155`.
+
+## DEC-077 — Record Instructor-owned Docker and local application evidence
+
+Status: `APPROVED`
+
+Authority: Instructor validation after `INS-155 / HOLD`, using the canonical
+checkout at source commit `48301b240b533db4cdf53651eaaea24a3225e9ac` and
+governance HEAD `59a69e1`. This entry records environment evidence that was
+unavailable to the prior unprivileged Manager context; it does not turn a
+tool's mere presence into a PASS and does not replace the Manager checkpoint.
+
+The following Instructor-side checks passed without adding a credential or
+printing a secret:
+
+- Docker daemon access and Docker Compose CLI were available in the elevated
+  Instructor context.
+- Compose interpolation validation passed with the local generated
+  PostgreSQL environment file, without exposing its value.
+- `npm run db:local:validate` passed the local PostgreSQL up, constraint,
+  down, and remigrate proof.
+- `docker compose ... up --detach --build --wait backend frontend` completed
+  successfully. Backend, frontend, `postgres-dev`, and `postgres-test` were
+  healthy; `/live=200`, `/ready=200`, and the frontend root returned `200`.
+  A sanitized container inspection confirmed the backend database target was
+  `postgres-dev:5432/cryptox_development` with a password present but not
+  printed.
+- `docker compose ... down` completed successfully for the exact
+  `cryptox-local` project without removing named volumes or unrelated
+  containers.
+
+This proves the local Docker/Compose/PostgreSQL/migration/application-health
+boundary, not the final I-02 product demo. A live CoinDesk request through the
+existing safe runtime provider remains `BLOCKED` with `SafeNewsFetchError`
+reason `HTTP_ERROR`; a direct HTTP status check returning 200 is not promoted
+to runtime-provider PASS. The root `.env` is absent, so live Gemini authoring
+and its Save/Approve persistence path remain `UNVERIFIED`; the previously
+exposed chat key is not used. Authenticated real-data browser/demo coverage,
+clean-install/reprovision evidence, and formal OpenSpec CLI validation also
+remain `UNVERIFIED`/`BLOCKED`. The Docker frontend image emitted an npm audit
+observation (7 vulnerabilities reported by the build tool); it is recorded,
+not silently repaired under this evidence-only decision.
+
+Authorize exactly one fresh same-directory Luna/max Manager under `INS-156`,
+with no worker, to reconcile only `TASKS.md` and `HANDOFF.md` to the accepted
+`48301b2` source checkpoint and this evidence. The Manager must leave `I-02`
+at `REVIEW`; no source change, credential, retry, duplicate, downstream task,
+provider redesign, or scope expansion is authorized.
+
+Affected: `I-02`, `TASKS.md`, `HANDOFF.md`, `INS-155`, `INS-156`, and the local
+environment evidence boundary.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-076`, `INS-155`, and `INS-156`.

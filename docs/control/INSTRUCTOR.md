@@ -2,11 +2,85 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-155`
+Instruction ID: `INS-156`
 
-Status: `HOLD`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-156 — APPROVED_FOR_EXECUTION for I-02 checkpoint reconciliation
+
+This is a control-only follow-up to `INS-155 / HOLD`. The Instructor has
+collected the local Docker/Compose/PostgreSQL evidence that the prior Manager
+context could not access. The sole purpose of this instruction is for one
+fresh Manager to reconcile its Manager-owned checkpoint files with the
+accepted source commit and the durable evidence in `DEC-077`. It does not
+authorize feature implementation, a worker, I-02 promotion, or downstream
+work.
+
+### Reviewed checkpoint and applicability
+
+- Canonical checkout: `D:\\agy-cli-projects\\AOS\\Cryptox`, branch
+  `MVP_IMPLEMENTATION`, reviewed HEAD
+  `59a69e1` (`chore(control): hold after RSS correction review`). The source
+  and deterministic-test checkpoint is accepted at `48301b2`; the tracked
+  tree is clean and the pre-existing untracked `.codex/config.toml` remains
+  excluded.
+- `TASKS.md` is the sole operational state authority with 57 rows: 56 `DONE`,
+  only `I-02` at `REVIEW`, and no other active task. `I-01`, `I-02D`, and
+  `I-03` remain `DONE`. The INS-154 Manager and worker are terminal; no
+  Manager, worker, retry, replacement, duplicate, or worktree is active.
+- Instructor-side evidence in `DEC-076`/`DEC-077` is the applicable source
+  for the environment boundary. The Manager must not downgrade that evidence
+  merely because its own unprivileged Docker context cannot open the Windows
+  daemon, and must not upgrade any unavailable live-provider or browser
+  evidence.
+
+### Authorized Manager scope
+
+Exactly one fresh same-directory Manager is authorized in the canonical
+checkout, using `gpt-5.6-luna` with `max` reasoning and no worktree. It must
+re-read `AGENTS.md` and `docs/control/prompts/ORCHESTRATOR_START.md`, verify
+this signal and `DEC-077`, compare the reviewed checkpoint with Git, and
+confirm there is no competing active Cryptox task. If any material premise
+differs, stop with `NEEDS_INSTRUCTOR_REVIEW`.
+
+No implementation worker is needed or authorized for this control-only packet.
+The Manager may edit only:
+
+- `docs/implementation/TASKS.md`
+- `docs/implementation/HANDOFF.md`
+
+It must move only the existing `I-02` row through
+`REVIEW -> READY -> IN_PROGRESS -> REVIEW`, reconcile the stale
+pre-integration wording to accepted source commit `48301b2`, and record the
+Instructor-observed Docker/Compose/PostgreSQL/migration evidence plus the
+remaining `BLOCKED`/`UNVERIFIED` final-I-02 gates. It must preserve every other
+task and state. It must not edit source, tests, `.env`, credentials,
+`INSTRUCTOR.md`, `DECISIONS.md`, requirements, ADRs, OpenSpec artifacts, or
+any other path; it must not start a worker, feature packet, retry, replacement,
+duplicate, or downstream task.
+
+### Acceptance and stop condition
+
+- The only tracked delta is the two Manager-owned checkpoint files. The
+  checkpoint references `48301b2` as the accepted source commit and records
+  Docker daemon/Compose interpolation, full backend/frontend Compose health,
+  internal `postgres-dev` database wiring, migration validation, and project
+  teardown as Instructor evidence. It keeps live CoinDesk RSS (runtime
+  `HTTP_ERROR`), live Gemini, authenticated browser/demo, clean-install, and
+  OpenSpec CLI evidence truthful as `BLOCKED`/`UNVERIFIED`.
+- No credential may be requested, printed, logged, stored, or committed. The
+  root `.env` remains user-created and absent; the previously exposed chat key
+  remains unusable. The Docker build's package-audit warning is recorded as an
+  observation only and is not silently repaired under this control packet.
+- The Manager may make one explicit-path checkpoint commit attempt containing
+  only `TASKS.md` and `HANDOFF.md`. If Git denies it, report once and stop;
+  do not retry. After review and the single attempt, stop immediately with
+  `I-02` at `REVIEW`. The Instructor will independently audit and integrate if
+  necessary, then issue the next bounded signal.
+
+No downstream packet is authorized by `INS-156`.
 
 ## INS-155 — HOLD after INS-154 optional RSS allowlist correction
 
