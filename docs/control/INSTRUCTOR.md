@@ -2,11 +2,62 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-120`
+Instruction ID: `INS-121`
 
-Status: `APPROVED_FOR_EXECUTION`
+Status: `HOLD`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-121 — HOLD after I-01 runtime integration review
+
+This signal supersedes `INS-120 / APPROVED_FOR_EXECUTION` after the Instructor
+independently reviewed and integrated the exact Manager delta, re-ran the
+workspace and runtime gates, and obtained fresh local PostgreSQL and real
+Binance evidence. It authorizes no implementation or downstream work while
+the current I-01 task remains at `REVIEW`.
+
+### Reviewed checkpoint and outcome
+
+- The canonical checkout is `D:/agy-cli-projects/AOS/Cryptox` on
+  `MVP_IMPLEMENTATION` at `5e06fdf` (`feat(backend): integrate MVP runtime
+  capabilities`). The commit contains the five authorized backend worker
+  paths plus the Manager-owned `I-01` row and latest `HANDOFF.md`; the only
+  untracked path is the untouched app-generated `.codex/config.toml`.
+- The authoritative board remains 49 rows: `46 DONE`, `I-01 REVIEW`, and
+  `I-02`/`I-03 BLOCKED`. No other task state changed. The completed Manager
+  `01a055c5-7f75-7260-8988-d6e544ecb234` and worker
+  `01a055ca-ced6-7890-83ec-3289df017659` are idle/closed; no Cryptox Manager,
+  worker, retry, replacement, duplicate, or downstream writer is active.
+- Independent source and scope review found the authorized public bootstrap
+  composition, trusted session identity, bounded local executor, PostgreSQL
+  adapters, real Binance adapters, local `LEXICON_V1`, truthful readiness,
+  failure isolation, and market-only WebSocket boundary. No contract,
+  module-internal, schema, migration, infrastructure, frontend, deferred,
+  or unrelated path drift was found.
+- Current evidence is PASS for workspace tests, build, typecheck, lint,
+  architecture, artifacts, scope, deferred-scope `13/13`, runtime smoke,
+  backend Auth/application PostgreSQL integration (`18/18`), Strategy
+  PostgreSQL integration (`2/2`), migration up/constraints/down/remigrate,
+  configured runtime `/live=200` and `/ready=200`, read-only Binance
+  historical normalization, read-only Binance realtime `CONNECTED` plus
+  `TICK`, and an HTTP smoke covering unauthenticated rejection, Auth,
+  Strategy definitions, manual backtest `SUCCEEDED`, generated flow reads,
+  and SearchRun `COMPLETED`.
+- CoinDesk live News smoke is `BLOCKED/UNVERIFIED` because the configured
+  endpoint returned HTTP 401 without credentials; no credential was supplied
+  or requested. OpenSpec CLI and browser/final-demo evidence remain
+  `UNVERIFIED` where unavailable. These statuses are not represented as
+  PASS and remain part of the later final-verification boundary.
+
+### HOLD boundary
+
+- Preserve `I-01` at `REVIEW` until a fresh, separately authorized Manager
+  performs the operational closure update using this current evidence. The
+  Instructor does not change `TASKS.md` or `HANDOFF.md` task state.
+- Keep `I-02` and `I-03` `BLOCKED`; do not start any extension, deferred,
+  downstream, retry, replacement, duplicate, or final/demo packet from this
+  HOLD. The next signal, if applicable, may authorize only I-01 closure
+  validation with an exact Manager-owned control-plane scope.
 
 ## INS-120 — I-01 runtime, transports and observability integration
 

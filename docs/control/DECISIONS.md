@@ -1528,3 +1528,41 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-040`, `INS-119`, and commit `2462f18`.
+
+## DEC-042 — I-01 runtime integration accepted to closure review; HOLD
+
+Status: `APPROVED`
+
+Authority: Independent Instructor review after the fresh `INS-120` Manager
+checkpoint, exact source/control integration at `5e06fdf`, current workspace
+gates, local PostgreSQL/migration evidence, real Binance historical/realtime
+evidence, and the bounded HTTP runtime smoke.
+
+Decision: Accept the exact in-scope I-01 backend implementation delta from
+`INS-120` at `5e06fdf` for closure review, preserve the operational `I-01`
+row at `REVIEW`, and replace the current signal with `INS-121 / HOLD`. No
+I-02, I-03, extension, deferred, downstream, retry, replacement, duplicate,
+or final/demo implementation is authorized. A separate fresh Instructor
+signal is required before a Manager may update I-01 to `DONE`.
+
+Why: The integrated delta is limited to the authorized backend boundary and
+its Manager-owned checkpoint artifacts. Independent checks now pass for the
+deterministic workspace gates, real local PostgreSQL Auth/application flows,
+migrations, configured runtime readiness, real Binance historical/realtime
+providers, and HTTP Auth → manual backtest → SearchRun behavior. CoinDesk
+live News remains `BLOCKED/UNVERIFIED` because the public endpoint requires
+credentials that are not configured; OpenSpec CLI and browser/final-demo
+evidence remain `UNVERIFIED` where unavailable. Those limitations must be
+reported truthfully and evaluated at their own final-verification boundary,
+not silently converted to PASS or used to broaden this HOLD.
+
+Affected: `I-01`, `I-02`, `I-03`, `MVP_PLAN.md`, `TASKS.md`, `HANDOFF.md`,
+`INS-120`, `INS-121`, and the integration DAG. Requirements, approved
+functional image amendments, accepted ADRs, contracts, completed packets,
+integrated source, and deferred scope remain unchanged.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [Architecture](../architecture.md),
+[Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-041`, `INS-120`, and commit `5e06fdf`.
