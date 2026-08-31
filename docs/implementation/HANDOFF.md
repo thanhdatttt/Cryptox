@@ -15,6 +15,10 @@
   final verification`). Its parent was the reviewed
   `a58530fa037ae0d46a2d76a9ce1674166aacd137`; the authorization commit changed
   only `INSTRUCTOR.md` and `DECISIONS.md`.
+- Primary bounded review checkpoint commit is
+  `762b0e4c46c9f73d26a55507aeecd42be3f4cb77`
+  (`chore(control): checkpoint I-02 final verification`); it contains only
+  the authorized test, README, TASKS, and HANDOFF changes described below.
 - Before execution the board was verified as exactly 49 rows, 48 `DONE`, I-02
   `BLOCKED`, with I-01 and I-03 `DONE`, dependencies satisfied, and no
   competing Cryptox Manager, worker, reviewer, retry, replacement, duplicate,
