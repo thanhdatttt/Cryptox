@@ -2,11 +2,74 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-150`
+Instruction ID: `INS-151`
 
-Status: `APPROVED_FOR_EXECUTION`
+Status: `HOLD`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-151 — HOLD after INS-150 I-02 market client repair
+
+This signal supersedes `INS-150 / APPROVED_FOR_EXECUTION`. The authorized
+market-client repair is accepted at its bounded scope, but the system remains
+on hold before the next authorization. The broader I-02 final/demo boundary is
+not promoted from this narrow repair.
+
+### Reviewed checkpoint and accepted result
+
+- Canonical checkout: `D:\\agy-cli-projects\\AOS\\Cryptox`, branch
+  `MVP_IMPLEMENTATION`, committed HEAD
+  `37e168eb60acb808db897c7f3bbb97b8bc2a1e29`. Tracked Git state is clean;
+  the pre-existing app-generated `.codex/config.toml` remains untracked and
+  excluded.
+- The Manager completed exactly once under `INS-150`; its sole hidden worker
+  completed exactly once. No retry, replacement, duplicate, worktree, or
+  downstream task was created. `TASKS.md` has 57 rows: 56 `DONE`, only `I-02`
+  `REVIEW`, and no other active state. `I-02D` remains `DONE`.
+- The exact source delta is limited to
+  `apps/frontend/src/market/clients.ts` and
+  `apps/frontend/src/market/clients.spec.ts`; Manager-owned checkpoint changes
+  are limited to `docs/implementation/TASKS.md` and
+  `docs/implementation/HANDOFF.md`. The receiver-preserving browser fetch
+  seam and regression are accepted and committed in `37e168e`.
+
+### Independent evidence
+
+- Focused market/I-02 frontend tests: `10/10` PASS; full frontend suite:
+  `50/50` PASS; full workspace: `449` PASS, `9` environment-gated skips,
+  `0` failures. Frontend typecheck, lint, build, root build/typecheck/lint,
+  architecture, artifact, deferred-scope, and diff checks are PASS at their
+  stated boundaries.
+- In a local browser with `VITE_MARKET_SOURCE=remote` and the same-origin
+  `/api` proxy, all four chart history views loaded from the live Binance
+  boundary without the former `Illegal invocation` error and the console had
+  no warning/error entries. No credentials were entered, so authenticated
+  WebSocket delivery and the full authenticated demo remain unverified.
+- The active OpenSpec CLI is unavailable and remains `UNVERIFIED`. No
+  provider credential or chat-supplied Gemini secret was used, mapped, printed,
+  or committed.
+
+### Remaining hold conditions
+
+- `I-02` remains `REVIEW` because final evidence still lacks an authenticated
+  browser/WebSocket session, a configured real News source, configured LLM
+  authoring evidence, clean-install evidence, and formal OpenSpec CLI
+  evidence. These are not converted to PASS by fixture tests or the narrow
+  market fix.
+- The runtime currently composes CoinDesk's JSON API adapter when its existing
+  `COINDESK_*` configuration is present. The approved News infrastructure also
+  contains provider-neutral RSS/Website/HTML adapters, but no runtime switch
+  for the requested CoinDesk RSS feed has yet been authorized or integrated.
+- The backend reads `process.env` but the repository has no automatic root
+  `.env` loading contract. `.env` is already ignored by Git. Docker currently
+  starts PostgreSQL but does not inject the internal development
+  `DATABASE_URL` into the backend service. These configuration gaps require a
+  separate bounded authorization; they are not silently repaired under
+  `INS-150`.
+
+No downstream packet is authorized by this HOLD. A subsequent instruction may
+authorize only a reviewed, bounded configuration/runtime packet after its
+exact write scopes, acceptance, validation, and stop condition are recorded.
 
 ## INS-150 — APPROVED_FOR_EXECUTION for I-02 remote market client fix
 

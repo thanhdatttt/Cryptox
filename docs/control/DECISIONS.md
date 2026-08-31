@@ -2852,3 +2852,47 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-070`, `INS-149`, `INS-150`, and `I-02`.
+
+## DEC-072 — Hold after independent INS-150 market-client repair review
+
+Status: `HOLD`
+
+Authority: Independent Instructor review after the fresh same-directory
+Manager completed `INS-150 / DEC-071`. The sole hidden worker changed only the
+authorized market client and regression test. The Manager updated the task
+checkpoint and attempted one explicit-path commit; Git denied creation of
+`.git/index.lock` in the Manager environment. The parent Instructor reviewed
+the exact delta, reran the relevant tests and frontend build checks, and
+integrated the four reviewed paths in commit
+`37e168eb60acb808db897c7f3bbb97b8bc2a1e29`.
+
+Accept the bounded receiver-preserving browser `fetch` repair and keep `I-02`
+at `REVIEW`, not `DONE`. Independent evidence is focused frontend/I-02 `10/10`,
+full frontend `50/50`, full workspace `449` passed with `9` expected
+environment-gated skips and no failures, frontend/root build/typecheck/lint,
+architecture, artifacts, deferred-scope, and diff checks, plus a same-origin
+remote browser check where all four chart histories loaded without the prior
+`Illegal invocation` error. This evidence does not prove authenticated
+WebSocket/Auth isolation, real News, configured LLM, clean-install, OpenSpec
+CLI, or the consolidated final demo.
+
+The next possible implementation authorization may address the already
+approved provider/configuration boundary: Docker-managed backend PostgreSQL
+connection composition, ignored local `.env` loading/documentation, CoinDesk
+RSS through the existing configured RSS adapter, and Gemini through the
+existing OpenAI-compatible `LLM_AUTHORING_V1` contract. It must be a fresh
+bounded review with explicit write scopes and must not expose or commit any
+credential, silently map `GEMINI_*`, claim CoinDesk API evidence without a
+successful real feed call, or promote I-02 until all final acceptance gates
+are independently proven. No downstream task is authorized by this decision.
+
+Affected: `I-02`, `TASKS.md`, `HANDOFF.md`, `INS-150`, `INS-151`, and the
+provider/configuration evidence boundary. Existing requirements, accepted ADRs,
+architecture, data model, functional amendment, and deferred scope remain
+unchanged.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [Architecture](../architecture.md),
+[Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-071`, `INS-150`, `INS-151`, and `I-02`.
