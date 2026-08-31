@@ -2587,3 +2587,51 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-064`, `INS-143`, `INS-144`,
 `N-03R`, `I-02D`, and `I-02`.
+
+## DEC-066 — Hold after N-03R acceptance and I-02D usage-limit interruption
+
+Status: `APPROVED`
+
+Authority: Independent Instructor audit of the one fresh same-directory
+Manager under `INS-144 / DEC-065`. The Manager completed and
+reviewed N-03R, then dispatched the single sequential README-only worker for
+I-02D. That worker terminated with a platform usage-limit error before
+changing `README.md`; it was not retried or replaced.
+
+Decision: Accept the exact N-03R source/test delta at the Instructor review
+boundary and persist `INS-145 / HOLD`. The implementation changes
+only `apps/backend/src/runtime.ts` and
+`apps/backend/src/runtime.news-composition.spec.ts`. Independent
+runtime tests pass `2/2`, News scheduler tests pass `5/5__,
+backend tests pass `31` with one environment-gated skip, and
+typecheck, build, lint, architecture, artifacts, deferred-scope, whitespace,
+and exact-path checks pass. N-03R remains `REVIEW` operationally
+until a future Manager performs its explicit control closure.
+
+The operational board is 57 rows: 54 `DONE`, N-03R `REVIEW`,
+I-02 `REVIEW`, and I-02D `BLOCKED` after the Manager
+checkpoint. No Manager or worker remains active. Real CoinDesk/PostgreSQL,
+Docker, configured LLM, configured browser/demo, OpenSpec, and consolidated
+live architecture evidence remain `BLOCKED`/`UNVERIFIED`;
+no fixture or unavailable environment is promoted to PASS, and no
+`GEMINI_*` mapping or chat secret is used.
+
+After this HOLD, a separate fresh authorization may close N-03R and re-enter
+the existing I-02D row for one fresh hidden README-only worker. This is a
+bounded continuation of the same residual, not a new product task and not an
+automatic retry. That Manager must stop at I-02D `REVIEW`, before
+final I-02 revalidation. No source implementation is authorized under this
+HOLD.
+
+Affected: `N-03R`, `I-02D`, `I-02`,
+`TASKS.md`, `HANDOFF.md`, `INS-144`,
+`INS-145`, and the exact N-03R source/test paths. Existing
+assignment, functional image authority, requirements, ADRs, contracts,
+architecture, data model, and deferred scope remain unchanged.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [Architecture](../architecture.md),
+[Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-065`, `INS-144`, `N-03R`,
+`I-02D`, and `I-02`.

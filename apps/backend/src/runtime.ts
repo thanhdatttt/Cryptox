@@ -27,6 +27,10 @@ import {
   createCoinDeskNewsProvider,
   createNewsModule,
   createPostgresNewsDependencies,
+  createNewsRefreshScheduler,
+  type NewsRefreshClock,
+  type NewsRefreshScheduler,
+  type NewsRefreshTimer,
 } from "@cryptox/news/bootstrap";
 import type { SearchModulePublicApi } from "@cryptox/search";
 import {
@@ -87,8 +91,17 @@ interface RuntimeOverrides {
   readonly backtesting?: BacktestingModulePublicApi;
   readonly leaderboard?: LeaderboardModulePublicApi;
   readonly news?: NewsModulePublicApi;
+  readonly newsRefresh?: BackendNewsRefreshOptions;
   readonly sentiment?: SentimentModulePublicApi;
   readonly databaseReady?: boolean;
+}
+
+/** Runtime-only seams for deterministic composition tests; News owns the scheduler contract. */
+export interface BackendNewsRefreshOptions {
+  readonly intervalMinutes?: number;
+  readonly refreshIntervalMinutes?: number;
+  readonly timer?: NewsRefreshTimer;
+  readonly clock?: NewsRefreshClock;
 }
 
 export interface BackendRuntimeOptions extends RuntimeOverrides {
@@ -635,6 +648,27 @@ export function createBackendRuntime(options: BackendRuntimeOptions = {}): Backe
       : "The public Sentiment PostgreSQL adapter is not configured.",
   );
 
+  let newsRefreshScheduler: NewsRefreshScheduler | undefined;
+  if (news) {
+    try {
+      const intervalMinutes = options.newsRefresh?.intervalMinutes
+        ?? options.newsRefresh?.refreshIntervalMinutes
+        ?? (process.env.NEWS_REFRESH_INTERVAL_MINUTES?.trim()
+          ? Number(process.env.NEWS_REFRESH_INTERVAL_MINUTES.trim())
+          : undefined);
+      newsRefreshScheduler = createNewsRefreshScheduler(news, {
+        ...(intervalMinutes === undefined ? {} : { intervalMinutes }),
+        ...(options.newsRefresh?.timer === undefined ? {} : { timer: options.newsRefresh.timer }),
+        ...(options.newsRefresh?.clock === undefined ? {} : { clock: options.newsRefresh.clock }),
+        onRefreshFailure: () => {
+          health.setOptional("news-provider", false, "News provider failure is isolated from core capabilities.");
+        },
+      });
+    } catch {
+      health.setOptional("news-provider", false, "Configured News refresh scheduler could not be initialized.");
+    }
+  }
+
   const persistenceAdaptersConfigured = Boolean(
     databaseReady &&
     strategyConfigured &&
@@ -709,6 +743,8 @@ export function createBackendRuntime(options: BackendRuntimeOptions = {}): Backe
     }
   };
 
+  const scheduledNewsRefresh = newsRefreshScheduler;
+  let closePromise: Promise<void> | undefined;
   const runtime: BackendRuntime = {
     ...authRuntime,
     strategy,
@@ -758,12 +794,33 @@ export function createBackendRuntime(options: BackendRuntimeOptions = {}): Backe
         health.setRequired(name, false, safeDetail);
       }
     },
-    close: async () => {
-      await marketWebSocket.close();
-      const unique = [...new Set(closers)];
-      await Promise.all(unique.map(async (closer) => closer.close().catch(() => undefined)));
+    close: () => {
+      if (closePromise) return closePromise;
+      closePromise = (async () => {
+        scheduledNewsRefresh?.shutdown();
+        await marketWebSocket.close();
+        const unique = [...new Set(closers)];
+        await Promise.all(unique.map(async (closer) => closer.close().catch(() => undefined)));
+      })();
+      return closePromise;
     },
   };
+
+  if (news && scheduledNewsRefresh) {
+    const configuredNews = news;
+    void (async () => {
+      try {
+        await configuredNews.collect({});
+      } catch {
+        health.setOptional("news-provider", false, "News provider failure is isolated from core capabilities.");
+      }
+      try {
+        scheduledNewsRefresh.start();
+      } catch {
+        health.setOptional("news-provider", false, "Configured News refresh scheduler could not be started.");
+      }
+    })();
+  }
   return runtime;
 }
 

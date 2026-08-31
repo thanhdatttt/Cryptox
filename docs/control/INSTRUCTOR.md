@@ -2,13 +2,56 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-144`
+Instruction ID: `INS-145`
 
-Status: `APPROVED_FOR_EXECUTION`
+Status: `HOLD`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
-## INS-144 — APPROVED_FOR_EXECUTION for E5R News runtime and README residuals
+## INS-145 — HOLD after N-03R acceptance and I-02D quota interruption
+
+This signal supersedes INS-144 / APPROVED_FOR_EXECUTION. The Instructor
+independently accepts the bounded N-03R implementation evidence and exact
+source scope, but the operational N-03R row remains REVIEW pending a future
+Manager control closure. The only remaining uncompleted residual is I-02D:
+its README-only worker terminated with a platform usage-limit error before
+changing README.md. No final I-02 promotion or downstream work is authorized
+by this HOLD.
+
+### Independent checkpoint and scope audit
+
+- Canonical checkout: D:\agy-cli-projects\AOS\Cryptox; branch
+  MVP_IMPLEMENTATION; authorization HEAD was 4fd5ff7. The reviewed Manager
+  delta is being integrated exactly in scope with this governance checkpoint:
+  apps/backend/src/runtime.ts, apps/backend/src/runtime.news-composition.spec.ts,
+  docs/implementation/TASKS.md, and docs/implementation/HANDOFF.md. README.md
+  is unchanged. The app-generated .codex/config.toml remains excluded.
+- TASKS.md is the sole operational authority. It now records 57 rows:
+  54 DONE, N-03R REVIEW, I-02 REVIEW, I-02D BLOCKED, and no READY or
+  IN_PROGRESS rows after the Manager checkpoint. No Manager or worker is
+  active; the Dalton attempt is terminal and no retry/replacement was made.
+- N-03R changed only the authorized runtime and narrowly named runtime
+  composition test. Independent focused runtime tests pass 2/2; News scheduler
+  tests pass 5/5; backend tests pass 31 with 1 environment-gated skip; backend
+  typecheck/build and repository architecture, artifacts, deferred-scope,
+  whitespace, and diff-scope checks pass. The implementation consumes the
+  existing News public provider/scheduler boundaries and does not add a
+  provider, contract, migration, or deferred capability.
+- Real CoinDesk collection remains BLOCKED/UNVERIFIED without a configured
+  credential; Docker/PostgreSQL, configured LLM, browser/demo, OpenSpec, and
+  consolidated live architecture evidence remain BLOCKED/UNVERIFIED. No
+  chat-supplied Gemini secret was used or mapped.
+
+### Next safe action
+
+After this HOLD is committed, a fresh authorization may close the independently
+accepted N-03R row and re-enter the existing blocked I-02D row for one fresh
+README-only hidden worker. That is a continuation of the same residual, not a
+new product task or an unbounded retry. The new Manager must stop at I-02D
+REVIEW, before final I-02 revalidation; any further source gap requires a new
+Instructor review.
+
+## Historical INS-144 — APPROVED_FOR_EXECUTION for E5R News runtime and README residuals
 
 This signal supersedes INS-143 / HOLD. The Instructor has independently
 accepted the bounded I-02 test and core live-application evidence at source and
