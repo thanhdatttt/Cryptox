@@ -2,11 +2,108 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-129`
+Instruction ID: `INS-130`
 
-Status: `HOLD`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-130 — APPROVED_FOR_EXECUTION for S-04I LLM public composition reconciliation
+
+This signal supersedes `INS-129 / HOLD` only for the single residual `S-04I`
+packet recorded in `MVP_PLAN.md`. It does not reopen `S-04`, transition `I-02`,
+or authorize any downstream work. The Manager must add exactly one new
+operational `S-04I` row to `TASKS.md`, using the packet's normal
+`BLOCKED -> READY -> IN_PROGRESS -> REVIEW` sequence, and must stop at the
+bounded review checkpoint.
+
+### Reviewed checkpoint and applicability
+
+- Canonical checkout: `D:\\agy-cli-projects\\AOS\\Cryptox`, branch
+  `MVP_IMPLEMENTATION`, committed HEAD `22bc88e`
+  (`chore(plan): add residual LLM composition packet`). The plan-only delta is
+  governance-only; source and business state remain at the reviewed I-02
+  checkpoint `c9d2a26`. The tracked tree was clean before this signal; untouched
+  app-generated `.codex/config.toml` remains outside scope.
+- `TASKS.md` is authoritative at 49 rows: `48 DONE` and only `I-02` at
+  `REVIEW`. `I-02` remains `REVIEW`/`NEEDS_INSTRUCTOR_REVIEW`; no Manager,
+  worker, verifier, retry, replacement, duplicate, or downstream Cryptox task
+  is active. No historical Manager or worker may be reused.
+- `S-04I` is the newly recorded E5 residual in `MVP_PLAN.md`, caused by the
+  independently reviewed gap that the tested Strategy authoring seam is not
+  composed into the public runtime. This is reconciliation of approved
+  `LLM_AUTHORING_V1`, not autonomous LLM behavior or new product scope.
+
+### Authorized packet, requirements, and exact scope
+
+- Packet: `S-04I — LLM_AUTHORING_V1 Public Composition Reconciliation`.
+- Requirements: `CSL-R-ST-05`, `CSL-R-RP-02`, `CSL-R-OW-01`, and only the
+  configured-runtime portion of `CSL-R-RD-01`; accepted `ADR_009` and the
+  existing `S-04` module/application seam govern behavior.
+- Goal: compose the existing provider-neutral Strategy authoring application
+  into the public Strategy API, the existing PostgreSQL draft persistence seam,
+  authenticated backend REST, and the frontend authoring workflow. The
+  server-side OpenAI-compatible adapter may target a non-OpenAI provider when
+  it implements the same request/response/auth contract. Runtime configuration
+  uses explicit local values named `LLM_AUTHORING_ENDPOINT`,
+  `LLM_AUTHORING_MODEL`, and `LLM_AUTHORING_API_KEY`; values must never be
+  committed, printed, persisted in draft data, returned to the browser, or
+  requested in chat. Missing configuration fails closed without a provider call
+  or persistence side effect.
+- The fresh Manager may create at most three hidden internal workers, strictly
+  sequentially because later scopes depend on earlier contracts:
+  1. Strategy worker: `modules/strategy/**` only, covering public contract/
+     bootstrap, application composition, the existing
+     `strategy_authoring_drafts` PostgreSQL repository adapter, and focused
+     Strategy tests. No migration and no other module.
+  2. REST/backend worker, only after worker 1 checkpoint: the named REST DTO,
+     direct REST barrel/tests, and named `apps/backend/src/**` controller,
+     runtime, transport, and tests needed to expose authenticated
+     draft/validate/Save/Approve operations. No News/Sentiment/Search/
+     Backtesting changes.
+  3. Frontend worker, only after worker 2 checkpoint: `apps/frontend/src/**`
+     authoring client/state/panel and focused tests. No business logic or
+     provider credentials.
+- Workers must have disjoint write scopes and may read repository context. They
+  must not edit `AGENTS.md`, `docs/control/**`, requirements, ADRs,
+  `TASKS.md`, `HANDOFF.md`, migrations, News/Sentiment, Search, Backtesting,
+  or deferred/autonomous LLM behavior. The Manager alone may add the one
+  `S-04I` row, update `HANDOFF.md`, integrate scoped worker output, and create
+  checkpoint commits; it may not implement feature code except narrow
+  integration/conflict-resolution glue. No user-visible child task, worktree,
+  second Manager, duplicate, retry, or replacement is permitted.
+
+### Acceptance and validation
+
+- A configured test adapter receives at most one bounded JSON request with
+  server-side bearer authorization; the key is absent from the body, result,
+  logs, and browser. Non-OpenAI providers are acceptable only through the
+  existing OpenAI-compatible adapter contract; provider-specific adapters are
+  outside this authorization.
+- Malformed, timed-out, failed, or unconfigured provider output creates no
+  draft or Strategy definition. Deterministic schema/domain validation precedes
+  explicit authenticated Validate, Save, and Approve actions. Approval creates
+  exactly one immutable owner-scoped version with a safe authoring origin.
+- Authenticated User A/B and unauthenticated REST isolation, approved-News
+  public-boundary use, and frontend `DRAFT`/`VALIDATED`/`APPROVED`/unavailable
+  states are proven. No arbitrary URL fetch or LLM-driven Search/trading is
+  introduced.
+- Require focused module/REST/backend/frontend tests, PostgreSQL draft
+  persistence evidence, workspace test/build/typecheck/lint, architecture,
+  artifacts, scope/deferred, runtime-smoke, secret/log, exact-path,
+  whitespace, and diff checks. Real provider execution is `PASS` only if the
+  local runtime already has a real endpoint/model/key; otherwise record it as
+  `UNVERIFIED`/`BLOCKED`, never as fixture-backed PASS. OpenSpec CLI or any
+  unavailable environment remains `UNVERIFIED`/`BLOCKED`.
+
+### Stop condition
+
+The Manager must stop with `S-04I` at `REVIEW` and report exact evidence,
+failures, unavailable checks, touched paths, and the latest commit. It must not
+mark `S-04I` `DONE` on missing provider/browser evidence, must not promote
+`I-02`, and must not start any downstream task. A fresh Instructor review and
+separate authorization are required for I-02 final revalidation after this
+packet.
 
 ## INS-129 — HOLD after independent I-02 review
 

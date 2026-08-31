@@ -1911,3 +1911,53 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-049`, `INS-128`, and commit `c9d2a26`.
+
+## DEC-051 — Authorize S-04I LLM public composition reconciliation
+
+Status: `APPROVED`
+
+Authority: Instructor review after the `INS-128` I-02 Manager exhausted its
+bounded final-verification scope, I-02 was independently retained at `REVIEW`,
+`INS-129 / HOLD` was committed, and the residual was recorded in `MVP_PLAN.md`
+at governance commit `22bc88e`. The source/business checkpoint remains
+`c9d2a26`; no Cryptox Manager or worker is active.
+
+Decision: Issue exactly one fresh same-directory Manager authorization
+`INS-130 / APPROVED_FOR_EXECUTION` for `S-04I — LLM_AUTHORING_V1 Public
+Composition Reconciliation`. The Manager may add exactly one `S-04I` row to the
+operational `TASKS.md` board and may use at most three hidden internal workers,
+strictly sequentially, for Strategy module composition, authenticated
+REST/backend composition, and frontend authoring composition in disjoint
+scopes. The Manager owns only the new row, `HANDOFF.md`, integration, and
+checkpoint commits; workers may not edit control-plane files. No migration,
+provider-specific adapter, autonomous/unconfigured LLM, arbitrary URL fetch,
+downstream task, I-02 transition, second Manager, duplicate, retry, replacement,
+or worktree is authorized.
+
+Acceptance is limited to the approved provider-neutral `LLM_AUTHORING_V1`
+workflow: server-side explicit endpoint/model/key configuration (including a
+non-OpenAI provider only when OpenAI-compatible), one bounded structured
+request, no secret exposure, fail-closed provider errors, deterministic
+validation, explicit authenticated Validate/Save/Approve, immutable
+owner-scoped persistence, and frontend status/ownership evidence. The exact
+runtime configuration names are `LLM_AUTHORING_ENDPOINT`,
+`LLM_AUTHORING_MODEL`, and `LLM_AUTHORING_API_KEY`; no key is requested in chat
+or printed in evidence. Missing real configuration, OpenSpec CLI, live
+provider, or browser environment must be recorded `UNVERIFIED`/`BLOCKED`, not
+promoted through fixtures.
+
+The Manager must verify `AGENTS.md`, `ORCHESTRATOR_START.md`, the current
+signal, checkpoint, task DAG, dependencies, and clean applicability before
+dispatch; stop at `S-04I REVIEW`; and return the repository to a checkpoint for
+fresh Instructor audit. A new Instructor authorization is required before
+I-02 final revalidation.
+
+Affected: `S-04I`, `I-02`, `TASKS.md`, `HANDOFF.md`, `INS-129`, `INS-130`, and
+the final MVP checkpoint. Existing requirements, accepted ADRs, architecture,
+data model, functional image amendments, and deferred scope remain unchanged.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [Architecture](../architecture.md),
+[Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-050`, `INS-129`, `S-04I`, and commit `22bc88e`.
