@@ -12,17 +12,40 @@ Evaluation MUST calculate Return, Win Rate, Maximum Drawdown, and Number of Trad
 
 Traceability: `CSL-R-EV-01`, `CSL-R-RP-01`, `CSL-R-AR-02`, `CSL-R-AR-03`, `CSL-R-DM-01`.
 
+#### Scenario: Required metrics are produced
+
+- **Given** a valid completed backtest with known trades and equity values
+- **When** it is evaluated
+- **Then** Return, Win Rate, Maximum Drawdown, and Number of Trades match the documented formulas
+
 ### Requirement: Independent deterministic evaluator
 
 The evaluator MUST depend only on the completed result supplied through the Backtesting public boundary. The same valid result MUST produce the same finite metrics, independent of Strategy, executor, persistence, frontend, or Leaderboard implementation.
 
 Traceability: `CSL-R-EV-01`, `CSL-R-AR-01`; ADR-006.
 
+#### Scenario: Evaluation is deterministic and pure
+
+- **Given** the same completed result object
+- **When** evaluation runs twice
+- **Then** both metric sets are equal and the input remains unchanged
+
+#### Scenario: Invalid numeric input is contained
+
+- **Given** a completed result containing a non-finite required numeric value
+- **When** evaluation is attempted
+- **Then** it fails explicitly and no ranking submission occurs
 ### Suggested requirement: Additional metrics
 
 Profit Factor and Sharpe Ratio SHOULD be supported only after the four required metrics. When present, their sampling and zero-denominator conventions MUST be explicit and they MUST remain finite.
 
 Traceability: `CSL-S-02`.
+
+#### Scenario: Zero trades are finite
+
+- **Given** a valid completed backtest with no closed Trades and unchanged equity
+- **When** it is evaluated
+- **Then** all required metrics are defined and finite
 
 ## Approved behavior and invariants
 
@@ -46,29 +69,3 @@ The current executable public surface is [`modules/evaluation/api/index.ts`](../
 - NaN or infinite inputs and outputs are rejected or normalized according to an explicit metric edge-case policy; non-finite metrics never reach Leaderboard.
 - Zero trades and a flat equity curve return defined finite metrics rather than division errors.
 - An evaluation failure is attached to the affected execution and does not change unrelated results.
-
-## Acceptance scenarios
-
-#### Scenario: Required metrics are produced
-
-- **Given** a valid completed backtest with known trades and equity values
-- **When** it is evaluated
-- **Then** Return, Win Rate, Maximum Drawdown, and Number of Trades match the documented formulas
-
-#### Scenario: Zero trades are finite
-
-- **Given** a valid completed backtest with no closed Trades and unchanged equity
-- **When** it is evaluated
-- **Then** all required metrics are defined and finite
-
-#### Scenario: Evaluation is deterministic and pure
-
-- **Given** the same completed result object
-- **When** evaluation runs twice
-- **Then** both metric sets are equal and the input remains unchanged
-
-#### Scenario: Invalid numeric input is contained
-
-- **Given** a completed result containing a non-finite required numeric value
-- **When** evaluation is attempted
-- **Then** it fails explicitly and no ranking submission occurs

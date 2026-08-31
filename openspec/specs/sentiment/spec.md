@@ -12,17 +12,40 @@ The capability MUST expose a replaceable analysis boundary that returns `POSITIV
 
 Traceability: `CSL-R-SN-01`, `CSL-R-AR-01`, `CSL-R-AR-02`, `CSL-R-AR-03`; ADR-004 and ADR-007.
 
+#### Scenario: Valid analysis is stored with provenance
+
+- **Given** valid neutral sentiment input and a conforming analyzer
+- **When** analysis succeeds
+- **Then** a valid label and finite normalized score are stored with input reference and model/version provenance
+
+#### Scenario: Model is replaceable
+
+- **Given** a second conforming analysis implementation
+- **When** it replaces the first
+- **Then** News and Strategy public contracts remain unchanged and new results identify the new model/version
+
 ### Requirement: Separate persistence and reads
 
 Sentiment MUST own storage and retrieval of successful results. News MAY request analysis and compose a read response but MUST NOT write Sentiment-owned data or depend on a concrete analyzer.
 
 Traceability: `CSL-R-SN-01`; ADR-004.
 
+#### Scenario: Missing sentiment is honest
+
+- **Given** a News Item with no successful sentiment result
+- **When** its sentiment is read
+- **Then** the response represents absence rather than inventing `NEUTRAL`
 ### Requirement: Failure isolation
 
 Timeout, exception, or invalid inference output MUST be observable and represented as missing sentiment. Such failure MUST NOT stop News persistence, charts, Strategy, Search, or Backtesting.
 
 Traceability: `CSL-R-SN-01`, `CSL-R-OB-01`, `CSL-R-DM-01`.
+
+#### Scenario: Timeout is isolated
+
+- **Given** an analyzer that exceeds its bounded call time
+- **When** News requests sentiment
+- **Then** no fabricated result is stored, the failure is observable, and News plus core trading flows remain available
 
 ## Approved behavior and invariants
 
@@ -46,29 +69,3 @@ The current executable public surface is [`modules/sentiment/api/index.ts`](../.
 - Timeout, analyzer exception, or non-finite/out-of-range score produces no fabricated Sentiment Result.
 - Missing result reads return an explicit absence rather than a neutral value.
 - A provider/model failure is logged or measured with useful context while unrelated capabilities continue.
-
-## Acceptance scenarios
-
-#### Scenario: Valid analysis is stored with provenance
-
-- **Given** valid neutral sentiment input and a conforming analyzer
-- **When** analysis succeeds
-- **Then** a valid label and finite normalized score are stored with input reference and model/version provenance
-
-#### Scenario: Model is replaceable
-
-- **Given** a second conforming analysis implementation
-- **When** it replaces the first
-- **Then** News and Strategy public contracts remain unchanged and new results identify the new model/version
-
-#### Scenario: Timeout is isolated
-
-- **Given** an analyzer that exceeds its bounded call time
-- **When** News requests sentiment
-- **Then** no fabricated result is stored, the failure is observable, and News plus core trading flows remain available
-
-#### Scenario: Missing sentiment is honest
-
-- **Given** a News Item with no successful sentiment result
-- **When** its sentiment is read
-- **Then** the response represents absence rather than inventing `NEUTRAL`

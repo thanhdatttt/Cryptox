@@ -17,6 +17,12 @@ be unique and passwords MUST be stored only as Argon2id hashes.
 
 Traceability: `CSL-R-AU-01`, `CSL-R-RD-01`; ADR-008.
 
+#### Scenario: User registers and obtains a real session
+
+- **Given** a valid unique normalized email and password
+- **When** registration completes against PostgreSQL
+- **Then** the User and secure session digest are persisted and current-user lookup resolves that User
+
 ### Requirement: Opaque server-side session
 
 Auth MUST issue a cryptographically random opaque token, persist only a secure
@@ -26,6 +32,18 @@ session.
 
 Traceability: `CSL-R-AU-01`; ADR-008.
 
+#### Scenario: Login and logout use server-side state
+
+- **Given** a registered User with valid credentials
+- **When** the User logs in and later logs out
+- **Then** login creates an expiring opaque session and logout prevents further use of it
+
+#### Scenario: Session expires absolutely
+
+- **Given** a valid session older than its fixed 24-hour lifetime
+- **When** it is resolved
+- **Then** no authenticated identity is returned and the session is not renewed
+
 ### Requirement: Trusted authenticated identity
 
 Private capabilities MUST receive authenticated User identity from trusted server
@@ -34,6 +52,12 @@ MUST reject private access with 401. Client-supplied `userId` or `ownerUserId` M
 NOT establish authority.
 
 Traceability: `CSL-R-AU-01`, `CSL-R-OW-01`; ADR-008.
+
+#### Scenario: Client identity cannot authenticate
+
+- **Given** a request containing a client-selected `userId` without a valid session
+- **When** it calls a private capability
+- **Then** the request is rejected with 401 and the supplied identity is ignored
 
 ## Approved behavior and invariants
 
@@ -58,29 +82,3 @@ either during A-00.
 - Invalid, expired, or revoked sessions do not resolve an authenticated user.
 - Logout is idempotent from the caller's unauthenticated end state.
 - Auth persistence failure is observable and does not produce a fabricated identity.
-
-## Acceptance scenarios
-
-#### Scenario: User registers and obtains a real session
-
-- **Given** a valid unique normalized email and password
-- **When** registration completes against PostgreSQL
-- **Then** the User and secure session digest are persisted and current-user lookup resolves that User
-
-#### Scenario: Login and logout use server-side state
-
-- **Given** a registered User with valid credentials
-- **When** the User logs in and later logs out
-- **Then** login creates an expiring opaque session and logout prevents further use of it
-
-#### Scenario: Client identity cannot authenticate
-
-- **Given** a request containing a client-selected `userId` without a valid session
-- **When** it calls a private capability
-- **Then** the request is rejected with 401 and the supplied identity is ignored
-
-#### Scenario: Session expires absolutely
-
-- **Given** a valid session older than its fixed 24-hour lifetime
-- **When** it is resolved
-- **Then** no authenticated identity is returned and the session is not renewed

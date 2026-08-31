@@ -12,17 +12,49 @@ The capability MUST expose a stable Strategy abstraction and registry seam with 
 
 Traceability: `CSL-R-ST-01`, `CSL-R-AR-01`, `CSL-R-AR-02`, `CSL-R-AR-03`, `CSL-R-DM-01`; ADR-002 and ADR-005.
 
+#### Scenario: Built-in strategy is pure
+
+- **Given** a valid immutable built-in Strategy Definition and the same analysis context
+- **When** the strategy is evaluated twice
+- **Then** it returns the same signal and performs no infrastructure I/O
+
+#### Scenario: Approved built-in profile is reproducible
+
+- **Given** a separately reviewed, versioned behavior profile and deterministic fixtures for a required built-in
+- **When** a valid definition analyzes those fixtures
+- **Then** its signals and insufficient-data behavior match that approved profile
+
 ### Requirement: Localized addition
 
 Adding a strategy such as MACD MUST be localized to its implementation, descriptor/registration, and tests. It MUST NOT require redesign of Backtesting, Evaluation, Leaderboard, or frontend core behavior.
 
 Traceability: `CSL-R-ST-02`.
 
+#### Scenario: MACD is added locally
+
+- **Given** a conforming MACD plugin and descriptor
+- **When** it is registered
+- **Then** it can be listed and resolved without changing Backtesting, Evaluation, Leaderboard, or frontend core logic
+
 ### Requirement: Composite strategies
 
 The capability MUST compose exact Strategy Definition versions and resolve conflicting `BUY`, `SELL`, and `HOLD` signals through an explicitly recorded policy. `WEIGHTED_VOTE_V1` MUST include only enabled components, map those signals to `+1`, `0`, and `-1`, normalize finite non-negative weights to one, and return BUY at score `>= +0.30`, SELL at `<= -0.30`, otherwise HOLD, including ties. Its enabled state, weights, thresholds, and referenced versions are immutable configuration.
 
 Traceability: `CSL-R-ST-03`, `CSL-R-ST-06`, `CSL-S-01`.
+
+#### Scenario: Composite conflict is resolved
+
+- **Given** component signals that disagree and a valid recorded combination policy
+- **When** the composite combines them
+- **Then** it returns one deterministic normalized signal according to that policy
+
+#### Scenario: Weighted vote is deterministic
+
+- **Given** enabled MA, RSI, and Support/Resistance components with weights
+  `0.40`, `0.30`, and `0.30`
+- **When** their normalized signals are combined under `WEIGHTED_VOTE_V1`
+- **Then** the configured score and thresholds produce one documented BUY, SELL,
+  or HOLD result, with a tie represented as HOLD
 
 ### Requirement: Controlled draft authoring
 
@@ -35,6 +67,13 @@ provider error, or invalid draft may create a persistence side effect.
 
 Traceability: `CSL-R-ST-05`, `CSL-R-RP-02`; ADR-002 and ADR-009.
 
+#### Scenario: LLM draft requires approval
+
+- **Given** a configured provider returns a schema-valid structured draft
+- **When** the user has not explicitly saved/approved it
+- **Then** no Strategy Definition version exists; after validation and explicit
+  approval, exactly one immutable version is created
+
 ### Requirement: Deterministic extension plugins
 
 The registry MUST expose documented `SMC_LITE_V1` and `WYCKOFF_LITE_V1` profiles.
@@ -45,11 +84,23 @@ discretionary methodology.
 
 Traceability: `CSL-R-ST-07`; ADR-002.
 
+#### Scenario: Lite plugin stays bounded
+
+- **Given** fixtures for an SMC Lite or Wyckoff Lite profile
+- **When** its registered pure strategy analyzes the fixtures
+- **Then** it follows its documented deterministic rule without infrastructure I/O
+
 ### Requirement: Immutable definitions and provenance
 
 Changing behavior-bearing parameters, components, weights, thresholds, combination method, or implementation provenance MUST create a new definition/version. Historical results MUST continue to identify the exact definition used. Missing historical code or data MUST NOT be silently replaced and described as exact replay.
 
 Traceability: `CSL-R-ST-04`, `CSL-R-RP-01`; ADR-007.
+
+#### Scenario: Definition edit preserves history
+
+- **Given** a definition referenced by a completed experiment
+- **When** a behavior-bearing parameter changes
+- **Then** a new version is created and the completed experiment still references the prior version
 
 ### Requirement: User-owned definitions
 
@@ -60,6 +111,11 @@ analysis and plugin descriptors remain user-agnostic/shared.
 
 Traceability: `CSL-R-OW-01`; ADR-008.
 
+#### Scenario: Definitions are isolated by owner
+
+- **Given** two authenticated users with separate Strategy Definitions
+- **When** either user lists or reads definitions
+- **Then** only that user's definitions are returned and a guessed cross-user ID is not found
 ## Approved behavior and invariants
 
 - Strategy analysis MUST be deterministic for the same definition and context.
@@ -95,62 +151,3 @@ The current executable public surface is [`modules/strategy/api/index.ts`](../..
 - A missing historical implementation reports the available traceability guarantee and never falls back silently to the latest plugin.
 - A strategy exception is contained by its caller and becomes an observable failed execution; it does not corrupt another experiment.
 - Invalid or non-finite composite configuration is rejected before signal combination.
-
-## Acceptance scenarios
-
-#### Scenario: Built-in strategy is pure
-
-- **Given** a valid immutable built-in Strategy Definition and the same analysis context
-- **When** the strategy is evaluated twice
-- **Then** it returns the same signal and performs no infrastructure I/O
-
-#### Scenario: Approved built-in profile is reproducible
-
-- **Given** a separately reviewed, versioned behavior profile and deterministic fixtures for a required built-in
-- **When** a valid definition analyzes those fixtures
-- **Then** its signals and insufficient-data behavior match that approved profile
-
-#### Scenario: MACD is added locally
-
-- **Given** a conforming MACD plugin and descriptor
-- **When** it is registered
-- **Then** it can be listed and resolved without changing Backtesting, Evaluation, Leaderboard, or frontend core logic
-
-#### Scenario: Composite conflict is resolved
-
-- **Given** component signals that disagree and a valid recorded combination policy
-- **When** the composite combines them
-- **Then** it returns one deterministic normalized signal according to that policy
-
-#### Scenario: Weighted vote is deterministic
-
-- **Given** enabled MA, RSI, and Support/Resistance components with weights
-  `0.40`, `0.30`, and `0.30`
-- **When** their normalized signals are combined under `WEIGHTED_VOTE_V1`
-- **Then** the configured score and thresholds produce one documented BUY, SELL,
-  or HOLD result, with a tie represented as HOLD
-
-#### Scenario: LLM draft requires approval
-
-- **Given** a configured provider returns a schema-valid structured draft
-- **When** the user has not explicitly saved/approved it
-- **Then** no Strategy Definition version exists; after validation and explicit
-  approval, exactly one immutable version is created
-
-#### Scenario: Lite plugin stays bounded
-
-- **Given** fixtures for an SMC Lite or Wyckoff Lite profile
-- **When** its registered pure strategy analyzes the fixtures
-- **Then** it follows its documented deterministic rule without infrastructure I/O
-
-#### Scenario: Definition edit preserves history
-
-- **Given** a definition referenced by a completed experiment
-- **When** a behavior-bearing parameter changes
-- **Then** a new version is created and the completed experiment still references the prior version
-
-#### Scenario: Definitions are isolated by owner
-
-- **Given** two authenticated users with separate Strategy Definitions
-- **When** either user lists or reads definitions
-- **Then** only that user's definitions are returned and a guessed cross-user ID is not found

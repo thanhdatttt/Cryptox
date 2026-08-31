@@ -12,11 +12,29 @@ The capability MUST validate pair and timeframe inputs and normalize Binance his
 
 Traceability: `CSL-R-MD-01`, `CSL-R-MD-02`, `CSL-R-AR-01`, `CSL-R-AR-02`, `CSL-R-AR-03`, `CSL-R-DM-01`; ADR-001 and ADR-005.
 
+#### Scenario: A second provider is substituted
+
+- **Given** a conforming provider adapter
+- **When** it replaces Binance for a configured market
+- **Then** consumers continue to use the same normalized API without provider-name branches
+
 ### Requirement: Historical and realtime continuity
 
 Historical reads MUST be bounded and explicit about range, pagination, completeness, missing ranges, forming-candle inclusion, and observation time. No fixed page-size default is required. Realtime delivery MUST expose connection state, reconnect after interruption, and reconcile candles missed while disconnected. Duplicate or out-of-order provider input MUST not create duplicate closed candles.
 
 Traceability: `CSL-R-MD-01`, `CSL-R-MD-02`, `CSL-R-FE-01`, `CSL-R-OB-01`.
+
+#### Scenario: Realtime feed recovers a gap
+
+- **Given** an active market subscription that disconnects after a closed candle
+- **When** connectivity returns
+- **Then** connection state is reported, missing candles are reconciled, and subsequent normalized updates continue without duplicates
+
+#### Scenario: Four chart subscriptions remain independent
+
+- **Given** four chart configurations with independently selected timeframes
+- **When** one chart changes timeframe
+- **Then** only that chart's history and subscription change
 
 ### Requirement: Deterministic candle update and ephemeral observability
 
@@ -30,11 +48,32 @@ used as Backtest or replay input.
 
 Traceability: `CSL-R-MD-02`, `CSL-R-MD-03`; ADR-001.
 
+#### Scenario: Same timestamp updates and later timestamp appends
+
+- **Given** a subscription whose latest candle has timestamp `T`
+- **When** a normalized candle for `T` arrives and then one for a later timestamp
+  arrives
+- **Then** the first update replaces the latest candle state and the second adds
+  one later candle without a duplicate closed candle
+
+#### Scenario: Recent ticks remain ephemeral
+
+- **Given** 101 normalized ticks for one pair and a live market connection
+- **When** Market Data exposes observability state and then restarts
+- **Then** the state contains the most recent 100 ticks before restart and an
+  explicitly empty/restarted ephemeral buffer afterward; no Backtest input changes
+
 ### Requirement: Practical data provenance
 
 A backtest MUST be able to identify its pair, timeframe, historical range, and dataset identity/version where practical. If exact retained data is unavailable, the recorded source provenance MUST state that limitation rather than imply exact replay.
 
 Traceability: `CSL-R-RP-01`; ADR-007.
+
+#### Scenario: Historical data is normalized
+
+- **Given** valid Binance candles for a pair, timeframe, and bounded range
+- **When** a consumer reads historical candles
+- **Then** it receives ordered canonical candles with completeness and provenance metadata, without Binance-specific shapes
 
 ### Requirement: Real Binance final delivery
 
@@ -45,6 +84,11 @@ Market Data provider.
 
 Traceability: `CSL-R-RD-01`, `CSL-R-DM-01`.
 
+#### Scenario: Final mode rejects mock-only Market Data
+
+- **Given** final/demo configuration with no real Binance adapter
+- **When** readiness or demo preflight runs
+- **Then** required real-data evidence is unavailable and the condition is not reported as PASS
 ## Approved behavior and invariants
 
 - Candle OHLC values MUST be finite, `high` MUST be at least `open`, `close`, and `low`, and `low` MUST be at most those values.
@@ -65,50 +109,3 @@ The current executable public surface is [`modules/market-data/api/index.ts`](..
 - A partial history response identifies missing ranges; a completeness-required request fails explicitly rather than silently returning gaps.
 - Disconnect, malformed payload, rate-limit, and provider timeout are observable; reconnect work is bounded.
 - Shutdown stops new subscriptions and releases provider resources without fabricating final candles.
-
-## Acceptance scenarios
-
-#### Scenario: Historical data is normalized
-
-- **Given** valid Binance candles for a pair, timeframe, and bounded range
-- **When** a consumer reads historical candles
-- **Then** it receives ordered canonical candles with completeness and provenance metadata, without Binance-specific shapes
-
-#### Scenario: Realtime feed recovers a gap
-
-- **Given** an active market subscription that disconnects after a closed candle
-- **When** connectivity returns
-- **Then** connection state is reported, missing candles are reconciled, and subsequent normalized updates continue without duplicates
-
-#### Scenario: Same timestamp updates and later timestamp appends
-
-- **Given** a subscription whose latest candle has timestamp `T`
-- **When** a normalized candle for `T` arrives and then one for a later timestamp
-  arrives
-- **Then** the first update replaces the latest candle state and the second adds
-  one later candle without a duplicate closed candle
-
-#### Scenario: Recent ticks remain ephemeral
-
-- **Given** 101 normalized ticks for one pair and a live market connection
-- **When** Market Data exposes observability state and then restarts
-- **Then** the state contains the most recent 100 ticks before restart and an
-  explicitly empty/restarted ephemeral buffer afterward; no Backtest input changes
-
-#### Scenario: Four chart subscriptions remain independent
-
-- **Given** four chart configurations with independently selected timeframes
-- **When** one chart changes timeframe
-- **Then** only that chart's history and subscription change
-
-#### Scenario: A second provider is substituted
-
-- **Given** a conforming provider adapter
-- **When** it replaces Binance for a configured market
-- **Then** consumers continue to use the same normalized API without provider-name branches
-
-#### Scenario: Final mode rejects mock-only Market Data
-
-- **Given** final/demo configuration with no real Binance adapter
-- **When** readiness or demo preflight runs
-- **Then** required real-data evidence is unavailable and the condition is not reported as PASS

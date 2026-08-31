@@ -20,17 +20,48 @@ budget.
 
 Traceability: `CSL-R-SE-01`, `CSL-R-SE-03`, `CSL-R-ST-03`, `CSL-R-AR-01`, `CSL-R-AR-02`, `CSL-R-AR-03`, `CSL-R-DM-01`.
 
+#### Scenario: Search profile emits a valid candidate
+
+- **Given** a valid bounded search space and an approved profile selection
+- **When** one candidate is generated
+- **Then** its strategy definitions and parameters are within the configured space and can be submitted through Backtesting's public boundary
+
+#### Scenario: Seeded discovery replays its sequence
+
+- **Given** identical search space, algorithm configuration, dataset identity,
+  code version, and persisted seed
+- **When** an approved profile is run twice
+- **Then** both runs generate the same candidate sequence and ranking
+
 ### Requirement: Finite bounded execution
 
 Every Search Run MUST have explicit finite stop conditions and a positive configurable in-flight bound. Generation MUST stop when a limit is reached, the run is cancelled, or no capacity remains. The default budget is the earlier of 500 candidates or five minutes. An uncontrolled infinite loop is prohibited.
 
 Traceability: `CSL-R-SE-02`, `CSL-R-OB-01`; ADR-006.
 
+#### Scenario: Stop condition terminates the run
+
+- **Given** a run with a finite candidate limit
+- **When** the limit is reached
+- **Then** the run becomes stopped with a recorded reason and produces no further candidates
+
+#### Scenario: Capacity bounds submissions
+
+- **Given** a positive `maxInFlight` and no free execution slot
+- **When** orchestration evaluates whether to generate more work
+- **Then** it submits nothing until capacity is available
+
 ### Requirement: Observable lifecycle
 
 The capability MUST expose running/stopped state, stop reason, candidate count, failures, processing timing, and current run ranking. Cancellation MUST be deterministic and MUST not allow new submissions after terminalization.
 
 Traceability: `CSL-R-OB-01`, `CSL-R-LB-01`.
+
+#### Scenario: Cancellation is terminal
+
+- **Given** an active Search Run
+- **When** it is cancelled
+- **Then** no new candidates are submitted and status exposes the terminal state and accumulated counts
 
 ### Requirement: User-owned Search Runs
 
@@ -41,6 +72,11 @@ trusted SearchRun/user context, never from generated or client identity fields.
 
 Traceability: `CSL-R-OW-01`; ADR-008.
 
+#### Scenario: Search ownership propagates
+
+- **Given** an authenticated user starting a valid Search Run
+- **When** Search submits generated Candidates
+- **Then** the Run, definitions, Leaderboard scope, and Candidates resolve to that same trusted owner
 ## Approved behavior and invariants
 
 - A run MUST record its normalized search space, generator selection, stop conditions, and relevant ranking scope.
@@ -61,42 +97,3 @@ The current executable public surface is [`modules/search/api/index.ts`](../../.
 - Generator failure is recorded with a useful reason and does not produce a malformed candidate.
 - Candidate execution failure increments observable failure state while the configured stop conditions and bounds remain authoritative.
 - Cancellation on an unknown or incompatible run state fails predictably and does not duplicate submissions.
-
-## Acceptance scenarios
-
-#### Scenario: Search profile emits a valid candidate
-
-- **Given** a valid bounded search space and an approved profile selection
-- **When** one candidate is generated
-- **Then** its strategy definitions and parameters are within the configured space and can be submitted through Backtesting's public boundary
-
-#### Scenario: Seeded discovery replays its sequence
-
-- **Given** identical search space, algorithm configuration, dataset identity,
-  code version, and persisted seed
-- **When** an approved profile is run twice
-- **Then** both runs generate the same candidate sequence and ranking
-
-#### Scenario: Stop condition terminates the run
-
-- **Given** a run with a finite candidate limit
-- **When** the limit is reached
-- **Then** the run becomes stopped with a recorded reason and produces no further candidates
-
-#### Scenario: Capacity bounds submissions
-
-- **Given** a positive `maxInFlight` and no free execution slot
-- **When** orchestration evaluates whether to generate more work
-- **Then** it submits nothing until capacity is available
-
-#### Scenario: Cancellation is terminal
-
-- **Given** an active Search Run
-- **When** it is cancelled
-- **Then** no new candidates are submitted and status exposes the terminal state and accumulated counts
-
-#### Scenario: Search ownership propagates
-
-- **Given** an authenticated user starting a valid Search Run
-- **When** Search submits generated Candidates
-- **Then** the Run, definitions, Leaderboard scope, and Candidates resolve to that same trusted owner
