@@ -2,11 +2,56 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-114`
+Instruction ID: `INS-115`
 
-Status: `APPROVED_FOR_EXECUTION`
+Status: `HOLD`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-115 — HOLD after ENV-07 Strategy PostgreSQL review
+
+This signal supersedes `INS-114 / APPROVED_FOR_EXECUTION` after the Instructor
+independently reviewed the Manager checkpoint, the exact source delta, Git
+state, local PostgreSQL evidence, and the control plane. No implementation
+packet is authorized while this signal is current.
+
+### Reviewed checkpoint and outcome
+
+- The canonical checkout is `D:/agy-cli-projects/AOS/Cryptox` on
+  `MVP_IMPLEMENTATION` at `6653191` (`fix(strategy): reconcile composite
+  persistence mapping`), with `c5e9df0` as the INS-114 authorization
+  checkpoint and `d274f52` as the ENV-06 integration ancestor.
+- ENV-07 is recorded as `REVIEW / NEEDS_INSTRUCTOR_REVIEW` in the sole
+  operational task board. The board has 48 rows: `42 DONE`, `4 REVIEW`
+  (`ENV-05`, `I-01R`, `I-01`, `ENV-07`), and `2 BLOCKED` (`I-02`, `I-03`).
+- The worker changed only the authorized Strategy PostgreSQL source path;
+  the integration spec was not changed. The final mapping preserves the
+  existing camelCase JSON payload and aliases its quoted fields into the
+  existing snake_case CTE names.
+- Real local PostgreSQL evidence proves the two ENV-07 behavioral assertions
+  (`2/2`): same-owner composite persistence with exact component versions,
+  owner-filtered read, and cross-owner rejection. The focused suite still
+  exits nonzero because its pre-existing `afterAll` deletes users before
+  `composite_components`, violating `composite_components_strategy_fk`.
+- Independent validation: local migration validation PASS; Strategy unit
+  `5/5`; workspace tests PASS with the expected environment-gated skips; root
+  build/typecheck/lint PASS; architecture, deferred-scope `13/13`, scope,
+  artifacts, runtime smoke, secret/log, exact-path, whitespace, and diff
+  checks PASS. OpenSpec CLI remains `UNVERIFIED`.
+- The Manager's only staging attempt was denied by Git ACL at
+  `.git/index.lock`; the Instructor integrated the already-reviewed exact
+  three-path delta once with elevated Git. No retry was made, and
+  `.codex/config.toml` remains untouched and untracked.
+
+### HOLD boundary
+
+- Do not mark ENV-07 `DONE` until the real integration command exits cleanly.
+- The teardown cleanup is a separate, narrow follow-up authorization; it does
+  not authorize changes to the Strategy source fix, schema, migrations,
+  contracts, ownership, algorithms, checkers, or unrelated tests.
+- Keep `I-01R`, `I-01`, `I-02`, `I-03`, all E1 extension packets, and all
+  deferred scope unchanged. Do not create a Manager or worker under this
+  HOLD signal.
 
 ## INS-114 — ENV-07 Strategy PostgreSQL Composite Persistence Reconciliation
 

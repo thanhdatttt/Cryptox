@@ -1281,3 +1281,42 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [MVP plan](../implementation/MVP_PLAN.md), [Task state](../implementation/TASKS.md),
 [Latest checkpoint](../implementation/HANDOFF.md), `DEC-034`, `INS-113`, and
 commit `391d639`.
+
+## DEC-036 — ENV-07 held after independent integration review
+
+Status: `APPROVED`
+
+Authority: Independent Instructor review after the `INS-114` Manager
+checkpoint, the exact ENV-07 source/control integration at `6653191`, and
+fresh local Docker/PostgreSQL validation.
+
+Decision: Preserve the exact Strategy PostgreSQL JSON-key reconciliation and
+the Manager checkpoint in commit `6653191`, but keep `ENV-07` at
+`REVIEW / NEEDS_INSTRUCTOR_REVIEW` and replace the current signal with
+`INS-115 / HOLD`. The real assertions pass, but the focused integration
+command remains nonzero because its existing `afterAll` cleanup deletes
+fixture users before `composite_components`, violating the
+`composite_components_strategy_fk` foreign key. The cleanup is a separate
+single-purpose authorization. Do not close `I-01R`, resume `I-01`, start
+`I-02`/`I-03`, or promote any extension packet.
+
+Why: The source delta is within the approved ENV-07 boundary and independently
+preserves the existing camelCase payload, version/provenance behavior,
+owner-filtered reads, cross-owner rejection, schema, contracts, and
+algorithms. Real local PostgreSQL proves `2/2` ENV-07 assertions. Independent
+non-DB gates, local migration validation, and the deferred-scope `13/13`
+suite pass, while the teardown failure is a genuine required-test failure,
+not a reason to weaken the checker or broaden the packet. OpenSpec CLI is
+`UNVERIFIED`; the Manager's staging attempt was blocked by Git ACL and the
+already-reviewed exact delta was integrated once by the Instructor.
+
+Affected: `ENV-07`, `I-01R`, `I-01`, `I-02`, `I-03`, `MVP_PLAN.md`, `TASKS.md`,
+`HANDOFF.md`, `INS-114`, `INS-115`, and the integration DAG. Requirements,
+approved functional image amendments, accepted ADRs, completed packet states,
+and deferred scope remain unchanged.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [Architecture](../architecture.md),
+[Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-035`, `INS-114`, and commit `6653191`.
