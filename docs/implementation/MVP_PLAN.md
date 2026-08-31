@@ -283,6 +283,20 @@ Ephemeral Market Data observability is joined only to delivery and frontend stat
 never to `B-03` historical input. `I-03` owns the final cross-module transaction,
 provider, provenance, and no-secret evidence for this extension frontier.
 
+The current I-02 review established a residual integration join that was not
+represented by the original extension DAG:
+
+```text
+S-04 module seam DONE + I-02 review gap
+  -> S-04I BLOCKED: public LLM authoring composition/reconciliation
+  -> fresh I-02 final revalidation authorization
+```
+
+`S-04I` is a required implementation reconciliation under the approved
+`LLM_AUTHORING_V1` behavior, not an expansion into autonomous or unconfigured
+LLM use. It must be added to `TASKS.md` by the Manager before execution; the
+Instructor does not edit the operational board.
+
 ## Execution waves
 
 | Wave | Gate | Parallel frontier | Exit checkpoint |
@@ -314,7 +328,8 @@ continuation of the legacy waves:
 | E2 | E1 packet reviews | `E-02` then `L-02` | Decimal evaluation and extension-aware ranking are proven |
 | E3 | E2 plus all E1 packets | `F-03` | Functional-state frontend projections pass without business logic |
 | E4 | E3 plus baseline `I-01` and `AU-02` | `I-03` | Shared-boundary joins, real-provider readiness, and reproducibility proof pass |
-| E5 | `I-03` DONE | Existing `I-02` | Full required demo and final verification include DEC-007 evidence |
+| E5R | I-02 review identifies missing required LLM public composition | `S-04I` only | LLM authoring is consumable through the authenticated runtime boundary |
+| E5 | `I-03` DONE and `S-04I` accepted | Existing `I-02` | Full required demo and final verification include DEC-007 evidence |
 
 ## Task state and checkpoint protocol
 
@@ -1448,6 +1463,62 @@ Instructor signal can authorize one safe frontier without treating the legacy
 - **Definition of Done:** Draft, validation, Save/Approve, failure, provenance,
   and public-boundary evidence are reviewed. **Parallel:** YES after `C-02` with
   disjoint scope; **Critical:** `N-03`/`F-03` join.
+
+### S-04I — `LLM_AUTHORING_V1` Public Composition Reconciliation
+
+- **Requirement IDs:** `CSL-R-ST-05`, `CSL-R-RP-02`, `CSL-R-OW-01`, and the
+  configured-runtime portion of `CSL-R-RD-01`.
+- **State / owner / wave:** BLOCKED / Manager plus bounded integration workers /
+  E5 residual. This packet was added after the I-02 review identified that the
+  completed S-04 module seam was not composed into the public runtime.
+- **Start dependencies:** `C-02`, `S-04`, `N-03`, `F-03`, `AU-02`, `I-01`, and
+  `I-03` are independently `DONE`; the source/business checkpoint is the
+  reviewed `c9d2a26` I-02 checkpoint. The packet is not a retry or reopening of
+  S-04 and does not promote I-02 automatically.
+- **Objective:** Expose the existing provider-neutral Strategy authoring
+  application through the canonical Strategy API, PostgreSQL draft repository,
+  authenticated backend REST boundary, and frontend workflow. The configured
+  OpenAI-compatible adapter remains server-side and requires explicit runtime
+  endpoint, model, and key values; no value is committed or sent to the browser.
+  Missing configuration must fail closed with no provider call or persistence
+  side effect.
+- **Exact write scope and delegation:**
+  1. one sequential worker owns the Strategy public contract/bootstrap,
+     application composition, existing `strategy_authoring_drafts` PostgreSQL
+     repository adapter, and focused Strategy tests under
+     `modules/strategy/**` (no migration or other module);
+  2. after that contract checkpoint, one sequential worker owns the REST DTOs,
+     parser/mapper, authenticated capability routes, runtime configuration, and
+     backend tests under `packages/contracts/rest/strategy.ts`, its direct REST
+     barrel/tests, and named `apps/backend/src/**` files;
+  3. after the backend checkpoint, one sequential worker owns the authoring
+     client/state/panel and focused tests under `apps/frontend/src/**`.
+  The workers have disjoint scopes and may not edit control-plane files,
+  requirements, ADRs, News/Sentiment, Search, Backtesting, migrations, or
+  deferred/autonomous LLM behavior. The Manager owns only the new operational
+  row, `HANDOFF.md`, integration, and checkpoint commits.
+- **Acceptance/tests:** A configured test adapter receives at most one bounded
+  JSON request with an authorization header and no key in the body/result/logs;
+  malformed, timed-out, failed, or unconfigured output creates no draft/definition;
+  deterministic parameter validation precedes explicit authenticated
+  Validate/Save/Approve; approval creates exactly one immutable owner-scoped
+  version and safe origin; User A/B and unauthenticated REST access are isolated;
+  approved News input uses only the News public boundary; the browser never
+  receives a provider key and clearly distinguishes DRAFT/VALIDATED/APPROVED/
+  unavailable states.
+- **Validation:** Focused module/REST/backend/frontend tests, PostgreSQL draft
+  persistence integration, workspace build/typecheck/lint/test, architecture,
+  artifacts, scope/deferred checks, runtime smoke, secret/log scan, and diff
+  checks. Real provider execution is `PASS` only when a real endpoint/model/key
+  are configured in the runtime; otherwise it is `BLOCKED`/`UNVERIFIED` and no
+  fixture provider may be promoted.
+- **Prohibitions and stop condition:** No direct Strategy-domain network I/O, raw
+  prompt/completion persistence, automatic approval, client-side key, arbitrary
+  URL fetch, LLM-driven search/trading, new migration, or I-02/downstream start.
+  Stop at `REVIEW` if any contract, runtime, configured-provider, or browser
+  evidence is unavailable; a fresh Instructor authorization is required before
+  I-02 final revalidation. **Parallel:** NO across the three dependent workers;
+  **Critical:** YES to final I-02.
 
 ### S-05 — Immutable `WEIGHTED_VOTE_V1` Composite
 
