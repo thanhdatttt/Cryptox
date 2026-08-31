@@ -2,11 +2,60 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-152`
+Instruction ID: `INS-153`
 
-Status: `APPROVED_FOR_EXECUTION`
+Status: `HOLD`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-153 — HOLD after independent INS-152 configuration audit
+
+This signal supersedes `INS-152 / APPROVED_FOR_EXECUTION`. The two authorized
+workers completed and the Manager's bounded implementation/configuration delta
+passed its deterministic gates, but independent Instructor review found one
+functional configuration defect before acceptance: the secret-free `.env`
+template contains an intentionally empty optional
+`COINDESK_RSS_ALLOWED_URLS` value, while the new runtime parser currently
+classifies any present empty list as invalid. A user who copies the template
+therefore loses the otherwise valid CoinDesk RSS composition. This is a narrow
+reconciliation defect, not a reason to widen I-02 or start downstream work.
+
+### Reviewed checkpoint and exact unaccepted delta
+
+- Canonical checkout: `D:\\agy-cli-projects\\AOS\\Cryptox`, branch
+  `MVP_IMPLEMENTATION`, authorization HEAD
+  `5ab03f545dc2e2998530a942776ac889cd7d0a89`. The Manager and both workers
+  are terminal; no Cryptox Manager, worker, retry, replacement, duplicate, or
+  worktree is active.
+- `TASKS.md` records 57 rows: 56 `DONE`, only `I-02` at `REVIEW`, and no other
+  active row. `I-02D`, `I-01`, and `I-03` remain `DONE`.
+- The reviewed INS-152 working-tree delta is limited to the two Worker A
+  runtime/test paths, the Worker B configuration/Docker/frontend/documentation
+  paths, and Manager-owned `TASKS.md`/`HANDOFF.md`; `.codex/config.toml` is
+  pre-existing and excluded. The Manager's one explicit staging/commit attempt
+  failed before staging with `.git/index.lock: Permission denied`. The delta
+  is not yet accepted as a complete packet until the empty-optional-list defect
+  is corrected and revalidated.
+- Independent review accepts the reported deterministic gates at their stated
+  boundaries (459 tests with 9 environment-gated skips, focused runtime 12/12,
+  build/typecheck/lint, architecture/artifact/deferred-scope/scope checks,
+  runtime smoke, Compose interpolation, and frontend server-only bundle scan),
+  but does not promote live CoinDesk/Gemini, Docker runtime/PostgreSQL,
+  authenticated browser/demo, clean-install, or OpenSpec CLI evidence.
+
+### Hold boundary
+
+Keep `I-02` at `REVIEW`. No downstream packet is authorized. The next
+authorization may address only the empty optional RSS allowlist handling and
+its regression test; it must not redesign provider composition, add a native
+Gemini integration, map `GEMINI_*`, change Docker architecture, or use a
+credential. The existing INS-152 source/configuration delta may be integrated
+as the reviewed-but-not-yet-final checkpoint; the correction must be performed
+by a fresh Manager/worker under a new committed signal.
+
+No credential was requested, printed, stored, or committed. Missing live
+provider, Docker, browser, clean-install, or OpenSpec evidence remains
+`BLOCKED`/`UNVERIFIED`, never PASS.
 
 ## INS-152 — APPROVED_FOR_EXECUTION for bounded provider and local configuration completion
 

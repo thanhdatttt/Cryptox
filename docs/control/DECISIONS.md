@@ -2946,3 +2946,34 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 `DEC-072`, `INS-151`, `INS-152`, the
 [CoinDesk RSS announcement](https://www.coindesk.com/coindesk-news/2021/09/17/coindesk-rss),
 and [Google Gemini OpenAI compatibility](https://ai.google.dev/gemini-api/docs/openai).
+
+## DEC-074 — Hold after independent INS-152 configuration audit
+
+Status: `HOLD`
+
+Authority: Independent Instructor review after the fresh INS-152 Manager and
+its two sequential hidden workers completed. The authorized delta is confined
+to the recorded runtime, test, local `.env`, Docker, frontend, documentation,
+and Manager checkpoint paths. Deterministic validation passed at its stated
+boundaries, but the root template's empty optional
+`COINDESK_RSS_ALLOWED_URLS=` is treated by the runtime parser as invalid rather
+than absent. This prevents a copied `.env.example` from composing the valid
+CoinDesk RSS configuration and must be corrected before acceptance.
+
+Keep `I-02` at `REVIEW` and the repository on `HOLD`. The Manager's single
+explicit staging attempt failed before staging with `.git/index.lock:
+Permission denied`; the parent Instructor may integrate the exact reviewed
+INS-152 delta for traceability, but no source change is accepted as complete
+until a fresh authorization fixes this defect. Authorize no downstream packet,
+provider redesign, native Gemini SDK, `GEMINI_*` alias, credential use, retry,
+replacement, or duplicate. A future instruction may authorize only the
+empty-optional-list parser correction and focused regression through one fresh
+Manager and one hidden worker.
+
+Affected: `I-02`, `TASKS.md`, `HANDOFF.md`, `INS-152`, `INS-153`, and the
+bounded provider/configuration evidence boundary.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-073`, `INS-152`, and `INS-153`.
