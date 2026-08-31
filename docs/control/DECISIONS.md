@@ -1607,3 +1607,47 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-042`, `INS-121`, and commit `5e06fdf`.
+
+## DEC-044 — I-01 closure accepted; HOLD before I-03
+
+Status: `APPROVED`
+
+Authority: Independent Instructor review after the fresh `INS-122` closure
+Manager checkpoint, the exact Manager delta in `TASKS.md`/`HANDOFF.md`, the
+unchanged I-01 source at `5e06fdf`, and the current repository/control-plane
+audit.
+
+Decision: Accept the authorized `I-01 REVIEW → DONE` transition. The
+authoritative board is now exactly 49 rows: `47 DONE` and `I-02`/`I-03`
+`BLOCKED`. Replace the current signal with `INS-123 / HOLD`; authorize no
+implementation or downstream work from this decision. The Manager's single
+explicit commit attempt was denied by the `.git/index.lock` permission error;
+the exact two-file Manager delta must be preserved when the Instructor creates
+the governance checkpoint commit, without staging `.codex/config.toml`.
+
+Why: The closure review found no source/business drift and no scope leakage.
+The authorized recorded PostgreSQL/application, migration, Binance,
+configured-runtime, HTTP, workspace, architecture, artifacts, scope, and
+deferred-scope evidence remains valid. The one fresh read-only verifier timed
+out and is recorded `UNVERIFIED` without retry or replacement. Current
+Docker/Compose and sandbox Binance reruns, CoinDesk News without credentials,
+OpenSpec CLI, and browser/final-demo evidence remain `BLOCKED`/`UNVERIFIED`;
+none is claimed as PASS, and no mock provider is used as final evidence.
+
+Next frontier: `I-03` is the only candidate because its recorded extension
+dependencies and baseline `I-01` are DONE. This decision does not authorize
+I-03. A fresh Instructor review and separate bounded `INS-* /
+APPROVED_FOR_EXECUTION` signal are required before creating its one fresh
+same-directory Manager, with worker scopes, real-provider obligations, and
+stop conditions explicitly stated.
+
+Affected: `I-01`, `I-02`, `I-03`, `TASKS.md`, `HANDOFF.md`, `INS-122`,
+`INS-123`, and the integration DAG. Requirements, approved functional image
+amendments, accepted ADRs, contracts, completed packets, integrated source,
+and deferred scope remain unchanged.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [Architecture](../architecture.md),
+[Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-043`, `INS-122`, and commit `5e06fdf`.
