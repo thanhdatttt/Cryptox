@@ -1369,3 +1369,39 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-036`, `INS-115`, and commit `6653191`.
+
+## DEC-038 — ENV-08 and ENV-07 accepted; HOLD before I-01R review
+
+Status: `APPROVED`
+
+Authority: Independent Instructor review after the `INS-116` Manager
+checkpoint, the exact ENV-08/ENV-07 integration at `09ba93b`, and fresh local
+Docker/PostgreSQL evidence.
+
+Decision: Accept the bounded ENV-08 teardown reconciliation and the conditional
+ENV-07 closure as `DONE` in the operational board. Replace the current signal
+with `INS-117 / HOLD`. Preserve the exact source/test/control changes and
+evidence, but do not close `I-01R`, resume `I-01`, start `I-02`/`I-03`, or
+promote any extension/downstream packet without a fresh authorization.
+
+Why: The worker changed only the authorized integration-test teardown ordering;
+the production Strategy source and assertions remain unchanged. Independent
+local PostgreSQL execution passed both tests (`2/2`, exit `0`) and proved the
+ENV-07 ownership, version, and persistence behavior with no teardown FK error.
+Strategy unit `5/5`, workspace `409` passed with `8` expected environment-gated
+skips, build/typecheck/lint, architecture, scope, deferred-scope `13/13`,
+artifacts, runtime smoke, migration validation, and hygiene checks all pass.
+OpenSpec CLI is `UNVERIFIED`. The Manager's single Git staging attempt was
+ACL-blocked; the Instructor integrated the exact reviewed delta once.
+
+Affected: `ENV-08`, `ENV-07`, `ENV-05`, `I-01R`, `I-01`, `I-02`, `I-03`,
+`MVP_PLAN.md`, `TASKS.md`, `HANDOFF.md`, `INS-116`, `INS-117`, and the
+integration DAG. Requirements, approved functional image amendments, accepted
+ADRs, completed packet states, integrated Strategy source, and deferred scope
+remain unchanged.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [Architecture](../architecture.md),
+[Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-037`, `INS-116`, and commit `09ba93b`.

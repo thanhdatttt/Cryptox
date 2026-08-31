@@ -2,11 +2,59 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-116`
+Instruction ID: `INS-117`
 
-Status: `APPROVED_FOR_EXECUTION`
+Status: `HOLD`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-117 — HOLD after ENV-08 and ENV-07 independent review
+
+This signal supersedes `INS-116 / APPROVED_FOR_EXECUTION` after the Instructor
+independently reviewed the exact ENV-08 worker delta, real PostgreSQL run,
+full validation evidence, Git scope, and control-plane transitions. ENV-07
+and ENV-08 are accepted as DONE at their bounded frontier. No new packet is
+authorized while this signal is current.
+
+### Reviewed checkpoint and outcome
+
+- The canonical checkout is `D:/agy-cli-projects/AOS/Cryptox` on
+  `MVP_IMPLEMENTATION` at `09ba93b` (`test(strategy): clean PostgreSQL
+  integration teardown`), with the ENV-07 source repair integrated at
+  `6653191` and the prior Instructor authorization at `44e3603`.
+- The authoritative task board has 49 rows: `44 DONE`, `3 REVIEW`
+  (`ENV-05`, `I-01R`, `I-01`), and `2 BLOCKED` (`I-02`, `I-03`). ENV-07 and
+  ENV-08 each completed the required bounded state transitions; no other row
+  changed.
+- Exactly one fresh ENV-08 worker (Einstein) changed only
+  `modules/strategy/infrastructure/postgres.integration.spec.ts`. The
+  teardown now deletes dependent composite rows, composite definitions,
+  Strategy definitions, and fixture users in foreign-key-safe order. The
+  existing assertions and production `modules/strategy/infrastructure/postgres.ts`
+  are unchanged from the reviewed ENV-07 checkpoint.
+- Independent local Docker/PostgreSQL evidence: the focused Strategy
+  integration passed `2/2` with exit `0`, including same-owner composite
+  persistence, exact component versions, owner-filtered reads, and
+  cross-owner rejection; the teardown produced no foreign-key error. Strategy
+  unit tests passed `5/5`, workspace tests passed `409` with `8` expected
+  environment-gated skips, and build/typecheck/lint, architecture, scope,
+  deferred-scope `13/13`, artifacts, runtime smoke, secret/log, exact-path,
+  whitespace, and diff checks passed. Local migration validation passed.
+- OpenSpec CLI remains `UNVERIFIED` because the executable is unavailable.
+  `.codex/config.toml` remains the sole untouched untracked path. The Manager's
+  staging attempt was denied once by Git ACL; the Instructor integrated the
+  already-reviewed exact three-path delta once without staging that file and
+  without retrying the denied attempt.
+
+### HOLD boundary
+
+- Keep ENV-07 and ENV-08 `DONE` and preserve their exact commits and evidence.
+- Keep `ENV-05`, `I-01R`, and `I-01` at `REVIEW`, `I-02` and `I-03` at
+  `BLOCKED`, and all E1/deferred scope unchanged. Do not infer readiness or
+  start any downstream packet from this HOLD signal.
+- The next authorization requires a fresh Instructor review of the current
+  I-01R frontier, exact dependencies, source/business state, and absence of
+  active Cryptox Manager/worker before dispatch.
 
 ## INS-116 — ENV-08 Strategy PostgreSQL integration teardown and ENV-07 closure
 
