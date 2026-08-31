@@ -2382,3 +2382,38 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-060`, `INS-139`, and `S-04N`.
+
+## DEC-062 — Hold after independent S-04N reconciliation
+
+Status: `APPROVED`
+
+Authority: Independent Instructor audit after the one fresh same-directory
+control-only Manager under `INS-140 / DEC-061` completed S-04N. The Manager
+changed only `TASKS.md` and `HANDOFF.md`, created no worker, and stopped at
+`REVIEW`. Its one staging attempt was denied by `.git/index.lock` permission
+and was not retried.
+
+Decision: Accept the exact Manager-authored control-plane delta and persist
+`INS-141 / HOLD`. S-04I through S-04M are now `DONE`; S-04N remains `REVIEW`
+as the completed control checkpoint; I-02 remains `REVIEW`. The resulting
+board has 55 rows: 53 `DONE`, 2 `REVIEW`, and no `READY`, `IN_PROGRESS`, or
+`BLOCKED` row. No unrelated task state or source/business state changed.
+
+The accepted combined S-04I–S-04M evidence remains frontend `49/49` including
+authoring `11/11`, Strategy `129` with 3 PostgreSQL-gated skips, root
+`verify:stage4a`, checker `15/15` plus live scan, architecture/artifacts/
+runtime-smoke/exact-path/whitespace/secret-log/diff checks. PostgreSQL/Auth,
+configured LLM, Binance/News, browser/demo, and OpenSpec remain
+`BLOCKED`/`UNVERIFIED`; no final I-02 claim is made. A separate authorization
+is required for final I-02 verification.
+
+Affected: `S-04N`, `S-04M`, `S-04L`, `S-04K`, `S-04J`, `S-04I`, `I-02`,
+`TASKS.md`, `HANDOFF.md`, `INS-140`, `INS-141`, and the final MVP checkpoint.
+Existing requirements, functional image authority, ADRs, contracts,
+architecture, data model, and deferred scope remain unchanged.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [Architecture](../architecture.md),
+[Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-061`, `INS-140`, and `S-04N`.

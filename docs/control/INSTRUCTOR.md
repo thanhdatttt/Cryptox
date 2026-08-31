@@ -2,11 +2,53 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-140`
+Instruction ID: `INS-141`
 
-Status: `APPROVED_FOR_EXECUTION`
+Status: `HOLD`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-141 — HOLD after S-04N residual closure reconciliation
+
+This signal supersedes `INS-140 / APPROVED_FOR_EXECUTION` after the one fresh
+same-directory control-only Manager completed the authorized S-04N checkpoint.
+It authorizes no new Manager, worker, retry, replacement, duplicate, I-02
+transition, or downstream packet until a new authorization is committed.
+
+### Independent Instructor review
+
+- The Manager changed only `docs/implementation/TASKS.md` and
+  `docs/implementation/HANDOFF.md` and created no worker/subagent. The exact
+  tracked delta is preserved for this Instructor checkpoint; the app-generated
+  untracked `.codex/config.toml` remains untouched and outside scope.
+- The Manager verified the authorization at HEAD `a70ed88135d0d803bfcf49f2712249e5c61bdd37`,
+  reconciled only the authorized rows, and stopped at `REVIEW`. Independent
+  review confirms the board is now 55 rows: `53 DONE`, `2 REVIEW` (`I-02` and
+  `S-04N`), with no `READY`, `IN_PROGRESS`, or `BLOCKED` task row. All
+  unrelated rows are unchanged.
+- `S-04I`, `S-04J`, `S-04K`, `S-04L`, and `S-04M` are accepted as the bounded
+  combined checkpoint at `16a347e`. Frontend `49/49` including authoring
+  `11/11`, Strategy `129` with `3` PostgreSQL-gated skips, root
+  `verify:stage4a`, checker `15/15` plus live scan, architecture, artifacts,
+  runtime smoke, exact-path, whitespace, secret/log, and diff evidence are
+  recorded and consistent. No source or business-state drift was found.
+- The single Manager staging attempt was denied by
+  `.git/index.lock` permission. The exact error is recorded once in
+  `HANDOFF.md`; no retry or commit was made. This Instructor checkpoint
+  persists the Manager-authored two-file delta without changing its content.
+- PostgreSQL/Auth, configured LLM, Binance/News, browser/demo, and OpenSpec
+  evidence remain `BLOCKED`/`UNVERIFIED`; fixtures, skips, and packet-local
+  evidence are not promoted to final I-02 or live-provider PASS claims.
+
+### Hold boundary and next review
+
+- Keep `S-04N` at `REVIEW` for this completed control-only checkpoint and keep
+  `I-02` at `REVIEW`. No feature work is authorized by this signal.
+- Before the next authorization, revalidate the resulting Git commit, exact
+  control-plane paths, task/DAG/checkpoint consistency, absence of active
+  Cryptox Manager/worker tasks, and the final I-02 scope in `MVP_PLAN.md`,
+  `TASKS.md`, `HANDOFF.md`, requirements, accepted ADRs, architecture, data
+  model, and active specifications.
 
 ## INS-140 — APPROVED_FOR_EXECUTION for S-04N residual closure reconciliation
 

@@ -1,42 +1,94 @@
-# S-04M LLM_AUTHORING_V1 Final Frontend Test and Checker Closure — INS-138
+# S-04N E5R Residual S-04 Checkpoint Reconciliation — INS-140
 
 ## Authority and start checkpoint
 
-- This is the terminal bounded execution checkpoint for `INS-138 / APPROVED_FOR_EXECUTION`, authorized by `DEC-059` in governance commit `35e6216`.
-- S-04M is a distinct residual packet, not a retry or replacement of Noether or any earlier Manager/worker. It authorized exactly two sequential hidden internal workers plus the Manager-owned TASKS/HANDOFF checkpoint.
-- Canonical checkout: `D:\\agy-cli-projects\\AOS\\Cryptox`, branch `MVP_IMPLEMENTATION`, authorization HEAD `35e6216`.
-- The governance commit changed only `docs/control/INSTRUCTOR.md` and `docs/control/DECISIONS.md`; the reviewed source/business checkpoint remained unchanged.
-- Bootstrap verified 53 task rows with 48 `DONE` and five `REVIEW` rows (`I-02`, `S-04I`, `S-04J`, `S-04K`, `S-04L`), all original S-04I dependencies `DONE`, and no other active implementation Manager/worker. The final board has 54 rows: 48 `DONE` and six `REVIEW`.
-- The preserved dirty set is the Strategy/frontend implementation and test paths, the two checker paths, `docs/implementation/TASKS.md`, this handoff, and untracked `apps/frontend/src/features/authoring.spec.ts`. Untracked `.codex/config.toml` is app-generated, untouched, and outside scope.
+- `INS-140 / APPROVED_FOR_EXECUTION` is the current committed Instructor signal,
+  authorized by `DEC-061` and superseding `INS-139 / HOLD`.
+- This was one fresh same-directory control-only Manager execution in
+  `D:\\agy-cli-projects\\AOS\\Cryptox` on `MVP_IMPLEMENTATION`. No worker,
+  subagent, retry, replacement, duplicate, worktree, I-02 transition, or
+  downstream packet was created or started.
+- The reviewed authorization checkpoint was `69ac2ba`. Current HEAD at the
+  start was `a70ed88135d0d803bfcf49f2712249e5c61bdd37`; the delta from
+  `69ac2ba` contains only `docs/control/INSTRUCTOR.md` and
+  `docs/control/DECISIONS.md`, so the signal remained applicable. The only
+  pre-existing worktree item was untracked app-generated `.codex/config.toml`,
+  which remained untouched and outside scope.
+- The accepted source/checker integration is `16a347e`. The current source
+  tree is byte-identical at all 13 accepted implementation/test paths checked
+  against that commit, and the only current changes after `16a347e` are
+  governance files; no source or business-state drift was found.
+- Pre-edit `TASKS.md` had 54 operational rows: 48 `DONE` and six `REVIEW`
+  (`I-02`, `S-04I`, `S-04J`, `S-04K`, `S-04L`, `S-04M`). There were no
+  `READY` or `IN_PROGRESS` rows, all original S-04I dependencies were `DONE`,
+  and repository agent markers contained no active Manager/worker/retry state.
 
-## State transitions and dependencies
+## Accepted S-04I–S-04M evidence
 
-- S-04M was the sole new operational row and moved exactly `BLOCKED -> READY -> IN_PROGRESS -> REVIEW` after authorization, checkpoint, dependency, and write-scope verification.
-- Start dependencies were verified: S-04L, S-04K, S-04J, and S-04I were `REVIEW`; I-02 was `REVIEW`; all original S-04I dependencies were `DONE`; and no other implementation task was active.
-- S-04L, S-04K, S-04J, S-04I, and I-02 remain unchanged. No downstream packet was started or authorized.
+- The historical S-04I public-composition source checkpoint is `f872590`;
+  the accepted combined source/checker checkpoint is `16a347e`, whose exact
+  15-path delta contains the accumulated frontend, Strategy, checker, and
+  control-plane evidence. Current accepted implementation objects match the
+  `16a347e` objects at every checked source/test path.
+- The combined evidence proves the bounded residual sequence: Strategy public
+  composition and owner-scoped REST/backend seams; cross-context exactly-one
+  approval; typed same-origin frontend authoring with DRAFT/VALIDATED/APPROVED,
+  failure, and unavailable states; approved-News input boundaries; safe
+  provenance and credential/raw-prompt/raw-completion exclusion; and the exact
+  deferred-scope checker boundary.
+- Recorded validation is frontend `49/49` across 14 files, including authoring
+  `11/11`; Strategy `129` passed with 3 PostgreSQL-gated skips; frontend
+  build/typecheck/lint; root `verify:stage4a`; checker regression `15/15` plus
+  the live deferred-scope scan; architecture, artifacts, runtime smoke,
+  exact-path, whitespace, secret/log, and diff checks PASS.
+- Runtime smoke evidence remains the recorded `/live=200`, `/ready=503`, and
+  `/health=404` result. PostgreSQL/Auth, configured LLM, Binance/News,
+  browser/demo, and OpenSpec CLI evidence remain `BLOCKED` or `UNVERIFIED`.
+  Fixtures and PostgreSQL-gated skips were not promoted to live evidence, and
+  this checkpoint makes no final I-02 claim.
 
-## Worker 1 — frontend test closure
+## State transitions and stop boundary
 
-- Gauss (`01a0576c-8876-77d2-bede-0b0c942103ba`) was the one fresh hidden internal frontend-test worker, dispatched with the available `priority` service tier. It created no child, branch, worktree, commit, retry, replacement, or control-plane edit.
-- Its accepted diff is limited to the two authorized test paths: `apps/frontend/src/features/screens.spec.tsx` now asserts that the READY Save action is not disabled, and `apps/frontend/src/features/authoring.spec.ts` calls the zero-argument fixture `news()` method.
-- Independent Manager review passed: focused screens plus authoring tests are 14/14 (`3 + 11`), frontend typecheck passes, the target diff check passes, and no worker path outside the two authorized files appeared.
-- No production source, fixture-data, contract, backend, Strategy, migration, provider, or control-plane path was changed by this worker.
+- `S-04I`, `S-04J`, `S-04K`, `S-04L`, and `S-04M` each transitioned exactly
+  `REVIEW -> DONE` under `INS-140`, based on the independently accepted
+  combined checkpoint above.
+- `S-04N` was the sole new operational row and transitioned exactly
+  `BLOCKED -> READY -> IN_PROGRESS -> REVIEW`. It remains `REVIEW` for fresh
+  Instructor audit after this bounded control checkpoint.
+- `I-02` remains `REVIEW`. Every unrelated task row and state is unchanged;
+  no newly unlocked or downstream work was started or promoted.
+- The operational table in `TASKS.md` remains the sole task-state authority.
+  The pre-existing prose under its historical “State derivation” section was
+  not edited because this authorization permits only the S-04I–S-04M
+  transitions plus the S-04N row and requires unrelated task state to remain
+  unchanged.
 
-## Worker 2 — deferred-scope checker closure
+## Validation performed in this control-only execution
 
-- Locke (`01a05772-47b4-7151-aa37-1081c6d0fc1e`) was dispatched only after Worker 1 review and focused gates passed, as the one fresh hidden internal checker worker, with the available `priority` service tier. It created no child, branch, worktree, commit, retry, replacement, or control-plane edit.
-- Its accepted diff is limited to `scripts/check-deferred-scope.cjs` and `scripts/check-deferred-scope.test.cjs`. The LLM_AUTHORING_V1 allowlist now names the exact canonical REST file `packages/contracts/rest/strategy.ts` and the two already-approved frontend transport paths, while near-match REST/frontend paths remain rejected.
-- Independent Manager review passed: checker regression tests are 15/15, the live deferred-scope check passes, the restricted diff check passes, and no other rule/profile or product path changed.
+- Branch/HEAD/applicability checks PASS: `MVP_IMPLEMENTATION`, start HEAD
+  `a70ed88135d0d803bfcf49f2712249e5c61bdd37`, and governance-only delta from
+  the reviewed `69ac2ba` checkpoint.
+- Task/DAG/checkpoint checks PASS: the authorized S-04N dependency and E5R
+  sequence were present in `MVP_PLAN.md`; the pre-edit board had the expected
+  54 rows and six REVIEW rows; post-edit the board has 55 rows, 53 `DONE`, and
+  two `REVIEW` (`I-02`, `S-04N`), with no `READY` or `IN_PROGRESS` row.
+- Accepted-source integrity checks PASS: `16a347e` resolves, its 15-path
+  delta was verified, and no accepted implementation/test path drifted at
+  current HEAD.
+- Exact-path review PASS: the authored tracked delta is limited to
+  `docs/implementation/TASKS.md` and `docs/implementation/HANDOFF.md`; the
+  existing untracked `.codex/config.toml` remains excluded.
+- Whitespace and diff checks PASS before the checkpoint attempt. No source or
+  test command was rerun by this control-only packet; the accepted test and
+  runtime evidence above is carried forward from `16a347e` as recorded by the
+  Instructor and prior Manager checkpoint.
 
-## Final validation evidence
+## Checkpoint commit and next action
 
-- Frontend: 14 test files and 49/49 tests passed, including the 11-test authoring file; frontend build, typecheck, and lint pass.
-- Strategy: 129 passed and 3 PostgreSQL-gated skips; the previously proven cross-context exactly-one approval behavior remains preserved.
-- Root workspace: build, typecheck, lint, full tests, architecture/dependency checks, source-sidecar/artifact checks, deferred-scope regression (15/15), live deferred-scope check, and runtime smoke pass. Runtime smoke verified `/live=200`, `/ready=503`, and `/health=404`.
-- Review checks: exact-path check passed with the expected 15 dirty paths plus excluded app-generated `.codex/config.toml`; whitespace and `git diff --check` passed; the focused secret/log scan found no new credential material or sensitive logging in the worker changes.
-- PostgreSQL/Auth, configured LLM, Binance/News, browser/demo, and OpenSpec evidence are not promoted to `PASS`: live PostgreSQL/Auth/provider/demo evidence remains `BLOCKED` or `UNVERIFIED`, skipped tests and fixtures are not live evidence, and the OpenSpec CLI is unavailable in this environment.
-
-## Stop boundary
-
-- S-04M remains `REVIEW`, not `DONE`, for the explicit Instructor audit boundary and the unavailable external evidence above. No prior residual row or I-02 was closed.
-- The Manager will make exactly one final checkpoint staging/commit attempt after this checkpoint is recorded. A Git permission denial is recorded without retry; no further worker, Manager, replacement, duplicate, or downstream packet is authorized.
+- One checkpoint staging attempt was made after the recorded checks. Git denied
+  staging with the exact error `fatal: Unable to create 'D:/agy-cli-projects/AOS/Cryptox/.git/index.lock': Permission denied`.
+  No commit was created; this denial was recorded once and no staging or commit
+  retry was made. The checkpoint remains at `REVIEW` for independent Instructor
+  review with the two control-plane files uncommitted.
+- No PostgreSQL/Auth, configured-LLM, Binance/News, browser/demo, OpenSpec, or
+  final I-02 claim is inferred from packet-local evidence.
