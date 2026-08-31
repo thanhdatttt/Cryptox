@@ -2345,3 +2345,40 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-059`, `INS-138`, and `S-04M`.
+
+## DEC-061 — Authorize S-04N residual closure reconciliation
+
+Status: `APPROVED`
+
+Authority: Independent Instructor audit under `DEC-060 / INS-139` accepted the
+combined S-04I–S-04M source/checker checkpoint at `16a347e`. The latest
+governance HOLD is `69ac2ba`; Git is clean except the app-generated
+`.codex/config.toml`, no implementation task is active, and no Manager or
+worker is running.
+
+Decision: Issue exactly one fresh same-directory control-only Manager
+authorization `INS-140 / APPROVED_FOR_EXECUTION` for distinct packet `S-04N`.
+The Manager may add one S-04N row and reconcile only `S-04I`, `S-04J`,
+`S-04K`, `S-04L`, and `S-04M` from `REVIEW` to `DONE` after verifying the
+combined accepted evidence. It may write only `TASKS.md` and `HANDOFF.md`;
+there is no worker scope. I-02 remains `REVIEW` and is not authorized.
+
+The Manager must use `gpt-5.6-luna` with `max` reasoning in the canonical
+same-directory checkout, perform the full bootstrap and control-plane/DAG
+reconciliation, make one checkpoint commit attempt, and stop for independent
+Instructor review. No source, tests, contracts, migrations, providers,
+requirements, ADRs, OpenSpec, retry, replacement, duplicate, second Manager,
+worker, I-02 transition, or downstream work is authorized. External
+PostgreSQL/Auth, configured LLM, Binance/News, browser/demo, and OpenSpec
+remain `BLOCKED`/`UNVERIFIED` unless actually exercised.
+
+Affected: `S-04N`, `S-04M`, `S-04L`, `S-04K`, `S-04J`, `S-04I`, `I-02`,
+`TASKS.md`, `HANDOFF.md`, `INS-139`, `INS-140`, and the final MVP checkpoint.
+Existing requirements, functional image authority, ADRs, contracts,
+architecture, data model, and deferred scope remain unchanged.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [Architecture](../architecture.md),
+[Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-060`, `INS-139`, and `S-04N`.

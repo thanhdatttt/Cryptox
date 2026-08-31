@@ -2,11 +2,66 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-139`
+Instruction ID: `INS-140`
 
-Status: `HOLD`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-140 — APPROVED_FOR_EXECUTION for S-04N residual closure reconciliation
+
+This signal supersedes `INS-139 / HOLD` and authorizes exactly one fresh
+same-directory control-only Manager for packet `S-04N`. It is not an
+implementation retry or replacement and authorizes no worker, source edit,
+I-02 transition, or downstream work.
+
+### Reviewed checkpoint and applicability
+
+- Canonical checkout: `D:\\agy-cli-projects\\AOS\\Cryptox`, branch
+  `MVP_IMPLEMENTATION`, committed HEAD `69ac2ba` (`INS-139 / DEC-060`). The
+  accepted source/checker integration is `16a347e`; `69ac2ba` contains only
+  Instructor governance. Git is clean except the app-generated untracked
+  `.codex/config.toml`, which is outside scope.
+- `TASKS.md` is authoritative at 54 rows: 48 `DONE` and six `REVIEW`
+  (`I-02`, `S-04I`, `S-04J`, `S-04K`, `S-04L`, `S-04M`); no READY or
+  IN_PROGRESS row exists, and S-04N is not yet on the board. No Cryptox
+  Manager, worker, verifier, retry, replacement, duplicate, or downstream task
+  is active.
+- The combined S-04I–S-04M source/checker checkpoint is independently
+  accepted: frontend `49/49`, authoring `11/11`, Strategy `129` with `3`
+  PostgreSQL-gated skips, root `verify:stage4a`, checker `15/15` plus live
+  scan, architecture, artifacts, runtime smoke, exact-path, whitespace,
+  secret/log, and diff checks pass. External PostgreSQL/Auth, configured LLM,
+  Binance/News, browser/demo, and OpenSpec remain `BLOCKED`/`UNVERIFIED`.
+
+### Exact Manager authorization
+
+- Create exactly one fresh Manager in canonical same-directory checkout
+  `D:/agy-cli-projects/AOS/Cryptox`, branch `MVP_IMPLEMENTATION`, model
+  `gpt-5.6-luna`, reasoning `max`. No worktree, branch, cloud task, duplicate,
+  retry, replacement, or user-visible worker task. The Manager must read
+  `AGENTS.md` and `docs/control/prompts/ORCHESTRATOR_START.md` completely,
+  then verify this signal, Git, TASKS, HANDOFF, MVP_PLAN, DAG, requirements,
+  ADRs, specs, relevant evidence, and active-task state before editing.
+- This is control-only: no worker/subagent may be created. The Manager alone
+  may add exactly one `S-04N` row and update only
+  `docs/implementation/TASKS.md` and `docs/implementation/HANDOFF.md`.
+- After verifying the accepted `16a347e` checkpoint and combined evidence, the
+  Manager may move only `S-04I`, `S-04J`, `S-04K`, `S-04L`, and `S-04M` through
+  `REVIEW -> DONE`, recording the evidence and preserving I-02 as `REVIEW`.
+  If any row's bounded acceptance cannot be proven, leave it at `REVIEW` and
+  report the exact reason; do not edit source or invent evidence.
+
+### Acceptance and stop condition
+
+- Reconcile only the five residual S-04 rows, keep I-02 and all unrelated task
+  states unchanged, and record truthful external `BLOCKED`/`UNVERIFIED`
+  limitations. Run exact-path, task/DAG/checkpoint consistency, whitespace,
+  and diff checks; unavailable checks are never PASS.
+- Make one checkpoint staging/commit attempt and stop immediately at `REVIEW`
+  for independent Instructor audit. Do not start I-02, create a worker, retry,
+  replace, duplicate, or promote any downstream packet. If Git staging is
+  denied, record the exact error once and do not retry.
 
 ## INS-139 — HOLD after S-04M acceptance
 
