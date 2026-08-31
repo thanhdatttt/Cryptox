@@ -2,11 +2,70 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-138`
+Instruction ID: `INS-139`
 
-Status: `APPROVED_FOR_EXECUTION`
+Status: `HOLD`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-139 — HOLD after S-04M acceptance
+
+This signal supersedes `INS-138 / APPROVED_FOR_EXECUTION` after the bounded
+S-04M Manager checkpoint and independent Instructor audit. It authorizes no
+new Manager, worker, retry, replacement, duplicate, I-02 transition, or
+downstream work until a new authorization is committed.
+
+### Accepted checkpoint
+
+- Canonical checkout: `D:\\agy-cli-projects\\AOS\\Cryptox`, branch
+  `MVP_IMPLEMENTATION`, committed HEAD is `16a347e` (`feat: integrate
+  controlled authoring acceptance`). The Instructor integrated the exact
+  reviewed 15-path worker/control delta after the Manager's single staging
+  attempt was denied by `.git/index.lock`; no implementation was changed by
+  the Instructor. The only remaining untracked path is app-generated
+  `.codex/config.toml`, outside scope.
+- `TASKS.md` is authoritative at 54 rows: 48 `DONE` and six `REVIEW`
+  (`I-02`, `S-04I`, `S-04J`, `S-04K`, `S-04L`, `S-04M`); no READY or
+  IN_PROGRESS row exists. The S-04M Manager is idle; Gauss and Locke are
+  complete/idle; no Cryptox Manager, worker, verifier, retry, replacement,
+  duplicate, or downstream task is active.
+- S-04M moved `BLOCKED -> READY -> IN_PROGRESS -> REVIEW`. Its frontend and
+  checker workers were fresh, hidden, sequential, disjoint, and in scope; no
+  prior residual row or I-02 was changed. The source/business checkpoint is
+  unchanged after the accepted integration commit.
+
+### Independent evidence and decision
+
+- Frontend independently passes `14` files / `49` tests, including the new
+  authoring boundary `11/11`; Strategy passes `129` with `3` PostgreSQL-gated
+  skips. Root `verify:stage4a` exits `0`, including build, typecheck, lint,
+  workspace tests, architecture, artifacts, deferred-scope, and runtime smoke.
+- Deferred-scope checker independently passes `15/15` and the live scan; the
+  exact-path, whitespace, `git diff --check`, and focused secret/log checks
+  pass. The checker only recognizes the exact canonical REST file and the
+  approved typed frontend transport paths; near-match rejection remains.
+- PostgreSQL/Auth, configured LLM, Binance/News, browser/demo, and OpenSpec
+  CLI evidence remain `BLOCKED` or `UNVERIFIED`; fixtures/skips are not live
+  evidence. These limitations do not invalidate the packet-local S-04M
+  acceptance, but they still gate final I-02 claims.
+
+Decision: accept S-04M's bounded implementation/checker evidence, keep all six
+current `REVIEW` rows unchanged, persist this `HOLD`, and plan distinct
+control-only packet `S-04N`. S-04N will reconcile the five S-04 residual rows
+from `REVIEW` to `DONE` only after rechecking their combined evidence; it will
+not alter source, add a worker, retry a historical worker, or start I-02.
+
+### Next review conditions
+
+- Re-read the current `MVP_PLAN.md`, `TASKS.md`, `HANDOFF.md`, requirements,
+  accepted ADRs, architecture, data model, active specs, and the S-04N scope.
+- Verify HEAD `16a347e`, the clean accepted source checkpoint, the sole
+  app-generated untracked config path, no active Cryptox Manager/worker, and
+  consistent task/DAG/checkpoint evidence before authorizing S-04N.
+- A later signal may authorize exactly one fresh same-directory control-only
+  Manager for S-04N. It must use `gpt-5.6-luna` with `max` reasoning, must not
+  create a worker because no implementation scope is present, and must stop at
+  the reconciled REVIEW checkpoint. I-02 needs a separate authorization.
 
 ## INS-138 — APPROVED_FOR_EXECUTION for S-04M final test/checker closure
 

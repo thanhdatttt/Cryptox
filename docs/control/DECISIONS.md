@@ -2310,3 +2310,38 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-058`, `INS-137`, and `S-04M`.
+
+## DEC-060 — Hold after independent S-04M acceptance
+
+Status: `APPROVED`
+
+Authority: Independent Instructor audit after the single fresh Manager under
+`INS-138 / DEC-059` reached its bounded S-04M checkpoint. The Manager correctly
+completed the two workers in sequence and recorded `REVIEW`, but its one
+staging attempt was denied by `.git/index.lock` and was not retried.
+
+Decision: Accept the packet-local S-04M implementation/checker evidence and
+integrate the exact 15-path worker/control delta at `16a347e`. Frontend passes
+`49/49` including authoring `11/11`; Strategy passes `129` with `3`
+PostgreSQL-gated skips; root `verify:stage4a`, checker regression `15/15`,
+live scope scan, architecture, artifacts, runtime smoke, exact-path,
+whitespace, secret/log, and diff checks pass. PostgreSQL/Auth, configured LLM,
+Binance/News, browser/demo, and OpenSpec remain `BLOCKED`/`UNVERIFIED`.
+
+Supersede `INS-138 / APPROVED_FOR_EXECUTION` with `INS-139 / HOLD`, leaving
+`I-02` and `S-04I` through `S-04M` at `REVIEW`. Plan distinct control-only
+packet `S-04N` so one fresh Manager can reconcile the five residual S-04 rows
+to `DONE` from the combined accepted evidence. S-04N has no implementation or
+worker scope and does not authorize I-02; final verification requires its own
+authorization.
+
+Affected: `S-04N`, `S-04M`, `S-04L`, `S-04K`, `S-04J`, `S-04I`, `I-02`,
+`TASKS.md`, `HANDOFF.md`, `INS-138`, `INS-139`, and the final MVP checkpoint.
+Existing requirements, functional image authority, ADRs, contracts,
+architecture, data model, and deferred scope remain unchanged.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [Architecture](../architecture.md),
+[Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-059`, `INS-138`, and `S-04M`.

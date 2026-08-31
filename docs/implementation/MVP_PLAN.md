@@ -293,6 +293,7 @@ S-04 module seam DONE + I-02 review gap
   -> S-04K BLOCKED: timeout residue frontend/checker reconciliation
   -> S-04L BLOCKED: final frontend acceptance/checker residue
   -> S-04M BLOCKED: final frontend test/checker closure
+  -> S-04N BLOCKED: residual S-04 checkpoint reconciliation
   -> fresh I-02 final revalidation authorization
 ```
 
@@ -340,7 +341,7 @@ continuation of the legacy waves:
 | E2 | E1 packet reviews | `E-02` then `L-02` | Decimal evaluation and extension-aware ranking are proven |
 | E3 | E2 plus all E1 packets | `F-03` | Functional-state frontend projections pass without business logic |
 | E4 | E3 plus baseline `I-01` and `AU-02` | `I-03` | Shared-boundary joins, real-provider readiness, and reproducibility proof pass |
-| E5R | I-02 review identifies missing required LLM public composition | `S-04I` then `S-04J` then residual `S-04K`/`S-04L`/`S-04M` only | LLM authoring is consumable through the authenticated runtime boundary and approval is exactly-once within the supported monolith |
+| E5R | I-02 review identifies missing required LLM public composition | `S-04I` then `S-04J` then residual `S-04K`/`S-04L`/`S-04M`, followed by `S-04N` closure only | LLM authoring is consumable through the authenticated runtime boundary and approval is exactly-once within the supported monolith |
 | E5 | `I-03` DONE and `S-04I`/`S-04J` accepted | Existing `I-02` | Full required demo and final verification include DEC-007 evidence |
 
 ## Task state and checkpoint protocol
@@ -1768,6 +1769,42 @@ Instructor signal can authorize one safe frontier without treating the legacy
   Manager, worktree, or downstream packet. Stop at `REVIEW` after one bounded
   Manager checkpoint and fresh Instructor audit. **Parallel:** NO; **Critical:**
   YES to final I-02.
+
+### S-04N — E5R Residual S-04 Checkpoint Reconciliation
+
+- **Requirement IDs / authority:** `CSL-R-ST-05`, `CSL-R-RP-02`,
+  `CSL-R-OW-01`, the configured-runtime portion of `CSL-R-RD-01`, and the
+  accepted S-04I–S-04M evidence under the current Instructor decisions.
+- **State / owner / wave:** BLOCKED / one fresh control-only Manager / E5R
+  residual closure. This packet is governance/checkpoint reconciliation only;
+  it contains no implementation scope and is not a retry or replacement.
+- **Start dependencies:** `S-04M` is independently accepted at committed
+  source checkpoint `16a347e`; `S-04I`, `S-04J`, `S-04K`, and `S-04L` remain
+  `REVIEW` only because their earlier Manager checkpoints stopped before the
+  combined residual evidence was available; `I-02` remains `REVIEW`; no
+  implementation task is active.
+- **Objective:** Reconcile the five residual S-04 rows to `DONE` only after the
+  Manager verifies that the accepted combined source/checker checkpoint proves
+  each row's bounded acceptance and that no requirement, source, business
+  state, or task-DAG drift exists.
+- **Exact write scope:** The Manager alone may update only
+  `docs/implementation/TASKS.md` and `docs/implementation/HANDOFF.md`, add no
+  worker row, and record only `S-04I` through `S-04M` transitions
+  `REVIEW -> DONE` if evidence warrants. No source, tests, contracts,
+  migrations, providers, OpenSpec, requirements, ADRs, `MVP_PLAN.md`, or
+  Instructor artifact may change under this packet.
+- **Acceptance/validation:** Verify the exact accepted commit `16a347e`, the
+  15-path worker/control provenance, frontend `49/49`, authoring `11/11`,
+  Strategy `129/3` skips, root `verify:stage4a`, checker `15/15` and live scan,
+  architecture, artifacts, runtime smoke, exact-path, whitespace, secret/log,
+  and diff evidence. Preserve truthful `BLOCKED`/`UNVERIFIED` status for
+  PostgreSQL/Auth, configured LLM, Binance/News, browser/demo, and OpenSpec.
+  Do not treat this control-only packet as final I-02 evidence.
+- **Prohibitions and stop condition:** No worker, implementation, retry,
+  replacement, duplicate, second Manager, source edit, task outside S-04I–M,
+  I-02 transition, or downstream packet. After one checkpoint/commit attempt,
+  stop at `REVIEW` for independent Instructor audit. **Parallel:** NO;
+  **Critical:** YES to final I-02.
 
 ### S-05 — Immutable `WEIGHTED_VOTE_V1` Composite
 
