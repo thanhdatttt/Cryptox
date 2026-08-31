@@ -2098,3 +2098,52 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-053`, `INS-132`, `S-04J`, and commit `5bc1c32`.
+
+## DEC-055 — Authorize S-04K timeout-residue frontend/checker closure
+
+Status: `APPROVED`
+
+Authority: Instructor review under `DEC-054 / INS-133` confirmed that S-04J
+stopped safely after Worker 2 timed out, while preserving an exact partial
+frontend delta in the canonical checkout. The governance-only HOLD and plan
+commit is `0a3ec85`; the expected uncommitted Manager checkpoint delta remains
+limited to two Strategy paths, six frontend feature paths, and
+`TASKS.md`/`HANDOFF.md`, with untouched `.codex/config.toml` excluded.
+
+Decision: Issue exactly one fresh same-directory Manager authorization
+`INS-134 / APPROVED_FOR_EXECUTION` for the distinct `S-04K` residual closure.
+This is not a retry or replacement of timed-out Worker 2: the new packet owns
+review/completion of the unverified residue and the checker work that was never
+started. The Manager may use exactly two hidden internal workers, strictly
+sequentially and with disjoint scopes: one frontend residual-completion worker
+and one narrow deferred-scope checker worker. No I-02 transition or downstream
+packet is authorized.
+
+The frontend worker may touch only `apps/frontend/src/**` and must add truthful
+coverage for the typed Save/Validate/Approve workflow, prompt and approved-News
+inputs, all required states, fail-closed/unavailable behavior, safe provenance,
+ownership, and no-secret/raw-completion exposure. It must enforce the existing
+approved News/template boundary in fixtures. The checker worker may touch only
+`scripts/check-deferred-scope.cjs` and `scripts/check-deferred-scope.test.cjs`
+and may fix only the canonical `packages/contracts/rest/strategy.ts` boundary.
+The Manager owns `S-04K` TASKS/HANDOFF/integration and may close S-04I/S-04J
+only after combined acceptance is proven. No contracts, backend, Strategy,
+migrations, providers, autonomous LLM, arbitrary URL fetch, queue/distributed
+scope, control-plane worker edits, duplicate/retry/replacement, or second
+Manager is authorized.
+
+Required evidence remains truthful: focused and full static/test gates must be
+rerun after the residue is reviewed; PostgreSQL, configured LLM, Binance/News,
+browser/demo, and OpenSpec remain `BLOCKED`/`UNVERIFIED` unless actually
+available and exercised. No secret supplied in chat is stored or echoed.
+
+Affected: `S-04K`, `S-04J`, `S-04I`, `I-02`, `TASKS.md`, `HANDOFF.md`,
+`INS-133`, `INS-134`, and the final MVP checkpoint. Existing requirements,
+approved functional image amendments, ADRs, contracts, architecture, data
+model, and deferred scope remain unchanged.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [Architecture](../architecture.md),
+[Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-054`, `INS-133`, `S-04K`, and commit `0a3ec85`.

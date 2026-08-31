@@ -2,11 +2,94 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-133`
+Instruction ID: `INS-134`
 
-Status: `HOLD`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-134 — APPROVED_FOR_EXECUTION for S-04K timeout-residue closure
+
+This signal supersedes `INS-133 / HOLD` and authorizes exactly one fresh
+same-directory Manager for the separately planned `S-04K` residual closure.
+It is not a retry or replacement of timed-out Worker 2 from S-04J. It does not
+promote S-04I/S-04J, transition I-02, or authorize downstream work.
+
+### Reviewed checkpoint and applicability
+
+- Canonical checkout: `D:\\agy-cli-projects\\AOS\\Cryptox`, branch
+  `MVP_IMPLEMENTATION`, committed HEAD `0a3ec85` (`chore(control): hold after
+  S-04J frontend timeout`). This commit contains only the Instructor HOLD and
+  durable S-04K plan/decision. The expected uncommitted Manager checkpoint
+  delta is exactly two Strategy paths, six frontend feature paths, and
+  `docs/implementation/TASKS.md`/`HANDOFF.md`; untouched untracked
+  `.codex/config.toml` remains outside the change.
+- `TASKS.md` is authoritative at 51 rows: 48 `DONE`, `I-02 REVIEW`,
+  `S-04I REVIEW`, and `S-04J REVIEW`; `S-04K` has not yet been added to the
+  operational board. All original S-04I dependencies remain `DONE`. The
+  previous S-04J Manager and Worker 2 are idle/not active; no Cryptox Manager,
+  worker, verifier, retry, replacement, duplicate, or downstream task is
+  active.
+- The expected dirty delta was independently reviewed: Strategy Worker 1's
+  cross-context approval fix is in its authorized paths; the preserved
+  frontend files are an unreviewed partial artifact, compile, and currently
+  leave two stale frontend assertions failing. No checker path changed.
+
+### Authorized packet, requirements, and exact scope
+
+- Packet: `S-04K — LLM_AUTHORING_V1 Timeout-Residue Frontend and Checker
+  Reconciliation`.
+- Requirements: `CSL-R-ST-05`, `CSL-R-RP-02`, `CSL-R-OW-01`, and only the
+  configured-runtime portion of `CSL-R-RD-01`; `ADR_009`, the accepted S-04
+  seam, existing REST contracts, and approved functional image behavior remain
+  governing authority.
+- Manager: create exactly one fresh Manager in the canonical same-directory
+  checkout, model `gpt-5.6-luna`, reasoning `max`; no worktree, branch,
+  duplicate, retry, replacement, or user-visible worker task. The Manager must
+  read `AGENTS.md` and `docs/control/prompts/ORCHESTRATOR_START.md` completely,
+  verify this signal, HEAD, expected delta, DAG, task board, and active-task
+  list, and stop on material drift. Use hidden internal subagents only; request
+  `priority` service tier for each child when the child tool supports it.
+- Worker 1, exactly one and sequential: only `apps/frontend/src/**`. It must
+  review the preserved partial S-04J frontend implementation, correct defects
+  inside that tree, update stale expectations, and add focused tests for prompt
+  and approved-News input, DRAFT/VALIDATED/APPROVED/REJECTED/failure/
+  unavailable states, explicit Save/Validate/Approve actions, safe provenance,
+  owner/credential boundaries, and absence of raw prompt/completion. The
+  fixture must enforce the existing approved-News/template boundary. It must
+  use canonical typed REST DTOs and same-origin transport. No REST contract,
+  backend, Strategy, migration, provider, arbitrary URL fetch, client identity,
+  or control-plane edit is allowed.
+- Worker 2, only after the frontend worker is reviewed: only
+  `scripts/check-deferred-scope.cjs` and `scripts/check-deferred-scope.test.cjs`.
+  It may correct exactly the `LLM_AUTHORING_V1` allowlist boundary for the
+  canonical `packages/contracts/rest/strategy.ts` file and add narrow
+  regression coverage; no other checker rule may broaden.
+- Workers have disjoint scopes and must not edit `AGENTS.md`,
+  `docs/control/**`, requirements, ADRs, `TASKS.md`, `HANDOFF.md`, migrations,
+  or unrelated source. The Manager alone owns the new S-04K row, latest
+  `HANDOFF.md`, integration, and any S-04I/S-04J closure transition after
+  combined acceptance. No I-02 transition is authorized.
+
+### Acceptance, validation, and stop condition
+
+- Frontend must expose the typed authoring flow when transport is present and
+  remain honestly unavailable/fail-closed when it is absent. It must never
+  expose or persist provider credentials, authorization headers, raw prompts,
+  raw completions, arbitrary URLs, or client identity. Save/Validate/Approve
+  must use server-returned opaque draft ids and definitions; approved-News
+  input must be selected from already loaded approved News data.
+- Focused frontend and checker tests must pass, including the stale expectation
+  updates and the exact canonical REST-file regression. Existing Strategy
+  cross-context exactly-one approval evidence remains required. Run full
+  workspace test/build/typecheck/lint, architecture, artifacts, scope/deferred,
+  runtime smoke, secret/log, exact-path, whitespace, and diff checks. PostgreSQL,
+  configured LLM, Binance/News, browser/demo, and OpenSpec are `PASS` only
+  with actual evidence; otherwise record `BLOCKED`/`UNVERIFIED`.
+- The Manager must stop after one bounded S-04K checkpoint at `REVIEW`, report
+  exact paths and evidence, and make no retry/replacement/duplicate worker or
+  Manager attempt. S-04I/S-04J may move to `DONE` only if the combined
+  acceptance is truly proven; otherwise they remain `REVIEW`.
 
 ## INS-133 — HOLD after S-04J Worker 2 timeout
 
