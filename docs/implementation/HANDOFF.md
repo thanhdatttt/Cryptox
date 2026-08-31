@@ -1,93 +1,86 @@
-# ENV-07 Manager Checkpoint — INS-114
+# ENV-08 Manager Checkpoint — INS-116
 
-## Authorization and boundary
+## Authorization and applicability
 
-- Instruction: `INS-114` / `APPROVED_FOR_EXECUTION`; this packet only.
-- Authorization checkpoint: `c5e9df0` on `MVP_IMPLEMENTATION`, with `d274f52` (ENV-06 exact integration) and `391d639` (INS-113 HOLD) as ancestors.
-- Packet: `ENV-07 — Strategy PostgreSQL Composite Persistence Reconciliation`.
-- Requirement and authority IDs: `CSL-R-ST-03–04`, `CSL-R-OW-01`, `CSL-R-RP-02`, the accepted Strategy persistence contract, and `DEC-034`.
-- Stop state: `REVIEW / NEEDS_INSTRUCTOR_REVIEW`. No downstream packet was started or promoted.
+- This is the final fresh Manager checkpoint for `INS-116 / ENV-08 — Strategy
+  PostgreSQL Integration Teardown Reconciliation` in the canonical checkout
+  `D:\agy-cli-projects\AOS\Cryptox`.
+- Branch was verified as `MVP_IMPLEMENTATION`. The authorization HEAD was
+  exactly `44e360315d90f4cff81bac798b3f19b31f02a6c6`; the reviewed
+  source/business checkpoint was exactly
+  `fd5fcf36d109afe32dabd0eaa06681df7ee430d4`. The only delta between those
+  commits was governance in `INSTRUCTOR.md`, `DECISIONS.md`, and
+  `MVP_PLAN.md`; no source or business-state drift was present.
+- The current Instructor signal was `INS-116 / APPROVED_FOR_EXECUTION`. It
+  authorized only ENV-08 and conditional ENV-07 closure after clean real
+  integration evidence. The starting board had 48 operational rows: 42 DONE,
+  4 REVIEW, and 2 BLOCKED, with no ENV-08 row.
+- The only pre-existing untracked path was `.codex/config.toml`; it was not
+  edited, staged, or deleted. No competing Cryptox Manager, worker, retry,
+  replacement, duplicate, or downstream task was active.
+- OpenSpec CLI validation was attempted and is `UNVERIFIED` because the
+  `openspec` executable was unavailable. No OpenSpec artifact was changed.
 
-The tracked tree was clean at authorization. The pre-existing untracked
-`.codex/config.toml` remains untouched, unstaged, and undeleted.
+## Execution and review
 
-## Worker and state transitions
-
-- Exactly one fresh internal worker was created: Socrates,
-  `01a054f6-fea8-7343-8273-ccc0a3b09c13`.
-- The worker used the canonical checkout and had the disjoint write scope
-  `modules/strategy/infrastructure/postgres.ts`, plus
-  `modules/strategy/infrastructure/postgres.integration.spec.ts` only if a
-  focused assertion were strictly necessary. The integration spec was not
-  changed.
-- The worker did not edit governance, contracts, migrations, ADRs, OpenSpec,
-  packages, apps, infra, other modules, or tests; it did not stage or commit.
-- The worker paused on its sandbox Docker approval. Its Docker evidence is
-  `BLOCKED/UNVERIFIED`; it was closed without a retry or replacement after the
-  bounded source review was complete.
-- Manager-recorded state sequence: `BLOCKED -> READY -> IN_PROGRESS -> REVIEW`.
-
-## Scoped source delta
-
-Only `modules/strategy/infrastructure/postgres.ts` changed in the feature
-scope. The `jsonb_to_recordset` input fields now use the existing camelCase
-payload names (`"componentPosition"`, `"strategyDefinitionId"`, and
-`"strategyDefinitionVersion"`) and the CTE projects them to the existing
-snake_case names used by validation and ownership joins. Public contracts,
-DTOs, migrations, schema, version allocation, ownership filtering, component
-provenance, transaction behavior, and algorithm code were not changed.
-
-During Manager review, the two join references and the component-position CTE
-projection were corrected in this same authorized file after independent
-PostgreSQL evidence. No second worker or implementation retry was created.
+- ENV-08 moved through `BLOCKED -> READY -> IN_PROGRESS -> REVIEW -> DONE`.
+- Exactly one fresh internal worker was dispatched: Einstein,
+  `01a0558b-e6bc-7282-8b26-19a94c4fb1d3`, using `gpt-5.6-luna`, reasoning
+  `max`, and priority service tier. Einstein read the governing repository
+  sources and changed only
+  `modules/strategy/infrastructure/postgres.integration.spec.ts`.
+- The worker did not edit control-plane files, production source, migrations,
+  contracts, packages, apps, infra, other modules, generated files, or
+  `.codex/config.toml`, and did not stage or commit.
+- Manager review confirmed the exact authorized delta: existing teardown now
+  deletes dependent `composite_components`, then composite definitions, then
+  Strategy definitions, then fixture users. Both existing tests, fixtures,
+  assertions, owner isolation, exact component versions, and cross-owner
+  rejection remain unchanged. `modules/strategy/infrastructure/postgres.ts`
+  is unchanged from the authorization HEAD.
+- Under the explicit conditional in INS-116, ENV-07 moved only from
+  `REVIEW / NEEDS_INSTRUCTOR_REVIEW` to `DONE`. No other task row changed;
+  I-01R, I-01, I-02, I-03, ENV-05, and all downstream work remain at their
+  prior states.
 
 ## Validation evidence
 
-- Focused real PostgreSQL run against the mapped local test database: the
-  same-owner composite persistence, exact component-version, owner-filtered
-  read, and cross-owner rejection assertions passed (`2/2`). The command still
-  exited nonzero in the existing `afterAll` cleanup: deleting the fixture users
-  violates `composite_components_strategy_fk` after the successfully persisted
-  composite. The integration spec was not edited to conceal or repair that
-  cleanup failure.
-- Intermediate independent rerun evidence was preserved: the first quoted
-  alias attempt failed on `input.strategyDefinitionId`; the join correction
-  then failed on null `component_position`; quoting the position input then
-  exposed the missing CTE projection; the final projection produced the `2/2`
-  assertion pass above.
-- Strategy unit persistence suite: `5/5` passed.
-- Workspace tests: `409` passed and `8` environment-gated tests were skipped;
-  the non-DB Strategy integration remains separately covered above.
-- Root build, typecheck, and lint: PASS.
-- `npm run arch:check`: PASS (dependency-cruiser reported zero dependency
-  violations; the rule script reported its nine forbidden-dependency fixtures).
-- `npm run scope:check`: PASS.
-- Deferred-scope suite: `13/13` PASS.
-- Artifacts/source-sidecar check: PASS.
-- Runtime smoke: PASS (`/live=200`, `/ready=503`, `/health=404`).
-- Focused secret/log additions, exact-path review, whitespace, and
-  `git diff --check`: PASS.
-- `npm run db:local:validate`: `BLOCKED` because this environment's Docker
-  client has no usable `docker compose` subcommand. The legacy Compose status
-  check did show the local development and test PostgreSQL containers healthy;
-  the focused integration connected through the mapped test port, while the
-  repository migration-helper gate remains blocked.
-- OpenSpec CLI: `UNVERIFIED` because the executable is unavailable.
+| Check | Result |
+|---|---|
+| Exact real integration | `npm --workspace @cryptox/strategy test -- infrastructure/postgres.integration.spec.ts`, with a process-local `DATABASE_URL` derived from `infra/db/local.env` and mapped test port `127.0.0.1:55433`; 1 file, 2 tests passed, exit `0`; no teardown foreign-key error |
+| ENV-07 behavior proof | Same run passed same-owner composite persistence, exact component versions, owner-filtered reads, and cross-owner rejection |
+| Focused Strategy unit | `npm --workspace @cryptox/strategy test -- infrastructure/postgres.spec.ts`; 1 file, 5 tests passed |
+| Workspace tests | `npm test`; 409 passed, 8 expected environment-gated skips |
+| Build / typecheck / lint | `npm run build`, `npm run typecheck`, and `npm run lint` passed |
+| Architecture | `npm run arch:check` passed; dependency-cruiser reported zero violations and the rule script reported its expected nine forbidden-dependency fixtures |
+| Scope and deferred-scope | `npm run scope:check` passed; `npm run test:scope-check` passed all 13/13 cases |
+| Artifacts/source-sidecars | `npm run artifacts:check` passed |
+| Runtime smoke | `npm run runtime:smoke` passed: `/live=200`, `/ready=503`, `/health=404` |
+| Secret/log, exact-path, whitespace | Focused changed-diff secret/log scan passed with no credential pattern or added logging; only authorized tracked paths changed; `git diff --check` passed |
+| Local migration validation | `npm run db:local:prepare` passed local PostgreSQL up, constraints, down, and remigrate validation under the authorized elevated Docker scope. The initial unprivileged Docker probe was ACL-blocked; the actual local validation was not treated as blocked |
+
+The worker independently reported the focused integration as 2/2, exit 0, and
+`git diff --check` exit 0. The Manager independently reran the exact focused
+command and all required available gates above. Expected skips are not claimed
+as live evidence, and no full-suite or provider/demo claim is made.
 
 ## Files, Git, and stop boundary
 
-- Feature file: `modules/strategy/infrastructure/postgres.ts`.
-- Manager control files: `docs/implementation/TASKS.md` and this handoff.
-- `modules/strategy/infrastructure/postgres.integration.spec.ts` is unchanged.
-- No migration, contract, package, app, infra, other-module, generated, or
-  unrelated test path changed.
-- Latest commit before the single permitted staging/commit attempt:
-  `c5e9df039abf99738de2ef5cb82c8f522ddaba73`.
-- The single permitted coherent staging/commit attempt was made with explicit
-  paths and Git denied staging at exit `128`:
+- Final authorized tracked delta consists only of:
+  - `modules/strategy/infrastructure/postgres.integration.spec.ts` — 19 added
+    teardown-ordering lines;
+  - `docs/implementation/TASKS.md` — the single ENV-08 row and the conditional
+    ENV-07 row transition;
+  - `docs/implementation/HANDOFF.md` — this replacement checkpoint.
+- The sole explicit-path staging/commit attempt was made after review for the
+  source file and `TASKS.md`. Git denied staging before any commit with exit
+  `128` and the exact error:
   `fatal: Unable to create 'D:/agy-cli-projects/AOS/Cryptox/.git/index.lock': Permission denied`.
-  No commit was made, no paths were staged, and no retry was made.
-
-ENV-07 stops at `REVIEW / NEEDS_INSTRUCTOR_REVIEW` for the fresh Instructor
-audit. Do not mark it DONE, alter other task rows, close ENV-06 or I-01R, resume
-I-01, start I-02/I-03, promote downstream work, or infer new scope.
+  No commit was made, no paths were staged, and no retry was made. The final
+  handoff was replaced after that denied attempt and is therefore the latest
+  Manager checkpoint. HEAD remains
+  `44e360315d90f4cff81bac798b3f19b31f02a6c6`.
+- ENV-08 and the conditional ENV-07 closure are complete at their authorized
+  bounded frontier. Stop here and wait for the Instructor's independent audit;
+  do not start I-01R, I-01, I-02, I-03, extensions, downstream execution, or
+  final/demo claims.

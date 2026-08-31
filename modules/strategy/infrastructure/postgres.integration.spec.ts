@@ -31,6 +31,25 @@ describe.skipIf(!shouldRun)("Strategy PostgreSQL persistence", () => {
 
   afterAll(async () => {
     if (!dependencies) return;
+    await dependencies.pool.query(
+      `
+        DELETE FROM composite_components
+        WHERE composite_definition_id IN (
+          SELECT id
+          FROM composite_strategy_definitions
+          WHERE owner_user_id = ANY($1::uuid[])
+        )
+      `,
+      [[ownerA, ownerB]],
+    );
+    await dependencies.pool.query(
+      "DELETE FROM composite_strategy_definitions WHERE owner_user_id = ANY($1::uuid[])",
+      [[ownerA, ownerB]],
+    );
+    await dependencies.pool.query(
+      "DELETE FROM strategy_definitions WHERE owner_user_id = ANY($1::uuid[])",
+      [[ownerA, ownerB]],
+    );
     await dependencies.pool.query("DELETE FROM users WHERE id = ANY($1::uuid[])", [[ownerA, ownerB]]);
     await dependencies.close();
   });
