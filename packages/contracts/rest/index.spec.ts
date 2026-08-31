@@ -19,6 +19,7 @@ describe("REST transport contracts", () => {
         "REST_SCHEMA_VERSION",
         "RestContractValidationError",
         "parseCreateLeaderboardScopeRequest",
+        "parseCreateStrategyAuthoringDraftRequest",
         "parseLoginRequest",
         "parseMarketHistoryRequest",
         "parseMarketInputSelection",
@@ -30,6 +31,8 @@ describe("REST transport contracts", () => {
         "parseRegisterRequest",
         "parseStartManualBacktestRequest",
         "parseStartSearchRequest",
+        "parseStrategyAuthoringDraftActionRequest",
+        "parseStrategyAuthoringDraftId",
       ].sort(),
     );
   });

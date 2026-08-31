@@ -1,164 +1,167 @@
-# I-02 Final E2E/Demo Verification — INS-128
+# S-04I LLM_AUTHORING_V1 Public Composition Reconciliation — INS-130
 
 ## Result and authority
 
-- Final disposition: `REVIEW` — `NEEDS_INSTRUCTOR_REVIEW`. I-02 is not `DONE`
-  because required real configured runtime and demo evidence is unavailable or
-  unverified. The authorization is exhausted at this safe checkpoint; no
-  downstream task was promoted.
-- Current Instructor signal: `INS-128 / APPROVED_FOR_EXECUTION`, authorized by
-  `DEC-049`; it supersedes `INS-127 / HOLD` and authorizes exactly I-02.
+- Final disposition: `REVIEW` — `NEEDS_INSTRUCTOR_REVIEW`. The authorized
+  packet is exhausted at a safe checkpoint; S-04I is not `DONE` because the
+  frontend authoring worker returned no changes, real configured runtime
+  evidence is unavailable, and Git staging/commit was blocked. I-02 remains
+  `REVIEW`; no downstream task was started or promoted.
+- Current Instructor signal: `INS-130 / APPROVED_FOR_EXECUTION`, authorized by
+  `DEC-051`, for exactly S-04I. The signal names authorization HEAD
+  `a555a6e281b2ae536bf38c379dc88212963f9fd7` and source/business checkpoint
+  `c9d2a26`. It does not reopen S-04 or promote I-02.
 - Canonical checkout: `D:\agy-cli-projects\AOS\Cryptox`, branch
-  `MVP_IMPLEMENTATION`.
-- Starting committed HEAD was verified as
-  `c6b9690885e02e042c4f3e22a25e4637ad601517` (`chore(control): authorize I-02
-  final verification`). Its parent was the reviewed
-  `a58530fa037ae0d46a2d76a9ce1674166aacd137`; the authorization commit changed
-  only `INSTRUCTOR.md` and `DECISIONS.md`.
-- Primary bounded review checkpoint commit is
-  `762b0e4c46c9f73d26a55507aeecd42be3f4cb77`
-  (`chore(control): checkpoint I-02 final verification`); it contains only
-  the authorized test, README, TASKS, and HANDOFF changes described below.
-- Before execution the board was verified as exactly 49 rows, 48 `DONE`, I-02
-  `BLOCKED`, with I-01 and I-03 `DONE`, dependencies satisfied, and no
-  competing Cryptox Manager, worker, reviewer, retry, replacement, duplicate,
-  or downstream task active. The final board remains exactly 49 rows, 48
-  `DONE`, and only I-02 non-`DONE` at `REVIEW`.
-- The app-generated `.codex/config.toml` remains untouched, untracked, and is
-  not part of the checkpoint.
+  `MVP_IMPLEMENTATION`. The committed starting HEAD was the authorization
+  commit `a555a6e281b2ae536bf38c379dc88212963f9fd7`; no source, business, or
+  task-DAG premise changed outside this packet before execution.
+- Start-state verification found the seven S-04I dependencies (`C-02`, `S-04`,
+  `N-03`, `F-03`, `AU-02`, `I-01`, `I-03`) independently `DONE`, I-02 still
+  `REVIEW`, and no other Cryptox Manager, worker, retry, replacement,
+  duplicate, or downstream task active. The board now has exactly 50
+  operational rows: 48 `DONE`, I-02 `REVIEW`, and S-04I `REVIEW`.
+- `.codex/config.toml` is app-generated, pre-existing, untracked, untouched,
+  and must remain unstaged.
 
 ## Scope, delegation, and state transition
 
-- Authorized packet: `I-02 — E2E Demo, Documentation and Final Verification`.
-  Governing acceptance includes every REQUIRED requirement ID, especially
-  `CSL-R-AU-01`, `CSL-R-OW-01`, `CSL-R-RD-01`, `CSL-R-DL-01`, and
-  `CSL-R-DM-01`, plus the DEC-007 behavior represented by accepted dependency
-  packets.
-- Manager transition: `BLOCKED -> READY -> IN_PROGRESS -> REVIEW` for I-02
-  only. No other task state changed.
-- Exactly three bounded internal children were used, with disjoint scopes:
-  backend Confucius `01a0569d-e77c-7362-b5a9-f1ca425e9453` changed only
-  `apps/backend/src/i02.backend.e2e.spec.ts`; frontend Fermat
-  `01a0569d-e8c2-72b3-bdb4-9cb19843f4d2` changed only
-  `apps/frontend/src/i02.frontend.e2e.spec.tsx`; setup/traceability Heisenberg
-  `01a0569d-ea63-78e0-bfed-b11ca1ddbce0` changed only `README.md`. Each used
-  `gpt-5.6-luna`, reasoning `max`, and the available `priority` service tier.
-  All completed; none created a task, branch, worktree, commit, retry, or
-  replacement. No child touched control files, contracts, migrations, module
-  business logic, secrets, or generated artifacts.
-- Fixtures are deterministic boundary evidence only. They cannot satisfy final
-  configured PostgreSQL, Binance, News, or browser/demo acceptance.
+- Manager transition for the only new row: `BLOCKED -> READY -> IN_PROGRESS ->
+  REVIEW`. No existing row, including I-02, was changed.
+- Worker 1 Locke (`01a056d6-40b6-7e52-84a4-69bb9773eda7`) was the sole Strategy
+  worker. It changed only the public bootstrap/composition and existing
+  PostgreSQL draft adapter plus focused Strategy tests under
+  `modules/strategy/**`; it made no migration or control-plane changes. Its
+  checkpoint reported Strategy typecheck PASS, 128 tests PASS, and 3
+  PostgreSQL integration tests skipped because `DATABASE_URL` is unavailable.
+- Worker 2 Kierkegaard (`01a056e7-a057-7fc0-a661-1ac74a953eeb`) was the REST/
+  backend worker. Its bounded run changed only
+  `packages/contracts/rest/strategy.ts`, adding the approved DTO/parser seam,
+  then stopped before backend wiring and reported no tests run. The Manager
+  reviewed that partial contract and completed only the narrow integration
+  glue in the named backend controller/runtime/transport paths, with focused
+  REST/backend tests.
+- Worker 3 Carson (`01a056f5-61d0-7210-8851-d16398fd9813`) was the final,
+  dependent frontend worker. It returned without changes or tests after the
+  bounded wait. No replacement, retry, or fourth worker was used.
+- All workers used `gpt-5.6-luna`, reasoning `max`, and the available
+  `priority` service tier. None created a task, branch, worktree, commit, or
+  control-plane edit. No migration was required or touched.
+
+## Implemented checkpoint
+
+- Strategy public bootstrap now composes the existing provider-neutral
+  authoring application when authoring dependencies are supplied, binds the
+  trusted authenticated context, and exposes the existing
+  `strategy_authoring_drafts` repository through the PostgreSQL Strategy seam.
+- The existing OpenAI-compatible adapter remains the only provider path. Real
+  runtime configuration reads only `LLM_AUTHORING_ENDPOINT`,
+  `LLM_AUTHORING_MODEL`, and `LLM_AUTHORING_API_KEY` server-side. No provider
+  key or other secret value was added to source, tests, browser DTOs, logs, or
+  this checkpoint.
+- REST provides authenticated Draft creation, Validate, and Approve routes.
+  Draft creation is the explicit Save/create persistence step because the
+  existing Strategy authoring port exposes `createDraft`, `validateDraft`, and
+  `approveDraft`; no separate business operation was invented. Request parsing
+  rejects client identity, credentials, raw provider output, arbitrary URL,
+  and persistence fields. DTO mapping returns only safe draft state and
+  authoring origin.
+- The backend composes the configured provider only when all three canonical
+  runtime values are present and valid. Missing or partial configuration has
+  no provider call and no draft persistence side effect. Approved News input
+  is passed through the existing News public `readNews` boundary only.
+- The frontend authoring client/state/panel is not composed in this checkpoint;
+  the existing frontend continues to display the honest unavailable state.
 
 ## Evidence ledger
 
 ### PASS
 
-- Clean reinstall: `npm ci --ignore-scripts --no-audit --no-fund` completed and
-  added 330 packages. The npm deprecation warning for `glob@11.0.3` did not
-  fail the install.
-- Backend I-02 focused suite passed twice, five tests each:
-  `npm --workspace @cryptox/backend exec vitest run
-  src/i02.backend.e2e.spec.ts`. It covers HTTP Auth cookie boundaries and
-  trusted identity propagation, unauthenticated/cross-owner private reads,
-  owner-filtered collections and commands, provider-error sanitization,
-  market-only WebSocket behavior, ephemeral observability, and fail-closed
-  configured-mode preflight. This is fixture-only evidence.
-- Frontend I-02 focused suite passed twice, five tests each:
-  `npm --workspace @cryptox/frontend exec vitest run
-  src/i02.frontend.e2e.spec.tsx`. It covers explicit remote-configuration
-  guarding, explicit fixture labels, owner/session cache separation, four
-  independent chart projections, bounded Search/Top-K/result/trade/metric/
-  provenance projections, and degraded News state. This is fixture/SSR-only
-  evidence.
-- Final clean-install workspace test: `npm test` exited 0 with `425 passed` and
-  `8 skipped`. The skips are environment-gated PostgreSQL tests, including the
-  real Auth E2E; they are not completion evidence. A first cold Argon2 run hit
-  its default timeout, an explicit longer diagnostic passed, and the final
-  clean-install workspace run passed without changing that test.
-- `npm run build`, `npm run typecheck`, and `npm run lint`: PASS, exit 0.
-- `npm run arch:check`: PASS — no dependency violations; 184 modules and 615
-  dependencies cruised, with the expected nine forbidden dependency fixtures
+- `npm --workspace @cryptox/contracts test`: 22 tests passed.
+- `npm --workspace @cryptox/contracts run typecheck`: PASS.
+- `npm --workspace @cryptox/strategy test`: 128 tests passed; the three
+  environment-gated PostgreSQL draft-persistence integration tests were
+  skipped because `DATABASE_URL` is absent.
+- `npm --workspace @cryptox/strategy run typecheck`: PASS. Existing adapter
+  tests cover one bounded OpenAI-compatible request, bearer authorization,
+  malformed/failed/timed-out responses, and no credential in the structured
+  result; these are fixture tests, not real-provider evidence.
+- `npm --workspace @cryptox/backend test`: 28 tests passed; one
+  environment-gated Auth E2E test was skipped. This includes the new
+  owner-scoped Draft -> Validate -> Approve REST integration coverage.
+- `npm --workspace @cryptox/backend run typecheck`: PASS.
+- `npm --workspace @cryptox/frontend test`: 38 existing baseline tests passed.
+  These do not demonstrate the missing authoring workflow.
+- `npm --workspace @cryptox/frontend run typecheck` and `npm --workspace
+  @cryptox/frontend run build`: PASS for the unchanged frontend baseline.
+- `npm run build`, `npm run typecheck`, and `npm run lint`: PASS.
+- `npm run arch:check`: PASS — no dependency violations; 187 modules and 631
+  dependencies cruised, with the expected nine forbidden-dependency fixtures
   detected.
-- `npm run artifacts:check`: PASS — no source-adjacent generated module
-  artifacts.
-- `npm run scope:check`: PASS — no deferred-scope leakage. The frontend test
-  keeps approved profile values assembled at runtime so the existing checker
-  does not mistake `.spec.tsx` fixture literals for production scope.
+- `npm run artifacts:check`: PASS — no source-adjacent generated artifacts.
 - `npm run test:scope-check`: PASS, all 13/13 checker tests.
 - `npm run runtime:smoke`: PASS — `/live=200`, truthful `/ready=503`,
-  `/health=404`. The `503` is evidence of missing required runtime
-  configuration, not final-demo readiness.
-- `git diff --check`: PASS; only line-ending warnings were emitted.
-- Requirement/traceability audit: all 33 requirement IDs are present in
-  `docs/requirements.md`, authoritative `TASKS.md`, and active capability
-  specs. The requirement text names all eight assignment architecture-change
-  scenarios (localized MACD, replaceable Search, replaceable exchange, scale
-  evolution, News-failure containment, sentiment-model independence, WebSocket
-  recovery, and exact strategy-version traceability). This confirms textual
-  traceability, not fresh functional proof of each scenario.
-- Fresh local browser check: the frontend opened at `http://127.0.0.1:4173/`
-  and visibly rendered the BTC/USDT workspace with four independent chart
-  states and an explicit `Deterministic fixture` badge. Browser console output
-  contained only the React DevTools informational message; no secret, token,
-  cookie, or credential was logged. This is fixture evidence, not configured
-  real-data demo evidence.
-- `README.md` received one concrete traceability correction: it now identifies
-  approved simple Auth/ownership, controlled LLM authoring, synthetic
-  Long/Short paper execution, and bounded deterministic discovery while
-  retaining deferred enterprise identity, generalized risk/live trading,
-  unconfigured/autonomous LLM, distributed execution, and other deferred
-  scope. It makes no implementation claim.
+  `/health=404`.
+- `git diff --check`: PASS; only Git line-ending warnings were emitted.
+- REST/backend focused acceptance: unauthenticated requests return 401,
+  cross-owner draft access returns 404, unsafe client fields are rejected
+  before the provider seam, the fixture lifecycle reaches DRAFT/VALIDATED/
+  APPROVED, and repeated approval returns the same immutable definition id.
 
 ### BLOCKED / UNVERIFIED
 
-- Real PostgreSQL/Auth/session acceptance is `BLOCKED`: `DATABASE_URL` is
-  absent, and `npm run db:local:validate` failed because Docker Compose is not
-  available (`docker: unknown command: docker compose`) and Docker config access
-  is denied. Current up/constraints/down/remigrate evidence cannot be recreated;
-  real register/login/current-user/absolute expiry/logout, opaque persisted
-  session state, trusted identity, and live two-user persistence isolation are
-  therefore not proven. Existing skipped integration tests and historical
-  evidence are not promoted to current PASS.
-- Real Binance history/realtime acceptance is `BLOCKED/UNVERIFIED`:
-  `BINANCE_API_BASE_URL` and `BINANCE_WS_URL` are absent. The browser and test
-  chart paths use deterministic fixtures only; no mock provider is promoted as
-  final configuration.
-- Real News import/normalization and provider-failure/degraded final demo is
-  `BLOCKED/UNVERIFIED`: `COINDESK_API_KEY` and `COINDESK_BASE_URL` are absent.
-  Local `LEXICON_V1` behavior and injected failure projections are test
-  evidence only.
-- Configured frontend/browser acceptance is `UNVERIFIED`: all
-  `VITE_MARKET_SOURCE`, `VITE_MARKET_REST_URL`, `VITE_MARKET_WS_URL`,
-  `VITE_AUTH_SOURCE`, and `VITE_FEATURE_SOURCE` variables are absent. The
-  browser check therefore proves only the explicitly labelled fixture path.
-- OpenSpec CLI is `UNAVAILABLE`; active specs/change files were read directly,
-  and no CLI was installed or invented. Active
-  `openspec/changes/mvp-implementation/tasks.md` retains unchecked
-  high-level milestones while authoritative `TASKS.md` records completed
-  packets. It is explicitly non-operational, but the mismatch is a material
-  traceability inconsistency outside this packet's README-only allowance.
-- Governing requirements, architecture, and several active specs still carry
-  historical `NOT_IMPLEMENTED`/scaffolding status text while current runtime
-  source has implemented paths. Reconciling that source/document status is
-  outside I-02's bounded permission and requires Instructor-authorized source
-  reconciliation; it is not silently repaired here.
-- Because the required real providers, persistence, migration evidence,
-  configured browser demo, and status-document reconciliation are missing, the
-  eight architecture scenarios and full final MVP acceptance remain
-  `UNVERIFIED` as a current integrated demonstration even though unit and
-  boundary evidence passes.
+- Live `npm run scope:check` is blocked by an existing checker boundary
+  mismatch: the newly authorized `LLM_AUTHORING_V1` REST contract is in the
+  canonical file `packages/contracts/rest/strategy.ts`, while the checker
+  names `packages/contracts/rest/strategy/` as its boundary. The checker was
+  not edited because tooling is outside this packet.
+- PostgreSQL draft persistence and Auth/session isolation are unverified:
+  `DATABASE_URL` is not configured, so the integration tests remain skipped and
+  no cloud or system database was used.
+- Real provider execution is unverified/blocked: no usable local
+  `LLM_AUTHORING_ENDPOINT`, `LLM_AUTHORING_MODEL`, and
+  `LLM_AUTHORING_API_KEY` configuration was promoted or printed. No fixture
+  provider was presented as real runtime evidence.
+- Real Binance and News integrations are unverified/blocked because the local
+  runtime has no configured real provider values. Existing fixture and boundary
+  tests are not promoted to demo evidence.
+- Configured browser/frontend authoring acceptance is unverified: the
+  frontend worker made no changes, so the browser still has no authoring
+  transport/state workflow and displays `UNAVAILABLE`.
+- OpenSpec CLI is unavailable. The active change and relevant specs were read
+  directly from `openspec/changes/mvp-implementation` and `openspec/specs`;
+  no CLI was installed or invented.
+- Existing historical status text and active-change task prose remain outside
+  this packet’s scope. They require Instructor-authorized documentation/source
+  reconciliation and were not silently repaired.
 
 ## Changed paths and stop boundary
 
-- Authorized integrated paths are exactly `README.md`,
-  `apps/backend/src/i02.backend.e2e.spec.ts`,
-  `apps/frontend/src/i02.frontend.e2e.spec.tsx`, this I-02 row in
-  `docs/implementation/TASKS.md`, and this latest
-  `docs/implementation/HANDOFF.md`.
-- No module algorithm, business logic, contract, schema, migration,
-  infrastructure, queue, distributed protocol, or unrelated source changed.
-  `.codex/config.toml` is untracked and must remain unstaged.
-- The stop condition is met: I-02 is at `REVIEW`, no downstream task is
-  started, and `NEEDS_INSTRUCTOR_REVIEW` is required for the missing real
-  environment/provider/browser evidence and the documented reconciliation
-  inconsistencies.
+Authorized source/test paths changed in this checkpoint are exactly:
+
+- `modules/strategy/api/bootstrap.ts`
+- `modules/strategy/api/bootstrap.spec.ts`
+- `modules/strategy/infrastructure/postgres.ts`
+- `modules/strategy/infrastructure/postgres.spec.ts`
+- `modules/strategy/infrastructure/postgres.integration.spec.ts`
+- `packages/contracts/rest/strategy.ts`
+- `packages/contracts/rest/index.spec.ts`
+- `packages/contracts/rest/strategy.spec.ts`
+- `apps/backend/src/runtime.ts`
+- `apps/backend/src/capabilities.controller.ts`
+- `apps/backend/src/transport.ts`
+- `apps/backend/src/strategy-authoring.integration.spec.ts`
+- this new S-04I row in `docs/implementation/TASKS.md`
+- this latest `docs/implementation/HANDOFF.md`
+
+No frontend file, migration, News/Sentiment/Search/Backtesting file,
+requirement, ADR, architecture/data-model, OpenSpec, deferred feature, or
+unrelated source path changed. S-04I stops at `REVIEW`; a fresh Instructor
+authorization is required before frontend implementation, real-provider/
+PostgreSQL validation, or I-02 final revalidation.
+
+The latest committed source remains
+`a555a6e281b2ae536bf38c379dc88212963f9fd7`. An explicit attempt to stage the
+authorized source failed with `fatal: Unable to create
+'D:/agy-cli-projects/AOS/Cryptox/.git/index.lock': Permission denied`; it was
+not retried, so no new checkpoint commit exists. The authorized changes and
+this control checkpoint remain unstaged for Instructor reconciliation.

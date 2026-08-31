@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { AuthenticatedUserId } from "modules/auth/api";
+import type { StrategyAuthoringDraftRecord } from "../application/authoring";
 import type { CompositeDefinitionRecord, StrategyDefinitionRecord } from "../application/ports";
 import {
   createPostgresStrategyDependencies,
@@ -31,6 +32,10 @@ describe.skipIf(!shouldRun)("Strategy PostgreSQL persistence", () => {
 
   afterAll(async () => {
     if (!dependencies) return;
+    await dependencies.pool.query(
+      "DELETE FROM strategy_authoring_drafts WHERE owner_user_id = ANY($1::uuid[])",
+      [[ownerA, ownerB]],
+    );
     await dependencies.pool.query(
       `
         DELETE FROM composite_components
@@ -154,5 +159,38 @@ describe.skipIf(!shouldRun)("Strategy PostgreSQL persistence", () => {
     ]);
 
     expect(new Set([first.version, second.version])).toEqual(new Set([1, 2]));
+  });
+
+  it("persists draft state with owner isolation through strategy_authoring_drafts", async () => {
+    const createdAt = "2026-08-30T00:00:04.000Z";
+    const draft: StrategyAuthoringDraftRecord = {
+      id: randomUUID(),
+      ownerUserId: ownerA,
+      profileId: "LLM_AUTHORING_V1",
+      source: { kind: "PROMPT" },
+      provider: { id: "openai-compatible", modelId: "configured-model", configured: true },
+      status: "DRAFT",
+      structuredDraft: { period: 14 },
+      createdAt,
+      updatedAt: createdAt,
+    };
+
+    const inserted = await dependencies!.draftRepository.insert(ownerA, draft);
+    expect(await dependencies!.draftRepository.getByOwnerAndId(ownerB, draft.id)).toBeUndefined();
+    const validated = await dependencies!.draftRepository.save(ownerA, {
+      ...inserted,
+      status: "VALIDATED",
+      validation: { valid: true, reasons: [], validatedAt: createdAt },
+      updatedAt: "2026-08-30T00:00:05.000Z",
+    });
+
+    expect(validated).toMatchObject({
+      id: draft.id,
+      ownerUserId: ownerA,
+      status: "VALIDATED",
+      structuredDraft: { period: 14 },
+      validation: { valid: true, reasons: [] },
+    });
+    expect(Object.isFrozen(validated)).toBe(true);
   });
 });

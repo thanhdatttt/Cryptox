@@ -43,8 +43,10 @@ import {
 import type { StrategyModulePublicApi } from "@cryptox/strategy";
 import * as strategyPublic from "@cryptox/strategy";
 import {
+  createOpenAiCompatibleAuthoringProvider,
   createPostgresStrategyDependencies,
   createStrategyModule,
+  type StrategyModuleWithAuthoring,
 } from "@cryptox/strategy/bootstrap";
 import {
   ACTIVE_MVP_MODULES,
@@ -75,9 +77,11 @@ export class BackendCapabilityUnavailableError extends Error {
   }
 }
 
+type StrategyRuntimeModule = StrategyModulePublicApi | StrategyModuleWithAuthoring;
+
 interface RuntimeOverrides {
   readonly auth?: AuthModulePublicApi;
-  readonly strategy?: StrategyModulePublicApi;
+  readonly strategy?: StrategyRuntimeModule;
   readonly marketData?: MarketDataModuleRuntime;
   readonly search?: SearchModulePublicApi;
   readonly backtesting?: BacktestingModulePublicApi;
@@ -231,6 +235,16 @@ function dataBaseConfigured(value: string | undefined): boolean {
   return typeof value === "string" && value.trim().length > 0;
 }
 
+function configuredAuthoringProvider() {
+  const endpoint = process.env.LLM_AUTHORING_ENDPOINT?.trim();
+  const model = process.env.LLM_AUTHORING_MODEL?.trim();
+  const apiKey = process.env.LLM_AUTHORING_API_KEY;
+  if (!endpoint || !model || !apiKey?.trim()) return undefined;
+
+  const provider = createOpenAiCompatibleAuthoringProvider({ endpoint, model, apiKey });
+  return provider.configured ? provider : undefined;
+}
+
 function nowIso(): string {
   return new Date().toISOString();
 }
@@ -266,7 +280,7 @@ function localLexiconProvider() {
 }
 
 export interface BackendRuntime extends BackendAuthRuntime {
-  readonly strategy: StrategyModulePublicApi;
+  readonly strategy: StrategyRuntimeModule;
   readonly marketData?: MarketDataModuleRuntime;
   readonly search?: SearchModulePublicApi;
   readonly backtesting?: BacktestingModulePublicApi;
@@ -318,10 +332,28 @@ export function createBackendRuntime(options: BackendRuntimeOptions = {}): Backe
         connectionString: databaseUrl!,
         pool: authRuntime.pool,
       });
+      const provider = configuredAuthoringProvider();
       strategy = createStrategyModule({
         factories: strategyPublic.STRATEGY_FACTORIES,
         definitionRepository: dependencies.definitionRepository,
         compositeRepository: dependencies.compositeRepository,
+        ...(provider === undefined
+          ? {}
+          : {
+              authoring: {
+                draftRepository: dependencies.draftRepository,
+                provider,
+                logicalFamilyKey: "llm-authoring",
+                strategyName: "MA",
+                news: {
+                  readNews: async (input: Parameters<NewsModulePublicApi["readNews"]>[0]) => {
+                    if (!news) throw new Error("NEWS_BOUNDARY_UNAVAILABLE");
+                    return news.readNews(input);
+                  },
+                },
+                clock,
+              },
+            }),
       });
       strategyConfigured = true;
     } catch {

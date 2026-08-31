@@ -60,11 +60,33 @@ export interface StrategyDefinitionDto {
   behaviorProfileId: string;
   version: number;
   parameters: Readonly<Record<string, StrategyParameterValueDto>>;
-  authoringOrigin?:
-    | { kind: "MANUAL" }
-    | { kind: "LLM_DRAFT"; draftId: string; providerId: string; modelId: string }
-    | { kind: "APPROVED_NEWS_ITEM"; newsItemId: string; extractionTemplateVersion?: number };
+  authoringOrigin?: StrategyAuthoringOriginDto;
   createdAt: string;
+}
+
+export type StrategyAuthoringOriginDto =
+  | { kind: "MANUAL" }
+  | { kind: "LLM_DRAFT"; draftId: string; providerId: string; modelId: string }
+  | { kind: "APPROVED_NEWS_ITEM"; newsItemId: string; extractionTemplateVersion?: number };
+
+export type StrategyAuthoringSourceDto =
+  | { kind: "PROMPT" }
+  | { kind: "APPROVED_NEWS_ITEM"; newsItemId: string };
+
+export type StrategyAuthoringDraftStatusDto = "DRAFT" | "VALIDATED" | "REJECTED" | "APPROVED";
+
+export interface StrategyAuthoringDraftDto {
+  id: string;
+  ownerUserId: string;
+  profileId: "LLM_AUTHORING_V1";
+  source: StrategyAuthoringSourceDto;
+  provider: { id: string; modelId: string; configured: boolean };
+  status: StrategyAuthoringDraftStatusDto;
+  structuredDraft?: Readonly<Record<string, StrategyParameterValueDto>>;
+  validation?: { valid: boolean; reasons: readonly string[]; validatedAt: string };
+  approvedDefinitionId?: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface CompositeComponentDefinitionDto {
@@ -130,6 +152,151 @@ export interface DefineCompositeRequestDto {
 export interface DefineCompositeResponseDto {
   schemaVersion: typeof REST_SCHEMA_VERSION;
   definition: CompositeStrategyDefinitionDto;
+}
+
+export interface CreateStrategyAuthoringDraftRequestDto {
+  schemaVersion: typeof REST_SCHEMA_VERSION;
+  source: StrategyAuthoringSourceDto;
+  /** User-authored input is accepted only for the PROMPT source and is never returned or persisted. */
+  prompt?: string;
+}
+
+export interface StrategyAuthoringDraftActionRequestDto {
+  schemaVersion: typeof REST_SCHEMA_VERSION;
+}
+
+export interface StrategyAuthoringDraftResponseDto {
+  schemaVersion: typeof REST_SCHEMA_VERSION;
+  draft: StrategyAuthoringDraftDto;
+}
+
+export interface ApproveStrategyAuthoringDraftResponseDto {
+  schemaVersion: typeof REST_SCHEMA_VERSION;
+  definition: StrategyDefinitionDto;
+}
+
+const AUTHORING_UNSAFE_REQUEST_FIELDS = new Set([
+  "apikey",
+  "secret",
+  "credential",
+  "credentials",
+  "token",
+  "password",
+  "completion",
+  "rawcompletion",
+  "provider",
+  "endpoint",
+  "authorization",
+  "cookie",
+  "headers",
+  "url",
+  "uri",
+  "structureddraft",
+]);
+
+function authoringKey(value: string): string {
+  return value.replaceAll("_", "").replaceAll("-", "").toLowerCase();
+}
+
+function rejectUnsafeAuthoringRequestFields(
+  input: Record<string, unknown>,
+  label: string,
+  allowPrompt: boolean,
+): void {
+  for (const key of Object.keys(input)) {
+    if ((allowPrompt && key === "prompt") || key === "schemaVersion" || key === "source") continue;
+    if (AUTHORING_UNSAFE_REQUEST_FIELDS.has(authoringKey(key))) {
+      throw new RestContractValidationError(
+        `${label} must not include provider credentials, raw completion, or persistence fields`,
+      );
+    }
+  }
+}
+
+function exactAuthoringKeys(
+  input: Record<string, unknown>,
+  allowed: readonly string[],
+  label: string,
+): void {
+  const allowedKeys = new Set(allowed);
+  const unknown = Object.keys(input).find((key) => !allowedKeys.has(key));
+  if (unknown) {
+    throw new RestContractValidationError(`${label} contains unsupported field ${unknown}`);
+  }
+}
+
+function parseStrategyAuthoringSource(value: unknown): StrategyAuthoringSourceDto {
+  const source = recordValue(value, "source");
+  rejectClientIdentityFields(source, "source");
+  if (source.kind === "PROMPT") {
+    exactAuthoringKeys(source, ["kind"], "source");
+    return { kind: "PROMPT" };
+  }
+  if (source.kind === "APPROVED_NEWS_ITEM") {
+    exactAuthoringKeys(source, ["kind", "newsItemId"], "source");
+    const newsItemId = stringValue(source.newsItemId, "source.newsItemId").trim();
+    if (!newsItemId) {
+      throw new RestContractValidationError("source.newsItemId must be a non-empty string");
+    }
+    return {
+      kind: "APPROVED_NEWS_ITEM",
+      newsItemId,
+    };
+  }
+  throw new RestContractValidationError("source.kind is not supported");
+}
+
+export function parseCreateStrategyAuthoringDraftRequest(
+  value: unknown,
+): CreateStrategyAuthoringDraftRequestDto {
+  const input = recordValue(value, "create strategy authoring draft request");
+  rejectClientIdentityFields(input, "create strategy authoring draft request");
+  rejectUnsafeAuthoringRequestFields(input, "create strategy authoring draft request", true);
+  exactAuthoringKeys(input, ["schemaVersion", "source", "prompt"], "create strategy authoring draft request");
+  if (input.schemaVersion !== REST_SCHEMA_VERSION) {
+    throw new RestContractValidationError("Unsupported REST schema version");
+  }
+  const source = parseStrategyAuthoringSource(input.source);
+  const hasPrompt = Object.prototype.hasOwnProperty.call(input, "prompt");
+  if (source.kind === "PROMPT") {
+    if (!hasPrompt) {
+      throw new RestContractValidationError("prompt is required for a prompt authoring source");
+    }
+    const prompt = stringValue(input.prompt, "prompt").trim();
+    if (!prompt) {
+      throw new RestContractValidationError("prompt must be a non-empty string");
+    }
+    return {
+      schemaVersion: REST_SCHEMA_VERSION,
+      source,
+      prompt,
+    };
+  }
+  if (hasPrompt) {
+    throw new RestContractValidationError("prompt is not accepted for approved News authoring");
+  }
+  return { schemaVersion: REST_SCHEMA_VERSION, source };
+}
+
+export function parseStrategyAuthoringDraftActionRequest(
+  value: unknown,
+): StrategyAuthoringDraftActionRequestDto {
+  const input = recordValue(value, "strategy authoring draft action request");
+  rejectClientIdentityFields(input, "strategy authoring draft action request");
+  rejectUnsafeAuthoringRequestFields(input, "strategy authoring draft action request", false);
+  exactAuthoringKeys(input, ["schemaVersion"], "strategy authoring draft action request");
+  if (input.schemaVersion !== REST_SCHEMA_VERSION) {
+    throw new RestContractValidationError("Unsupported REST schema version");
+  }
+  return { schemaVersion: REST_SCHEMA_VERSION };
+}
+
+export function parseStrategyAuthoringDraftId(value: unknown): string {
+  const draftId = stringValue(value, "draftId").trim();
+  if (!draftId || draftId.length > 128 || /\s/u.test(draftId)) {
+    throw new RestContractValidationError("draftId must be a bounded opaque identifier");
+  }
+  return draftId;
 }
 
 

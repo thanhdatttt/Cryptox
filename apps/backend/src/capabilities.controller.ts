@@ -16,13 +16,17 @@ import {
 } from "@cryptox/contracts/rest";
 import type { AuthenticatedRequestContext } from "@cryptox/auth";
 import {
+  BackendCapabilityUnavailableError,
   BACKEND_RUNTIME_TOKEN,
   type BackendRuntime,
 } from "./runtime";
+import type { StrategyAuthoringPort, StrategyAuthoringDraft } from "@cryptox/strategy";
+import type { StrategyModuleWithAuthoring } from "@cryptox/strategy/bootstrap";
 import { authenticatedContext, type BackendRequest } from "./auth-context";
 import { mapCapabilityError, restCall, unavailableCapability } from "./rest-errors";
 import {
   createLeaderboardScopeRequest,
+  createStrategyAuthoringDraftRequest,
   defineCompositeRequest,
   defineStrategyRequest,
   marketHistoryRequest,
@@ -41,6 +45,9 @@ import {
   toRankingConfigurationDto,
   toSearchRankingEntryDto,
   toSearchRunStatusDto,
+  strategyAuthoringDraftActionRequest,
+  strategyAuthoringDraftId,
+  toStrategyAuthoringDraftDto,
   toStrategyDefinitionDto,
   toStrategyPluginDescriptor,
   toTradeDto,
@@ -119,6 +126,55 @@ export class CapabilitiesController {
         await this.runtime.strategy.defineComposite(context, { ...defineCompositeRequest(body) }),
       ),
     }));
+  }
+
+  /** Creating a draft is the explicit Save step: only a valid structured provider result is persisted. */
+  @Post("strategy/authoring/drafts")
+  @HttpCode(HttpStatus.OK)
+  async createStrategyAuthoringDraft(@Req() request: BackendRequest, @Body() body: unknown) {
+    return this.privateCall(request, "strategy", async (context) => {
+      const input = createStrategyAuthoringDraftRequest(body);
+      const authoring = this.authoringPort(context);
+      const draft = await authoring.createDraft({
+        source: input.source,
+        ...(input.prompt === undefined ? {} : { prompt: input.prompt }),
+      });
+      return { schemaVersion: REST_SCHEMA_VERSION, draft: toStrategyAuthoringDraftDto(draft) };
+    });
+  }
+
+  @Post("strategy/authoring/drafts/:draftId/validate")
+  @HttpCode(HttpStatus.OK)
+  async validateStrategyAuthoringDraft(
+    @Req() request: BackendRequest,
+    @Param("draftId") draftId: string,
+    @Body() body: unknown,
+  ) {
+    return this.privateCall(request, "strategy", async (context) => {
+      strategyAuthoringDraftActionRequest(body);
+      const authoring = this.authoringPort(context);
+      // The application re-reads the owner-scoped persisted draft by id. The
+      // reference is intentionally not treated as client-supplied draft state.
+      const draft = await authoring.validateDraft({
+        id: strategyAuthoringDraftId(draftId),
+      } as StrategyAuthoringDraft);
+      return { schemaVersion: REST_SCHEMA_VERSION, draft: toStrategyAuthoringDraftDto(draft) };
+    });
+  }
+
+  @Post("strategy/authoring/drafts/:draftId/approve")
+  @HttpCode(HttpStatus.OK)
+  async approveStrategyAuthoringDraft(
+    @Req() request: BackendRequest,
+    @Param("draftId") draftId: string,
+    @Body() body: unknown,
+  ) {
+    return this.privateCall(request, "strategy", async (context) => {
+      strategyAuthoringDraftActionRequest(body);
+      const authoring = this.authoringPort(context);
+      const definition = await authoring.approveDraft(strategyAuthoringDraftId(draftId));
+      return { schemaVersion: REST_SCHEMA_VERSION, definition: toStrategyDefinitionDto(definition) };
+    });
   }
 
   @Get("search/runs")
@@ -353,5 +409,13 @@ export class CapabilitiesController {
               : "leaderboard-persistence",
       );
     }
+  }
+
+  private authoringPort(context: AuthenticatedRequestContext): StrategyAuthoringPort {
+    const createPort = (this.runtime.strategy as Partial<StrategyModuleWithAuthoring>).createAuthoringPort;
+    if (typeof createPort !== "function") {
+      throw new BackendCapabilityUnavailableError("strategy");
+    }
+    return createPort(context);
   }
 }

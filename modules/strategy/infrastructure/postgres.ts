@@ -1,10 +1,17 @@
 import type { AuthenticatedUserId } from "modules/auth/api";
 import type {
+  StrategyAuthoringDraftRecord,
+  StrategyAuthoringOriginRecord,
+} from "../application/authoring";
+import type {
   CompositeDefinitionRecord,
   CompositeDefinitionRepository,
   StrategyDefinitionRecord,
   StrategyDefinitionRepository,
+  StrategyAuthoringDraftRepository,
+  StrategyParameterValue,
 } from "../application/ports";
+import { AUTHORING_PROFILE_ID } from "../application/authoring";
 
 export interface PostgresQueryResult<Row extends Record<string, unknown> = Record<string, unknown>> {
   readonly rows: Row[];
@@ -29,6 +36,7 @@ export interface PostgresStrategyDependencies {
   readonly pool: PostgresPool;
   readonly definitionRepository: StrategyDefinitionRepository<StrategyDefinitionRecord>;
   readonly compositeRepository: CompositeDefinitionRepository<CompositeDefinitionRecord>;
+  readonly draftRepository: StrategyAuthoringDraftRepository<StrategyAuthoringDraftRecord>;
   close(): Promise<void>;
 }
 
@@ -48,6 +56,22 @@ interface StrategyDefinitionRow extends Record<string, unknown> {
   parameters: unknown;
   authoring_origin?: unknown;
   created_at: string;
+}
+
+interface StrategyAuthoringDraftRow extends Record<string, unknown> {
+  id: string;
+  owner_user_id: string;
+  profile_id: string;
+  source_kind: string;
+  source_news_item_id?: string | null;
+  provider_id: string;
+  model_id: string;
+  status: string;
+  structured_draft?: unknown;
+  validation_result?: unknown;
+  approved_definition_id?: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 interface CompositeDefinitionRow extends Record<string, unknown> {
@@ -75,6 +99,12 @@ interface CompositeComponentRow extends Record<string, unknown> {
 const STRATEGY_VERSION_CONSTRAINT = "strategy_definitions_family_version_unique";
 const COMPOSITE_VERSION_CONSTRAINT = "composite_strategy_definitions_family_version_unique";
 const VERSION_INSERT_RETRIES = 8;
+const AUTHORING_DRAFT_RETURNING_COLUMNS = `
+  id::text, owner_user_id::text, profile_id, source_kind,
+  source_news_item_id::text, provider_id, model_id, status,
+  structured_draft, validation_result, approved_definition_id::text,
+  created_at::text, updated_at::text
+`;
 
 function poolFromOptions(options: PostgresStrategyOptions): PostgresPool {
   if (options.pool) return options.pool;
@@ -166,6 +196,23 @@ function parametersFromValue(value: unknown): Readonly<Record<string, number | s
   return Object.freeze(parameters);
 }
 
+const AUTHORING_STATUS_VALUES = new Set<StrategyAuthoringDraftRecord["status"]>([
+  "DRAFT",
+  "VALIDATED",
+  "REJECTED",
+  "APPROVED",
+]);
+const AUTHORING_IDENTIFIER_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$/;
+const AUTHORING_PARAMETER_KEY_PATTERN = /^[A-Za-z][A-Za-z0-9_.-]{0,63}$/;
+
+function authoringIdentifier(value: unknown, field: string): string {
+  const result = requiredText(value, field).trim();
+  if (!AUTHORING_IDENTIFIER_PATTERN.test(result)) {
+    throw new Error(`invalid strategy ${field} in persistence`);
+  }
+  return result;
+}
+
 const FORBIDDEN_PROVENANCE_KEYS = new Set([
   "apikey",
   "api_key",
@@ -190,11 +237,223 @@ function assertSafeProvenance(value: unknown): void {
   }
 }
 
+function exactObjectKeys(value: JsonRecord, keys: readonly string[], error: string): void {
+  const expected = [...keys].sort();
+  const actual = Object.keys(value).sort();
+  if (actual.length !== expected.length || actual.some((key, index) => key !== expected[index])) {
+    throw new Error(error);
+  }
+}
+
 function authoringOriginFromValue(value: unknown): Readonly<JsonRecord> | undefined {
   if (value === undefined || value === null) return undefined;
   const parsed = jsonObject(value, "authoring_origin");
   assertSafeProvenance(parsed);
-  return deepFreeze(cloneJson(parsed) as JsonRecord);
+  const error = "invalid strategy authoring provenance in persistence";
+  let origin: StrategyAuthoringOriginRecord;
+  if (parsed.kind === "MANUAL") {
+    exactObjectKeys(parsed, ["kind"], error);
+    origin = { kind: "MANUAL" };
+  } else if (parsed.kind === "LLM_DRAFT") {
+    exactObjectKeys(parsed, ["kind", "draftId", "providerId", "modelId"], error);
+    origin = {
+      kind: "LLM_DRAFT",
+      draftId: authoringIdentifier(parsed.draftId, "authoring origin draftId"),
+      providerId: authoringIdentifier(parsed.providerId, "authoring origin providerId"),
+      modelId: authoringIdentifier(parsed.modelId, "authoring origin modelId"),
+    };
+  } else if (parsed.kind === "APPROVED_NEWS_ITEM") {
+    if (Object.keys(parsed).some((key) => !["kind", "newsItemId", "extractionTemplateVersion"].includes(key))) {
+      throw new Error(error);
+    }
+    if (!Object.prototype.hasOwnProperty.call(parsed, "kind") || !Object.prototype.hasOwnProperty.call(parsed, "newsItemId")) {
+      throw new Error(error);
+    }
+    const extractionTemplateVersion = parsed.extractionTemplateVersion === undefined
+      ? undefined
+      : positiveInteger(parsed.extractionTemplateVersion, "authoring origin extractionTemplateVersion");
+    origin = {
+      kind: "APPROVED_NEWS_ITEM",
+      newsItemId: requiredText(parsed.newsItemId, "authoring origin newsItemId").trim(),
+      ...(extractionTemplateVersion === undefined ? {} : { extractionTemplateVersion }),
+    };
+  } else {
+    throw new Error(error);
+  }
+  return deepFreeze(cloneJson(origin) as JsonRecord);
+}
+
+function authoringParametersFromValue(
+  value: unknown,
+): Readonly<Record<string, StrategyParameterValue>> {
+  const parsed = jsonObject(value, "structured_draft");
+  assertSafeProvenance(parsed);
+  const parameters: Record<string, StrategyParameterValue> = {};
+  for (const key of Object.keys(parsed).sort()) {
+    if (!AUTHORING_PARAMETER_KEY_PATTERN.test(key)) {
+      throw new Error("invalid strategy structured_draft in persistence");
+    }
+    const parameter = parsed[key];
+    if (
+      (typeof parameter !== "number" && typeof parameter !== "string")
+      || (typeof parameter === "number" && !Number.isFinite(parameter))
+      || (typeof parameter === "string" && !parameter.trim())
+    ) {
+      throw new Error("invalid strategy structured_draft in persistence");
+    }
+    parameters[key] = parameter;
+  }
+  return deepFreeze(parameters);
+}
+
+function validationResultFromValue(
+  value: unknown,
+): StrategyAuthoringDraftRecord["validation"] | undefined {
+  if (value === undefined || value === null) return undefined;
+  const parsed = jsonObject(value, "validation_result");
+  assertSafeProvenance(parsed);
+  exactObjectKeys(parsed, ["valid", "reasons", "validatedAt"], "invalid strategy validation_result in persistence");
+  if (
+    typeof parsed.valid !== "boolean"
+    || !Array.isArray(parsed.reasons)
+    || parsed.reasons.some((reason) => typeof reason !== "string" || !reason.trim())
+  ) {
+    throw new Error("invalid strategy validation_result in persistence");
+  }
+  return deepFreeze({
+    valid: parsed.valid,
+    reasons: Object.freeze(parsed.reasons.map((reason) => reason as string)),
+    validatedAt: timestamp(parsed.validatedAt, "validation_result validatedAt"),
+  });
+}
+
+function authoringSourcePayload(source: unknown): {
+  kind: "PROMPT" | "APPROVED_NEWS_ITEM";
+  newsItemId: string | null;
+} {
+  if (!source || typeof source !== "object" || Array.isArray(source)) {
+    throw new Error("invalid strategy draft source in persistence");
+  }
+  const record = source as JsonRecord;
+  if (record.kind === "PROMPT") {
+    exactObjectKeys(record, ["kind"], "invalid strategy draft source in persistence");
+    return { kind: "PROMPT", newsItemId: null };
+  }
+  if (record.kind === "APPROVED_NEWS_ITEM") {
+    exactObjectKeys(record, ["kind", "newsItemId"], "invalid strategy draft source in persistence");
+    return {
+      kind: "APPROVED_NEWS_ITEM",
+      newsItemId: requiredText(record.newsItemId, "draft source newsItemId").trim(),
+    };
+  }
+  throw new Error("invalid strategy draft source in persistence");
+}
+
+function authoringSourceFromRow(row: StrategyAuthoringDraftRow): StrategyAuthoringDraftRecord["source"] {
+  const sourceKind = requiredText(row.source_kind, "source_kind");
+  if (sourceKind === "PROMPT") {
+    if (row.source_news_item_id !== undefined && row.source_news_item_id !== null) {
+      throw new Error("invalid strategy source shape in persistence");
+    }
+    return { kind: "PROMPT" };
+  }
+  if (sourceKind === "APPROVED_NEWS_ITEM") {
+    return {
+      kind: "APPROVED_NEWS_ITEM",
+      newsItemId: requiredText(row.source_news_item_id, "source_news_item_id"),
+    };
+  }
+  throw new Error("invalid strategy source_kind in persistence");
+}
+
+function draftFromRow(row: StrategyAuthoringDraftRow): StrategyAuthoringDraftRecord {
+  const status = requiredText(row.status, "status");
+  if (!AUTHORING_STATUS_VALUES.has(status as StrategyAuthoringDraftRecord["status"])) {
+    throw new Error("invalid strategy status in persistence");
+  }
+  const approvedDefinitionId = row.approved_definition_id === undefined || row.approved_definition_id === null
+    ? undefined
+    : requiredText(row.approved_definition_id, "approved_definition_id");
+  if ((status === "APPROVED") !== (approvedDefinitionId !== undefined)) {
+    throw new Error("invalid strategy approval shape in persistence");
+  }
+  const structuredDraft = row.structured_draft === undefined || row.structured_draft === null
+    ? undefined
+    : authoringParametersFromValue(row.structured_draft);
+  const validation = validationResultFromValue(row.validation_result);
+  return deepFreeze({
+    id: requiredText(row.id, "id"),
+    ownerUserId: requiredText(row.owner_user_id, "owner_user_id") as AuthenticatedUserId,
+    profileId: AUTHORING_PROFILE_ID,
+    source: authoringSourceFromRow(row),
+    provider: {
+      id: authoringIdentifier(row.provider_id, "provider_id"),
+      modelId: authoringIdentifier(row.model_id, "model_id"),
+      // The migration stores only successful authoring records; configuration is
+      // deliberately never persisted as a credential or provider secret.
+      configured: true,
+    },
+    status: status as StrategyAuthoringDraftRecord["status"],
+    ...(structuredDraft === undefined ? {} : { structuredDraft }),
+    ...(validation === undefined ? {} : { validation }),
+    ...(approvedDefinitionId === undefined ? {} : { approvedDefinitionId }),
+    createdAt: timestamp(row.created_at, "created_at"),
+    updatedAt: timestamp(row.updated_at, "updated_at"),
+  });
+}
+
+interface AuthoringDraftPersistencePayload {
+  readonly sourceKind: "PROMPT" | "APPROVED_NEWS_ITEM";
+  readonly sourceNewsItemId: string | null;
+  readonly providerId: string;
+  readonly modelId: string;
+  readonly status: StrategyAuthoringDraftRecord["status"];
+  readonly structuredDraft: Readonly<Record<string, StrategyParameterValue>> | null;
+  readonly validationResult: StrategyAuthoringDraftRecord["validation"];
+  readonly approvedDefinitionId: string | null;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+function validateAuthoringDraftForPersistence(
+  ownerUserId: AuthenticatedUserId,
+  draft: StrategyAuthoringDraftRecord,
+): AuthoringDraftPersistencePayload {
+  ownerValue(ownerUserId);
+  if (!draft || typeof draft !== "object" || draft.ownerUserId !== ownerUserId) {
+    throw new Error("OWNER_MISMATCH");
+  }
+  requiredText(draft.id, "draft id");
+  if (draft.profileId !== AUTHORING_PROFILE_ID) throw new Error("INVALID_AUTHORING_PROFILE");
+  const source = authoringSourcePayload(draft.source);
+  if (!draft.provider || typeof draft.provider !== "object") throw new Error("INVALID_PROVIDER");
+  if (draft.provider.configured !== true) throw new Error("INVALID_PROVIDER_CONFIGURATION");
+  const providerId = authoringIdentifier(draft.provider.id, "provider_id");
+  const modelId = authoringIdentifier(draft.provider.modelId, "model_id");
+  const status = draft.status;
+  if (!AUTHORING_STATUS_VALUES.has(status)) throw new Error("invalid strategy status in persistence");
+  const structuredDraft = draft.structuredDraft === undefined
+    ? null
+    : authoringParametersFromValue(draft.structuredDraft);
+  const validationResult = validationResultFromValue(draft.validation);
+  const approvedDefinitionId = draft.approvedDefinitionId === undefined
+    ? null
+    : requiredText(draft.approvedDefinitionId, "approved_definition_id");
+  if ((status === "APPROVED") !== (approvedDefinitionId !== null)) {
+    throw new Error("invalid strategy approval shape in persistence");
+  }
+  return {
+    sourceKind: source.kind,
+    sourceNewsItemId: source.newsItemId,
+    providerId,
+    modelId,
+    status,
+    structuredDraft,
+    validationResult,
+    approvedDefinitionId,
+    createdAt: timestamp(draft.createdAt, "created_at"),
+    updatedAt: timestamp(draft.updatedAt, "updated_at"),
+  };
 }
 
 function definitionFromRow(row: StrategyDefinitionRow): PersistedStrategyDefinition {
@@ -332,10 +591,11 @@ function validateDefinitionForInsert(
   parametersFromValue(definition.parameters);
   const origin = (definition as PersistedStrategyDefinition).authoringOrigin;
   if (origin !== undefined) {
-    if (!origin || typeof origin !== "object" || Array.isArray(origin)) {
+    try {
+      authoringOriginFromValue(origin);
+    } catch {
       throw new Error("INVALID_AUTHORING_ORIGIN");
     }
-    assertSafeProvenance(origin);
   }
 }
 
@@ -503,6 +763,85 @@ export function createPostgresStrategyDependencies(
         items: Object.freeze(rows.map(definitionFromRow)),
         ...(hasMore && rows.at(-1) ? { nextCursor: rows.at(-1)!.id } : {}),
       };
+    },
+  };
+
+  const draftRepository: StrategyAuthoringDraftRepository<StrategyAuthoringDraftRecord> = {
+    insert: async (ownerUserId, draft): Promise<StrategyAuthoringDraftRecord> => {
+      const owner = ownerValue(ownerUserId);
+      const payload = validateAuthoringDraftForPersistence(ownerUserId, draft);
+      const result = await pool.query<StrategyAuthoringDraftRow>(
+        `
+          INSERT INTO strategy_authoring_drafts
+            (id, owner_user_id, profile_id, source_kind, source_news_item_id,
+             provider_id, model_id, status, structured_draft, validation_result,
+             approved_definition_id, created_at, updated_at)
+          VALUES ($1::uuid, $2::uuid, $3, $4, $5::uuid,
+                  $6, $7, $8, $9::jsonb, $10::jsonb,
+                  $11::uuid, $12::timestamptz, $13::timestamptz)
+          RETURNING ${AUTHORING_DRAFT_RETURNING_COLUMNS}
+        `,
+        [
+          draft.id,
+          owner,
+          AUTHORING_PROFILE_ID,
+          payload.sourceKind,
+          payload.sourceNewsItemId,
+          payload.providerId,
+          payload.modelId,
+          payload.status,
+          payload.structuredDraft === null ? null : JSON.stringify(payload.structuredDraft),
+          payload.validationResult === undefined ? null : JSON.stringify(payload.validationResult),
+          payload.approvedDefinitionId,
+          payload.createdAt,
+          payload.updatedAt,
+        ],
+      );
+      const row = result.rows[0];
+      if (!row) throw new Error("strategy authoring draft insert returned no row");
+      return draftFromRow(row);
+    },
+
+    getByOwnerAndId: async (ownerUserId, draftId): Promise<StrategyAuthoringDraftRecord | undefined> => {
+      const result = await pool.query<StrategyAuthoringDraftRow>(
+        `
+          SELECT ${AUTHORING_DRAFT_RETURNING_COLUMNS}
+          FROM strategy_authoring_drafts
+          WHERE owner_user_id = $1::uuid AND id = $2::uuid
+          LIMIT 1
+        `,
+        [ownerValue(ownerUserId), draftId],
+      );
+      return result.rows[0] ? draftFromRow(result.rows[0]) : undefined;
+    },
+
+    save: async (ownerUserId, draft): Promise<StrategyAuthoringDraftRecord> => {
+      const owner = ownerValue(ownerUserId);
+      const payload = validateAuthoringDraftForPersistence(ownerUserId, draft);
+      const result = await pool.query<StrategyAuthoringDraftRow>(
+        `
+          UPDATE strategy_authoring_drafts
+          SET status = $3,
+              structured_draft = $4::jsonb,
+              validation_result = $5::jsonb,
+              approved_definition_id = $6::uuid,
+              updated_at = $7::timestamptz
+          WHERE owner_user_id = $1::uuid AND id = $2::uuid
+          RETURNING ${AUTHORING_DRAFT_RETURNING_COLUMNS}
+        `,
+        [
+          owner,
+          draft.id,
+          payload.status,
+          payload.structuredDraft === null ? null : JSON.stringify(payload.structuredDraft),
+          payload.validationResult === undefined ? null : JSON.stringify(payload.validationResult),
+          payload.approvedDefinitionId,
+          payload.updatedAt,
+        ],
+      );
+      const row = result.rows[0];
+      if (!row) throw new Error("DRAFT_NOT_FOUND");
+      return draftFromRow(row);
     },
   };
 
@@ -703,6 +1042,7 @@ export function createPostgresStrategyDependencies(
     pool,
     definitionRepository,
     compositeRepository,
+    draftRepository,
     close: async () => {
       if (closed) return;
       closed = true;

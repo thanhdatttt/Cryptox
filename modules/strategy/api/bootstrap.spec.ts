@@ -14,7 +14,12 @@ import {
 const userA = "trusted-a" as AuthenticatedUserId;
 const userB = "trusted-b" as AuthenticatedUserId;
 
-function dependencies(): StrategyAuthoringApplicationDependencies {
+type BootstrapTestDependencies = StrategyAuthoringApplicationDependencies & Pick<
+  ReturnType<typeof createInMemoryStrategyDependencies>,
+  "compositeRepository"
+>;
+
+function dependencies(): BootstrapTestDependencies {
   const base = createInMemoryStrategyDependencies([{
     descriptor: {
       name: "BOOTSTRAP_TEST",
@@ -49,6 +54,53 @@ function dependencies(): StrategyAuthoringApplicationDependencies {
 }
 
 describe("Strategy authoring API composition", () => {
+  it("composes the provider-neutral authoring application into the public Strategy module", async () => {
+    const authoring = dependencies();
+    const strategyModule = createStrategyModule({
+      factories: authoring.factories,
+      definitionRepository: authoring.definitionRepository,
+      compositeRepository: authoring.compositeRepository,
+      authoring: {
+        draftRepository: authoring.draftRepository,
+        provider: authoring.provider,
+        logicalFamilyKey: authoring.logicalFamilyKey,
+        strategyName: authoring.strategyName,
+        clock: authoring.clock,
+        idFactory: authoring.idFactory,
+      },
+    });
+
+    const port = strategyModule.createAuthoringPort({ authenticatedUserId: userA });
+    const draft = await port.createDraft({
+      source: { kind: "PROMPT" },
+      prompt: "Create a bounded strategy draft.",
+    });
+    const validated = await port.validateDraft(draft);
+    const definition = await port.approveDraft(validated.id);
+
+    expect(draft).toMatchObject({
+      ownerUserId: userA,
+      status: "DRAFT",
+      structuredDraft: { period: 14 },
+    });
+    expect(draft).not.toHaveProperty("prompt");
+    expect(validated.status).toBe("VALIDATED");
+    expect(definition).toMatchObject({
+      ownerUserId: userA,
+      strategyName: "BOOTSTRAP_TEST",
+      authoringOrigin: {
+        kind: "LLM_DRAFT",
+        draftId: draft.id,
+        providerId: "bootstrap-provider",
+        modelId: "bootstrap-model",
+      },
+    });
+    expect(Object.isFrozen(definition.authoringOrigin)).toBe(true);
+    expect(JSON.stringify(definition)).not.toContain("Create a bounded strategy draft.");
+    await expect(strategyModule.createAuthoringPort({ authenticatedUserId: userB }).validateDraft(draft))
+      .rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+
   it("binds trusted request identity before exposing the frozen authoring port", async () => {
     const port = createStrategyAuthoringPort({ authenticatedUserId: userA }, dependencies());
     const draft = await port.createDraft({ source: { kind: "PROMPT" }, prompt: "Make a strategy." });

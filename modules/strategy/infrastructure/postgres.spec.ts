@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AuthenticatedUserId } from "modules/auth/api";
+import type { StrategyAuthoringDraftRecord } from "../application/authoring";
 import type { CompositeDefinitionRecord, StrategyDefinitionRecord } from "../application/ports";
 import {
   createPostgresStrategyDependencies,
@@ -53,6 +54,7 @@ const ownerB = "00000000-0000-4000-8000-000000000002" as AuthenticatedUserId;
 const definitionIdA = "00000000-0000-4000-8000-000000000011";
 const definitionIdB = "00000000-0000-4000-8000-000000000012";
 const compositeId = "00000000-0000-4000-8000-000000000021";
+const draftId = "00000000-0000-4000-8000-000000000031";
 const fixedCreatedAt = "2026-08-30T00:00:00.000Z";
 
 function definitionRow(
@@ -152,6 +154,44 @@ function compositeDefinition(ownerUserId: AuthenticatedUserId = ownerA): Composi
   };
 }
 
+function draftRow(
+  ownerUserId: AuthenticatedUserId = ownerA,
+  id = draftId,
+  status: "DRAFT" | "VALIDATED" = "DRAFT",
+): Record<string, unknown> {
+  return {
+    id,
+    owner_user_id: ownerUserId,
+    profile_id: "LLM_AUTHORING_V1",
+    source_kind: "PROMPT",
+    source_news_item_id: null,
+    provider_id: "openai-compatible",
+    model_id: "demo-model",
+    status,
+    structured_draft: { period: 14 },
+    validation_result: status === "VALIDATED"
+      ? { valid: true, reasons: [], validatedAt: fixedCreatedAt }
+      : null,
+    approved_definition_id: null,
+    created_at: fixedCreatedAt,
+    updated_at: fixedCreatedAt,
+  };
+}
+
+function draft(ownerUserId: AuthenticatedUserId = ownerA): StrategyAuthoringDraftRecord {
+  return {
+    id: draftId,
+    ownerUserId,
+    profileId: "LLM_AUTHORING_V1",
+    source: { kind: "PROMPT" },
+    provider: { id: "openai-compatible", modelId: "demo-model", configured: true },
+    status: "DRAFT",
+    structuredDraft: { period: 14 },
+    createdAt: fixedCreatedAt,
+    updatedAt: fixedCreatedAt,
+  };
+}
+
 describe("Strategy PostgreSQL repositories [CSL-R-OW-01, CSL-R-ST-04, CSL-R-RP-02]", () => {
   it("filters definitions by trusted owner before paginating with the existing cursor order", async () => {
     const fake = fakePool([
@@ -210,6 +250,71 @@ describe("Strategy PostgreSQL repositories [CSL-R-OW-01, CSL-R-ST-04, CSL-R-RP-0
     expect(Object.isFrozen(result?.parameters)).toBe(true);
     expect(Object.isFrozen(result?.authoringOrigin)).toBe(true);
     expect(fake.calls[0]?.values).toEqual([ownerA, definitionIdA]);
+    await dependencies.close();
+  });
+
+  it("persists and reads owner-scoped authoring drafts through the approved table shape", async () => {
+    const fake = fakePool([
+      { rows: [draftRow()] },
+      { rows: [draftRow()] },
+      { rows: [] },
+      { rows: [draftRow(ownerA, draftId, "VALIDATED")] },
+    ]);
+    const dependencies = createPostgresStrategyDependencies({ connectionString: "", pool: fake.pool });
+
+    const inserted = await dependencies.draftRepository.insert(ownerA, draft());
+    const read = await dependencies.draftRepository.getByOwnerAndId(ownerA, draftId);
+    const hiddenFromOtherOwner = await dependencies.draftRepository.getByOwnerAndId(ownerB, draftId);
+    const validated = await dependencies.draftRepository.save(ownerA, {
+      ...read!,
+      status: "VALIDATED",
+      validation: { valid: true, reasons: [], validatedAt: fixedCreatedAt },
+    });
+
+    expect(inserted).toMatchObject({
+      id: draftId,
+      ownerUserId: ownerA,
+      profileId: "LLM_AUTHORING_V1",
+      source: { kind: "PROMPT" },
+      provider: { id: "openai-compatible", modelId: "demo-model", configured: true },
+      status: "DRAFT",
+      structuredDraft: { period: 14 },
+    });
+    expect(inserted).not.toHaveProperty("prompt");
+    expect(Object.isFrozen(inserted)).toBe(true);
+    expect(Object.isFrozen(inserted.structuredDraft)).toBe(true);
+    expect(read).toEqual(inserted);
+    expect(hiddenFromOtherOwner).toBeUndefined();
+    expect(validated).toMatchObject({ status: "VALIDATED", validation: { valid: true } });
+    expect(fake.calls[0]?.text).toContain("INSERT INTO strategy_authoring_drafts");
+    expect(fake.calls[0]?.text).toContain("profile_id");
+    expect(fake.calls[0]?.values?.[4]).toBeNull();
+    expect(fake.calls[0]?.values?.[8]).toBe('{"period":14}');
+    expect(fake.calls[2]?.text).toContain("owner_user_id = $1::uuid AND id = $2::uuid");
+    expect(fake.calls[2]?.values).toEqual([ownerB, draftId]);
+    expect(fake.calls[3]?.text).toContain("UPDATE strategy_authoring_drafts");
+    await dependencies.close();
+  });
+
+  it("rejects owner mismatch and non-canonical authoring origin before any database write", async () => {
+    const fake = fakePool([]);
+    const dependencies = createPostgresStrategyDependencies({ connectionString: "", pool: fake.pool });
+
+    await expect(dependencies.draftRepository.insert(ownerB, draft(ownerA))).rejects.toThrow("OWNER_MISMATCH");
+
+    const unsafeOrigin = {
+      ...definition(),
+      authoringOrigin: {
+        kind: "LLM_DRAFT",
+        draftId: "draft-1",
+        providerId: "provider",
+        modelId: "model",
+        url: "https://not-persisted.example",
+      },
+    } as unknown as StrategyDefinitionRecord;
+    await expect(dependencies.definitionRepository.insert(ownerA, unsafeOrigin))
+      .rejects.toThrow("INVALID_AUTHORING_ORIGIN");
+    expect(fake.calls).toHaveLength(0);
     await dependencies.close();
   });
 

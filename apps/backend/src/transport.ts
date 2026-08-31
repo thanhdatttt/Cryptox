@@ -2,16 +2,20 @@ import {
   REST_SCHEMA_VERSION,
   RestContractValidationError,
   parseCreateLeaderboardScopeRequest,
+  parseCreateStrategyAuthoringDraftRequest,
   parseDefineCompositeRequest,
   parseDefineStrategyRequest,
   parseMarketHistoryRequest,
   parseNewsQuery,
   parseStartManualBacktestRequest,
   parseStartSearchRequest,
+  parseStrategyAuthoringDraftActionRequest,
+  parseStrategyAuthoringDraftId,
   type BacktestConfigurationDto,
   type CandidateProgressDto,
   type CandleDto,
   type CompositeStrategyDefinitionDto,
+  type CreateStrategyAuthoringDraftRequestDto,
   type DefineCompositeRequestDto,
   type DefineStrategyRequestDto,
   type ExperimentDto,
@@ -27,6 +31,8 @@ import {
   type StartManualBacktestRequestDto,
   type StartSearchRequestDto,
   type StrategyDefinitionDto,
+  type StrategyAuthoringDraftDto,
+  type StrategyAuthoringDraftActionRequestDto,
   type StrategyPluginDescriptorDto,
   type TradeDto,
 } from "@cryptox/contracts/rest";
@@ -41,6 +47,7 @@ import type { HistoricalCandlePage } from "@cryptox/market-data";
 import type {
   CompositeStrategyDefinition,
   StrategyDefinition,
+  StrategyAuthoringDraft,
   StrategyPluginDescriptor,
 } from "@cryptox/strategy";
 import type { LeaderboardEntry, LeaderboardScope, RankingConfiguration, SearchRunRankingEntry } from "@cryptox/leaderboard";
@@ -75,6 +82,32 @@ export function toStrategyDefinitionDto(value: StrategyDefinition): StrategyDefi
     parameters: { ...value.parameters },
     ...(value.authoringOrigin === undefined ? {} : { authoringOrigin: { ...value.authoringOrigin } }),
     createdAt: value.createdAt,
+  };
+}
+
+export function toStrategyAuthoringDraftDto(value: StrategyAuthoringDraft): StrategyAuthoringDraftDto {
+  return {
+    id: value.id,
+    ownerUserId: value.ownerUserId,
+    profileId: value.profileId,
+    source: value.source.kind === "PROMPT"
+      ? { kind: "PROMPT" }
+      : { kind: "APPROVED_NEWS_ITEM", newsItemId: value.source.newsItemId },
+    provider: { ...value.provider },
+    status: value.status,
+    ...(value.structuredDraft === undefined ? {} : { structuredDraft: { ...value.structuredDraft } }),
+    ...(value.validation === undefined
+      ? {}
+      : {
+          validation: {
+            valid: value.validation.valid,
+            reasons: [...value.validation.reasons],
+            validatedAt: value.validation.validatedAt,
+          },
+        }),
+    ...(value.approvedDefinitionId === undefined ? {} : { approvedDefinitionId: value.approvedDefinitionId }),
+    createdAt: value.createdAt,
+    updatedAt: value.updatedAt,
   };
 }
 
@@ -362,6 +395,18 @@ export function defineStrategyRequest(body: unknown): DefineStrategyRequestDto {
 
 export function defineCompositeRequest(body: unknown): DefineCompositeRequestDto {
   return parseDefineCompositeRequest(body);
+}
+
+export function createStrategyAuthoringDraftRequest(body: unknown): CreateStrategyAuthoringDraftRequestDto {
+  return parseCreateStrategyAuthoringDraftRequest(body);
+}
+
+export function strategyAuthoringDraftActionRequest(body: unknown): StrategyAuthoringDraftActionRequestDto {
+  return parseStrategyAuthoringDraftActionRequest(body);
+}
+
+export function strategyAuthoringDraftId(value: unknown): string {
+  return parseStrategyAuthoringDraftId(value);
 }
 
 export function startManualBacktestRequest(body: unknown): StartManualBacktestRequestDto {
