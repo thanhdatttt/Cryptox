@@ -3393,3 +3393,57 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-082`, `INS-161`, and `INS-162`.
+
+## DEC-084 — Hold after independent INS-162 reconciliation review
+
+Status: `HOLD`
+
+Authority: Instructor review after the fresh same-directory INS-162 Manager
+completed and the Instructor independently integrated the audited delta at
+`ddddfe6` (`chore(control): integrate INS-162 reconciliation`). The exact
+authorized changes are limited to the ten active OpenSpec spec headings, the
+19-line seven-ID traceability block in `MVP_PLAN.md`, and the Manager-owned
+`TASKS.md`/`HANDOFF.md` checkpoint. The pre-existing untracked
+`.codex/config.toml` remains excluded; no source, test, environment,
+credential, migration, infrastructure, or provider change was made.
+
+The operational board remains 58 rows with 57 `DONE` and only `I-02` at
+`REVIEW`. INS-162 moved only I-02 through `REVIEW -> READY -> IN_PROGRESS ->
+REVIEW`; N-03S, N-03R, I-02D, I-01, and I-03 remain `DONE`. Galileo and Pauli
+were fresh hidden sequential workers, each completed once and closed; no retry,
+replacement, duplicate, competing Manager, or worktree was used.
+
+OpenSpec CLI `1.11.0` is installed and executable through the Instructor's
+absolute npm shim. Independent `openspec validate --all --no-interactive
+--json` returned 11 items: the active `mvp-implementation` change passed, but
+all 10 capability specs failed because each requirement has no validator-
+recognized nested scenario. The CLI requires level-4 headers such as
+`#### Scenario: ...` with `WHEN`/`THEN`/`AND` bullets. The `## Purpose`
+normalization is therefore accepted, but scenario restructuring is a separate
+semantic/spec-format reconciliation and is not silently included in INS-162.
+
+INS-162's exact-path, Markdown/link/anchor, DAG, scope, secret, whitespace, and
+diff checks passed, and the seven previously omitted canonical IDs are now
+mapped to existing packets/evidence in `MVP_PLAN.md` without changing task DAG
+or scope. The full I-02 DoD remains unproven: live PostgreSQL/Auth ownership,
+configured Binance historical/realtime/recovery, authenticated browser/demo,
+clean install/reprovision, application LLM Save/Approve, and consolidated
+architecture/live evidence remain `BLOCKED` or `UNVERIFIED` at their recorded
+boundaries. Earlier Instructor-side Docker/PostgreSQL, RSS, and Gemini 3.6
+provider-boundary evidence is not promoted beyond what it actually proves.
+
+The next signal may authorize only a bounded OpenSpec scenario-format
+conversion and/or a separately bounded final live-evidence packet after fresh
+applicability review. No source repair, native Gemini protocol,
+`GEMINI_*` mapping, automatic retry/fallback, credential change, fixture
+substitution, migration/Docker redesign, deferred scope, or downstream task is
+authorized under this HOLD. No final MVP-complete claim is permitted until
+the remaining evidence is real and independently reviewed.
+
+Affected: `I-02`, `TASKS.md`, `HANDOFF.md`, `MVP_PLAN.md`, active OpenSpec
+specifications, `INS-162`, and the final I-02 verification boundary.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-083`, `INS-162`, and `INS-163`.

@@ -2,11 +2,74 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-162`
+Instruction ID: `INS-163`
 
-Status: `APPROVED_FOR_EXECUTION`
+Status: `HOLD`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-163 — HOLD after INS-162 OpenSpec and traceability reconciliation
+
+This is the Instructor's replaceable safe checkpoint after the bounded
+`INS-162 / APPROVED_FOR_EXECUTION` reconciliation. The authorized heading and
+traceability edits were integrated, but the installed OpenSpec validator
+revealed a separate scenario-format defect that was outside that authorization.
+No feature implementation or downstream execution is authorized from this
+HOLD.
+
+### Verified checkpoint
+
+- Canonical checkout: `D:\\agy-cli-projects\\AOS\\Cryptox`, branch
+  `MVP_IMPLEMENTATION`, HEAD
+  `ddddfe6` (`chore(control): integrate INS-162 reconciliation`). The
+  Instructor independently audited and integrated exactly the 13 authorized
+  tracked paths from the Manager checkpoint. The pre-existing untracked
+  `.codex/config.toml` remains excluded; ignored local environment files and
+  credential values are not part of Git evidence.
+- `TASKS.md` remains the sole operational authority at 58 rows: 57 `DONE`,
+  only `I-02` `REVIEW`, and no `BLOCKED`, `READY`, or `IN_PROGRESS` row.
+  `N-03S`, `N-03R`, `I-02D`, `I-01`, and `I-03` remain `DONE`. INS-162 moved
+  only `I-02` through `REVIEW -> READY -> IN_PROGRESS -> REVIEW`; no
+  downstream task was started.
+- INS-162 used exactly one fresh same-directory Manager and exactly two fresh
+  sequential hidden workers, all completed once and closed. Galileo changed
+  only the ten active spec purpose headings; Pauli added only the 19-line
+  seven-ID mapping in `MVP_PLAN.md`. The Manager's one denied commit attempt
+  was not retried; the Instructor integration commit above is the independent
+  audited integration.
+
+### Independent validation
+
+- OpenSpec CLI `1.11.0` is genuinely installed and executable through
+  `C:\\Users\\admin\\AppData\\Roaming\\npm\\openspec.cmd`; this is not an
+  unavailable-tool result. Instructor reran
+  `openspec validate --all --no-interactive --json` after integration.
+- Result: 11 items total; the active `mvp-implementation` change is `PASS`,
+  while all 10 capability specs are `FAIL`. Each failure reports
+  `Requirement must have at least one scenario` and instructs conversion to
+  level-4 nested headers such as `#### Scenario: ...` with `WHEN`/`THEN`/`AND`
+  bullets. The prior `## Purpose` heading issue is repaired; the remaining
+  scenario conversion is a distinct spec-format/traceability change and was
+  not attempted under INS-162.
+- INS-162 exact-path, heading-preservation, Markdown/link/anchor, DAG, scope,
+  secret, whitespace, and diff checks passed. The seven canonical IDs now have
+  literal mappings in `MVP_PLAN.md` without changing packet scope or task
+  state. The OpenSpec scenario validator result remains the authoritative
+  failing check.
+- Earlier accepted deterministic, Docker/PostgreSQL, CoinDesk RSS, and
+  provider-boundary evidence remains at its recorded boundaries. It does not
+  prove the remaining live I-02 Save/Approve, Binance, browser/demo,
+  clean-install, or complete architecture-scenario evidence.
+
+### Remaining I-02 boundary
+
+The Full MVP DoD is not proven. The next authorization may separately permit a
+minimal conversion of existing scenario bullets into the validator-required
+nested scenario headings, preserving approved behavior and requirement IDs,
+and then a bounded final live/demo evidence packet. No semantic requirement
+expansion, source repair, native Gemini integration, `GEMINI_*` mapping,
+automatic retry/fallback, fixture substitution, migration/Docker redesign,
+deferred scope, or downstream execution is authorized by this HOLD.
 
 ## INS-162 — APPROVED_FOR_EXECUTION for OpenSpec and traceability reconciliation
 
