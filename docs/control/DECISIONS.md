@@ -3447,3 +3447,52 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-083`, `INS-162`, and `INS-163`.
+
+## DEC-085 — Authorize OpenSpec scenario-format reconciliation
+
+Status: `APPROVED`
+
+Authority: Instructor review at the committed `INS-163 / HOLD` checkpoint
+`05be4b000a81b98f5095cdf3de2746cc198df933`. The tracked tree is clean apart
+from the pre-existing untracked `.codex/config.toml`; the operational board
+has 58 rows with 57 `DONE` and only `I-02` at `REVIEW`.
+
+Independent execution of installed OpenSpec CLI `1.11.0` confirmed that the
+active `mvp-implementation` change passes but all ten active capability specs
+fail because every requirement has an empty validator-recognized scenario
+collection. The existing `#### Scenario: ...` blocks are grouped under a
+separate acceptance section. This is a bounded specification-structure
+reconciliation, not permission to change product behavior.
+
+Authorize exactly one fresh same-directory Manager in the canonical checkout,
+using `gpt-5.6-luna` with `max` reasoning and no worktree. It may create exactly
+one fresh hidden worker, once, with the same model/reasoning. The worker may
+edit only the ten active capability spec files under `openspec/specs/` listed
+in `INS-164`, moving each existing scenario block under the requirement it
+already describes and removing only an empty acceptance-section heading. All
+scenario text, requirement prose, traceability, links, and meaning must be
+preserved; no scenario may be added, deleted, duplicated, or reworded. An
+ambiguous mapping requires `NEEDS_INSTRUCTOR_REVIEW`.
+
+The Manager alone may update `TASKS.md` and `HANDOFF.md`, re-entering only
+`I-02` as `REVIEW -> READY -> IN_PROGRESS -> REVIEW`; it must not mark I-02
+`DONE` or run any pending active-change implementation task. Acceptance
+requires formal OpenSpec validation of all 11 active items, exact scenario
+count/placement preservation, every requirement having a nested scenario,
+and exact-path Markdown/link/DAG/scope/secret/whitespace/diff checks. One
+checkpoint commit attempt maximum; no retry.
+
+No source/test implementation, active-change or archived-change edit,
+requirement/ADR/architecture change, native Gemini protocol, `GEMINI_*`
+mapping, automatic retry/fallback, credential change, fixture substitution,
+migration/Docker redesign, deferred scope, downstream task, or final MVP
+promotion is authorized. The Instructor will independently rerun OpenSpec and
+audit the result before the next signal.
+
+Affected: `I-02`, `TASKS.md`, `HANDOFF.md`, the ten active OpenSpec capability
+specifications, `INS-163`, and `INS-164`.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-084`, `INS-163`, and `INS-164`.

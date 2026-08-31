@@ -2,11 +2,97 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-163`
+Instruction ID: `INS-164`
 
-Status: `HOLD`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-164 — APPROVED_FOR_EXECUTION for OpenSpec scenario-format reconciliation
+
+This instruction supersedes `INS-163 / HOLD` and authorizes one narrowly
+bounded structural reconciliation of the ten active capability specifications.
+The installed OpenSpec validator requires each requirement to contain at least
+one nested level-4 scenario, while the existing scenario blocks are currently
+grouped under a separate acceptance section. This packet may relocate those
+existing blocks without changing approved behavior or adding product scope.
+
+### Reviewed checkpoint and applicability
+
+- Canonical checkout: `D:\\agy-cli-projects\\AOS\\Cryptox`, branch
+  `MVP_IMPLEMENTATION`, reviewed HEAD
+  `05be4b000a81b98f5095cdf3de2746cc198df933` (`chore(control): hold after
+  INS-162 review`). The tracked tree is clean; the pre-existing untracked
+  `.codex/config.toml` remains excluded and ignored local environment files
+  remain outside Git.
+- `TASKS.md` is authoritative at 58 rows: 57 `DONE`, only `I-02` `REVIEW`,
+  and no `BLOCKED`, `READY`, or `IN_PROGRESS` row. `N-03S`, `N-03R`,
+  `I-02D`, `I-01`, and `I-03` remain `DONE`; no competing Cryptox Manager or
+  worker is active.
+- Independent OpenSpec CLI `1.11.0` execution is available through
+  `C:\\Users\\admin\\AppData\\Roaming\\npm\\openspec.cmd`. The active
+  `mvp-implementation` change passes, but all ten active capability specs fail
+  because their requirement-level scenario collections are empty. The earlier
+  purpose-heading mismatch and the seven-ID plan traceability gap were already
+  reconciled at the preceding checkpoint.
+
+### Exact authorized scope and delegation
+
+- Create exactly one fresh same-directory Manager in the canonical checkout,
+  using `gpt-5.6-luna` with `max` reasoning and no worktree. The Manager must
+  reread `AGENTS.md` and `docs/control/prompts/ORCHESTRATOR_START.md`, verify
+  `DEC-085`, compare the actual checkpoint with this signal, and confirm no
+  competing active task before dispatch.
+- The Manager may create exactly one fresh hidden internal worker, once only,
+  with `gpt-5.6-luna` and `max` reasoning. The worker's write scope is exactly
+  these ten files:
+  `openspec/specs/auth/spec.md`,
+  `openspec/specs/backtesting/spec.md`,
+  `openspec/specs/evaluation/spec.md`,
+  `openspec/specs/frontend/spec.md`,
+  `openspec/specs/leaderboard/spec.md`,
+  `openspec/specs/market-data/spec.md`,
+  `openspec/specs/news/spec.md`,
+  `openspec/specs/search/spec.md`,
+  `openspec/specs/sentiment/spec.md`, and
+  `openspec/specs/strategy/spec.md`.
+- The worker may move each existing `#### Scenario: ...` block from the
+  separate acceptance-scenarios section under the single existing
+  `### Requirement` or `### Suggested requirement` whose behavior it already
+  describes, and remove only the now-empty acceptance-section heading. Every
+  existing scenario heading and its `Given/When/Then/And` text must remain
+  present exactly once, with no new, deleted, or reworded scenario. Requirement
+  prose, traceability lines, purpose text, approved invariants, API/status,
+  failure expectations, links, and meaning must remain unchanged. If a mapping
+  is genuinely ambiguous, stop at `NEEDS_INSTRUCTOR_REVIEW` rather than guess.
+- The worker may not edit `MVP_PLAN.md`, `TASKS.md`, `HANDOFF.md`,
+  `INSTRUCTOR.md`, `DECISIONS.md`, requirements, ADRs, architecture, data
+  model, the active change, archived changes, `openspec/config.yaml`, source,
+  tests, dependencies, environment, credentials, migrations, infrastructure,
+  generated artifacts, or any other path. The Manager alone owns the
+  `TASKS.md`/`HANDOFF.md` checkpoint.
+
+### Acceptance, validation, and stop condition
+
+- `openspec validate --all --no-interactive --json` must exit successfully with
+  the active change and all ten capability specs valid. If the Manager cannot
+  access the CLI, it must record `UNVERIFIED`; Instructor will rerun the
+  absolute installed shim independently and will not infer `PASS`.
+- The Manager must independently review the exact ten-file diff, prove that
+  every original scenario block occurs exactly once under a requirement, prove
+  that every requirement has at least one nested scenario, and run applicable
+  Markdown/link/anchor, DAG, scope, secret, whitespace, and diff checks. No
+  implementation tests are required for a documentation-only relocation, but
+  unavailable checks remain `UNVERIFIED`/`BLOCKED`.
+- Re-enter only `I-02` through `REVIEW -> READY -> IN_PROGRESS -> REVIEW` for
+  this reconciliation; do not mark it `DONE`, start downstream work, or apply
+  the pending OpenSpec implementation tasks. The Manager makes at most one
+  explicit-path checkpoint staging/commit attempt and stops, with no retry.
+
+No source repair, requirement change, native Gemini integration, `GEMINI_*`
+mapping, automatic retry/fallback, credential change, fixture substitution,
+migration/Docker redesign, deferred scope, active-change task execution, or
+final MVP claim is authorized.
 
 ## INS-163 — HOLD after INS-162 OpenSpec and traceability reconciliation
 
