@@ -2,11 +2,96 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-167`
+Instruction ID: `INS-168`
 
-Status: `HOLD`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-168 — APPROVED_FOR_EXECUTION for exact spec-delta preservation repair
+
+This instruction supersedes `INS-167 / HOLD` and authorizes one final,
+documentation-only correction of the known uncommitted INS-164/166 delta. It
+does not add product capability, execute the active OpenSpec implementation
+change, promote I-02, or authorize downstream work.
+
+### Governing requirements and reviewed checkpoint
+
+- Verification-only requirement IDs: `CSL-R-DL-01`, `CSL-R-AR-02`, and
+  `CSL-R-AR-03`. No approved requirement behavior, contract, scenario meaning,
+  or task scope may change.
+- Canonical checkout: `D:\\agy-cli-projects\\AOS\\Cryptox`, branch
+  `MVP_IMPLEMENTATION`, authorization HEAD
+  `ec1209d` (`chore(control): set INS-167 hold signal`). The current
+  intentional tracked delta is exactly twelve paths: the ten active capability
+  specs plus Manager-owned `docs/implementation/TASKS.md` and
+  `docs/implementation/HANDOFF.md`. The pre-existing untracked
+  `.codex/config.toml` remains excluded. No source/business-state drift is
+  present.
+- `TASKS.md` is authoritative at 58 rows: 57 `DONE`, only `I-02` `REVIEW`,
+  and no other `BLOCKED`, `READY`, or `IN_PROGRESS` row. N-03S, N-03R, I-02D,
+  I-01, and I-03 remain `DONE`. No Cryptox Manager or worker is active.
+- Exact preservation baseline is `560bdad63d922d66c3d78ad8965e4cecadd07be7`.
+  The current delta already contains exactly 64 original scenario blocks,
+  each once, with 47/47 nested requirement coverage and the required
+  Backtesting placement. OpenSpec `1.11.0` independently validates all 11
+  active items; Manager-side access remains `BLOCKED/UNVERIFIED`.
+
+### Authorized delegation and write scope
+
+- Create exactly one fresh same-directory Manager in the canonical checkout,
+  using `gpt-5.6-luna` with `max` reasoning and no worktree. The Manager must
+  reread `AGENTS.md` and `docs/control/prompts/ORCHESTRATOR_START.md`, verify
+  `DEC-089`, compare the dirty checkpoint with this signal, and confirm no
+  competing Cryptox task before dispatch.
+- The Manager may create exactly one fresh hidden internal worker once, using
+  `gpt-5.6-luna` with `max` reasoning and the fastest service tier when
+  exposed. It must not retry, replace, or duplicate Averroes.
+- The worker may edit only these nine paths:
+  `openspec/specs/backtesting/spec.md`,
+  `openspec/specs/evaluation/spec.md`,
+  `openspec/specs/frontend/spec.md`,
+  `openspec/specs/leaderboard/spec.md`,
+  `openspec/specs/market-data/spec.md`,
+  `openspec/specs/news/spec.md`,
+  `openspec/specs/search/spec.md`,
+  `openspec/specs/sentiment/spec.md`, and
+  `openspec/specs/strategy/spec.md`.
+- The worker may remove exactly one duplicate copy of the final
+  evaluation-failure invariant in `evaluation/spec.md`, and restore LF line
+  endings in exactly those nine files. It may not alter any other character,
+  scenario heading/text, requirement, placement, link, traceability, or
+  meaning. This byte-level LF normalization is explicitly authorized only to
+  undo the known INS-166 mixed-EOL residue and return to the baseline
+  repository convention.
+- The worker may not edit `auth/spec.md`, `TASKS.md`, `HANDOFF.md`, any
+  governance/requirement/ADR/architecture/data-model artifact, active or
+  archived OpenSpec changes, config, source, tests, dependencies,
+  environment, credentials, migrations, infrastructure, generated files, or
+  any other path. The Manager alone owns `TASKS.md` and `HANDOFF.md`.
+
+### Acceptance, validation, and stop condition
+
+- The Manager must prove exact equality of the 64 scenario-block multiset and
+  all 47 nested requirement placements against the baseline, with no duplicate
+  or omission; `evaluation/spec.md` must contain the invariant exactly once.
+- `git ls-files --eol` must report `w/lf` for every active spec, and
+  `git diff --check` must pass. OpenSpec `validate --all --no-interactive
+  --json` must be `PASS` if available; if the Manager cannot access the
+  global shim, it must record `BLOCKED/UNVERIFIED`. The Instructor will rerun
+  it independently.
+- Exact tracked paths after the checkpoint may be only the ten active specs
+  plus `TASKS.md` and `HANDOFF.md`. Markdown/link/anchor, DAG, scope,
+  deferred-scope, secret, whitespace, and diff checks are required. No
+  implementation tests are needed for this documentation-only packet.
+- Re-enter only I-02 through `REVIEW -> READY -> IN_PROGRESS -> REVIEW`,
+  leave it at `REVIEW`, make at most one explicit-path staging/commit attempt,
+  and stop immediately when this correction is exhausted. No downstream task,
+  final I-02 claim, or active-change implementation is allowed.
+
+No source repair, provider/credential change, native Gemini integration,
+automatic retry/fallback, fixture substitution, Docker/PostgreSQL redesign,
+deferred-scope work, or final MVP promotion is authorized.
 
 ## INS-167 — HOLD after INS-166 correction review
 

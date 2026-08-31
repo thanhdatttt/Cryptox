@@ -3627,3 +3627,47 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-087`, `INS-166`, and `INS-167`.
+
+## DEC-089 — Authorize exact spec-delta preservation repair
+
+Status: `APPROVED`
+
+Authority: Instructor review at the committed `INS-167 / HOLD` checkpoint
+`ec1209d`. OpenSpec `1.11.0` is genuinely installed as the global
+`@fission-ai/openspec@1.11.0` package and the Instructor's direct absolute-shim
+run passes all 11 active items. The Manager sandbox's inability to access the
+shim remains `BLOCKED/UNVERIFIED` and is not treated as a PASS.
+
+The known uncommitted delta contains exactly the ten active capability specs
+plus Manager-owned `TASKS.md` and `HANDOFF.md`; no source or business-state
+drift is present. INS-166's correction now has exact scenario preservation
+`64/64`, nested coverage `47/47`, correct Backtesting dual-trigger placement,
+and `git diff --check` PASS, but independent review rejects it because
+`openspec/specs/evaluation/spec.md` repeats one final invariant and nine worker
+target specs contain unauthorized mixed line endings. The board remains 58
+rows, 57 `DONE`, only `I-02` `REVIEW`, with no active Manager or worker.
+
+Authorize exactly one fresh same-directory `gpt-5.6-luna` Manager with `max`
+reasoning and exactly one fresh hidden worker under it, also Luna max, with no
+worktree and no retry/replacement of Averroes. The worker may edit only the
+nine affected active spec paths listed in `INS-168`: remove that one duplicate
+invariant and restore LF bytes, preserving every scenario and all other
+content. The Manager alone may update `TASKS.md`/`HANDOFF.md`, re-enter only
+`I-02` through `REVIEW -> READY -> IN_PROGRESS -> REVIEW`, and must stop at
+`REVIEW`.
+
+Acceptance requires exact 64-block/47-requirement preservation, `w/lf` for all
+active specs, OpenSpec `11/11 PASS` where available, and exact-path,
+Markdown/link, DAG, scope/deferred, secret, whitespace, and diff checks. One
+explicit-path commit attempt maximum; no implementation, provider, credential,
+Docker/migration, deferred-scope, downstream, or final I-02 action is
+authorized. The Instructor will independently audit and integrate only a
+passing result.
+
+Affected: `I-02`, the ten active OpenSpec specs, `TASKS.md`, `HANDOFF.md`,
+`INS-167`, and `INS-168`.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-088`, `INS-167`, and `INS-168`.
