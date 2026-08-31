@@ -52,7 +52,7 @@ export function composeRuntimeState(): RuntimeCompositionState {
       {
         name: "backtest-runner",
         available: false,
-        detail: "The bounded executor is not exposed by the Backtesting public bootstrap.",
+        detail: "The bounded local executor is available through the public Backtesting bootstrap but is not configured without runtime persistence.",
       },
       {
         name: "leaderboard-persistence",
@@ -62,12 +62,12 @@ export function composeRuntimeState(): RuntimeCompositionState {
       {
         name: "strategy-persistence",
         available: false,
-        detail: "Strategy has no public PostgreSQL bootstrap in the current source tree.",
+        detail: "The public Strategy PostgreSQL adapter is not configured.",
       },
       {
         name: "search-composition",
         available: false,
-        detail: "Search's required generator implementation is not exported by its public bootstrap.",
+        detail: "The public Search generator registry and persistence adapter are not configured.",
       },
     ],
     optionalDependencies: [
@@ -84,7 +84,7 @@ export function composeRuntimeState(): RuntimeCompositionState {
       {
         name: "sentiment-persistence",
         available: false,
-        detail: "Sentiment PostgreSQL persistence is not exposed by the public package bootstrap.",
+        detail: "The public Sentiment PostgreSQL adapter is not configured.",
       },
     ],
   };

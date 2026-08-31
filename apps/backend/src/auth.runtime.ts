@@ -19,6 +19,8 @@ export class AuthPersistenceUnavailableError extends Error {
 export interface BackendAuthRuntime {
   readonly auth: AuthModulePublicApi;
   readonly configured: boolean;
+  /** The configured pool is shared by backend-owned module adapters. */
+  readonly pool?: PostgresAuthDependencies["pool"];
   readonly probe?: () => Promise<void>;
   close(): Promise<void>;
 }
@@ -56,6 +58,7 @@ export function createBackendAuthRuntime(
   return {
     auth: createAuthModule(dependencies),
     configured: true,
+    pool: dependencies.pool,
     probe: async () => {
       await dependencies.pool.query("SELECT 1");
     },

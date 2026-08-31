@@ -1,11 +1,20 @@
+import "./module-paths";
 import type { Server } from "node:http";
 import type { AuthModulePublicApi } from "@cryptox/auth";
 import type { BacktestingModulePublicApi } from "@cryptox/backtesting";
+import {
+  createBacktestingApplication,
+  createBoundedLocalBacktestExecutor,
+  createPostgresBacktestingDependencies,
+  type BacktestingApplication,
+  type CandidateExecutionRequest,
+  type CandidateRunResult,
+} from "@cryptox/backtesting/bootstrap";
+import { createEvaluationModule } from "@cryptox/evaluation/bootstrap";
 import type { LeaderboardModulePublicApi } from "@cryptox/leaderboard";
 import {
   createLeaderboardModule,
   createPostgresLeaderboardDependencies,
-  type PostgresLeaderboardDependencies,
 } from "@cryptox/leaderboard/bootstrap";
 import {
   createBinanceRealtimeProvider,
@@ -20,10 +29,23 @@ import {
   createPostgresNewsDependencies,
 } from "@cryptox/news/bootstrap";
 import type { SearchModulePublicApi } from "@cryptox/search";
+import {
+  createPostgresSearchRunRepository,
+  createSearchGeneratorRegistry,
+  createSearchModule,
+} from "@cryptox/search/bootstrap";
 import type { SentimentModulePublicApi } from "@cryptox/sentiment";
 import * as sentimentPublic from "@cryptox/sentiment";
+import {
+  createPostgresSentimentDependencies,
+  createSentimentModule,
+} from "@cryptox/sentiment/bootstrap";
 import type { StrategyModulePublicApi } from "@cryptox/strategy";
 import * as strategyPublic from "@cryptox/strategy";
+import {
+  createPostgresStrategyDependencies,
+  createStrategyModule,
+} from "@cryptox/strategy/bootstrap";
 import {
   ACTIVE_MVP_MODULES,
   readinessOf,
@@ -80,6 +102,66 @@ type BackendCapabilityApi = {
   readonly news: NewsModulePublicApi;
 };
 
+const APPLICATION_TABLES = [
+  "users",
+  "auth_sessions",
+  "strategy_definitions",
+  "composite_strategy_definitions",
+  "composite_components",
+  "market_candles",
+  "market_dataset_snapshots",
+  "market_dataset_snapshot_candles",
+  "ranking_configurations",
+  "leaderboard_scopes",
+  "search_runs",
+  "candidates",
+  "experiments",
+  "trades",
+  "evaluation_results",
+  "leaderboard_entries",
+  "news_items",
+  "sentiment_results",
+  "strategy_authoring_drafts",
+  "extraction_templates",
+  "news_extraction_provenance",
+  "news_raw_html_artifacts",
+] as const;
+
+interface QueryPool {
+  query<Row extends Record<string, unknown> = Record<string, unknown>>(
+    text: string,
+    values?: unknown[],
+  ): Promise<{ rows: Row[]; rowCount?: number | null }>;
+}
+
+async function probeApplicationSchema(pool: QueryPool): Promise<void> {
+  const result = await pool.query<{ missing_count: number | string }>(
+    `
+      SELECT COUNT(*)::int AS missing_count
+      FROM unnest($1::text[]) AS required(relname)
+      WHERE NOT EXISTS (
+        SELECT 1
+        FROM pg_class relation
+        INNER JOIN pg_namespace namespace ON namespace.oid = relation.relnamespace
+        WHERE namespace.nspname = current_schema()
+          AND relation.relname = required.relname
+          AND relation.relkind IN ('r', 'p')
+      )
+    `,
+    [APPLICATION_TABLES],
+  );
+  const missing = Number(result.rows[0]?.missing_count);
+  if (!Number.isFinite(missing) || missing !== 0) {
+    throw new Error("required application schema is incomplete");
+  }
+}
+
+function boundedInteger(value: string | undefined, fallback: number, maximum: number): number {
+  const parsed = value === undefined ? NaN : Number(value);
+  if (!Number.isSafeInteger(parsed) || parsed < 1) return fallback;
+  return Math.min(parsed, maximum);
+}
+
 export class RuntimeHealth {
   private readonly required = new Map<string, DependencyAvailability>();
   private readonly optional = new Map<string, DependencyAvailability>();
@@ -91,26 +173,14 @@ export class RuntimeHealth {
     this.setRequired(
       "backtest-runner",
       false,
-      "The bounded executor is not exported by the Backtesting public bootstrap; the backend cannot create the approved Execution Port without an excluded module export change.",
+      "The bounded local executor is available through the public Backtesting bootstrap but is not configured without runtime persistence.",
     );
-    this.setRequired("leaderboard-persistence", false, "The PostgreSQL Leaderboard adapter is not configured.");
-    this.setRequired(
-      "strategy-persistence",
-      false,
-      "Strategy has no public PostgreSQL bootstrap in the current source tree; its public default facade is in-memory.",
-    );
-    this.setRequired(
-      "search-composition",
-      false,
-      "Search bootstrap does not export the required random generator implementation, so a persisted Search module cannot be composed through public entrypoints.",
-    );
+    this.setRequired("leaderboard-persistence", false, "The public PostgreSQL Leaderboard adapter is not configured.");
+    this.setRequired("strategy-persistence", false, "The public PostgreSQL Strategy adapter is not configured.");
+    this.setRequired("search-composition", false, "The public Search generator registry and persistence adapter are not configured.");
     this.setOptional("news-provider", false, "No explicitly configured real News provider is available.");
     this.setOptional("sentiment-provider", true, "LEXICON_V1 is provided by the public local Sentiment facade.");
-    this.setOptional(
-      "sentiment-persistence",
-      false,
-      "Sentiment PostgreSQL persistence exists outside the current public package bootstrap facade.",
-    );
+    this.setOptional("sentiment-persistence", false, "The public Sentiment PostgreSQL adapter is not configured.");
   }
 
   public setRequired(name: string, available: boolean, detail: string): void {
@@ -131,16 +201,22 @@ export class RuntimeHealth {
 }
 
 function moduleFacade(): StrategyModulePublicApi {
+  const unavailableAsync = async (): Promise<never> => {
+    throw new BackendCapabilityUnavailableError("strategy");
+  };
+  const unavailableSync = (): never => {
+    throw new BackendCapabilityUnavailableError("strategy");
+  };
   return {
     listStrategies: strategyPublic.listStrategies,
-    defineStrategy: strategyPublic.defineStrategy,
-    defineComposite: strategyPublic.defineComposite,
-    readStrategyDefinition: strategyPublic.readStrategyDefinition,
-    readCompositeDefinition: strategyPublic.readCompositeDefinition,
-    listStrategyDefinitions: strategyPublic.listStrategyDefinitions,
-    listCompositeDefinitions: strategyPublic.listCompositeDefinitions,
-    resolveStrategy: strategyPublic.resolveStrategy,
-    combineSignals: strategyPublic.combineSignals,
+    defineStrategy: unavailableAsync,
+    defineComposite: unavailableAsync,
+    readStrategyDefinition: unavailableAsync,
+    readCompositeDefinition: unavailableAsync,
+    listStrategyDefinitions: unavailableAsync,
+    listCompositeDefinitions: unavailableAsync,
+    resolveStrategy: unavailableAsync,
+    combineSignals: unavailableSync,
   };
 }
 
@@ -153,6 +229,40 @@ function sentimentFacade(): SentimentModulePublicApi {
 
 function dataBaseConfigured(value: string | undefined): boolean {
   return typeof value === "string" && value.trim().length > 0;
+}
+
+function nowIso(): string {
+  return new Date().toISOString();
+}
+
+function searchGenerators() {
+  // The public registry requires a declared Domain-guided configuration even
+  // when the runtime only uses its deterministic RANDOM profile.  Keep the
+  // optional Domain-guided implementation out of the runtime registry unless
+  // a caller has explicitly supplied a per-run configuration through the
+  // Search contract. RANDOM and GENETIC remain the public registry profiles;
+  // the Search application creates Domain-guided only from explicit run data.
+  const registry = createSearchGeneratorRegistry({
+    domainGuided: { categories: ["RUNTIME_RANDOM_ONLY"] },
+  });
+  return { RANDOM: registry.RANDOM, GENETIC: registry.GENETIC };
+}
+
+function localLexiconProvider() {
+  return {
+    id: sentimentPublic.LEXICON_V1_ID,
+    analyze: async (input: Parameters<SentimentModulePublicApi["analyze"]>[0]) => {
+      const result = await sentimentPublic.analyze(input);
+      return {
+        label: result.label,
+        score: result.score,
+        providerId: result.providerId,
+        analysisProfileId: result.analysisProfileId,
+        modelName: result.modelName,
+        modelVersion: result.modelVersion,
+      };
+    },
+  };
 }
 
 export interface BackendRuntime extends BackendAuthRuntime {
@@ -177,62 +287,84 @@ export function createBackendRuntime(options: BackendRuntimeOptions = {}): Backe
   const databaseUrl = options.databaseUrl ?? process.env.DATABASE_URL;
   const health = new RuntimeHealth();
   const closers: Closable[] = [];
-  let databaseReady = options.databaseReady ?? Boolean(options.auth);
-  let persistenceAdaptersConfigured = Boolean(options.marketData && options.leaderboard);
-
   const authRuntime: BackendAuthRuntime = options.auth
     ? { auth: options.auth, configured: true, close: async () => undefined }
     : createBackendAuthRuntime(databaseUrl);
   if (!options.auth) closers.push(authRuntime);
 
-  const strategy = options.strategy ?? moduleFacade();
-  const sentiment = options.sentiment ?? sentimentFacade();
-  const strategyConfigured = options.strategy !== undefined;
+  const realPersistence = Boolean(dataBaseConfigured(databaseUrl) && authRuntime.pool);
+  const clock = { now: nowIso };
+  let databaseReady = realPersistence
+    ? false
+    : options.databaseReady ?? Boolean(options.auth);
 
-  health.setRequired(
-    "auth-persistence",
-    Boolean(authRuntime.configured && databaseReady),
-    authRuntime.configured
-      ? databaseReady ? "PostgreSQL Auth connectivity is available." : "PostgreSQL connectivity probe is pending."
-      : "DATABASE_URL is not configured.",
-  );
-  health.setRequired(
-    "strategy-persistence",
-    strategyConfigured,
-    strategyConfigured
-      ? "Strategy is supplied through the public module bootstrap seam."
-      : "Strategy has no public PostgreSQL bootstrap in the current source tree; its public default facade is in-memory.",
-  );
-  health.setOptional(
-    "sentiment-provider",
-    true,
-    "LEXICON_V1 is provided by the public local Sentiment facade.",
-  );
-
-  const markDatabaseFailure = (): void => {
-    databaseReady = false;
-    health.setRequired("auth-persistence", false, "PostgreSQL connectivity probe failed.");
-    health.setRequired("persistence-adapters", false, "PostgreSQL connectivity probe failed.");
-  };
-
-  if (authRuntime.probe) {
-    void authRuntime.probe().then(() => {
-      databaseReady = true;
-      health.setRequired("auth-persistence", true, "PostgreSQL Auth connectivity is available.");
-      if (dataBaseConfigured(databaseUrl) && persistenceAdaptersConfigured) {
-        health.setRequired("persistence-adapters", true, "PostgreSQL application adapters are configured.");
-      }
-    }).catch(() => markDatabaseFailure());
-  }
-
+  let strategy = options.strategy ?? moduleFacade();
+  let strategyConfigured = options.strategy !== undefined;
   let marketData = options.marketData;
+  let search = options.search;
   let backtesting = options.backtesting;
   let leaderboard = options.leaderboard;
   let news = options.news;
+  let sentiment = options.sentiment ?? sentimentFacade();
+  let sentimentPersistenceConfigured = false;
+  let realMarketData = false;
 
-  if (!marketData && dataBaseConfigured(databaseUrl)) {
+  const evaluation = createEvaluationModule();
+  let postgresBacktesting: ReturnType<typeof createPostgresBacktestingDependencies> | undefined;
+
+  if (!options.strategy && realPersistence) {
     try {
-      const marketDependencies = createPostgresMarketDataDependencies({ connectionString: databaseUrl! });
+      const dependencies = createPostgresStrategyDependencies({
+        connectionString: databaseUrl!,
+        pool: authRuntime.pool,
+      });
+      strategy = createStrategyModule({
+        factories: strategyPublic.STRATEGY_FACTORIES,
+        definitionRepository: dependencies.definitionRepository,
+        compositeRepository: dependencies.compositeRepository,
+      });
+      strategyConfigured = true;
+    } catch {
+      strategy = moduleFacade();
+      strategyConfigured = false;
+    }
+  }
+
+  if (!options.sentiment && realPersistence) {
+    try {
+      const dependencies = createPostgresSentimentDependencies({
+        connectionString: databaseUrl!,
+        pool: authRuntime.pool,
+      });
+      sentiment = createSentimentModule({
+        provider: localLexiconProvider(),
+        resultRepository: dependencies.resultRepository,
+        clock,
+        observability: {
+          recordInferenceFailure: () => {
+            health.setOptional("sentiment-provider", false, "Sentiment failure is isolated and visible in readiness.");
+          },
+        },
+      });
+      sentimentPersistenceConfigured = true;
+    } catch {
+      sentiment = sentimentFacade();
+    }
+  }
+
+  if (!options.marketData && realPersistence) {
+    try {
+      const dependencies = createPostgresMarketDataDependencies({
+        connectionString: databaseUrl!,
+        pool: authRuntime.pool,
+      });
+      const marketObservability = {
+        record: (event: { type: "PROVIDER_FAILURE" | "PROVIDER_RECONNECT" | "HISTORY_GAP" }): void => {
+          if (event.type === "PROVIDER_FAILURE") {
+            health.setRequired("market-data-provider", false, "Binance market provider failure is visible in readiness.");
+          }
+        },
+      };
       const realtimeProvider = createBinanceRealtimeProvider({
         ...(process.env.BINANCE_API_BASE_URL?.trim()
           ? { baseUrl: process.env.BINANCE_API_BASE_URL.trim() }
@@ -240,107 +372,292 @@ export function createBackendRuntime(options: BackendRuntimeOptions = {}): Backe
         ...(process.env.BINANCE_WS_URL?.trim()
           ? { websocketUrl: process.env.BINANCE_WS_URL.trim() }
           : {}),
-      });
-      const marketObservability = {
-        record: (event: { type: "PROVIDER_FAILURE" | "PROVIDER_RECONNECT" | "HISTORY_GAP"; providerId: string; detail?: string }): void => {
-          if (event.type === "PROVIDER_FAILURE") {
-            health.setRequired("market-data-provider", false, "Binance market provider failure is visible in readiness.");
-          }
-        },
-      };
-      marketData = createMarketDataModule({
-        ...marketDependencies,
-        providers: [realtimeProvider],
-        clock: { now: () => new Date().toISOString() },
+        clock: nowIso,
         observability: marketObservability,
       });
-      closers.push({ close: marketData.shutdown });
-      closers.push(marketDependencies);
-      health.setRequired("market-data-provider", true, "Real Binance historical and realtime adapters are configured.");
+      marketData = createMarketDataModule({
+        ...dependencies,
+        providers: [realtimeProvider],
+        clock,
+        observability: marketObservability,
+      });
+      realMarketData = true;
+      closers.push({ close: () => marketData!.shutdown() });
     } catch {
-      health.setRequired("market-data-provider", false, "The real Binance market provider could not be configured.");
+      marketData = undefined;
     }
-  } else if (marketData) {
-    health.setRequired("market-data-provider", true, "Market data is supplied through the public module bootstrap seam.");
   }
 
-  let leaderboardDependencies: PostgresLeaderboardDependencies | undefined;
-  if (!leaderboard && dataBaseConfigured(databaseUrl)) {
+  if (!options.backtesting && realPersistence) {
     try {
-      leaderboardDependencies = createPostgresLeaderboardDependencies({
+      postgresBacktesting = createPostgresBacktestingDependencies({
         connectionString: databaseUrl!,
+        pool: authRuntime.pool,
       });
-      leaderboard = createLeaderboardModule(leaderboardDependencies);
-      closers.push(leaderboardDependencies);
-      health.setRequired("leaderboard-persistence", true, "PostgreSQL Leaderboard adapters are configured.");
     } catch {
-      health.setRequired("leaderboard-persistence", false, "The PostgreSQL Leaderboard adapter could not be configured.");
-      leaderboardDependencies = undefined;
+      postgresBacktesting = undefined;
+    }
+  }
+
+  if (!leaderboard && realPersistence && postgresBacktesting) {
+    try {
+      const experimentRepository = {
+        getByOwnerAndId: async (
+          ownerUserId: Parameters<typeof postgresBacktesting.experimentRepository.getByCandidateOwnerAndId>[0],
+          experimentId: string,
+        ) => {
+          const experiment = await postgresBacktesting!.experimentRepository.getByCandidateOwnerAndId(ownerUserId, experimentId);
+          if (!experiment) return undefined;
+          return {
+            executionState: "SUCCEEDED" as const,
+            experimentId: experiment.id,
+            candidateId: experiment.candidateId,
+            ...(experiment.searchRunId === undefined ? {} : { searchRunId: experiment.searchRunId }),
+            metrics: experiment.metrics,
+          };
+        },
+        listByOwnerAndSearchRun: async (
+          ownerUserId: Parameters<typeof postgresBacktesting.experimentRepository.listByCandidateOwnerAndSearchRun>[0],
+          searchRunId: string,
+        ) => {
+          const experiments = await postgresBacktesting!.experimentRepository.listByCandidateOwnerAndSearchRun(ownerUserId, searchRunId);
+          return experiments.map((experiment) => ({
+            executionState: "SUCCEEDED" as const,
+            experimentId: experiment.id,
+            candidateId: experiment.candidateId,
+            ...(experiment.searchRunId === undefined ? {} : { searchRunId: experiment.searchRunId }),
+            metrics: experiment.metrics,
+          }));
+        },
+      };
+      const dependencies = createPostgresLeaderboardDependencies({
+        connectionString: databaseUrl!,
+        pool: authRuntime.pool,
+        experimentRepository,
+      });
+      leaderboard = createLeaderboardModule(dependencies);
+      void dependencies.initialize().catch(() => {
+        health.setRequired("leaderboard-persistence", false, "Leaderboard persistence initialization failed.");
+      });
+    } catch {
       leaderboard = undefined;
     }
-  } else {
-    if (leaderboard) health.setRequired("leaderboard-persistence", true, "Leaderboard is supplied through the public module bootstrap seam.");
   }
 
-  persistenceAdaptersConfigured = Boolean(
-    dataBaseConfigured(databaseUrl) && marketData && leaderboard,
-  ) || Boolean(options.marketData && options.leaderboard);
-
-  if (options.backtesting) {
-    health.setRequired("backtest-runner", true, "Backtesting is supplied through the public module bootstrap seam.");
+  if (!backtesting && postgresBacktesting && leaderboard && marketData && strategyConfigured) {
+    const configuredMarketData = marketData;
+    const configuredLeaderboard = leaderboard;
+    let application: BacktestingApplication | undefined;
+    const execution = createBoundedLocalBacktestExecutor<CandidateExecutionRequest, CandidateRunResult>({
+      capacity: boundedInteger(process.env.BACKTEST_MAX_IN_FLIGHT, 2, 50),
+      runner: {
+        run: (request, signal) => {
+          if (!application) return Promise.reject(new Error("backtesting application is not initialized"));
+          return application.runCandidate(request, signal);
+        },
+      },
+      clock,
+    });
+    application = createBacktestingApplication({
+      execution,
+      marketData: configuredMarketData,
+      strategy,
+      evaluation,
+      leaderboard: configuredLeaderboard,
+      candidateRepository: postgresBacktesting.candidateRepository,
+      experimentRepository: postgresBacktesting.experimentRepository,
+      unitOfWork: postgresBacktesting.unitOfWork,
+      completionUnitOfWork: postgresBacktesting.completionUnitOfWork,
+      clock: postgresBacktesting.clock,
+    }, {
+      searchRunOwnerGuard: async (context, searchRunId) => {
+        if (!search) throw new Error("SearchRun ownership adapter is not configured");
+        await search.status(context, searchRunId);
+      },
+    });
+    backtesting = application;
   }
-  if (options.leaderboard) {
-    health.setRequired("persistence-adapters", true, "Required persistence is supplied through the public module bootstrap seam.");
-  }
 
-  if (!news && dataBaseConfigured(databaseUrl) && (process.env.COINDESK_API_KEY?.trim() || process.env.COINDESK_BASE_URL?.trim())) {
+  if (!search && realPersistence && postgresBacktesting && backtesting && leaderboard && strategyConfigured) {
     try {
-      const newsDependencies = createPostgresNewsDependencies({ connectionString: databaseUrl! });
+      const searchRunRepository = createPostgresSearchRunRepository({
+        connectionString: databaseUrl!,
+        pool: authRuntime.pool,
+      });
+      const generators = searchGenerators();
+      search = createSearchModule({
+        searchRunRepository,
+        generators,
+        strategy: { defineComposite: strategy.defineComposite },
+        backtesting: {
+          submitSearchCandidate: backtesting.submitSearchCandidate,
+          status: backtesting.status,
+          summarizeSearchCandidates: backtesting.summarizeSearchCandidates,
+          cancelSearchCandidates: backtesting.cancelSearchCandidates,
+        },
+        leaderboard: {
+          getLeaderboardScope: leaderboard.getLeaderboardScope,
+          rankSearchRun: leaderboard.rankSearchRun,
+        },
+      });
+    } catch {
+      search = undefined;
+    }
+  }
+
+  const newsConfigured = Boolean(
+    process.env.COINDESK_API_KEY?.trim() || process.env.COINDESK_BASE_URL?.trim(),
+  );
+  if (!news && realPersistence && newsConfigured) {
+    try {
+      const dependencies = createPostgresNewsDependencies({
+        connectionString: databaseUrl!,
+        pool: authRuntime.pool,
+      });
       const provider = createCoinDeskNewsProvider({
-        ...(process.env.COINDESK_API_KEY?.trim() ? { apiKey: process.env.COINDESK_API_KEY.trim() } : {}),
-        ...(process.env.COINDESK_BASE_URL?.trim() ? { baseUrl: process.env.COINDESK_BASE_URL.trim() } : {}),
+        ...(process.env.COINDESK_API_KEY?.trim()
+          ? { apiKey: process.env.COINDESK_API_KEY.trim() }
+          : {}),
+        ...(process.env.COINDESK_BASE_URL?.trim()
+          ? { baseUrl: process.env.COINDESK_BASE_URL.trim() }
+          : {}),
       });
       news = createNewsModule({
         providers: [provider],
-        newsRepository: newsDependencies.newsRepository,
-        sentiment: {
-          analyze: sentiment.analyze,
-          readLatestForNews: sentiment.readLatestForNews,
-        },
+        newsRepository: dependencies.newsRepository,
+        sentiment,
         sentimentTimeoutMs: 1_000,
         observability: {
-          recordProviderFailure: () => health.setOptional("news-provider", false, "News provider failure is isolated from core capabilities."),
-          recordSentimentFailure: () => health.setOptional("sentiment-provider", false, "Sentiment failure is isolated from News and core capabilities."),
+          recordProviderFailure: () => {
+            health.setOptional("news-provider", false, "News provider failure is isolated from core capabilities.");
+          },
+          recordSentimentFailure: () => {
+            health.setOptional("sentiment-provider", false, "Sentiment failure is isolated from News and core capabilities.");
+          },
         },
+        clock,
+        templateRepository: dependencies.extractionTemplateRepository,
+        extractionProvenanceRepository: dependencies.extractionProvenanceRepository,
+        rawHtmlRepository: dependencies.rawHtmlRepository,
       });
-      closers.push(newsDependencies);
-      health.setOptional("news-provider", true, "Configured CoinDesk News provider is available.");
     } catch {
-      health.setOptional("news-provider", false, "Configured CoinDesk News provider could not be initialized.");
+      news = undefined;
     }
-  } else if (news) {
-    health.setOptional("news-provider", true, "News is supplied through the public module bootstrap seam.");
   }
 
-  if (options.search) {
-    health.setRequired("search-composition", true, "Search is supplied through the public module bootstrap seam.");
-  }
-
+  const strategyReadyDetail = strategyConfigured
+    ? "Strategy is supplied through the public PostgreSQL module bootstrap seam."
+    : "The public PostgreSQL Strategy adapter is not configured.";
+  health.setRequired("strategy-persistence", strategyConfigured, strategyReadyDetail);
   health.setRequired(
     "market-data-provider",
     Boolean(marketData),
-    marketData
+    realMarketData
       ? "Real Binance historical and realtime adapters are configured."
-      : "The real Binance market provider is not configured.",
+      : marketData
+        ? "Market data is supplied through the public module bootstrap seam."
+        : "The real Binance market provider is not configured.",
   );
-  if (backtesting) {
-    health.setRequired("backtest-runner", true, "Backtesting is supplied through the public module bootstrap seam.");
-  }
-  if (persistenceAdaptersConfigured && databaseReady) {
-    health.setRequired("persistence-adapters", true, "PostgreSQL application adapters are configured.");
-  }
-  if (!databaseReady && dataBaseConfigured(databaseUrl)) {
-    health.setRequired("persistence-adapters", false, "PostgreSQL connectivity probe is pending or failed.");
+  health.setRequired(
+    "leaderboard-persistence",
+    Boolean(leaderboard),
+    leaderboard
+      ? "Leaderboard is supplied through a public module bootstrap seam."
+      : "The public PostgreSQL Leaderboard adapter is not configured.",
+  );
+  health.setRequired(
+    "backtest-runner",
+    Boolean(backtesting),
+    backtesting
+      ? "Backtesting uses the bounded local executor through the public bootstrap seam."
+      : "The bounded local executor is not configured with the required public persistence seams.",
+  );
+  health.setRequired(
+    "search-composition",
+    Boolean(search),
+    search
+      ? "Search uses the public generator registry and PostgreSQL SearchRun adapter."
+      : "The public Search generator registry and persistence adapter are not configured.",
+  );
+  health.setOptional(
+    "news-provider",
+    Boolean(news),
+    news
+      ? options.news
+        ? "News is supplied through the public module bootstrap seam."
+        : "Configured CoinDesk News provider is available."
+      : "No explicitly configured real News provider is available.",
+  );
+  health.setOptional(
+    "sentiment-provider",
+    true,
+    options.sentiment || !sentimentPersistenceConfigured
+      ? "LEXICON_V1 is provided by the public local Sentiment facade."
+      : "LEXICON_V1 is composed with PostgreSQL Sentiment persistence.",
+  );
+  health.setOptional(
+    "sentiment-persistence",
+    sentimentPersistenceConfigured,
+    sentimentPersistenceConfigured
+      ? "PostgreSQL Sentiment persistence is configured through the public bootstrap seam."
+      : "The public Sentiment PostgreSQL adapter is not configured.",
+  );
+
+  const persistenceAdaptersConfigured = Boolean(
+    databaseReady &&
+    strategyConfigured &&
+    marketData &&
+    backtesting &&
+    leaderboard &&
+    search,
+  );
+  health.setRequired(
+    "auth-persistence",
+    Boolean(authRuntime.configured && databaseReady),
+    authRuntime.configured
+      ? databaseReady
+        ? "PostgreSQL Auth connectivity and application schema are available."
+        : realPersistence
+          ? "PostgreSQL connectivity and application schema probe is pending."
+          : "Authentication persistence is awaiting configuration."
+      : "DATABASE_URL is not configured.",
+  );
+  health.setRequired(
+    "persistence-adapters",
+    persistenceAdaptersConfigured,
+    persistenceAdaptersConfigured
+      ? "Required PostgreSQL application adapters are configured."
+      : "Required PostgreSQL application adapters are not configured or not ready.",
+  );
+
+  const markDatabaseFailure = (): void => {
+    databaseReady = false;
+    health.setRequired("auth-persistence", false, "PostgreSQL connectivity or application schema probe failed.");
+    health.setRequired("persistence-adapters", false, "PostgreSQL connectivity or application schema probe failed.");
+    if (realPersistence) {
+      health.setRequired("strategy-persistence", false, "PostgreSQL Strategy persistence is unavailable.");
+      health.setRequired("leaderboard-persistence", false, "PostgreSQL Leaderboard persistence is unavailable.");
+      health.setRequired("backtest-runner", false, "PostgreSQL Backtesting persistence is unavailable.");
+      health.setRequired("search-composition", false, "PostgreSQL SearchRun persistence is unavailable.");
+      health.setOptional("sentiment-persistence", false, "PostgreSQL Sentiment persistence is unavailable.");
+    }
+  };
+
+  if (realPersistence && authRuntime.probe) {
+    void authRuntime.probe()
+      .then(async () => probeApplicationSchema(authRuntime.pool!))
+      .then(() => {
+        databaseReady = true;
+        health.setRequired("auth-persistence", true, "PostgreSQL Auth connectivity and application schema are available.");
+        health.setRequired(
+          "persistence-adapters",
+          Boolean(strategyConfigured && marketData && backtesting && leaderboard && search),
+          strategyConfigured && marketData && backtesting && leaderboard && search
+            ? "Required PostgreSQL application adapters are configured."
+            : "Required PostgreSQL application adapters are not configured.",
+        );
+      })
+      .catch(() => markDatabaseFailure());
   }
 
   const marketWebSocket = new MarketWebSocketGateway({
@@ -349,11 +666,22 @@ export function createBackendRuntime(options: BackendRuntimeOptions = {}): Backe
     health,
   });
 
+  const capabilityValue = (capability: BackendCapabilityName): unknown => {
+    switch (capability) {
+      case "strategy": return strategy;
+      case "market-data": return marketData;
+      case "search": return search;
+      case "backtesting": return backtesting;
+      case "leaderboard": return leaderboard;
+      case "news": return news;
+    }
+  };
+
   const runtime: BackendRuntime = {
     ...authRuntime,
     strategy,
     marketData,
-    search: options.search,
+    search,
     backtesting,
     leaderboard,
     news,
@@ -372,27 +700,11 @@ export function createBackendRuntime(options: BackendRuntimeOptions = {}): Backe
       optionalDependencies: health.optionalDependencies(),
     }),
     isCapabilityAvailable: (capability) => {
-      switch (capability) {
-        case "strategy": return strategyConfigured;
-        case "market-data": return marketData !== undefined;
-        case "search": return options.search !== undefined;
-        case "backtesting": return backtesting !== undefined;
-        case "leaderboard": return leaderboard !== undefined;
-        case "news": return news !== undefined;
-      }
+      if (capability === "strategy") return strategyConfigured;
+      return capabilityValue(capability) !== undefined;
     },
     requireCapability: (capability) => {
-      const value = capability === "strategy"
-        ? strategy
-        : capability === "market-data"
-          ? marketData
-          : capability === "search"
-            ? options.search
-            : capability === "backtesting"
-              ? backtesting
-              : capability === "leaderboard"
-                ? leaderboard
-                : news;
+      const value = capabilityValue(capability);
       if (!value || !runtime.isCapabilityAvailable(capability)) {
         throw new BackendCapabilityUnavailableError(capability);
       }
@@ -408,8 +720,11 @@ export function createBackendRuntime(options: BackendRuntimeOptions = {}): Backe
             : name === "market-data-provider"
               ? "Market provider failure is visible in readiness."
               : "Configured dependency failure is visible in readiness.";
-      if (name === "news-provider" || name === "sentiment-provider") health.setOptional(name, false, safeDetail);
-      else health.setRequired(name, false, safeDetail);
+      if (name === "news-provider" || name === "sentiment-provider") {
+        health.setOptional(name, false, safeDetail);
+      } else {
+        health.setRequired(name, false, safeDetail);
+      }
     },
     close: async () => {
       await marketWebSocket.close();
