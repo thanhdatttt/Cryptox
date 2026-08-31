@@ -2,11 +2,81 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-142`
+Instruction ID: `INS-143`
 
-Status: `APPROVED_FOR_EXECUTION`
+Status: `HOLD`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-143 — HOLD after independent I-02 final revalidation audit
+
+This signal supersedes `INS-142 / APPROVED_FOR_EXECUTION`. The one authorized
+same-directory Manager completed the bounded `S-04N` control closure and
+`I-02` final revalidation, then stopped at `I-02 / REVIEW`. The Instructor
+accepts the scoped test/checkpoint evidence but does not accept I-02 as DONE.
+No downstream packet is authorized by this HOLD.
+
+### Independent checkpoint and scope audit
+
+- Canonical checkout is `D:\\agy-cli-projects\\AOS\\Cryptox`, branch
+  `MVP_IMPLEMENTATION`, HEAD remains
+  `d28588e2601d85496c3d1bd91c3a9b39fd000778`. The Manager's single staging
+  attempt was denied by `.git/index.lock`; the Instructor integrated only its
+  exact authorized delta plus this governance review. The app-generated
+  untracked `.codex/config.toml` and ignored `infra/db/local.env` remain
+  excluded from Git.
+- The tracked Manager delta is limited to
+  `apps/backend/src/i02.backend.e2e.spec.ts`,
+  `docs/implementation/TASKS.md`, and `docs/implementation/HANDOFF.md`.
+  The backend change is test-only; no production/business source, contract,
+  migration, infrastructure, environment, or deferred-scope file changed.
+- Franklin, Anscombe, and Leibniz were the only authorized hidden workers;
+  Franklin changed only the backend test, Anscombe and Leibniz changed
+  nothing, and all workers were closed. No Manager, worker, retry, duplicate,
+  replacement, or downstream task is active.
+- `TASKS.md` is internally consistent at 55 rows: `54 DONE`, one `REVIEW`
+  (`I-02`), and zero `READY`, `IN_PROGRESS`, or `BLOCKED`. `S-04N` is DONE;
+  I-02 is the sole frontier row. The current operational row and latest
+  `HANDOFF.md` are the state authority; stale historical prose is not used to
+  infer execution state.
+
+### Evidence accepted and limitations
+
+- Independent fixture/boundary checks pass: backend I-02 `6/6`, frontend I-02
+  `5/5`, each rerun twice; the post-worker backend test and all existing source
+  tests remain within the authorized test scope.
+- Current local environment checks pass: Docker `28.5.1`, Compose
+  `v2.40.3-desktop.1`, migration up/constraints/down/remigrate, full workspace
+  tests with local PostgreSQL `455 passed / 0 skipped`, backend Auth E2E `1/1`,
+  backend `/live=200` and `/ready=200`, real Binance BTCUSDT history, real
+  market WebSocket delivery including a `CANDLE`, and a live application flow
+  covering two-user Auth, Strategy/composite, bounded Search, persisted
+  Experiment/Trades/Leaderboard, and cross-owner `404` isolation.
+- Build, typecheck, lint, architecture, artifacts, deferred-scope, runtime
+  smoke, clean install, exact-path, whitespace, and secret-literal checks
+  pass. The local browser probe is fixture-only: it rendered four charts and
+  the explicit fixture label but its backend proxy was unavailable.
+- Real News is not yet proven. The runtime exposes only the News read route;
+  the configured News collection/scheduler is not composed into the live
+  application, and the public CoinDesk endpoint returned `401` without a
+  configured credential. The configured LLM variables are absent; the
+  chat-supplied Gemini secret is not used or mapped. Live configured browser
+  demo, OpenSpec CLI, and the consolidated eight architecture scenarios remain
+  `UNVERIFIED`/`BLOCKED`.
+- These limitations are not a reason to fabricate a PASS or to broaden
+  `I-02` retrospectively. The News runtime composition gap is a residual
+  implementation/reconciliation item that requires its own explicit packet;
+  no source implementation is authorized under this HOLD.
+
+### Next safe action
+
+Before any new authorization, the Instructor must plan a narrowly scoped
+residual packet for the already-approved real News runtime composition and
+collection behavior, reconcile its task/DAG position, and recheck Git and
+active-task state. A fresh authorization may then delegate implementation to
+hidden workers with disjoint scopes. The packet must not expand into RBAC,
+queues, arbitrary providers, autonomous LLM behavior, or other deferred scope.
+Until that authorization is committed, no Manager or worker may start.
 
 ## INS-142 — APPROVED_FOR_EXECUTION for final I-02 revalidation
 

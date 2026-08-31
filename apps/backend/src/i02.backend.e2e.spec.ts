@@ -63,6 +63,15 @@ const RANGE = {
 };
 const RANKING_CONFIGURATION_ID = "ranking-fixture";
 const PROVIDER_DETAIL_MARKER = "fixture-provider-detail-must-not-cross-boundary";
+const SYNTHETIC_PAPER_EXECUTION = {
+  executionProfileId: "SYNTHETIC_SHORT_PAPER_V1" as const,
+  positionMode: "SYNTHETIC_SHORT" as const,
+  exitPolicyId: "STOP_LOSS_WINS_V1" as const,
+  feeRatePercent: 0.08 as const,
+  adverseSlippageBps: 5 as const,
+  decimalScale: 8 as const,
+  roundingMode: "HALF_UP" as const,
+};
 
 function copy<T>(value: T): T {
   return structuredClone(value);
@@ -184,7 +193,9 @@ interface StrategyFixture {
 function createStrategyFixture(): StrategyFixture {
   const definitions = new Map<string, StrategyDefinition>([
     ["strategy-a", strategyDefinition(USER_A, "strategy-a")],
+    ["strategy-a-2", strategyDefinition(USER_A, "strategy-a-2")],
     ["strategy-b", strategyDefinition(USER_B, "strategy-b")],
+    ["strategy-b-2", strategyDefinition(USER_B, "strategy-b-2")],
   ]);
   const composites = new Map<string, CompositeStrategyDefinition>([
     ["composite-a", compositeDefinition(USER_A, "composite-a")],
@@ -267,6 +278,14 @@ const BACKTEST_CONFIGURATION: BacktestConfiguration = {
   slippageBps: 0,
 };
 
+const PAPER_BACKTEST_CONFIGURATION: BacktestConfiguration = {
+  executionProfileId: "BACKTEST_EXECUTION_V1",
+  initialCapital: 1_000,
+  feeRatePercent: 0,
+  slippageBps: 0,
+  paperExecution: SYNTHETIC_PAPER_EXECUTION,
+};
+
 function searchRun(ownerUserId: AuthenticatedUserId, searchRunId: string, scopeId: string): SearchRunStatus {
   return {
     searchRunId,
@@ -334,18 +353,18 @@ function trade(experimentId: string): Trade {
     entrySignalAt: "2026-01-01T00:00:00.000Z",
     entryTime: "2026-01-01T01:00:00.000Z",
     entryPrice: 100,
-    exitSignalAt: "2026-01-01T01:00:00.000Z",
+    exitSignalAt: "2026-01-01T01:30:00.000Z",
     exitTime: "2026-01-01T02:00:00.000Z",
-    exitPrice: 101,
-    positionMode: "LONG",
-    exitReason: "RANGE_END",
+    exitPrice: 99,
+    positionMode: "SYNTHETIC_SHORT",
+    exitReason: "STOP_LOSS",
     quantity: 1,
     notionalEntryValue: 100,
     grossProfit: 1,
-    feeAmount: 0.2,
-    slippageBps: 0,
-    profit: 0.8,
-    resultPercent: 0.8,
+    feeAmount: 0.16,
+    slippageBps: 5,
+    profit: 0.84,
+    resultPercent: 0.84,
     result: "WIN",
   };
 }
@@ -376,10 +395,10 @@ function experiment(
       datasetVersion: "v1",
       replayLimitation: "fixture-only evidence; final mode is not proven",
     },
-    configuration: copy(BACKTEST_CONFIGURATION),
+    configuration: copy(PAPER_BACKTEST_CONFIGURATION),
     metrics: {
       candidateId,
-      totalReturnPercent: 0.8,
+      totalReturnPercent: 0.84,
       winRatePercent: 100,
       numberOfTrades: 1,
       maxDrawdownMagnitudePercent: 0,
@@ -392,8 +411,46 @@ function experiment(
       unavailableInputs,
       limitation: "fixture-only evidence; exact replay is not claimed",
     },
-    visualization: { signals: [], overlays: [], tradeMarkers: [] },
+    visualization: {
+      signals: [
+        {
+          source: { kind: "STRATEGY", strategyDefinitionId: definition.id },
+          timestamp: "2026-01-01T00:00:00.000Z",
+          signal: "SELL",
+          executionNotBefore: "2026-01-01T01:00:00.000Z",
+        },
+        {
+          source: { kind: "STRATEGY", strategyDefinitionId: definition.id },
+          timestamp: "2026-01-01T01:30:00.000Z",
+          signal: "BUY",
+          executionNotBefore: "2026-01-01T02:00:00.000Z",
+        },
+      ],
+      overlays: [{
+        strategyDefinitionId: definition.id,
+        point: {
+          descriptorId: "ma-overlay",
+          timestamp: "2026-01-01T01:00:00.000Z",
+          values: { fast: 100, slow: 101 },
+        },
+      }],
+      tradeMarkers: [
+        {
+          tradeId: `${experimentId}-trade-1`,
+          kind: "ENTRY",
+          timestamp: "2026-01-01T01:00:00.000Z",
+          price: 100,
+        },
+        {
+          tradeId: `${experimentId}-trade-1`,
+          kind: "EXIT",
+          timestamp: "2026-01-01T02:00:00.000Z",
+          price: 99,
+        },
+      ],
+    },
     createdAt: FIXED_NOW,
+    paperExecutionProvenance: SYNTHETIC_PAPER_EXECUTION,
   };
 }
 
@@ -440,7 +497,7 @@ function createSearchFixture(): SearchFixture {
           candidateId: run.ownerUserId === USER_A ? "candidate-a" : "candidate-b",
           experimentId: run.ownerUserId === USER_A ? "experiment-a" : "experiment-b",
           rankingConfigurationId: RANKING_CONFIGURATION_ID,
-          score: 0.8,
+          score: 0.84,
         }];
       },
     },
@@ -565,8 +622,8 @@ function createLeaderboardFixture(): LeaderboardFixture {
     ["scope-b", { id: "scope-b", ownerUserId: USER_B, name: "B scope", k: 10, rankingConfigurationId: configuration.id, comparisonKey: "BTCUSDT|1h", createdAt: FIXED_NOW }],
   ]);
   const entries = new Map<string, LeaderboardEntry>([
-    ["entry-a", { id: "entry-a", rank: 1, candidateId: "candidate-a", searchRunId: "search-a", experimentId: "experiment-a", leaderboardScopeId: "scope-a", rankingConfigurationId: configuration.id, score: 0.8, addedAt: FIXED_NOW }],
-    ["entry-b", { id: "entry-b", rank: 1, candidateId: "candidate-b", searchRunId: "search-b", experimentId: "experiment-b", leaderboardScopeId: "scope-b", rankingConfigurationId: configuration.id, score: 0.8, addedAt: FIXED_NOW }],
+    ["entry-a", { id: "entry-a", rank: 1, candidateId: "candidate-a", searchRunId: "search-a", experimentId: "experiment-a", leaderboardScopeId: "scope-a", rankingConfigurationId: configuration.id, score: 0.84, addedAt: FIXED_NOW }],
+    ["entry-b", { id: "entry-b", rank: 1, candidateId: "candidate-b", searchRunId: "search-b", experimentId: "experiment-b", leaderboardScopeId: "scope-b", rankingConfigurationId: configuration.id, score: 0.84, addedAt: FIXED_NOW }],
   ]);
   const contexts: AuthenticatedRequestContext[] = [];
 
@@ -811,10 +868,18 @@ function searchRequest(): Record<string, unknown> {
       configuration: BACKTEST_CONFIGURATION,
     },
     maxInFlight: 1,
+    seededDiscovery: {
+      profileId: "RANDOM_V1",
+      algorithmConfiguration: {},
+      datasetIdentity: { datasetId: "fixture-dataset", datasetVersion: "v1", provider: "binance" },
+      code: { applicationVersion: "i02-fixture", gitCommit: "fixture-commit" },
+      seed: "http-fixture-seed",
+      defaultBudget: { maxCandidates: 500, maxDurationSeconds: 300 },
+    },
   };
 }
 
-describe("INS-128 / I-02 backend boundary evidence (fixture-only)", () => {
+describe("INS-142 / I-02 backend boundary evidence (fixture-only)", () => {
   let fixture: ReturnType<typeof createRuntimeFixture>;
   let app: INestApplication;
   let baseUrl: string;
@@ -917,12 +982,53 @@ describe("INS-128 / I-02 backend boundary evidence (fixture-only)", () => {
       expect(response.body, path).toMatchObject({ error: { code: "UNAUTHENTICATED" } });
     }
 
+    const unauthenticatedCommands: Array<{ path: string; body: Record<string, unknown> }> = [
+      {
+        path: "/strategy/definitions",
+        body: {
+          schemaVersion: REST_SCHEMA_VERSION,
+          logicalFamilyKey: "unauthenticated",
+          strategyName: "MA",
+          parameters: { fastPeriod: 1, slowPeriod: 2 },
+        },
+      },
+      {
+        path: "/strategy/composites",
+        body: {
+          schemaVersion: REST_SCHEMA_VERSION,
+          logicalFamilyKey: "unauthenticated-composite",
+          combinationProfileId: "MAJORITY_VOTE_V1",
+          strategyDefinitionIds: ["strategy-a", "strategy-a-2"],
+        },
+      },
+      { path: "/backtesting", body: backtestRequest() },
+      { path: "/search/runs", body: searchRequest() },
+      {
+        path: "/leaderboard/scopes",
+        body: {
+          schemaVersion: REST_SCHEMA_VERSION,
+          name: "Unauthenticated scope",
+          rankingConfigurationId: RANKING_CONFIGURATION_ID,
+          comparisonKey: "BTCUSDT|1h",
+        },
+      },
+    ];
+    for (const { path, body } of unauthenticatedCommands) {
+      const response = await jsonRequest(baseUrl, path, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      expect(response.response.status, path).toBe(401);
+      expect(response.body, path).toMatchObject({ error: { code: "UNAUTHENTICATED" } });
+    }
+
     const ownerA = authHeaders("cryptox_session=token-a");
     const ownerB = authHeaders("cryptox_session=token-b");
     const aDefinitions = await jsonRequest(baseUrl, "/strategy/definitions", { headers: ownerA });
     const bDefinitions = await jsonRequest(baseUrl, "/strategy/definitions", { headers: ownerB });
-    expect((aDefinitions.body as { items: Array<{ id: string }> }).items.map(({ id }) => id)).toEqual(["strategy-a"]);
-    expect((bDefinitions.body as { items: Array<{ id: string }> }).items.map(({ id }) => id)).toEqual(["strategy-b"]);
+    expect((aDefinitions.body as { items: Array<{ id: string }> }).items.map(({ id }) => id)).toEqual(["strategy-a", "strategy-a-2"]);
+    expect((bDefinitions.body as { items: Array<{ id: string }> }).items.map(({ id }) => id)).toEqual(["strategy-b", "strategy-b-2"]);
     expect(JSON.stringify(bDefinitions.body)).not.toContain("strategy-a");
 
     const aComposites = await jsonRequest(baseUrl, "/strategy/composites", { headers: ownerA });
@@ -1034,6 +1140,247 @@ describe("INS-128 / I-02 backend boundary evidence (fixture-only)", () => {
     expect(composition.optionalDependencies.find(({ name }) => name === "sentiment-provider")).toMatchObject({ available: false });
     expect(JSON.stringify(composition)).not.toContain(PROVIDER_DETAIL_MARKER);
   });
+
+  it("projects definitions, bounded Random Search progress, owner-scoped Top-K, and a selected paper Experiment", async () => {
+    const ownerA = authHeaders("cryptox_session=token-a");
+    const ownerB = authHeaders("cryptox_session=token-b");
+
+    fixture.market.setHistoryFailure(false);
+    const history = await jsonRequest(baseUrl, "/market-data/history", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        schemaVersion: REST_SCHEMA_VERSION,
+        pair: "btcusdt",
+        timeframe: "1h",
+        range: RANGE,
+        completeness: "REQUIRE_COMPLETE",
+      }),
+    });
+    expect(history.response.status).toBe(200);
+    expect(history.body).toMatchObject({
+      schemaVersion: REST_SCHEMA_VERSION,
+      pair: "BTCUSDT",
+      timeframe: "1h",
+      range: RANGE,
+      candles: [{ pair: "BTCUSDT", timeframe: "1h", close: 101, isClosed: true }],
+      complete: true,
+      missingRanges: [],
+      formingIncluded: false,
+      provenance: {
+        provider: "binance",
+        pair: "BTCUSDT",
+        timeframe: "1h",
+        range: RANGE,
+        replayGuarantee: "TRACEABLE",
+        replayLimitation: "fixture-only evidence",
+      },
+    });
+
+    const catalog = await jsonRequest(baseUrl, "/strategy/catalog");
+    expect(catalog.response.status).toBe(200);
+    expect(catalog.body).toMatchObject({
+      schemaVersion: REST_SCHEMA_VERSION,
+      items: expect.arrayContaining([
+        expect.objectContaining({ name: "MA" }),
+        expect.objectContaining({ name: "RSI" }),
+        expect.objectContaining({ name: "BOLLINGER_BANDS" }),
+        expect.objectContaining({ name: "SUPPORT_RESISTANCE" }),
+      ]),
+    });
+
+    const createdComposite = await jsonRequest(baseUrl, "/strategy/composites", {
+      method: "POST",
+      headers: { ...ownerA, "content-type": "application/json" },
+      body: JSON.stringify({
+        schemaVersion: REST_SCHEMA_VERSION,
+        logicalFamilyKey: "http-composite",
+        combinationProfileId: "MAJORITY_VOTE_V1",
+        strategyDefinitionIds: ["strategy-a-2", "strategy-a"],
+      }),
+    });
+    expect(createdComposite.response.status).toBe(200);
+    expect(createdComposite.body).toMatchObject({
+      definition: {
+        ownerUserId: USER_A,
+        combinationProfileId: "MAJORITY_VOTE_V1",
+        components: [
+          { strategyDefinitionId: "strategy-a", strategyDefinitionVersion: 1 },
+          { strategyDefinitionId: "strategy-a-2", strategyDefinitionVersion: 1 },
+        ],
+      },
+    });
+    const createdCompositeId = (createdComposite.body as { definition: { id: string } }).definition.id;
+    expect(fixture.strategy.contexts.at(-1)).toEqual({ authenticatedUserId: USER_A });
+
+    const crossOwnerComposite = await jsonRequest(baseUrl, "/strategy/composites", {
+      method: "POST",
+      headers: { ...ownerB, "content-type": "application/json" },
+      body: JSON.stringify({
+        schemaVersion: REST_SCHEMA_VERSION,
+        logicalFamilyKey: "cross-owner-composite",
+        combinationProfileId: "MAJORITY_VOTE_V1",
+        strategyDefinitionIds: ["strategy-a", "strategy-a-2"],
+      }),
+    });
+    expect(crossOwnerComposite.response.status).toBe(404);
+    expect(crossOwnerComposite.body).toMatchObject({ error: { code: "NOT_FOUND" } });
+
+    const aComposites = await jsonRequest(baseUrl, "/strategy/composites", { headers: ownerA });
+    const bComposites = await jsonRequest(baseUrl, "/strategy/composites", { headers: ownerB });
+    expect((aComposites.body as { items: Array<{ id: string }> }).items.map(({ id }) => id)).toContain(createdCompositeId);
+    expect((bComposites.body as { items: Array<{ id: string }> }).items.map(({ id }) => id)).not.toContain(createdCompositeId);
+
+    const searchStatus = await jsonRequest(baseUrl, "/search/runs/search-a", { headers: ownerA });
+    expect(searchStatus.response.status).toBe(200);
+    expect(searchStatus.body).toMatchObject({
+      searchRun: {
+        ownerUserId: USER_A,
+        generatorType: "RANDOM",
+        randomSeed: "search-a-seed",
+        searchSpace: {
+          availableStrategyDefinitionIds: ["strategy-a", "strategy-b"],
+          componentCount: { minimum: 2, maximum: 2 },
+          requireDistinctComponents: true,
+        },
+        stopCondition: { maxCandidates: 1 },
+        maxInFlight: 1,
+        state: "COMPLETED",
+        activeCandidateIds: [],
+        submittedCandidateCount: 1,
+        completedCandidateCount: 1,
+        failedCandidateCount: 0,
+        stopReason: "MAX_CANDIDATES",
+        seededDiscovery: {
+          profileId: "RANDOM_V1",
+          datasetIdentity: { datasetId: "fixture-dataset", datasetVersion: "v1", provider: "binance" },
+          code: { applicationVersion: "i02-fixture", gitCommit: "fixture-commit" },
+          defaultBudget: { maxCandidates: 500, maxDurationSeconds: 300 },
+        },
+      },
+      ranking: [{
+        rank: 1,
+        searchRunId: "search-a",
+        leaderboardScopeId: "scope-a",
+        candidateId: "candidate-a",
+        experimentId: "experiment-a",
+        rankingConfigurationId: RANKING_CONFIGURATION_ID,
+        score: 0.84,
+      }],
+    });
+
+    const candidates = await jsonRequest(baseUrl, "/backtesting/search-runs/search-a/candidates", { headers: ownerA });
+    expect(candidates.response.status).toBe(200);
+    expect(candidates.body).toMatchObject({
+      items: [{
+        candidateId: "candidate-a",
+        ownerUserId: USER_A,
+        origin: { kind: "SEARCH", searchRunId: "search-a", leaderboardScopeId: "scope-a", iterationNumber: 1 },
+        status: "SUCCEEDED",
+        experimentId: "experiment-a",
+      }],
+    });
+    expect(JSON.stringify(candidates.body)).not.toContain("candidate-b");
+
+    const selected = await jsonRequest(baseUrl, "/backtesting/experiments/experiment-a", { headers: ownerA });
+    expect(selected.response.status).toBe(200);
+    expect(selected.body).toMatchObject({
+      experiment: {
+        id: "experiment-a",
+        candidateId: "candidate-a",
+        searchRunId: "search-a",
+        strategy: { kind: "STRATEGY", definition: { id: "strategy-a", ownerUserId: USER_A } },
+        marketData: {
+          provider: "binance",
+          pair: "BTCUSDT",
+          timeframe: "1h",
+          replayGuarantee: "TRACEABLE",
+          datasetId: "fixture-dataset",
+          datasetVersion: "v1",
+        },
+        configuration: {
+          executionProfileId: "BACKTEST_EXECUTION_V1",
+          paperExecutionProvenance: SYNTHETIC_PAPER_EXECUTION,
+        },
+        paperExecutionProvenance: SYNTHETIC_PAPER_EXECUTION,
+        metrics: {
+          totalReturnPercent: 0.84,
+          winRatePercent: 100,
+          numberOfTrades: 1,
+          maxDrawdownMagnitudePercent: 0,
+          evaluationProfileId: "REQUIRED_METRICS_V1",
+        },
+        rankingConfigurationId: RANKING_CONFIGURATION_ID,
+        code: { applicationVersion: "i02-fixture", gitCommit: "fixture-commit" },
+        replay: {
+          guarantee: "TRACEABLE",
+          unavailableInputs: ["HISTORICAL_DATA", "EXECUTABLE_CODE"],
+        },
+        visualization: {
+          signals: [
+            { source: { kind: "STRATEGY", strategyDefinitionId: "strategy-a" }, signal: "SELL" },
+            { source: { kind: "STRATEGY", strategyDefinitionId: "strategy-a" }, signal: "BUY" },
+          ],
+          overlays: [{
+            strategyDefinitionId: "strategy-a",
+            point: { descriptorId: "ma-overlay", values: { fast: 100, slow: 101 } },
+          }],
+          tradeMarkers: [
+            { tradeId: "experiment-a-trade-1", kind: "ENTRY", price: 100 },
+            { tradeId: "experiment-a-trade-1", kind: "EXIT", price: 99 },
+          ],
+        },
+      },
+    });
+    const experimentBody = (selected.body as { experiment: Record<string, unknown> }).experiment;
+    const metrics = experimentBody.metrics as Record<string, number>;
+    for (const field of ["totalReturnPercent", "winRatePercent", "numberOfTrades", "maxDrawdownMagnitudePercent"]) {
+      expect(Number.isFinite(metrics[field]), field).toBe(true);
+    }
+    expect((experimentBody.marketData as Record<string, unknown>).replayLimitation).toEqual(
+      "fixture-only evidence; final mode is not proven",
+    );
+
+    const searchExperiments = await jsonRequest(baseUrl, "/backtesting/experiments?searchRunId=search-a", { headers: ownerA });
+    expect(searchExperiments.response.status).toBe(200);
+    expect((searchExperiments.body as { items: Array<{ id: string }> }).items.map(({ id }) => id)).toEqual(["experiment-a"]);
+
+    const trades = await jsonRequest(baseUrl, "/backtesting/experiments/experiment-a/trades", { headers: ownerA });
+    expect(trades.response.status).toBe(200);
+    expect(trades.body).toMatchObject({
+      items: [{
+        experimentId: "experiment-a",
+        positionMode: "SYNTHETIC_SHORT",
+        entryPrice: 100,
+        exitPrice: 99,
+        exitReason: "STOP_LOSS",
+        feeAmount: 0.16,
+        slippageBps: 5,
+        profit: 0.84,
+      }],
+    });
+
+    const ownerALeaderboard = await jsonRequest(baseUrl, "/leaderboard?scopeId=scope-a", { headers: ownerA });
+    expect(ownerALeaderboard.response.status).toBe(200);
+    expect(ownerALeaderboard.body).toMatchObject({
+      scope: { id: "scope-a", ownerUserId: USER_A, k: 10 },
+      rankingConfiguration: { id: RANKING_CONFIGURATION_ID, profileId: LINEAR_REQUIRED_V1.id },
+      entries: [{ candidateId: "candidate-a", experimentId: "experiment-a", score: 0.84 }],
+    });
+    expect(JSON.stringify(ownerALeaderboard.body)).not.toContain("experiment-b");
+
+    for (const path of [
+      "/search/runs/search-a",
+      "/backtesting/search-runs/search-a/candidates",
+      "/backtesting/experiments/experiment-a",
+      "/backtesting/experiments/experiment-a/trades",
+      "/leaderboard?scopeId=scope-a",
+    ]) {
+      const response = await jsonRequest(baseUrl, path, { headers: ownerB });
+      expect(response.response.status, path).toBe(404);
+      expect(response.body, path).toMatchObject({ error: { code: "NOT_FOUND" } });
+    }
+  });
 });
 
 class TestSocket extends Duplex {
@@ -1109,7 +1456,7 @@ async function flush(): Promise<void> {
   await new Promise<void>((resolve) => setTimeout(resolve, 0));
 }
 
-describe("INS-128 / I-02 market WebSocket and final preflight evidence", () => {
+describe("INS-142 / I-02 market WebSocket and final preflight evidence", () => {
   it("keeps WebSocket market-only and maps normalized ephemeral observability (fixture-only)", async () => {
     const auth = createAuthFixture();
     const market = createMarketFixture();

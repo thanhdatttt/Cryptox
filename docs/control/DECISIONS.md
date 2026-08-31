@@ -2472,3 +2472,46 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-062`, `INS-141`, and `I-02`.
+
+## DEC-064 — Hold after independent I-02 live-evidence audit
+
+Status: `APPROVED`
+
+Authority: Independent Instructor audit after the one fresh same-directory
+Manager under `INS-142 / DEC-063` completed the authorized `S-04N` closure and
+re-entered `I-02`, stopping at `REVIEW`. The Manager changed only the
+authorized backend I-02 test plus `TASKS.md`/`HANDOFF.md`; its single staging
+attempt was denied by `.git/index.lock` and was not retried.
+
+Decision: Accept the exact test/checkpoint delta and persist `INS-143 / HOLD`.
+The operational board is 55 rows with 54 `DONE` and only `I-02` at `REVIEW`;
+no other task is executable or active. The Instructor independently reran the
+backend I-02 fixture boundary (`6/6`), frontend I-02 fixture boundary (`5/5`),
+full workspace tests with local PostgreSQL (`455 passed / 0 skipped`), Auth
+E2E (`1/1`), Docker/Compose and migration validation, real Binance history and
+market WebSocket delivery, and a live application flow through Search,
+Experiment, Trades, Leaderboard, and cross-owner isolation. These results do
+not convert fixture/browser probes into live-demo evidence.
+
+I-02 is not DONE because the live News collection path is not composed into
+the backend runtime, the public CoinDesk request returned `401` without a
+configured credential, configured LLM variables are absent, and configured
+browser/demo plus consolidated eight-scenario evidence remain
+`UNVERIFIED`/`BLOCKED`. The chat-supplied Gemini secret is not used, stored, or
+silently mapped to the repository's `LLM_AUTHORING_*` contract.
+
+The News runtime composition gap is recorded as a residual implementation item
+for a separately planned packet within already-approved requirements. No
+source implementation, downstream packet, second Manager, retry, provider
+credential request, or deferred scope is authorized by this decision.
+
+Affected: `I-02`, `N-03`, `TASKS.md`, `HANDOFF.md`, `INS-142`, `INS-143`, and
+the final MVP checkpoint. Existing assignment, functional image authority,
+requirements, ADRs, contracts, architecture, data model, and deferred scope
+remain unchanged.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [Architecture](../architecture.md),
+[Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-063`, `INS-142`, and `I-02`.
