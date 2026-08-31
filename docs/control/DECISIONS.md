@@ -2147,3 +2147,42 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-054`, `INS-133`, `S-04K`, and commit `0a3ec85`.
+
+## DEC-056 — Hold S-04K after frontend timeout; narrow final residue
+
+Status: `APPROVED`
+
+Authority: Independent Instructor audit after the single fresh Manager under
+`INS-134 / DEC-055` reached its bounded checkpoint. Git remains at committed
+HEAD `53733e1` with the exact expected S-04K delta uncommitted: the two
+Strategy paths, six frontend feature paths, and Manager-owned `TASKS.md`/
+`HANDOFF.md`, plus untouched `.codex/config.toml`.
+
+Decision: Supersede `INS-134 / APPROVED_FOR_EXECUTION` with `INS-135 / HOLD`.
+Keep `S-04K`, `S-04J`, `S-04I`, and `I-02` at `REVIEW`. Worker 1 Pasteur
+timed out after identifying and partially addressing two genuine frontend
+boundary defects; it returned no final report or test evidence and was shut
+down without retry/replacement. The checker worker was not dispatched. The
+frontend suite remains `36 passed / 2 failed` on stale unavailable-state
+assertions; typecheck/build pass; Strategy authoring remains `14/14`; the
+deferred-scope checker still fails on the canonical REST-file boundary. No
+fixture, skip, or unavailable external environment is promoted to `PASS`.
+
+Plan `S-04L` as a distinct, smaller residual packet. It is not a retry or
+replacement of Pasteur: it covers only the known frontend state/cache and
+post-approval projection residue, stale frontend expectations and focused
+coverage, followed by the checker worker that has never run. The packet stays
+inside the approved `LLM_AUTHORING_V1` boundary and may not add a provider,
+contract, backend, Strategy, migration, autonomous LLM, arbitrary URL,
+queue/distributed behavior, or downstream implementation.
+
+Affected: `S-04L`, `S-04K`, `S-04J`, `S-04I`, `I-02`, `TASKS.md`, `HANDOFF.md`,
+`INS-134`, `INS-135`, and the final MVP checkpoint. Existing requirements,
+approved functional image amendments, ADRs, contracts, architecture, data
+model, and deferred scope remain unchanged.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [Architecture](../architecture.md),
+[Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-055`, `INS-134`, `S-04K`, and commit `53733e1`.

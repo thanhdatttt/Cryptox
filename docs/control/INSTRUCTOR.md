@@ -2,11 +2,64 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-134`
+Instruction ID: `INS-135`
 
-Status: `APPROVED_FOR_EXECUTION`
+Status: `HOLD`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-135 — HOLD after S-04K Worker 1 timeout
+
+This signal supersedes `INS-134 / APPROVED_FOR_EXECUTION` after the one fresh
+Manager reached the bounded S-04K checkpoint. It authorizes no new Manager,
+worker, retry, replacement, duplicate, I-02 transition, or downstream work.
+
+### Independent review checkpoint
+
+- Canonical checkout: `D:\\agy-cli-projects\\AOS\\Cryptox`, branch
+  `MVP_IMPLEMENTATION`, committed HEAD `53733e1` (`INS-134 / DEC-055`). The
+  expected Manager checkpoint delta remains uncommitted and is exactly the
+  two Strategy paths, six frontend feature paths, and Manager-owned
+  `docs/implementation/TASKS.md`/`HANDOFF.md`; untouched untracked
+  `.codex/config.toml` remains outside scope.
+- The S-04K Manager `01a05735-b056-7562-8c46-f8e1a0ce9810` is idle. Its only
+  authorized child, frontend Worker 1 Pasteur
+  (`01a0573c-9596-7fa0-ae6c-f27104aae6a0`), timed out while working and was
+  shut down without retry or replacement. Worker 2 checker was not dispatched.
+  No Cryptox Manager, worker, verifier, retry, replacement, duplicate, or
+  downstream task is active.
+- `TASKS.md` is authoritative at 52 rows: 48 `DONE`, `I-02 REVIEW`,
+  `S-04I REVIEW`, `S-04J REVIEW`, and `S-04K REVIEW`; no S-04L row exists yet.
+  The Manager recorded `BLOCKED -> READY -> IN_PROGRESS -> REVIEW` and did
+  not promote any packet.
+
+### Independent evidence and decision
+
+- The preserved Strategy approval-integrity delta remains in scope and its
+  focused authoring suite passes `14/14` (the full Strategy suite remains
+  `129 passed / 3 PostgreSQL-gated skips` from independent review).
+- The frontend residue now includes same-origin/request sanitization and the
+  approved-News fixture boundary, but the frontend suite still fails `2`
+  stale assertions (`36 passed / 2 failed`); the timeout produced no new
+  frontend tests or completion evidence. Frontend typecheck and build pass.
+  The state cache fail-closed correction and post-approval projection remain
+  unproven in tests. The checker boundary still fails on the canonical
+  `packages/contracts/rest/strategy.ts` path and its worker was not started.
+- PostgreSQL, real LLM provider, Binance/News, browser/demo, OpenSpec, and
+  post-residue full-gate evidence remain `BLOCKED`/`UNVERIFIED`; no fixture or
+  skipped test is promoted to `PASS`.
+- Decision: keep `S-04K` at `REVIEW` and preserve the partial artifact. Plan a
+  smaller distinct residual packet `S-04L` for the known frontend acceptance
+  defects/tests and the unstarted checker worker. S-04L is not a retry or
+  replacement of Pasteur; it must close only the remaining unverified residue.
+
+### HOLD boundary
+
+- Do not edit `TASKS.md` or `HANDOFF.md` as Instructor, dispatch the checker
+  from `INS-134`, accept S-04K, promote S-04I/S-04J, or start I-02. Before a
+  new authorization, reconcile the expected dirty delta and verify no active
+  task; use a fresh same-directory Manager and the narrowly bounded S-04L
+  packet only.
 
 ## INS-134 — APPROVED_FOR_EXECUTION for S-04K timeout-residue closure
 
