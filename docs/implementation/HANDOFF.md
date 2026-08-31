@@ -1,44 +1,49 @@
-# N-03S Pinned HTTPS Transport Checkpoint — INS-158 / DEC-079
+# I-02 Final Revalidation Checkpoint — INS-160 / DEC-081
 
 ## Authority and applicability
 
-- Current signal: `INS-158 / APPROVED_FOR_EXECUTION`; durable decision: `DEC-079`.
+- Current signal: `INS-160 / APPROVED_FOR_EXECUTION`; durable decision: `DEC-081`.
 - Canonical checkout: `D:/agy-cli-projects/AOS/Cryptox`, branch `MVP_IMPLEMENTATION`.
-- Authorization HEAD at entry: `c552e4dddf5f6afb2bbe4c1b8314149646c8fa1c` (`chore(control): authorize safe News transport correction`). The reviewed source/business/test checkpoint remains `48301b240b533db4cdf53651eaaea24a3225e9ac`; the intervening committed changes are governance-only for this packet.
-- The entry tracked tree was clean. The pre-existing untracked `.codex/config.toml` remains excluded and was not staged or changed.
-- The entry task board had 57 rows: 56 `DONE`, only `I-02` at `REVIEW`, and no other active row. `N-03`, `N-03A`, and `N-03R` were `DONE`. The new authorized `N-03S` row was added as the sole Manager-owned task-board reconciliation; all prior rows remain unchanged.
-- Task inspection found no competing active Cryptox Manager, worker, retry, replacement, duplicate, or worktree. The only worker used here was the single fresh hidden worker authorized by `INS-158`.
-- Applicable requirements are `CSL-R-NW-02`, `CSL-R-RD-01`, `CSL-R-NW-01`, `CSL-R-OB-01`, and the applicable provenance boundary of `CSL-R-RP-02`, with ADR-009, the News capability specification, and the N-03S packet in `MVP_PLAN.md`.
+- Authorization HEAD: `00ac3971ddffe6a9fcdf3a6c781370671970c8fa`; the Instructor-recorded review checkpoint was `a4520dc69867ee0771da8a5fe10f194217694b84`. The intervening committed diff contains only the committed authorization changes in `docs/control/INSTRUCTOR.md` and `docs/control/DECISIONS.md`; source/business state has no material drift.
+- Entry board: 58 rows, `56 DONE`, `I-02 REVIEW`, `N-03S REVIEW`, and no `READY` or `IN_PROGRESS`. `N-03R`, `I-02D`, `I-01`, and `I-03` were `DONE`. No competing Cryptox Manager, worker, retry, replacement, duplicate, or worktree was active.
+- The pre-existing untracked `.codex/config.toml` remains excluded. The ignored root `.env` and `infra/db/local.env` were not read or changed; no credential value is recorded.
 
-## Authorized execution and independent review
+## Authorized transitions and delegation
 
-- N-03S moved exactly `BLOCKED -> READY -> IN_PROGRESS -> REVIEW` under `INS-158 / DEC-079`. `I-02` stayed `REVIEW`; no downstream task was started or promoted.
-- Fresh hidden worker: Copernicus, `01a058fb-ffe2-7b31-ac81-9fc23b1c7ff2`, completed once and was closed after review. It changed only `modules/news/infrastructure/safe-fetch.ts` and `modules/news/infrastructure/safe-fetch.spec.ts`; it made no control-plane edit and no commit.
-- The production correction branches on Node's lookup `all` option: multi-address lookup receives a one-element `{ address, family }` array, while single-address lookup retains the scalar address callback. Validated address pinning, hostname-based TLS/SNI, invalid-address rejection, HTTPS/allowlist validation, redirect and destination revalidation, credential/cookie omission, timeout, and body limits are unchanged.
-- The focused regression exercises the default pinned transport, both lookup callback shapes, the validated pinned address, TLS server name, response body, and existing safe-fetch failure behavior. The Manager independently reviewed the exact diff and found no out-of-scope source or test change. No Manager-side feature edit was required.
-- No credential, API key, cookie, token, raw content, Docker/PostgreSQL/migration change, provider-protocol change, runtime-composition change, unrestricted fallback, retry, or fixture substitution was introduced.
+- N-03S moved exactly `REVIEW -> DONE` under `INS-160 / DEC-081` after verifying its independently accepted source/live checkpoint at `c228117b1871d41710ba9828b61f3dbbf4a195ad`. No N-03S source or test was changed.
+- I-02 moved exactly `REVIEW -> READY -> IN_PROGRESS -> REVIEW` under `INS-160 / DEC-081`. No other task was started or promoted.
+- Three fresh hidden internal read-only verifiers were dispatched in parallel and completed once; all were closed after review:
+  - Descartes `01a05922-8695-7710-9cd2-e6120da93e10`: backend/Auth/PostgreSQL/ownership, REST/WebSocket/provider boundaries, and configured-provider checks.
+  - Avicenna `01a05922-877c-7623-9fd9-a4a273112304`: frontend tests, functional projections, configured-mode/browser availability, and truthful fixture/live labels.
+  - Turing `01a05922-891a-76d2-a83c-30a09cc9d55a`: setup/reprovision availability, README/path and requirement/DAG/link review, architecture scenarios, and OpenSpec status.
+- All verifiers used `gpt-5.6-luna`, `max` reasoning, priority service tier, made no file changes, did not access or print credentials, and did not retry or replace a check.
 
-## Validation evidence
+## Validation results
 
 ### PASS
 
-- Focused safe-fetch: `7/7` tests passed.
-- News package: `36/36` tests passed; build, typecheck, and lint passed.
-- Backend package: `43` tests passed with `1` environment-gated skip; build, typecheck, and lint passed.
-- Full workspace: `462` tests passed with `9` environment-gated skips; root build, typecheck, and lint passed. Skips were not promoted to live acceptance.
-- Architecture: dependency-cruiser reported no dependency violations (`189` modules / `644` dependencies); the rules check exited successfully with its existing `9` forbidden-dependency fixture diagnostics.
-- Artifact/source-sidecar check passed; deferred-scope check passed; focused deferred-scope regression passed `15/15`.
-- Runtime smoke exited `0`: `/live=200`, `/ready=503`, `/health=404`. This is the repository smoke result without a configured application database, not full Compose or live-provider evidence.
-- Exact-path review, secret-shaped diff scan, logging review, whitespace review, and `git diff --check` passed after the final control-plane update. Only `TASKS.md`, `HANDOFF.md`, and the two authorized News paths are tracked in this checkpoint.
+- Manager root `npm run verify:stage4a`: exit `0`; build passed across workspaces, typecheck passed, full workspace tests passed (`462`) with the existing `9` environment-gated PostgreSQL skips, architecture passed (`189` modules / `644` dependencies and the expected `9` fixture diagnostics), source-sidecar artifacts passed, deferred-scope check passed, and runtime smoke returned `/live=200`, `/ready=503`, `/health=404`.
+- Manager `npm run lint`: exit `0`.
+- Manager `npm run test:scope-check`: `15/15` passed.
+- Manager focused I-02 E2E run 1: backend `6/6`, frontend `5/5`; run 2: backend `6/6`, frontend `5/5`.
+- N-03S accepted packet evidence remains valid and unchanged: safe-fetch `7/7`, News `36/36`, backend `43` with one environment-gated skip, workspace `462` with nine environment-gated skips, build/typecheck/lint, architecture, artifacts, scope/deferred `15/15`, runtime smoke, exact-path, secret/logging, whitespace, and diff evidence; Instructor-owned live CoinDesk RSS through the safe runtime returned a non-empty normalized result at the accepted `c228117` boundary.
+- Hidden backend verifier: backend `43` passed / one PostgreSQL skip; market-data `31` passed / one PostgreSQL skip; News `36`; Search `36` / one database skip; Backtesting `46`; Evaluation `19`; REST/WebSocket contracts `22`; backend typecheck/lint and runtime/architecture/artifact/deferred checks passed.
+- Hidden frontend verifier: frontend `50/50`; I-02 frontend `5/5`; typecheck and lint passed. Four independent chart/timeframe projections, recovery/status labels, functional-state projections, and fixture guards passed as controlled fixture evidence.
+- Hidden setup verifier: assignment PDF hash matched its recorded provenance; 33 required IDs and 58 unique task rows were found; active inventory is 10 capability specs plus one active change with five files; README script/path review was `13/13`; architecture prose covers the eight defense themes; scope, architecture, artifact, and status checks passed.
+- Exact-path review: working-tree tracked changes are limited to `docs/implementation/TASKS.md` and `docs/implementation/HANDOFF.md`; `git diff --check` passes; no source, test, README, contract, schema, migration, infrastructure, environment, provider, or generated artifact change was made in this packet.
 
 ### BLOCKED or UNVERIFIED
 
-- Formal OpenSpec CLI status/instruction validation: `UNVERIFIED`; the `openspec` executable is unavailable in this Manager environment. Active artifacts were read manually.
-- Instructor-owned live CoinDesk RSS through `composeConfiguredNewsProviders` and the production safe runtime was not rerun by this Manager. It remains pending independent Instructor smoke; only a non-empty normalized response can establish live PASS. Direct HTTP status, fixtures, skipped tests, or unavailable environment are not sufficient.
-- Docker, PostgreSQL, migration, authenticated browser/demo, Binance, and LLM evidence were not part of this bounded transport packet. Previously accepted Instructor environment evidence remains at its own boundary and was not reclassified here.
+- Current live PostgreSQL/Auth registration/login/current-user/expiry/logout and two-user ownership E2E: `BLOCKED` locally because `DATABASE_URL` is not in the process environment and the Docker daemon/Compose path is inaccessible. The previously accepted Instructor-owned DEC-077 Docker/PostgreSQL/migration evidence remains recorded at its own boundary and was not upgraded or erased; no current Manager rerun was possible.
+- Current configured Binance BTCUSDT historical/realtime/recovery application-path evidence and authenticated real-data browser/demo: `UNVERIFIED`/`BLOCKED`. The deterministic/provider-boundary suites pass, but no current configured application and browser environment was available. Frontend tests remain fixture/controlled evidence and explicitly label that boundary.
+- Current LLM `LLM_AUTHORING_V1` completion, structured draft validation, and Save/Approve persistence: `BLOCKED`. The configured `gemini-3.7-flash` path has the Instructor-recorded timeout/503 behavior in DEC-080; no retry, alternate-model diagnostic, native Gemini path, fallback, credential use, or provider change was made.
+- Clean install/reprovision and local migration validation: `UNVERIFIED`/`BLOCKED`; not run under the no-install/no-environment-change restriction and Docker was unavailable. Existing node/npm/lockfile/node_modules availability is not clean-install evidence.
+- Formal OpenSpec CLI status/instruction validation: `UNVERIFIED`; no `openspec` executable is available. Active artifacts were reviewed manually only.
+- Traceability reconciliation needs Instructor review: the current `MVP_PLAN.md` does not literally list `CSL-R-AR-02`, `CSL-R-AR-03`, `CSL-R-MD-01`, `CSL-R-SE-01`, `CSL-R-SE-02`, `CSL-R-ST-02`, or `CSL-R-VIS-01`; the active OpenSpec milestone checklist has four unchecked program milestones; automated Markdown-link reconciliation did not yield reliable evidence; and no dedicated eight-row executable architecture-scenario matrix or consolidated current live proof was available. No repair is authorized under INS-160.
+- Hidden verifier-only restrictions: emitting backend/frontend builds were not rerun by those agents because they would write `dist`; the Manager root build passed. The direct Auth package check recorded `7` passes, `3` PostgreSQL skips, and one bounded Argon2id timeout; the Manager root workspace Auth run passed `8` with `3` PostgreSQL skips, so the timeout was not retried or promoted to a source defect.
 
-## Final state and stop boundary
+## Decision and stop boundary
 
-- Final operational board: 58 rows, 56 `DONE`, `I-02` `REVIEW`, and `N-03S` `REVIEW`; no `READY` or `IN_PROGRESS` row. `I-02` was not promoted and no other task state changed.
-- The single explicit-path checkpoint commit attempt was denied during staging before commit: `fatal: Unable to create 'D:/agy-cli-projects/AOS/Cryptox/.git/index.lock': Permission denied` (exit 128). No files were staged, no commit was created, and no retry was made.
-- The Manager stops after that single denied attempt and leaves final live CoinDesk verification and any later I-02 decision to the Instructor. The untracked `.codex/config.toml` remains excluded.
+- Full MVP DoD is not proven. I-02 therefore remains `REVIEW`; renewed Instructor review is required for the live/demo and traceability blockers above. No downstream packet is READY or started by this authorization.
+- The only changed paths are `docs/implementation/TASKS.md` and `docs/implementation/HANDOFF.md`. No Manager-side feature implementation was performed.
+- The one explicit-path checkpoint commit attempt was denied before staging: `fatal: Unable to create 'D:/agy-cli-projects/AOS/Cryptox/.git/index.lock': Permission denied` (exit `1`). No files were staged, no commit was created, and no retry was made. The final working tree therefore remains the two Manager-owned control files plus the pre-existing untracked `.codex/config.toml`, which remains excluded.
