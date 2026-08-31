@@ -3012,3 +3012,45 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-074`, `INS-153`, and `INS-154`.
+
+## DEC-076 — Hold after independent INS-154 acceptance and environment probe
+
+Status: `HOLD`
+
+Authority: Instructor review after INS-154 / DEC-075 completed with one fresh
+Manager and one hidden worker. The optional RSS allowlist correction is
+accepted and committed at `48301b240b533db4cdf53651eaaea24a3225e9ac` after the
+Manager's single staging attempt was denied by `.git/index.lock` and the parent
+Instructor integrated the exact reviewed four-file delta. Focused and
+repository deterministic gates pass, while I-02 remains `REVIEW`.
+
+An Instructor-side Docker probe also passed: the Docker daemon and Compose
+interpolation were available, the existing local PostgreSQL development/test
+services were healthy, and `npm run db:local:validate` passed its up,
+constraint, down, and remigrate proof. This is evidence for the local database
+boundary only; it is not a full backend/frontend Compose demo or authenticated
+real-data acceptance.
+
+The remaining I-02 gates are a full Compose application run and teardown,
+live configured CoinDesk RSS through the safe News boundary, a live Gemini
+OpenAI-compatible authoring call through the existing `LLM_AUTHORING_*`
+contract using a newly rotated local key, authenticated real-data browser/demo
+coverage including ownership and Binance realtime behavior, clean-install
+evidence, and formal OpenSpec CLI validation. The root `.env` is absent; the
+previously exposed chat key is not usable and no credential may be requested,
+printed, stored, or committed. Missing live evidence remains
+`UNVERIFIED`/`BLOCKED`, never `PASS`.
+
+`TASKS.md` and `HANDOFF.md` remain Manager-owned and currently retain the
+pre-integration wording that the INS-154 delta is uncommitted. A fresh Manager
+must reconcile those records to `48301b2` before the next acceptance decision.
+No downstream packet, retry, replacement, duplicate, provider redesign,
+native Gemini integration, or scope expansion is authorized by this HOLD.
+
+Affected: `I-02`, `TASKS.md`, `HANDOFF.md`, `INS-154`, `INS-155`, and the
+bounded provider/configuration evidence boundary.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-075`, `INS-154`, and `INS-155`.

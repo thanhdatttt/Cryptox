@@ -2,11 +2,81 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-154`
+Instruction ID: `INS-155`
 
-Status: `APPROVED_FOR_EXECUTION`
+Status: `HOLD`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-155 — HOLD after INS-154 optional RSS allowlist correction
+
+INS-154 / DEC-075 is accepted at its bounded source and deterministic-test
+boundary after independent Instructor review. The optional
+`COINDESK_RSS_ALLOWED_URLS=` value is now treated as absent only for that
+optional RSS list, so the copied secret-free `.env.example` shape composes the
+configured CoinDesk RSS source while malformed, all-empty, unsafe, and
+unallowlisted configurations remain fail-closed. This correction does not
+promote I-02 or authorize downstream work.
+
+### Accepted checkpoint and independent evidence
+
+- Canonical checkout: `D:\\agy-cli-projects\\AOS\\Cryptox`, branch
+  `MVP_IMPLEMENTATION`, accepted HEAD
+  `48301b240b533db4cdf53651eaaea24a3225e9ac` (`fix(runtime): accept blank
+  optional RSS allowlist`). The commit contains exactly the two authorized
+  runtime/test paths and Manager-owned `TASKS.md`/`HANDOFF.md`; the
+  pre-existing untracked `.codex/config.toml` remains excluded.
+- The single fresh INS-154 Manager and single hidden worker Sartre completed
+  once, with no retry, replacement, duplicate, branch, worktree, or
+  downstream dispatch. I-02 transitioned exactly
+  `REVIEW -> READY -> IN_PROGRESS -> REVIEW` and remains `REVIEW`.
+- Deterministic acceptance is independently reproduced: focused runtime
+  `14/14 PASS`; backend `43 PASS / 1 environment-gated skip`; full workspace
+  tests exit 0; root/backend build, typecheck, and lint pass; architecture,
+  artifacts, deferred-scope, scope regression `15/15`, runtime smoke,
+  exact-path, secret-shaped diff, whitespace, and diff checks pass.
+- Instructor-side environment checks now establish Docker daemon access,
+  Docker Compose interpolation, healthy existing `postgres-dev` and
+  `postgres-test` containers, and local migration validation
+  `up -> constraints -> down -> remigrate` as `PASS`. This does not yet prove
+  the full backend/frontend Compose demo or authenticated application flow.
+- The Manager's one checkpoint commit attempt was denied before staging by
+  `.git/index.lock: Permission denied`; no retry was made. The parent
+  Instructor integrated the exact reviewed four-file delta in `48301b2`
+  without changing its content. `TASKS.md` and `HANDOFF.md` still contain the
+  Manager's truthful pre-integration wording and require Manager-owned
+  checkpoint reconciliation before the next acceptance decision.
+
+### I-02 completion criteria still not proven
+
+I-02 cannot be marked `DONE` until the following evidence is real and
+reconciled in the repository checkpoint, rather than inferred from fixtures or
+deterministic tests:
+
+- a full Docker Compose application run with backend/frontend health, internal
+  PostgreSQL `DATABASE_URL`, migration/teardown evidence, and persisted Auth
+  plus application data;
+- a live configured CoinDesk RSS request through the existing safe News
+  boundary, with no fixture fallback;
+- a live configured Gemini-compatible authoring request through the existing
+  `LLM_AUTHORING_ENDPOINT`, `LLM_AUTHORING_MODEL`, and
+  `LLM_AUTHORING_API_KEY` names, including structured draft validation and the
+  explicit Save/Approve persistence path. The root `.env` is currently absent;
+  the previously exposed chat key is revoked/unsafe and must not be used. A
+  newly rotated local key is required and must never enter Git or chat;
+- an authenticated real-data browser/demo proving registration/login,
+  per-user isolation, Binance historical/realtime delivery and recovery,
+  independent multi-timeframe charts, strategy add/select and authoring,
+  combination/search/backtest/evaluation/leaderboard/trade visualization,
+  real-source News, and Sentiment behavior;
+- clean-install/reprovision evidence for the delivered repository; and
+- formal OpenSpec CLI validation if the executable becomes available. Its
+  absence remains `UNVERIFIED`, never `PASS`.
+
+Keep I-02 at `REVIEW` and do not start `M-02`, `AU-02`, `S-04`, `I-01`,
+`I-03`, or any other packet under this HOLD. A future authorization may first
+reconcile only the Manager checkpoint and collect the remaining final-I-02
+evidence through one fresh Manager; no feature scope is implied.
 
 ## INS-154 — APPROVED_FOR_EXECUTION for optional RSS allowlist reconciliation
 
