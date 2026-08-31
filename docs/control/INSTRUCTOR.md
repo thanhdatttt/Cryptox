@@ -2,11 +2,73 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-160`
+Instruction ID: `INS-161`
 
-Status: `APPROVED_FOR_EXECUTION`
+Status: `HOLD`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-161 — HOLD after independent final I-02 review
+
+This is the Instructor's replaceable safe checkpoint after `INS-160 /
+APPROVED_FOR_EXECUTION` was exhausted. N-03S is accepted and operationally
+closed, but the final I-02 evidence is incomplete. This HOLD authorizes no
+implementation and no downstream execution.
+
+### Verified checkpoint
+
+- Canonical checkout: `D:\\agy-cli-projects\\AOS\\Cryptox`, branch
+  `MVP_IMPLEMENTATION`, HEAD `15a0314f913f5229bb6a5c8589ff244419f56cd3`
+  (`chore(control): record INS-160 final verification`). The exact Manager
+  delta was limited to `docs/implementation/TASKS.md` and
+  `docs/implementation/HANDOFF.md`; the pre-existing untracked
+  `.codex/config.toml` remains excluded. Source/business drift from the
+  accepted `c228117` checkpoint is empty.
+- `TASKS.md` remains the sole operational authority with `58` rows: `57`
+  `DONE`, only `I-02` `REVIEW`, and no `READY`, `IN_PROGRESS`, or `BLOCKED`
+  row. `N-03S`, `N-03R`, `I-02D`, `I-01`, and `I-03` are `DONE`.
+- INS-160 used exactly one fresh Manager and three fresh hidden read-only
+  verifiers, all completed and closed without file changes, duplicate,
+  retry, replacement, or worktree. The Manager's one denied checkpoint
+  commit attempt was independently integrated by the Instructor; it was not
+  retried by that Manager.
+
+### Independent evidence and remaining gaps
+
+- Deterministic source and I-02 fixture evidence remains accepted: workspace
+  `462` tests with nine environment-gated skips, focused I-02 backend `6/6`
+  and frontend `5/5` on each of two runs, build/typecheck/lint,
+  architecture, artifacts, scope/deferred `15/15`, and runtime smoke.
+- N-03S remains accepted at `c228117`: safe-fetch `7/7`, News `36/36`, and
+  live CoinDesk RSS through the production safe runtime returned five
+  normalized items. Docker/PostgreSQL/migration evidence remains the
+  previously accepted Instructor-side evidence at its stated boundary.
+- The root ignored `.env` now selects `gemini-3.6-flash`. A real
+  `createConfiguredAuthoringProvider` call through the OpenAI-compatible
+  Gemini endpoint returned a structured draft with `fastPeriod` and
+  `slowPeriod`; this is strong provider-boundary evidence but not yet proof
+  of REST Save/Approve persistence in the running application.
+- OpenSpec is installed and executable in the Instructor context as version
+  `1.11.0`. `openspec validate --all --no-interactive --json` validates the
+  active `mvp-implementation` change but fails all ten capability specs for
+  missing `## Purpose` and `## Requirements`. This is a real validation
+  failure, not an unavailable CLI, and no spec repair is authorized by the
+  expired INS-160 scope.
+- Current authenticated PostgreSQL/Auth ownership E2E, configured Binance
+  application/realtime evidence, authenticated real-data browser/demo,
+  clean install/reprovision, full application LLM Save/Approve, traceability
+  reconciliation, and a consolidated eight-scenario executable matrix are
+  not yet proven. They remain `BLOCKED`/`UNVERIFIED` as applicable; fixtures,
+  skips, static prose, and prior historical evidence cannot be promoted.
+
+### HOLD boundary
+
+The MVP is not complete. A future authorization must first address the
+OpenSpec/traceability validation gap in a separately bounded packet and may
+then revalidate the existing I-02 live/demo evidence. Native Gemini code,
+automatic retry/fallback, provider redesign, credential changes, fixture
+substitution, deferred scope, or unrelated source repair are not authorized
+by this HOLD.
 
 ## INS-160 — APPROVED_FOR_EXECUTION for E5R closure and final I-02 revalidation
 

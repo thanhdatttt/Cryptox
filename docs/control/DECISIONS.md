@@ -3297,3 +3297,51 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-080`, `INS-159`, and `INS-160`.
+
+## DEC-082 — Hold after independent INS-160 final review
+
+Status: `HOLD`
+
+Authority: Instructor review after the fresh same-directory INS-160 Manager
+completed. The Manager's exact two-file control checkpoint was integrated at
+`15a0314`; N-03S is now `DONE`, and the only operational review row is the
+existing final `I-02`. The Manager created exactly three hidden read-only
+verifiers, all completed without edits, and made one denied explicit-path
+commit attempt without retry. The tracked source/business tree has no drift
+from the accepted `c228117` checkpoint; `.codex/config.toml` remains the only
+pre-existing untracked item.
+
+Independent review accepts the deterministic and bounded evidence: workspace
+`462` tests with nine environment-gated skips, I-02 fixture E2E backend `6/6`
+and frontend `5/5` on each of two runs, build/typecheck/lint,
+architecture/artifacts/scope/deferred checks, runtime smoke, and the accepted
+N-03S live CoinDesk safe-runtime result. The root ignored `.env` now selects
+`gemini-3.6-flash`, and the complete provider adapter returned a structured
+draft with `fastPeriod` and `slowPeriod`; application REST Save/Approve
+persistence has not yet been proved.
+
+The final I-02 Full MVP DoD is not proven. Current live PostgreSQL/Auth
+ownership E2E, configured Binance application/realtime and authenticated
+browser/demo evidence, clean install/reprovision, full application LLM
+Save/Approve, traceability reconciliation, and a consolidated executable
+eight-scenario matrix remain `BLOCKED`/`UNVERIFIED` as applicable. OpenSpec is
+not unavailable: Instructor execution of installed CLI `1.11.0` passed the
+active `mvp-implementation` change but failed all ten capability specs because
+they lack the validator-required `## Purpose` and `## Requirements` sections.
+
+Keep the current Instructor signal at `INS-161 / HOLD`. The next authorization
+must be separately bounded for OpenSpec/spec-format and traceability
+reconciliation, or a strictly bounded live-evidence action if no artifact
+change is needed. It may not silently repair source, add native Gemini code,
+map `GEMINI_*`, add automatic retry/fallback, change credentials, substitute
+fixtures, or start downstream work. No claim of final MVP completion is
+permitted until the remaining live/demo and validation requirements are
+actually evidenced.
+
+Affected: `I-02`, `N-03S`, `TASKS.md`, `HANDOFF.md`, `INS-160`, `INS-161`, and
+the OpenSpec/traceability final-verification boundary.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-081`, `INS-160`, and `INS-161`.
