@@ -2,11 +2,72 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-168`
+Instruction ID: `INS-169`
 
 Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-169 — APPROVED_FOR_EXECUTION for post-integration control reconciliation
+
+This instruction authorizes one control-plane-only checkpoint reconciliation
+after the Instructor independently accepted and integrated the bounded INS-168
+spec correction. It adds no product capability and authorizes no worker,
+source, test, active-change, downstream, or final I-02 work.
+
+### Governing IDs and reviewed checkpoint
+
+- Verification-only requirement IDs: `CSL-R-DL-01`, `CSL-R-AR-02`, and
+  `CSL-R-AR-03`; no requirement behavior or implementation scope changes.
+- Canonical checkout: `D:\\agy-cli-projects\\AOS\\Cryptox`, branch
+  `MVP_IMPLEMENTATION`, current committed HEAD
+  `3d1342637e9f6d83cd8799f458f477e65aad0731` (`docs(spec): reconcile active
+  OpenSpec scenarios`). The Instructor independently verified OpenSpec
+  `11/11 PASS`, exact scenario preservation `64/64`, nested coverage `47/47`,
+  all active specs `w/lf`, and the repository gates before this integration.
+- The tracked tree is clean after the integration commit; only the
+  pre-existing untracked `.codex/config.toml` remains and must stay excluded.
+  There is no source/business-state drift and no active Cryptox Manager or
+  worker.
+- `TASKS.md` still has 58 rows, 57 `DONE`, only `I-02` `REVIEW`, and no other
+  active state. Its I-02 row and `HANDOFF.md` still describe the pre-integration
+  denied commit and HEAD `5a74e98`; that is now stale control evidence and must
+  be reconciled by the Manager before the next implementation authorization.
+
+### Authorized Manager scope
+
+- Create exactly one fresh same-directory Manager in the canonical checkout,
+  using `gpt-5.6-luna` with `max` reasoning and no worktree. It must reread
+  `AGENTS.md` and `docs/control/prompts/ORCHESTRATOR_START.md`, verify
+  `DEC-090`, confirm no competing task, and compare the accepted integration
+  commit with the current repository.
+- This is a control-only Manager run. Create zero workers/subagents. Do not
+  retry or reuse the completed INS-168 Manager or Darwin.
+- The Manager may edit only `docs/implementation/TASKS.md` and
+  `docs/implementation/HANDOFF.md`. It must update the I-02 evidence/checkpoint
+  to record the accepted integration commit `3d13426`, the Instructor's
+  independent OpenSpec `11/11 PASS`, the 64/64 and 47/47 preservation gates,
+  and that no source or downstream work started. It must remove the stale
+  claim that the current accepted checkpoint remains uncommitted, while
+  retaining the truthful fact that its own earlier commit attempt was denied.
+- It must not edit `INSTRUCTOR.md`, `DECISIONS.md`, `MVP_PLAN.md`, requirements,
+  ADRs, architecture, data model, active/archived OpenSpec changes, any spec,
+  source, tests, dependencies, environment, credentials, migrations,
+  infrastructure, generated file, or any other path. Do not change I-02 from
+  `REVIEW` and do not start downstream work.
+
+### Acceptance and stop condition
+
+- Exact tracked paths after the run may be only `TASKS.md` and `HANDOFF.md`;
+  `.codex/config.toml` remains untracked and excluded. The board remains 58
+  rows, 57 `DONE`, only I-02 `REVIEW`, with no `READY` or `IN_PROGRESS` row.
+- The updated checkpoint must reference the actual HEAD `3d13426`, the
+  accepted twelve-path integration, the worker/Manager IDs, and all validation
+  results truthfully. Unavailable tools remain `UNVERIFIED`/`BLOCKED`.
+- The Manager makes at most one explicit-path commit attempt containing only
+  `TASKS.md` and `HANDOFF.md`; if denied, record the exact error once and stop
+  without retry. No worker, implementation test, downstream promotion, or
+  final MVP claim is authorized.
 
 ## INS-168 — APPROVED_FOR_EXECUTION for exact spec-delta preservation repair
 

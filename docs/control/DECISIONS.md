@@ -3671,3 +3671,39 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-088`, `INS-167`, and `INS-168`.
+
+## DEC-090 — Authorize post-integration control reconciliation
+
+Status: `APPROVED`
+
+Authority: Instructor review after INS-168/DEC-089. The Instructor independently
+accepted the scoped correction and integrated exactly the ten active OpenSpec
+specifications plus Manager-owned `TASKS.md` and `HANDOFF.md` at commit
+`3d1342637e9f6d83cd8799f458f477e65aad0731`. OpenSpec `1.11.0` passes all 11
+active items; exact scenario preservation is `64/64`, nested requirement
+coverage `47/47`, all active specs are LF-only, and the applicable repository
+gates pass. Only the pre-existing untracked `.codex/config.toml` remains.
+
+The INS-168 Manager and Darwin worker completed once and closed. The Manager's
+single staging/commit attempt was correctly denied by `.git/index.lock`, but
+the Instructor then performed the authorized independent integration. As a
+result, `TASKS.md` and `HANDOFF.md` still describe the earlier uncommitted
+checkpoint and HEAD `5a74e98`; this is stale control evidence, not source drift.
+The operational board remains 58 rows, 57 `DONE`, only `I-02` `REVIEW`, with no
+active Manager or worker.
+
+Authorize exactly one fresh same-directory `gpt-5.6-luna` Manager with `max`
+reasoning, no worktree, and zero workers. The Manager may edit only
+`docs/implementation/TASKS.md` and `docs/implementation/HANDOFF.md` to record
+the accepted integration HEAD `3d13426`, the validation evidence, and the
+truthful I-02 checkpoint, leaving I-02 at `REVIEW` and starting nothing else.
+No implementation, source, provider, credential, Docker/migration,
+OpenSpec-change, downstream, or final MVP work is authorized. One explicit-path
+commit attempt maximum; the Instructor will independently verify the result.
+
+Affected: `I-02`, `TASKS.md`, `HANDOFF.md`, `INS-168`, and `INS-169`.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-089`, `INS-168`, and `INS-169`.
