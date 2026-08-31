@@ -2,11 +2,120 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-119`
+Instruction ID: `INS-120`
 
-Status: `HOLD`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-120 — I-01 runtime, transports and observability integration
+
+This signal supersedes `INS-119 / HOLD` after the Instructor reviewed the
+current I-01 frontier, its now-complete public seam and validation
+prerequisites, the exact backend source, and the governing DAG. It authorizes
+one fresh I-01 implementation/resumption attempt only.
+
+### Reviewed checkpoint and applicability
+
+- The canonical checkout is `D:/agy-cli-projects/AOS/Cryptox` on
+  `MVP_IMPLEMENTATION` at `2462f18` (`chore(control): hold after ENV-05 and
+  I-01R closure`). The tracked tree is clean; the sole pre-existing untracked
+  path is the untouched app-generated `.codex/config.toml`.
+- The authoritative task board has 49 rows: `46 DONE`, `1 REVIEW` (`I-01`),
+  and `2 BLOCKED` (`I-02`, `I-03`). `I-01R`, `ENV-05`, `ENV-06`, `ENV-07`, and
+  `ENV-08` are independently accepted `DONE`. No active Cryptox Manager or
+  worker is present at dispatch.
+- I-01's prior backend delta is committed at `0bab722` and remains a
+  historical `REVIEW / NEEDS_INSTRUCTOR_REVIEW` checkpoint, not a retry. The
+  source now has the required public module seams through `9bbbfda` and the
+  strict validation/real Strategy PostgreSQL gates are reconciled through
+  `5fc0bb2`, `d274f52`, `6653191`, and `09ba93b`. The current backend still
+  does not compose those seams into the real runtime: its default path leaves
+  Strategy, Search, and Backtesting unavailable/in-memory and retains stale
+  readiness details. This is the bounded I-01 frontier.
+- I-01 start dependencies recorded by `MVP_PLAN.md` are `DONE`: `AU-01`,
+  `AU-02`, `B-02`, `M-01`, `M-02`, `S-02`, `S-03`, `Q-01`, `N-01`, `N-02`,
+  `F-01`, `F-AUTH`, `F-02`, `I-01S`, `I-01R`, and the ENV validation gates.
+  Live Binance/CoinDesk and final browser/demo availability remain runtime
+  evidence obligations, not permission to claim success when unavailable.
+
+### Authorized packet: `I-01`
+
+- **Requirements / authority:** the I-01 packet in
+  `docs/implementation/MVP_PLAN.md`; `CSL-R-AU-01`, `CSL-R-OW-01`,
+  `CSL-R-RD-01`, `CSL-R-DL-01`, `CSL-R-DM-01`, `CSL-R-MD-01`–`03`,
+  `CSL-R-ST-01`–`07`, `CSL-R-SE-01`–`03`, `CSL-R-BT-01`–`02`,
+  `CSL-R-NW-01`–`02`, `CSL-R-SN-01`, `CSL-R-RP-01`–`02`, `CSL-R-AR-01`–`03`,
+  and the frozen REST/market-WebSocket contracts, accepted architecture,
+  ADRs, and approved image functional amendment. This is implementation of
+  already approved behavior, not a product-scope change.
+- **Manager:** create exactly one fresh Manager in the same-directory
+  canonical checkout `D:/agy-cli-projects/AOS/Cryptox` on
+  `MVP_IMPLEMENTATION`, using `gpt-5.6-luna` with reasoning `max`. The Manager
+  must read `AGENTS.md`, `docs/control/prompts/ORCHESTRATOR_START.md`, and the
+  full authority chain before work; verify this signal, checkpoint, DAG,
+  active-task absence, and exact write scope. No worktree, historical Manager
+  reuse, duplicate, retry, replacement, or downstream execution is allowed.
+- **Worker:** exactly one fresh sequential internal implementation worker,
+  using `gpt-5.6-luna`, reasoning `max`, and Fast/priority service tier when
+  the subagent tool exposes it. Its scope is the single coupled backend
+  boundary `apps/backend/**`, including backend tests, composition/runtime,
+  thin REST mappers, market-only WebSocket gateway, readiness/failure
+  projections, and narrowly necessary example configuration. A root
+  `package-lock.json` and matching `apps/backend/package.json` change is
+  allowed only if one genuinely necessary market-WebSocket server runtime
+  dependency is proven; no other dependency expansion is allowed. The worker
+  must not edit control-plane files, modules, packages/contracts, migrations,
+  infra, frontend, ADRs, OpenSpec, requirements, or generated files, and must
+  not stage or commit.
+- **Manager-owned write scope:** only the existing `I-01` row in
+  `docs/implementation/TASKS.md` and the latest
+  `docs/implementation/HANDOFF.md`, in addition to reviewing/integrating the
+  worker's authorized backend paths. The Manager alone changes I-01 state and
+  must not change any other row.
+- **Required behavior:** compose Auth and all approved capability APIs through
+  public module boundaries; derive trusted identity only from the server-side
+  session context; preserve frozen REST and market-only WebSocket contracts;
+  provide owner-filtered Strategy/Search/Backtest/Leaderboard operations;
+  compose the public bounded Backtesting executor, Search generator registry,
+  Strategy PostgreSQL repositories, Sentiment PostgreSQL adapter, real Binance
+  historical/realtime adapters, application-generated results, and configured
+  News plus local `LEXICON_V1` sentiment. Keep controllers thin and keep
+  provider/persistence failures visible without leaking internals.
+- **Readiness rule:** liveness remains independent; missing required
+  persistence/providers makes readiness not-ready; provider failure remains
+  observable; News/Sentiment degradation does not break core market,
+  Strategy, Search, or Backtest paths; mock/fixture providers may be used only
+  in tests/development and must never silently become final/demo runtime.
+- **Acceptance:** backend HTTP/WS tests must prove Auth/session, unauthenticated
+  rejection, 401/404 ownership and spoof resistance, Strategy definitions and
+  composites, manual Backtest and SearchRun/Candidate/Experiment/Trade,
+  application-generated Leaderboard, market history/realtime, News/Sentiment,
+  readiness, provider failure, and `MARKET_OBSERVABILITY_V1`. The runtime must
+  use the public seams without module-internal deep imports or algorithm
+  duplication. Preserve the exact DTO/contract behavior and two-user no-leak
+  guarantees.
+- **Validation:** run the backend focused HTTP/WS suites, process-local real
+  PostgreSQL Auth/application checks and migration validation when available,
+  read-only live Binance historical/realtime checks, and configured real News
+  source smoke when configured. Then run workspace test/build/typecheck/lint,
+  architecture/dependency, source-sidecar/artifact, deferred-scope and its
+  13-case suite, runtime smoke, secret/log, whitespace, exact-path, and
+  `git diff --check`. Every unavailable database, provider, browser, OpenSpec
+  CLI, or skipped test is `UNVERIFIED`/`BLOCKED`, never PASS.
+- **Forbidden:** no changes to module source, contracts, schema/migrations,
+  infra root, frontend, architecture rules, requirements, ADRs, OpenSpec, or
+  unrelated routes; no controller business logic, general event bus,
+  non-market WebSocket, fake-ready status, mock fallback, Redis/BullMQ,
+  distributed protocol, live trading, generalized risk, deferred feature,
+  I-02/I-03, extension, downstream, retry, replacement, duplicate, or final
+  acceptance work. If an essential fix requires an excluded path, stop at
+  `REVIEW / NEEDS_INSTRUCTOR_REVIEW` and report the exact blocker.
+- **Stop condition:** the Manager may transition only `I-01` through the
+  normal execution/review sequence and record `DONE` only after all applicable
+  scoped evidence passes. Make one coherent commit attempt; if Git ACL denies
+  it, record the exact error and do not retry. Stop immediately at I-01's
+  boundary; do not start or promote I-02, I-03, or any downstream packet.
 
 ## INS-119 — HOLD after ENV-05 and I-01R independent review
 

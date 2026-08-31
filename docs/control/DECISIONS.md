@@ -1487,3 +1487,44 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-039`, `INS-118`, and commit `1fab40d`.
+
+## DEC-041 — Fresh explicit I-01 runtime integration authorization
+
+Status: `APPROVED`
+
+Authority: Fresh Instructor review after `INS-119 / HOLD` at `2462f18`, the
+accepted `I-01R`/ENV validation chain through `1fab40d`, and inspection of the
+current backend runtime frontier.
+
+Decision: Authorize exactly one fresh `INS-120 /
+APPROVED_FOR_EXECUTION` attempt for `I-01 — Runtime, Transports and
+Observability Integration`. It is limited to one fresh same-directory Manager
+and exactly one fresh sequential internal worker with the backend scope
+recorded in `INSTRUCTOR.md`. The worker may repair only the already approved
+backend composition boundary in `apps/backend/**`, with the narrowly
+conditional WebSocket dependency allowance already present in the packet. No
+I-02, I-03, extension, deferred, retry, replacement, duplicate, worktree, or
+downstream execution is authorized.
+
+Why: All I-01 prerequisites are now independently accepted, including the
+public Backtesting/Search/Strategy/Sentiment seams, strict architecture and
+deferred-scope gates, Strategy persistence/integration, and local migration
+validation. The current backend implementation remains a real bounded frontier:
+its runtime defaults still leave the public Search, Backtesting, and
+PostgreSQL Strategy/Sentiment paths unavailable or in-memory and its readiness
+details retain the pre-reconciliation limitation. A fresh backend-only
+implementation can compose the approved modules while preserving contracts,
+trusted identity, market-only WebSocket, failure visibility, and deferred-scope
+boundaries. Real database/provider/browser evidence must be reported honestly
+where unavailable and cannot be replaced by fixtures or skips.
+
+Affected: `I-01`, `I-02`, `I-03`, `MVP_PLAN.md`, `TASKS.md`, `HANDOFF.md`,
+`INS-119`, `INS-120`, and the integration DAG. Requirements, approved
+functional image amendments, accepted ADRs, contracts, completed packets,
+integrated module source, and deferred scope remain unchanged.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [Architecture](../architecture.md),
+[Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-040`, `INS-119`, and commit `2462f18`.
