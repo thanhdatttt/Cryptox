@@ -2,11 +2,91 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-137`
+Instruction ID: `INS-138`
 
-Status: `HOLD`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-138 — APPROVED_FOR_EXECUTION for S-04M final test/checker closure
+
+This signal supersedes `INS-137 / HOLD` and authorizes exactly one fresh
+same-directory Manager for the separately planned `S-04M` residue. It is not a
+retry or replacement of Noether or any earlier Manager/worker. It does not
+promote S-04L/S-04K/S-04J/S-04I, transition I-02, or authorize downstream work.
+
+### Reviewed checkpoint and applicability
+
+- Canonical checkout: `D:\\agy-cli-projects\\AOS\\Cryptox`, branch
+  `MVP_IMPLEMENTATION`, committed HEAD `db93bd8` (`INS-137 / DEC-058`). That
+  commit contains only the Instructor governance HOLD and S-04M plan. The
+  expected uncommitted delta is the previously preserved Strategy and frontend
+  implementation/test paths, Manager-owned `docs/implementation/TASKS.md` and
+  `HANDOFF.md`, plus untracked `apps/frontend/src/features/authoring.spec.ts`;
+  app-generated `.codex/config.toml` remains untouched and outside scope.
+- `TASKS.md` is authoritative at 53 rows: 48 `DONE` and five `REVIEW`
+  (`I-02`, `S-04I`, `S-04J`, `S-04K`, `S-04L`); no implementation row is
+  active and S-04M is not yet on the board. All original S-04I dependencies
+  remain `DONE`. The prior S-04L Manager is idle, Noether is shut down, and no
+  other Cryptox Manager, worker, verifier, retry, replacement, duplicate, or
+  downstream task is active.
+- The source/business checkpoint is unchanged from the independent S-04L
+  audit. The governance-only commit did not alter source, business state, task
+  state, or handoff evidence.
+
+### Exact Manager and worker authorization
+
+- Create exactly one fresh Manager in the canonical same-directory checkout
+  `D:/agy-cli-projects/AOS/Cryptox`, branch `MVP_IMPLEMENTATION`, using model
+  `gpt-5.6-luna` with `max` reasoning. Do not use a worktree, branch, cloud
+  task, duplicate, retry, replacement, or user-visible worker task. The
+  Manager must read `AGENTS.md` and
+  `docs/control/prompts/ORCHESTRATOR_START.md` completely, then verify this
+  signal, HEAD, the exact dirty delta, task DAG, TASKS/HANDOFF, requirements,
+  ADRs, specs, relevant source/tests, and active-task list before editing.
+- The Manager may add exactly one `S-04M` row and update only
+  `docs/implementation/TASKS.md` and `docs/implementation/HANDOFF.md` for
+  state/checkpoint ownership. It must preserve every existing task state and
+  stop at the authorized checkpoint.
+- Worker 1, exactly one fresh sequential hidden internal frontend-test
+  subagent, may write only these two paths:
+  `apps/frontend/src/features/screens.spec.tsx` and
+  `apps/frontend/src/features/authoring.spec.ts`. It may correct the stale
+  READY-state assertion and the zero-argument fixture `news` call so the
+  focused test typechecks. It must not modify production source,
+  `fixture-data.ts`, `screens.tsx`, contracts, backend, Strategy, migrations,
+  providers, or any control-plane file. Request `service_tier:"priority"`
+  when supported; never claim it if unavailable.
+- Only after Worker 1 is reviewed and its tests/typecheck pass, Worker 2,
+  exactly one fresh sequential hidden internal checker subagent, may write
+  only `scripts/check-deferred-scope.cjs` and
+  `scripts/check-deferred-scope.test.cjs`. It may correct only the canonical
+  `LLM_AUTHORING_V1` allowlist boundary for
+  `packages/contracts/rest/strategy.ts` and add its narrow regression; it may
+  not broaden any other rule. Request `service_tier:"priority"` when
+  supported. Workers have disjoint scopes and must not create children,
+  commit, retry, replace, or edit `AGENTS.md`, `docs/control/**`, requirements,
+  ADRs, `MVP_PLAN.md`, `TASKS.md`, `HANDOFF.md`, migrations, or unrelated
+  files.
+
+### Acceptance, validation, and stop condition
+
+- Frontend tests must be fully green, including the 11-test authoring file;
+  frontend typecheck/build/lint must pass. Checker tests and the live deferred-
+  scope check must pass with the exact canonical REST-file boundary. Preserve
+  the independently proven Strategy `129 passed / 3` PostgreSQL-gated skips and
+  cross-context exactly-one approval evidence.
+- Run applicable full workspace test/build/typecheck/lint, architecture,
+  artifacts, scope/deferred, runtime smoke, secret/log, exact-path,
+  whitespace, and diff checks. PostgreSQL, configured LLM, Binance/News,
+  browser/demo, and OpenSpec are `PASS` only with actual evidence; otherwise
+  record `BLOCKED`/`UNVERIFIED`. Never use or echo the secret supplied in chat.
+- Move only S-04M through `BLOCKED -> READY -> IN_PROGRESS -> REVIEW`; record
+  `DONE` only if its exact bounded acceptance is proven. Do not transition
+  S-04L/S-04K/S-04J/S-04I or I-02 under this instruction. After one bounded
+  checkpoint/commit attempt, stop and report exact paths, workers, evidence,
+  failures, commit result, and remaining blockers. No retry, replacement,
+  duplicate, second Manager, or downstream packet is authorized.
 
 ## INS-137 — HOLD after S-04L frontend evidence failure
 

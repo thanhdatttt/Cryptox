@@ -2187,46 +2187,6 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-055`, `INS-134`, `S-04K`, and commit `53733e1`.
 
-## DEC-058 — Hold S-04L after frontend evidence failure
-
-Status: `APPROVED`
-
-Authority: Independent Instructor audit after the single fresh Manager under
-`INS-136 / DEC-057` reached its bounded S-04L checkpoint. The Manager recorded
-the correct `REVIEW` state after Noether timed out and did not dispatch the
-checker worker. Git remains at committed HEAD `7ae2cfe`; the accumulated
-uncommitted implementation delta and the untracked focused frontend test are
-preserved for a separately authorized review. `.codex/config.toml` remains
-outside scope.
-
-Decision: Supersede `INS-136 / APPROVED_FOR_EXECUTION` with `INS-137 / HOLD`.
-Keep S-04L, S-04K, S-04J, S-04I, and I-02 at `REVIEW`. Independent frontend
-validation found `48 passed / 1 failed` across 14 files: the remaining failure
-is a stale READY-state assertion in `screens.spec.tsx`. The new authoring test
-passes `11/11`, but frontend typecheck/lint fail at its zero-argument fixture
-`news` call; build passes. Strategy remains `129 passed / 3` PostgreSQL-gated
-skips and the cross-context approval evidence is preserved. The checker worker
-was not dispatched and its correction is unresolved. No source or control
-delta is accepted as S-04L DONE, and no downstream work is authorized.
-
-Plan distinct packet `S-04M` for only these two frontend test/typecheck defects,
-followed after review by the previously unstarted narrow deferred-scope checker
-worker. S-04M is not a retry or replacement of Noether and does not expand the
-approved LLM authoring behavior. PostgreSQL/Auth, configured LLM, Binance/News,
-browser/demo, OpenSpec, and unavailable/skipped evidence remain
-`BLOCKED`/`UNVERIFIED` unless actually exercised.
-
-Affected: `S-04M`, `S-04L`, `S-04K`, `S-04J`, `S-04I`, `I-02`, `TASKS.md`,
-`HANDOFF.md`, `INS-136`, `INS-137`, and the final MVP checkpoint. Existing
-requirements, functional image authority, ADRs, contracts, architecture, data
-model, and deferred scope remain unchanged.
-
-Canonical references: [Contributor rules](../../AGENTS.md),
-[Requirements](../requirements.md), [Architecture](../architecture.md),
-[Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
-[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
-`DEC-057`, `INS-136`, and `S-04L`.
-
 ## DEC-057 — Authorize S-04L narrowly bounded final frontend/checker residue
 
 Status: `APPROVED`
@@ -2269,3 +2229,84 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-056`, `INS-135`, `S-04L`, and commit `57c1281`.
+
+## DEC-058 — Hold S-04L after frontend evidence failure
+
+Status: `APPROVED`
+
+Authority: Independent Instructor audit after the single fresh Manager under
+`INS-136 / DEC-057` reached its bounded S-04L checkpoint. The Manager recorded
+the correct `REVIEW` state after Noether timed out and did not dispatch the
+checker worker. Git remains at committed HEAD `7ae2cfe`; the accumulated
+uncommitted implementation delta and the untracked focused frontend test are
+preserved for a separately authorized review. `.codex/config.toml` remains
+outside scope.
+
+Decision: Supersede `INS-136 / APPROVED_FOR_EXECUTION` with `INS-137 / HOLD`.
+Keep S-04L, S-04K, S-04J, S-04I, and I-02 at `REVIEW`. Independent frontend
+validation found `48 passed / 1 failed` across 14 files: the remaining failure
+is a stale READY-state assertion in `screens.spec.tsx`. The new authoring test
+passes `11/11`, but frontend typecheck/lint fail at its zero-argument fixture
+`news` call; build passes. Strategy remains `129 passed / 3` PostgreSQL-gated
+skips and the cross-context approval evidence is preserved. The checker worker
+was not dispatched and its correction is unresolved. No source or control
+delta is accepted as S-04L DONE, and no downstream work is authorized.
+
+Plan distinct packet `S-04M` for only these two frontend test/typecheck defects,
+followed after review by the previously unstarted narrow deferred-scope checker
+worker. S-04M is not a retry or replacement of Noether and does not expand the
+approved LLM authoring behavior. PostgreSQL, configured LLM, Binance/News,
+browser/demo, OpenSpec, and unavailable/skipped evidence remain
+`BLOCKED`/`UNVERIFIED` unless actually exercised.
+
+Affected: `S-04M`, `S-04L`, `S-04K`, `S-04J`, `S-04I`, `I-02`, `TASKS.md`,
+`HANDOFF.md`, `INS-136`, `INS-137`, and the final MVP checkpoint. Existing
+requirements, functional image authority, ADRs, contracts, architecture, data
+model, and deferred scope remain unchanged.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [Architecture](../architecture.md),
+[Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-057`, `INS-136`, and `S-04L`.
+
+## DEC-059 — Authorize S-04M final frontend test/checker closure
+
+Status: `APPROVED`
+
+Authority: Independent Instructor audit under `DEC-058 / INS-137` confirmed
+that S-04L stopped safely after its single frontend worker timed out. The
+governance-only HOLD/plan checkpoint is `db93bd8`; the accumulated source and
+Manager-owned checkpoint delta remains uncommitted, and no Cryptox Manager or
+worker is active.
+
+Decision: Issue exactly one fresh same-directory Manager authorization
+`INS-138 / APPROVED_FOR_EXECUTION` for distinct packet `S-04M`. This is not a
+retry or replacement of Noether. The Manager may use at most two hidden
+internal workers, strictly sequentially and with disjoint scopes. Worker 1 is
+limited to correcting the stale READY-state assertion in
+`apps/frontend/src/features/screens.spec.tsx` and the zero-argument fixture
+call in `apps/frontend/src/features/authoring.spec.ts`. After the Manager
+reviews that result, Worker 2 may run only the narrow deferred-scope checker
+correction in `scripts/check-deferred-scope.cjs` and
+`scripts/check-deferred-scope.test.cjs` for the canonical
+`packages/contracts/rest/strategy.ts` boundary.
+
+No production behavior, provider, contract, backend, Strategy, migration,
+autonomous LLM, arbitrary URL, control-plane worker edit, retry, replacement,
+duplicate, second Manager, I-02 transition, or downstream packet is
+authorized. Required checks must be truthful; PostgreSQL, configured LLM,
+Binance/News, browser/demo, and OpenSpec remain `BLOCKED`/`UNVERIFIED` unless
+actually exercised. The Manager must stop at one REVIEW checkpoint and return
+the repository for independent Instructor audit.
+
+Affected: `S-04M`, `S-04L`, `S-04K`, `S-04J`, `S-04I`, `I-02`, `TASKS.md`,
+`HANDOFF.md`, `INS-137`, `INS-138`, and the final MVP checkpoint. Existing
+requirements, functional image authority, ADRs, contracts, architecture, data
+model, and deferred scope remain unchanged.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [Architecture](../architecture.md),
+[Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-058`, `INS-137`, and `S-04M`.
