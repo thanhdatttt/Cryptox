@@ -3199,3 +3199,49 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 [ADR-009](../adr/ADR_009_controlled_llm_and_external_content.md),
 `DEC-078`, `INS-157`, and `INS-158`.
+
+## DEC-080 — Hold after N-03S acceptance and Gemini provider diagnosis
+
+Status: `HOLD`
+
+Authority: Instructor review after `INS-158 / APPROVED_FOR_EXECUTION`. The
+bounded N-03S source correction was independently reviewed and integrated at
+`c228117` (`fix(news): support Node 22 pinned lookup shape`). The exact four
+tracked files in that Manager checkpoint were integrated; the untracked
+`.codex/config.toml` and ignored local `.env` remain outside the commit, and
+no credential value is recorded.
+
+N-03S acceptance evidence is complete: focused safe-fetch `7/7`, News `36/36`,
+backend `43` with one environment-gated skip, workspace `462` with nine
+environment-gated skips, build/typecheck/lint, architecture, artifact,
+scope/deferred, runtime-smoke, exact-path, secret/logging, whitespace, and
+diff checks passed. The Instructor's production safe-runtime CoinDesk RSS
+smoke returned a non-empty normalized result with five items. The single
+fresh hidden worker and Manager stopped at the authorized `REVIEW` boundary;
+the Manager's one explicit-path staging attempt was denied and was not retried.
+
+The local `.env` is now present with the existing provider-neutral
+`LLM_AUTHORING_*` names. Gemini model metadata was reachable and a diagnostic
+Flash request through the OpenAI-compatible endpoint succeeded for another
+listed model, but the configured `gemini-3.7-flash` completion did not produce
+a bounded application result and observed timeout/503 behavior. Native
+Interactions diagnostics did not complete either. Therefore live structured
+`LLM_AUTHORING_V1` draft validation and Save/Approve persistence remain
+`BLOCKED`, not PASS; no provider response, credential, or draft was persisted.
+
+The remaining I-02 evidence is authenticated real-data browser/demo coverage,
+clean-install/reprovision, and formal OpenSpec CLI validation, with unavailable
+checks remaining `UNVERIFIED`/`BLOCKED`. N-03R and I-02D are `DONE`, so the E5R
+residual join is eligible for a new bounded final I-02 revalidation signal.
+That signal may reconcile/close the Manager-owned N-03S row and run the
+existing I-02 final evidence only. It does not authorize native Gemini code,
+automatic fallback/retry, a new provider, fixture substitution, or unrelated
+repair. The current Instructor signal is `INS-159 / HOLD`.
+
+Affected: `N-03S`, `I-02`, `TASKS.md`, `HANDOFF.md`, `INS-158`, `INS-159`, and
+the existing E5R residual join.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-079`, `INS-158`, and `INS-159`.

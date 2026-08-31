@@ -2,11 +2,73 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-158`
+Instruction ID: `INS-159`
 
-Status: `APPROVED_FOR_EXECUTION`
+Status: `HOLD`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-159 — HOLD after independent N-03S acceptance and live-provider review
+
+This is the Instructor's replaceable safe checkpoint after the `INS-158 /
+APPROVED_FOR_EXECUTION` implementation scope was exhausted. It records
+acceptance of the bounded N-03S source correction and keeps the final I-02
+decision on hold until the remaining live/demo evidence is independently
+proved. It authorizes no implementation and no downstream execution.
+
+### Verified checkpoint
+
+- Canonical checkout: `D:\\agy-cli-projects\\AOS\\Cryptox`, branch
+  `MVP_IMPLEMENTATION`, HEAD `c228117` (`fix(news): support Node 22 pinned
+  lookup shape`).
+- The exact four-file Manager checkpoint was integrated by the Instructor:
+  `modules/news/infrastructure/safe-fetch.ts`,
+  `modules/news/infrastructure/safe-fetch.spec.ts`,
+  `docs/implementation/TASKS.md`, and `docs/implementation/HANDOFF.md`.
+  The pre-existing untracked `.codex/config.toml` remains excluded. The
+  ignored root `.env` is local configuration and is not part of Git evidence;
+  no credential value is recorded here.
+- Independent acceptance of N-03S passed focused safe-fetch `7/7`, News
+  `36/36`, backend `43` tests with one environment-gated skip, workspace
+  `462` tests with nine environment-gated skips, build, typecheck, lint,
+  architecture, artifacts, scope/deferred checks, runtime smoke, exact-path,
+  secret/logging, whitespace, and diff checks.
+- Instructor-owned live CoinDesk RSS through
+  `composeConfiguredNewsProviders` and the production safe runtime returned
+  a non-empty normalized RSS result (`5` items). This is live runtime evidence,
+  not a direct HTTP-only claim.
+- The N-03S Manager used exactly one fresh hidden worker, stopped at `REVIEW`,
+  and made one denied checkpoint staging attempt without retry. No competing
+  Cryptox Manager, worker, duplicate, retry, replacement, or worktree is
+  active.
+- Operational state remains Manager-owned: `TASKS.md` has `58` rows, `56`
+  `DONE`, `I-02` `REVIEW`, and `N-03S` `REVIEW`; no `READY` or `IN_PROGRESS`
+  row exists. N-03R and I-02D remain `DONE`.
+
+### Remaining final evidence
+
+- The local `.env` now contains the provider-neutral `LLM_AUTHORING_*`
+  configuration, and the configured Gemini model metadata endpoint returned
+  successfully. A real `gemini-3.7-flash` completion through the application
+  adapter did not complete within the bounded timeout and direct probes also
+  observed provider unavailability; therefore structured draft validation and
+  Save/Approve persistence remain `BLOCKED`, not PASS. A small diagnostic
+  request using another model is not application acceptance.
+- Authenticated real-data browser/demo coverage, clean-install/reprovision,
+  and formal OpenSpec CLI validation remain `UNVERIFIED` or `BLOCKED` as
+  applicable. Docker/PostgreSQL/migration evidence remains the previously
+  accepted Instructor-side evidence and must not be confused with Manager
+  local tool availability.
+
+### HOLD boundary
+
+The E5R join is now eligible for a fresh, explicitly bounded final I-02
+revalidation authorization because N-03R and I-02D are `DONE` and N-03S has
+independent source/live acceptance. That next signal may include only the
+Manager-owned closure/reconciliation of N-03S and final I-02 evidence under
+the existing `MVP_PLAN.md` packet; it may not add native Gemini code, automatic
+fallback/retry, new providers, fixture substitution, or unrelated fixes.
+Until that signal is committed and reverified, the system remains on `HOLD`.
 
 ## INS-158 — APPROVED_FOR_EXECUTION for N-03S pinned HTTPS transport correction
 
