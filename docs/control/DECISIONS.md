@@ -1651,3 +1651,46 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-043`, `INS-122`, and commit `5e06fdf`.
+
+## DEC-045 — Authorize I-03 boundary integration and reproducibility proof
+
+Status: `APPROVED`
+
+Authority: Fresh Instructor review after `INS-123 / HOLD` at the governance
+checkpoint `b5def95`, independent acceptance of I-01 as `DONE`, verification of
+the current 49-row task board, the I-03 dependency DAG, the integrated source
+checkpoint `5e06fdf`, and the absence of active competing Cryptox tasks.
+
+Decision: Authorize exactly one fresh `INS-124 /
+APPROVED_FOR_EXECUTION` Manager in the canonical same-directory checkout for
+exactly the existing `I-03` packet. Authorize exactly one sequential internal
+implementation worker with the bounded `apps/backend/**`/thin transport/I-03
+integration-test scope, followed by at most one sequential read-only verifier.
+The Manager alone may update only the I-03 operational row and latest
+`HANDOFF.md`; all feature implementation must be delegated to that one worker.
+No I-02 or other task, extension, deferred scope, retry, replacement,
+duplicate, worktree, user-visible task, or manual approval is authorized.
+
+Why: `C-02`, all recorded E1/E2/E3 extension packets, baseline `I-01`, and
+`AU-02` are now `DONE`, making I-03 the only safe frontier before final I-02.
+The packet must prove public boundary joins, ownership, market-only realtime
+delivery, practical provenance, seeded reproducibility, generated results,
+failure isolation, and final-provider preflight without changing module
+algorithms, persistence, contracts, migrations, frontend, or deferred scope.
+Real configured Binance/PostgreSQL/News obligations remain explicit. CoinDesk
+401 without credentials, unavailable Docker Compose/OpenSpec/browser evidence,
+or sandbox network failures remain `BLOCKED`/`UNVERIFIED`; fixtures, skips, and
+mock providers cannot be promoted to final PASS. If an applicable I-03 gate
+cannot be proven, the Manager must leave I-03 at `REVIEW` and report the exact
+blocker.
+
+Affected: `I-03`, `I-02`, `TASKS.md`, `HANDOFF.md`, `INS-123`, `INS-124`, and
+the integration DAG. Requirements, approved functional image amendments,
+accepted ADRs, contracts, completed packets, integrated source, and deferred
+scope remain unchanged.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [Architecture](../architecture.md),
+[Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-044`, `INS-123`, and commit `b5def95`.

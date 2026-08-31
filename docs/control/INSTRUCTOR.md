@@ -2,55 +2,119 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-123`
+Instruction ID: `INS-124`
 
-Status: `HOLD`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
-## INS-123 — HOLD after I-01 closure review
+## INS-124 — I-03 boundary integration and reproducibility proof
 
-This signal supersedes `INS-122 / APPROVED_FOR_EXECUTION` after the Instructor
-independently reviewed the completed closure checkpoint. It records the
-accepted operational transition for `I-01`, returns the control plane to
-`HOLD`, and authorizes no implementation or downstream work.
+This signal supersedes `INS-123 / HOLD` after the Instructor verified the
+accepted I-01 closure, the I-03 dependency DAG, the current source/business
+checkpoint, and the absence of competing Cryptox tasks. It authorizes exactly
+one bounded I-03 integration/reproducibility attempt and nothing downstream.
 
-### Closure review and applicability
+### Reviewed checkpoint and applicability
 
 - The canonical checkout is `D:/agy-cli-projects/AOS/Cryptox` on branch
-  `MVP_IMPLEMENTATION`; the reviewed source/business checkpoint remains
-  `0419f5f`, with the exact I-01 implementation at `5e06fdf`. Manager
-  `01a05633-7444-7723-88db-7aa948743040` changed only the existing `I-01`
-  row and latest `HANDOFF.md`; its one explicit commit attempt was denied by
-  `.git/index.lock` permission, so this governance checkpoint must preserve
-  that exact delta without claiming a commit.
+  `MVP_IMPLEMENTATION` at `b5def95` (`chore(control): close I-01 and hold
+  before I-03`). The tracked tree is clean; the only untracked path is the
+  untouched app-generated `.codex/config.toml`. Source/business state is
+  unchanged from the integrated I-01 checkpoint `5e06fdf`.
 - `TASKS.md` is authoritative at exactly 49 rows: `47 DONE` and `2 BLOCKED`
-  (`I-02`, `I-03`). The Instructor independently confirmed no source/business
-  drift, no competing Manager/worker, no retry or duplicate, and no change
-  outside the authorized Manager delta plus the untouched
-  `.codex/config.toml`.
-- `I-01` closure is accepted as `REVIEW → DONE` using the authorized recorded
-  PostgreSQL, migration, Binance, runtime, HTTP, and deterministic evidence.
-  The single read-only Hubble verifier timed out and remains `UNVERIFIED`; it
-  was not retried or treated as PASS.
-- Workspace, build, typecheck, lint, architecture, artifacts, scope,
-  deferred-scope `13/13`, runtime, exact-path, secret/log, whitespace, and
-  `git diff --check` evidence remains PASS as recorded. Current Docker/Compose,
-  sandbox Binance recheck, CoinDesk News without credentials, OpenSpec CLI, and
-  browser/final-demo evidence remain `BLOCKED`/`UNVERIFIED`; no mock or skip is
-  promoted to PASS.
+  (`I-02`, `I-03`). `I-03` depends on `C-02`, `M-03`, `S-04`, `S-05`, `S-06`,
+  `Q-02`, `B-03`, `N-03`, `E-02`, `L-02`, `F-03`, baseline `I-01`, and `AU-02`;
+  each is independently recorded `DONE`. `I-02` remains blocked until I-03
+  supplies its final integration/reproducibility handoff.
+- The Instructor independently accepted the exact `INS-122` Manager closure:
+  I-01 is `DONE`, its source paths remain unchanged, and the one Hubble
+  verifier timeout remains `UNVERIFIED` without retry. No source/business,
+  task-DAG, or requirement drift is present.
+- Deterministic workspace, build, typecheck, lint, architecture, artifacts,
+  scope, deferred-scope `13/13`, runtime, exact-path, secret/log, whitespace,
+  and diff checks remain PASS as recorded. Current Docker/Compose rerun,
+  sandbox-only Binance recheck, CoinDesk News without credentials, OpenSpec
+  CLI, and browser/final-demo evidence remain `BLOCKED`/`UNVERIFIED`; no mock,
+  fixture, skip, or unavailable tool may be reported as PASS.
+- App task inspection shows the prior Manager idle and no active Cryptox
+  Manager, worker, retry, replacement, duplicate, or downstream writer. This
+  signal is applicable only to the fresh Manager created below.
 
-### HOLD boundary
+### Authorized packet: `I-03`
 
-- Keep `I-02` and `I-03` `BLOCKED` until a fresh Instructor review confirms
-  their exact DAG and environment obligations. No source, task-state,
-  downstream, extension, deferred, retry, replacement, duplicate, worktree,
-  or final-demo work is authorized by this signal.
-- `I-03` is the only candidate for the next authorization because all of its
-  recorded packet dependencies and baseline `I-01` are now `DONE`; this is not
-  an authorization. A separate signal must specify its bounded write scope,
-  worker split, acceptance criteria, and truthful treatment of unavailable
-  real News/browser/OpenSpec evidence.
+- **Manager:** create exactly one fresh Manager in the canonical same-directory
+  checkout `D:/agy-cli-projects/AOS/Cryptox` on `MVP_IMPLEMENTATION`, using
+  `gpt-5.6-luna` with reasoning `max`. Do not use a worktree, historical
+  Manager, duplicate, retry, replacement, or another user-visible task. The
+  Manager must first read `AGENTS.md`,
+  `docs/control/prompts/ORCHESTRATOR_START.md`, current `INSTRUCTOR.md`,
+  `DECISIONS.md`, `HANDOFF.md`, `TASKS.md`, the I-03 plan packet, requirements,
+  accepted ADRs, architecture, data model, active OpenSpec change/specs,
+  relevant source/tests, and current Git state. It must verify signal,
+  checkpoint, DAG, dependencies, and active-task absence before dispatch.
+- **Implementation worker:** exactly one fresh sequential internal worker is
+  authorized, using `gpt-5.6-luna`, reasoning `max`, and priority/Fast service
+  tier when the subagent tool exposes it. Its sole write scope is the I-03
+  implementation boundary: `apps/backend/**`, thin REST and market-only
+  WebSocket transport mappers, and I-03-owned extension integration/E2E tests.
+  The worker must use public module APIs and may not create a child or touch
+  control-plane files. I-03 is marked `Parallel: NO`; no second implementation
+  worker is allowed.
+- **Read-only verifier:** after the implementation worker and Manager review,
+  exactly one fresh sequential internal read-only verifier may be created,
+  using `gpt-5.6-luna`, reasoning `max`, and priority/Fast service tier when
+  exposed. Its write scope is `none`: no edit, stage, commit, delete, child,
+  or task-state change. No user-visible thread or manual approval is part of
+  this authorization.
+- **Manager-owned control scope:** the Manager alone may move only `I-03`
+  through `BLOCKED → READY → IN_PROGRESS → REVIEW → DONE` and replace
+  `docs/implementation/HANDOFF.md`. It may update only the existing I-03 row
+  in `TASKS.md` and the latest `HANDOFF.md` for checkpoint state. All bounded
+  feature implementation must be delegated to the single worker; Manager-side
+  source edits are limited to narrowly necessary integration/conflict review
+  within the same authorized boundary and must be disclosed.
+- **Requirements and acceptance:** implement and prove the I-03 packet from
+  `MVP_PLAN.md`, including all DEC-007 extension IDs and integration drivers:
+  amended `CSL-R-MD-02`, `CSL-R-MD-03`, `CSL-R-ST-05`–`07`, `CSL-R-SE-03`,
+  `CSL-R-BT-02`, `CSL-R-NW-02`, `CSL-R-RP-02`, `CSL-R-AU-01`,
+  `CSL-R-OW-01`, `CSL-R-RD-01`, `CSL-R-OB-01`, and `CSL-R-AR-01`–`03`.
+  The proof must join safe URL→Strategy authoring, Search→Backtesting→
+  Evaluation→Leaderboard, News→Sentiment, ephemeral Market Data→Frontend,
+  trusted owner propagation and 401/404/spoof resistance, no-secret
+  observability, synthetic paper labeling, failure isolation, and the
+  market-only WebSocket. It must demonstrate persisted practical provenance
+  and same-input seeded sequence/ranking for the approved bounded profiles,
+  including strategy authoring origin, Search seed/configuration, Experiment
+  execution/decimal configuration, News extraction source/template version,
+  and application-generated Backtest/Leaderboard results.
+- **Real-provider boundary:** run the applicable PostgreSQL/Auth/application,
+  migration, Binance historical/realtime, and configured News preflight. The
+  final/demo runtime must not silently select mocks. CoinDesk HTTP 401 without
+  configured credentials, unavailable Docker Compose/OpenSpec CLI, sandbox
+  network failures, or unavailable browser evidence must remain explicitly
+  `BLOCKED`/`UNVERIFIED`; they cannot be converted to PASS or bypassed by
+  fixtures/skips. If an applicable I-03 acceptance gate itself cannot be
+  proven, leave I-03 at `REVIEW` and report the exact blocker rather than
+  claiming closure.
+- **Validation:** run the focused integration/extension tests and all
+  applicable workspace tests, build, typecheck, lint, architecture,
+  artifacts/source-sidecar, deferred-scope/scope, runtime, REST/market-WS,
+  PostgreSQL, real-provider, reproducibility-rerun, secret/log, exact-path,
+  whitespace, and `git diff --check` validations. OpenSpec CLI and unavailable
+  external checks are evidence-status items, never inherited PASS.
+- **Prohibitions:** no I-02, no final/demo packet, no other task-state change,
+  no module algorithm or persistence changes, no contract/DTO redesign, no
+  migration/schema changes, no frontend changes, no queue/Redis/distributed
+  execution, no general event bus, no deferred scope, no requirements/ADR/
+  OpenSpec edits, no package/config changes, no `.codex/config.toml` staging,
+  no worktree, retry, replacement, duplicate, or silent mock fallback.
+- **Commit and stop:** the Manager may make at most one explicit-path commit
+  attempt covering the authorized I-03 source/tests plus its `TASKS.md` and
+  `HANDOFF.md` checkpoint. Do not stage `.codex/config.toml`. If Git ACL
+  denies the attempt, record the exact error and do not retry. Stop as soon as
+  I-03 reaches a truthful `DONE` or `REVIEW` checkpoint; do not promote or
+  start I-02. A fresh Instructor review is required afterward.
 
 ## INS-121 — HOLD after I-01 runtime integration review
 
