@@ -2,11 +2,81 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-156`
+Instruction ID: `INS-157`
 
-Status: `APPROVED_FOR_EXECUTION`
+Status: `HOLD`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-157 — HOLD after Instructor-owned environment reconciliation
+
+`INS-156 / DEC-077` is accepted as a control-only reconciliation. The
+Manager-owned `TASKS.md` and `HANDOFF.md` now correctly point to the accepted
+source/runtime/test commit and distinguish Instructor-owned Docker evidence
+from Manager-local tool availability. No feature code was changed by
+INS-156, and I-02 remains `REVIEW`.
+
+### Verified checkpoint
+
+- Canonical checkout: `D:\\agy-cli-projects\\AOS\\Cryptox`, branch
+  `MVP_IMPLEMENTATION`, accepted HEAD
+  `c896ad3` (`chore(control): reconcile I-02 environment checkpoint`). The
+  accepted source/business/test checkpoint remains
+  `48301b240b533db4cdf53651eaaea24a3225e9ac`; the latest commit is only the
+  Manager-owned control reconciliation. The pre-existing untracked
+  `.codex/config.toml` remains excluded.
+- `TASKS.md` has 57 rows: 56 `DONE`, only `I-02` at `REVIEW`; no other task is
+  active. `I-01`, `I-02D`, and `I-03` remain `DONE`. No Manager, worker,
+  retry, replacement, duplicate, or worktree is active.
+- INS-156 changed only `docs/implementation/TASKS.md` and
+  `docs/implementation/HANDOFF.md`; its one Manager commit attempt was
+  denied by `.git/index.lock`, and the Instructor integrated the exact
+  reviewed two-file delta at `c896ad3`.
+
+### Instructor-owned environment result
+
+The prior repeated Docker block is resolved as an execution-context issue.
+From the Instructor context, Docker daemon and Compose were available;
+Compose interpolation passed; local PostgreSQL migration validation passed
+`up -> constraints -> down -> remigrate`; project-scoped backend/frontend
+images built and started with `--wait`; `postgres-dev`, `postgres-test`,
+backend, and frontend were healthy; `/live=200`, `/ready=200`, and the
+frontend root returned `200`; backend's sanitized database target was
+`postgres-dev:5432/cryptox_development`; and exact project teardown completed
+without removing named volumes or unrelated containers. These are PASS
+evidence recorded in `DEC-077`, not Manager-local Docker evidence.
+
+Future Manager reports of Docker pipe/config `UNAVAILABLE` must remain
+`UNVERIFIED`/`BLOCKED`; they must not erase this committed Instructor evidence
+or be converted to PASS without a real check. Instructor will continue to run
+environment-gated Docker/PostgreSQL checks where needed, while Managers keep
+ownership of source-scope review and `TASKS/HANDOFF` transitions.
+
+### I-02 remains incomplete
+
+The remaining acceptance gates are:
+
+- live CoinDesk RSS through the production safe runtime provider. The current
+  attempt is `BLOCKED` with `SafeNewsFetchError` reason `HTTP_ERROR`; a direct
+  URL returning HTTP 200 is not runtime-provider evidence;
+- live Gemini-compatible authoring through the existing `LLM_AUTHORING_*`
+  contract, structured draft validation, and explicit Save/Approve persistence.
+  The root `.env` is absent; the previously exposed chat key is unsafe and
+  must not be used. A newly rotated local key is required and must never enter
+  Git or chat;
+- authenticated real-data browser/demo coverage for registration/login,
+  ownership isolation, Binance historical/realtime and recovery,
+  multi-timeframe charts, strategy/authoring, combination/search/backtest/
+  evaluation/leaderboard/trade visualization, real News, and Sentiment;
+- clean-install/reprovision evidence; and
+- formal OpenSpec CLI validation, which remains `UNVERIFIED/BLOCKED` while
+  the executable is unavailable.
+
+The deterministic source gates, Docker/PostgreSQL boundary, and application
+health boundary do not by themselves permit `I-02 -> DONE`. Keep the system
+on `HOLD`; no downstream packet, provider redesign, native Gemini SDK,
+credential use, retry, duplicate, or unrelated repair is authorized until a
+new narrowly scoped signal is issued.
 
 ## INS-156 — APPROVED_FOR_EXECUTION for I-02 checkpoint reconciliation
 

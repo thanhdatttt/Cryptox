@@ -3109,3 +3109,48 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-076`, `INS-155`, and `INS-156`.
+
+## DEC-078 — Hold after Instructor-owned Docker reconciliation
+
+Status: `HOLD`
+
+Authority: Instructor review after the control-only `INS-156` reconciliation
+was independently audited and integrated at
+`c896ad3f926f0819b309ab3891e68f96ab28bc78`. The accepted source/runtime/test implementation remains
+`48301b240b533db4cdf53651eaaea24a3225e9ac`; I-02 remains `REVIEW` with 57
+operational rows, 56 `DONE`, and no competing active task.
+
+The repeated Docker/PostgreSQL block is confirmed to be a Manager execution
+context permission issue. Instructor-side checks passed Docker daemon access,
+Compose interpolation, local PostgreSQL migration validation
+`up/constraints/down/remigrate`, project-scoped backend/frontend Compose build
+and `--wait`, health for both Postgres services plus backend/frontend, backend
+`/live=200`, `/ready=200`, frontend `200`, sanitized internal target
+`postgres-dev:5432/cryptox_development`, and exact project teardown without
+volume removal or unrelated-container impact. Managers must preserve this
+committed evidence while reporting their own unavailable tool context as
+`UNVERIFIED/BLOCKED`.
+
+I-02 is not complete. Live CoinDesk RSS through the safe runtime remains
+`BLOCKED` (`SafeNewsFetchError` / `HTTP_ERROR`) despite a direct HTTP 200;
+the root `.env` is absent, so live Gemini through `LLM_AUTHORING_*` plus
+Save/Approve persistence remains `UNVERIFIED`; authenticated real-data
+browser/demo coverage, clean-install/reprovision, and formal OpenSpec CLI
+validation remain `UNVERIFIED/BLOCKED`. The previously exposed chat key was
+not used and must not be used. The Docker build also reported an npm audit
+observation (7 vulnerabilities); it is recorded, not silently repaired under
+this hold.
+
+No downstream packet or new implementation authorization is issued by this
+HOLD. A future signal may authorize one final evidence/reconciliation Manager
+after the environment prerequisites are satisfied; no provider redesign,
+native Gemini integration, credential in repository/chat, retry, replacement,
+duplicate, or scope expansion is implied.
+
+Affected: `I-02`, `TASKS.md`, `HANDOFF.md`, `INS-156`, `INS-157`, and the
+Docker/PostgreSQL evidence boundary.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-077`, `INS-156`, and `INS-157`.
