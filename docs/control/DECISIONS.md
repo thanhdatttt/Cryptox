@@ -2896,3 +2896,53 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-071`, `INS-150`, `INS-151`, and `I-02`.
+
+## DEC-073 — Authorize bounded provider and local configuration completion
+
+Status: `APPROVED`
+
+Authority: Instructor review at the committed `INS-151 / HOLD` checkpoint
+`2be555ccd834dca74d3ed53c307136f4975ebe02`. The operational board remains 57
+rows with 56 `DONE` and only `I-02` at `REVIEW`; no Manager or worker is active.
+
+Authorize exactly one fresh same-directory Luna/max Manager and exactly two
+sequential hidden implementation workers for the bounded I-02 provider and
+local-configuration packet recorded in `INS-152`. Worker A may change only
+`apps/backend/src/runtime.ts` and
+`apps/backend/src/runtime.news-composition.spec.ts` to compose the existing
+safe configured RSS boundary from explicit allowlisted environment values,
+preserve the explicit legacy CoinDesk JSON path, and exercise the existing
+provider-neutral `LLM_AUTHORING_V1` OpenAI-compatible configuration path. The
+official CoinDesk RSS feed is the no-API-key News option; a live feed call is
+not claimed by this decision. Gemini is likewise an endpoint/model choice
+through the existing `LLM_AUTHORING_*` names and Google's OpenAI-compatible
+endpoint, not a native SDK, `GEMINI_*` alias, or new contract.
+
+Worker B may change only the exact local configuration, Docker, frontend
+env-loading/build, and documentation paths listed in `INS-152`. The root
+`.env` remains ignored and user-created; no key, password, connection string,
+or token may enter the repository or chat. Compose must construct the backend's
+internal `DATABASE_URL` against the healthy `postgres-dev` service, while
+preserving the existing explicit migration-preparation flow. Frontend build
+and runtime configuration may expose only public `VITE_*` values.
+
+Acceptance requires deterministic runtime/configuration tests, truthful
+provider and Compose evidence, focused/full relevant tests and repository
+quality gates, exact scope, no fixture fallback, and no secret exposure. A
+missing Gemini key or unavailable Docker/Compose/OpenSpec/live-provider
+environment remains `UNVERIFIED`/`BLOCKED`; it is never promoted to PASS. The
+Manager must stop after this packet and leave `I-02` at `REVIEW` unless the
+pre-existing full I-02 live/demo acceptance is independently proven. No
+downstream packet, retry, replacement, duplicate, or architectural expansion
+is authorized.
+
+Affected: `I-02`, `TASKS.md`, `HANDOFF.md`, `INS-151`, `INS-152`, and the
+bounded provider/configuration evidence boundary.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [Architecture](../architecture.md),
+[Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-072`, `INS-151`, `INS-152`, the
+[CoinDesk RSS announcement](https://www.coindesk.com/coindesk-news/2021/09/17/coindesk-rss),
+and [Google Gemini OpenAI compatibility](https://ai.google.dev/gemini-api/docs/openai).

@@ -2,11 +2,161 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-151`
+Instruction ID: `INS-152`
 
-Status: `HOLD`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-152 — APPROVED_FOR_EXECUTION for bounded provider and local configuration completion
+
+This signal supersedes `INS-151 / HOLD` only for the bounded configuration
+and provider-composition packet below. It does not promote `I-02` to `DONE`,
+open downstream work, or authorize unrelated feature repair. The purpose is to
+make the already-approved real-provider boundary operable through an ignored
+root `.env`, Docker-managed PostgreSQL connection composition, the existing
+safe configured RSS adapter for CoinDesk, and the existing provider-neutral
+`LLM_AUTHORING_V1` OpenAI-compatible contract for Gemini compatibility.
+
+### Reviewed checkpoint and applicability
+
+- Canonical checkout: `D:\\agy-cli-projects\\AOS\\Cryptox`, branch
+  `MVP_IMPLEMENTATION`, reviewed HEAD
+  `2be555ccd834dca74d3ed53c307136f4975ebe02` (`INS-151 / HOLD`). Tracked Git
+  state is clean; the pre-existing app-generated `.codex/config.toml` remains
+  untracked and excluded.
+- `TASKS.md` remains the sole operational state authority with 57 rows: 56
+  `DONE`, only `I-02` at `REVIEW`, and no other active task. `I-02D` is
+  `DONE`. No Cryptox Manager, worker, retry, replacement, duplicate, or
+  worktree is active.
+- The accepted News infrastructure already exposes the provider-neutral RSS
+  adapter and safe HTTPS/allowlist fetch boundary. The accepted Strategy
+  infrastructure already exposes the provider-neutral OpenAI-compatible
+  authoring port. The current gaps are runtime composition, safe local
+  environment loading/documentation, and Docker service wiring; they are not
+  permission to add a new provider protocol or change product requirements.
+- The reviewed external references are the official CoinDesk RSS feed
+  announcement at
+  `https://www.coindesk.com/coindesk-news/2021/09/17/coindesk-rss` and Google's
+  Gemini OpenAI-compatibility documentation at
+  `https://ai.google.dev/gemini-api/docs/openai`. These references do not
+  substitute for a successful local runtime call.
+
+### Authorized Manager and worker scopes
+
+Exactly one fresh same-directory Manager is authorized in the canonical
+checkout, using `gpt-5.6-luna` with `max` reasoning and no worktree. The Manager
+must re-read `AGENTS.md` and
+`docs/control/prompts/ORCHESTRATOR_START.md`, verify this signal and
+`DEC-073`, compare the reviewed checkpoint with Git, and move only the
+existing `I-02` row through `REVIEW -> READY -> IN_PROGRESS` after its
+dependency and scope checks. It must stop at `REVIEW` or `DONE` according to
+evidence and must not start any downstream packet.
+
+The Manager may create exactly two fresh hidden internal implementation
+workers, sequentially, with the disjoint scopes below. It may not create a
+third worker, verifier, user-visible task, retry, replacement, duplicate, or
+worktree. Workers may read the repository but may not edit any control-plane
+artifact. The Manager alone owns the `TASKS.md` and `HANDOFF.md` transitions
+and checkpoint.
+
+Worker A — backend runtime provider composition:
+
+- Exact write scope: `apps/backend/src/runtime.ts` and
+  `apps/backend/src/runtime.news-composition.spec.ts` only.
+- Compose the existing configured RSS provider from explicit environment
+  values, using the existing safe fetcher and an explicit HTTPS host/URL
+  allowlist. The supported packet is the official CoinDesk RSS feed; no
+  CoinDesk API credential is required for this path. Preserve the existing
+  CoinDesk JSON adapter as a backward-compatible path when its current
+  `COINDESK_*` configuration is explicitly present.
+- Keep `LLM_AUTHORING_V1` provider-neutral and use the existing
+  `createOpenAiCompatibleAuthoringProvider` configuration path. The runtime
+  must accept Google's official OpenAI-compatible endpoint through the existing
+  `LLM_AUTHORING_ENDPOINT`, `LLM_AUTHORING_MODEL`, and
+  `LLM_AUTHORING_API_KEY` names. Do not add native Gemini SDK/provider code,
+  `GEMINI_*` aliases, fallback fixtures, autonomous calls, or a new contract.
+- Add focused deterministic composition/configuration tests using injected
+  fakes where needed. Tests must prove incomplete or unsafe source
+  configuration does not silently select fixtures, and must never print or
+  persist a credential.
+
+Worker B — local `.env`, Docker wiring, frontend build/runtime configuration,
+and documentation:
+
+- Exact write scope: `.env.example`, `.dockerignore`, `README.md`,
+  `apps/backend/package.json`, `apps/frontend/vite.config.ts`,
+  `infra/docker-compose.yml`, `infra/docker/backend.Dockerfile`,
+  `infra/docker/frontend.Dockerfile`, and `infra/db/local-postgres.cjs` only.
+- Add a secret-free root `.env.example` and document that the ignored root
+  `.env` is user-created locally. Server-only credentials must remain outside
+  the frontend build and bundle. The documented Gemini mapping must use the
+  existing `LLM_AUTHORING_*` contract; do not document or implement a
+  `GEMINI_*` repository alias and do not add any real key.
+- Make the built backend optionally load the root `.env` through the Node
+  runtime's supported env-file mechanism. Docker Compose must inject the
+  ignored root `.env` into the backend as runtime configuration, while
+  composing `DATABASE_URL` internally against the healthy `postgres-dev`
+  service from the generated local PostgreSQL password. The full local path
+  must not require the user to hand-write a Docker-host database URL. Preserve
+  the existing explicit migration-preparation flow; do not add a hidden
+  migration protocol or cloud database.
+- Make the frontend consume only public `VITE_*` values from the root local
+  configuration for its remote mode/build, and ensure Docker build/runtime
+  configuration does not expose `LLM_AUTHORING_API_KEY`, database credentials,
+  or other server-only values. Add `.env` and `infra/db/local.env` to the
+  Docker build exclusion if needed for this guarantee.
+- Do not change module contracts, REST/WebSocket contracts, migrations,
+  requirements, ADRs, OpenSpec artifacts, task planning, authentication
+  semantics, provider safety limits, or UI behavior beyond configuration
+  loading and the existing remote-mode wiring.
+
+### Acceptance criteria and validation
+
+- With no key in the repository, the root `.env.example` is complete and
+  secret-free, `.env` remains ignored, server-only variables are not present in
+  the frontend bundle, and `git diff --check`/exact-path review passes.
+- A local Docker Compose run, after the existing `db:local:prepare` flow, gives
+  the backend an internal `postgresql://...@postgres-dev:5432/...` value and
+  waits for the database health condition. The backend must not need a manual
+  `DATABASE_URL` entry for this Compose path. Any unavailable Docker/daemon
+  check is `BLOCKED` or `UNVERIFIED`, never `PASS`.
+- Deterministic tests prove the official RSS configuration composes through
+  the existing safe provider boundary, rejects missing/unsafe allowlist
+  configuration without fixture fallback, and preserves the existing JSON
+  adapter compatibility. No claim of a live CoinDesk result is allowed without
+  a successful local feed call.
+- Deterministic tests prove the existing authoring adapter emits the expected
+  provider-neutral request shape for a configured endpoint without exposing
+  the key. A real Gemini authoring call is explicitly deferred until the user
+  places a newly rotated key in the local root `.env`; missing credentials are
+  `UNVERIFIED`/`BLOCKED`, not PASS.
+- Run focused backend/runtime tests, relevant frontend tests, package
+  typechecks/build/lint, architecture/artifact/deferred-scope checks,
+  Compose/config validation when available, and exact-path/whitespace checks.
+  Preserve truthful PASS versus `UNVERIFIED` versus `BLOCKED` evidence.
+- The Manager may move `I-02` to `DONE` only if the whole existing I-02
+  acceptance boundary is genuinely proven; configuration code and fixture
+  tests alone do not permit that transition. Otherwise leave `I-02` at
+  `REVIEW` with the exact missing evidence.
+
+### Prohibitions and stop condition
+
+No credential may be requested in chat, printed, logged, committed, copied to
+frontend code, or entered into a browser. Do not use the previously exposed
+chat key. Do not add a native Gemini dependency, map `GEMINI_*`, add a
+CoinDesk API workaround, select fixtures as a production fallback, change
+business behavior, start `M-02`, `AU-02`, `S-04`, `I-01`, `I-03`, or any other
+packet, or silently repair an issue outside the exact paths above.
+
+If either worker needs a path outside its scope, if Docker/Compose syntax or
+the runtime contract requires an architectural change, or if the source/DAG
+checkpoint is no longer applicable, stop and report
+`NEEDS_INSTRUCTOR_REVIEW`. After the two workers, review/integration, one
+coherent Manager checkpoint commit attempt, and the bounded I-02 status update,
+the Manager must stop immediately. The Instructor will independently audit
+Git, source, tests, provider evidence, and control-plane consistency before
+issuing any next signal.
 
 ## INS-151 — HOLD after INS-150 I-02 market client repair
 
