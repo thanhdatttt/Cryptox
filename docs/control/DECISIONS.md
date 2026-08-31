@@ -3902,3 +3902,47 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-094`, and `INS-174`.
+
+## DEC-096 — Authorize bounded final I-02 evidence after INS-174 HOLD
+
+Status: `APPROVED`
+
+Authority: Instructor review of the committed `INS-174 / HOLD` checkpoint
+`f32e19a`. Git is on `MVP_IMPLEMENTATION` with no source or business-state
+drift; the only pre-existing untracked path is `.codex/config.toml`. The
+operational board remains 58 rows with 57 `DONE`, only `I-02` `REVIEW`, and no
+active Manager or worker.
+
+Authorize exactly one fresh same-directory `gpt-5.6-luna` Manager with `max`
+reasoning and at most three strictly sequential hidden evidence-only workers,
+each with write scope `none`. The packet is limited to the already-approved
+final I-02 evidence boundary: real PostgreSQL/Auth/ownership; Binance
+history/realtime/recovery; configured News/RSS and isolated Sentiment;
+application-generated Backtest/Evaluation/Experiment/Trade/Leaderboard data;
+configured Gemini 3.6 through the existing OpenAI-compatible
+`LLM_AUTHORING_V1` draft/validation/Save/Approve/provenance/failure lifecycle;
+authenticated browser/demo; current validation gates; traceability; and the
+eight architecture scenarios.
+
+The Manager may use running local services, process-scoped `.env`, public
+HTTP/WebSocket/provider/browser boundaries, and existing dependencies. It may
+change only `TASKS.md` and `HANDOFF.md`, re-enter only
+`I-02: REVIEW -> READY -> IN_PROGRESS -> REVIEW`, and must stop without
+marking I-02 `DONE`. Temporary evidence records require unique markers and
+exact read-verified cleanup. No source/config/dependency/migration/
+infrastructure/contract/README/spec/OpenSpec change, provider-protocol change,
+native Gemini SDK, fallback/retry, fixture substitution, cloud database,
+secret emission, or downstream/deferred promotion is authorized. Unavailable
+checks remain `BLOCKED` or `UNVERIFIED`.
+
+The Manager must provide a complete sanitized REQUIRED-ID matrix, live versus
+carried versus unavailable classification, exact task transitions, validation
+results, cleanup evidence, and a coherent control-only checkpoint, then stop.
+I-02 cannot be promoted to `DONE` without independent Instructor acceptance.
+
+Affected: `I-02`, `INS-175`, `DEC-095`, `TASKS.md`, and `HANDOFF.md`.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-095`, and `INS-175`.

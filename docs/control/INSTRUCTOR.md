@@ -2,11 +2,91 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-174`
+Instruction ID: `INS-175`
 
-Status: `HOLD`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-175 — APPROVED_FOR_EXECUTION for bounded final I-02 evidence
+
+This instruction supersedes `INS-174 / HOLD`. It authorizes one fresh,
+evidence-only final verification pass for the already-approved MVP boundary.
+It does not add product scope, repair implementation, or authorize any
+pending OpenSpec task.
+
+### Applicability and exact packet
+
+- Canonical checkout: `D:\\agy-cli-projects\\AOS\\Cryptox`, branch
+  `MVP_IMPLEMENTATION`. The reviewed source/business checkpoint is
+  `f32e19a1507810fa43725b209f437944d85d2cf7`; the current authorization
+  commit may be its governance-only descendant. The only pre-existing
+  untracked path is `.codex/config.toml`; it is excluded.
+- `TASKS.md` is authoritative at 58 rows: 57 `DONE`, only `I-02` `REVIEW`,
+  and no other task is `READY`, `IN_PROGRESS`, or `BLOCKED`. No Cryptox
+  Manager or worker is active at dispatch.
+- The sole packet is `I-02` final live/demo verification for the existing
+  approved requirements. It may cover only fresh evidence for real
+  PostgreSQL/Auth/ownership, Binance history/realtime/recovery, configured
+  News/RSS and isolated Sentiment, application-generated Backtest/
+  Evaluation/Experiment/Trade/Leaderboard data, configured Gemini 3.6
+  `LLM_AUTHORING_V1`, authenticated browser/demo behavior, clean validation,
+  traceability, and the eight architecture scenarios.
+
+### Manager and worker limits
+
+- Create exactly one fresh same-directory Manager in this canonical checkout,
+  using `gpt-5.6-luna` with `max` reasoning. No worktree, branch, duplicate,
+  retry, replacement, or user-visible task.
+- The Manager may create at most three fresh hidden internal workers,
+  strictly sequentially because the checkout is shared. Each worker has write
+  scope `none`: it may not edit, stage, or commit repository files, create
+  workers, or change source/business state. Workers may use the already
+  running local services, process-scoped `.env` loading, public HTTP/
+  WebSocket/provider/browser boundaries, and the existing dependency tree.
+- The Manager may update only `docs/implementation/TASKS.md` and
+  `docs/implementation/HANDOFF.md`. It may re-enter only
+  `I-02: REVIEW -> READY -> IN_PROGRESS -> REVIEW` and must not mark I-02
+  `DONE`. Any temporary local records must carry unique evidence markers and
+  be removed only by exact, read-verified cleanup; broad deletion is
+  prohibited.
+- If a source, config, dependency, migration, infrastructure, README,
+  contract, provider-protocol, or OpenSpec change is needed, stop that lane
+  and report `NEEDS_INSTRUCTOR_REVIEW`; do not repair it. Native Gemini SDK,
+  fallback provider, automatic retry, fixture substitution, cloud database,
+  secrets in reports, and test-skip promotion are prohibited.
+
+### Acceptance and stop condition
+
+- Require a complete ID-by-ID matrix for all approved REQUIRED IDs with exact
+  sanitized commands/endpoints/results and live, fixture, carried,
+  `UNVERIFIED`, or `BLOCKED` classification. Unavailable Docker/Compose,
+  OpenSpec, browser, provider, network, or process configuration must remain
+  `BLOCKED`/`UNVERIFIED`, never `PASS`.
+- Exercise the configured Gemini 3.6 through the existing OpenAI-compatible
+  authoring boundary, including draft, validation, explicit Save/Approve,
+  immutable version/provenance, and failure/no-side-effect behavior. Do not
+  expose endpoint, model secret, API key, cookie, token, password, raw
+  provider response, or database URL.
+- Exercise real provider/runtime paths where available and generate result
+  data through public application flows. Do not call fixtures live evidence.
+  Attempt authenticated browser/demo verification and the eight architecture
+  scenarios; induced upstream recovery may remain `UNVERIFIED` when the
+  external failure cannot be safely induced.
+- Run the current build, typecheck, lint, full tests, runtime smoke,
+  architecture, artifacts, deferred-scope, scope-test, secret/log,
+  traceability, whitespace, and diff gates from the existing dependency
+  environment. OpenSpec may be checked only if this context can access it;
+  the Instructor-carried global `@fission-ai/openspec@1.11.0` validation is
+  not to be replaced by a fabricated Manager result.
+- On completion, the Manager must return I-02 to `REVIEW`, preserve all other
+  task states, record the full checkpoint in `HANDOFF.md`, make at most one
+  explicit-path control-only staging/commit attempt, and stop immediately.
+  The Instructor independently reviews Git, tests, control plane, and the
+  evidence before any closure decision.
+
+No downstream task, deferred scope, implementation fix, or pending OpenSpec
+task is authorized by `INS-175`.
 
 ## INS-174 — HOLD after INS-173 final I-02 evidence pass
 
