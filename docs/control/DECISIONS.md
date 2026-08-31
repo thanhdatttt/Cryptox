@@ -1694,3 +1694,47 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-044`, `INS-123`, and commit `b5def95`.
+
+## DEC-046 — I-03 interrupted by usage-limit system error; HOLD
+
+Status: `APPROVED`
+
+Authority: Independent Instructor review after the single Manager authorized by
+`INS-124 / DEC-045` and its single sequential implementation worker both
+terminated with the same Codex usage-limit system error before the Manager
+produced a review handoff.
+
+Decision: Supersede `INS-124 / APPROVED_FOR_EXECUTION` with
+`INS-125 / HOLD`. Preserve the operational `I-03 IN_PROGRESS` state because
+the task was interrupted, not completed; do not manually change
+`TASKS.md`/`HANDOFF.md` task state. Preserve the worker-produced
+`apps/backend/src/i03.boundary.integration.spec.ts` artifact in its authorized
+backend test scope. Authorize no I-02 or other work from this HOLD.
+
+Evidence: the preserved I-03 artifact passes its focused `4/4` Vitest suite
+and backend TypeScript no-emit compilation, but it has not received Manager
+review, scope reconciliation, or checkpoint acceptance. The Manager and
+worker did not produce a final report or commit. The remaining tracked delta is
+the one Manager-owned I-03 row; `.codex/config.toml` remains untouched and
+unstaged. Existing real-provider, Docker/Compose, CoinDesk News, OpenSpec CLI,
+and browser/demo limitations remain `BLOCKED`/`UNVERIFIED` exactly as recorded;
+no unavailable check is promoted to PASS.
+
+Recovery boundary: a future fresh Instructor signal may authorize one explicit
+recovery/reconciliation Manager after verifying that no active Manager/worker
+exists. That signal must distinguish review/integration of this interrupted
+artifact from a retry, must define whether any new implementation worker is
+actually necessary, and must preserve all original I-03 scope/prohibitions.
+No recovery Manager, worker, retry, replacement, duplicate, or downstream task
+is authorized by this decision itself.
+
+Affected: `I-03`, `I-02`, `TASKS.md`, `HANDOFF.md`, `INS-124`, `INS-125`, and
+the integration DAG. Requirements, approved functional image amendments,
+accepted ADRs, contracts, completed packets, and deferred scope remain
+unchanged.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [Architecture](../architecture.md),
+[Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-045`, `INS-124`, and commit `9601d77`.
