@@ -2,11 +2,51 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-173`
+Instruction ID: `INS-174`
 
-Status: `APPROVED_FOR_EXECUTION`
+Status: `HOLD`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-174 — HOLD after INS-173 final I-02 evidence pass
+
+This instruction supersedes `INS-173 / APPROVED_FOR_EXECUTION`. The authorized
+pass completed once, but the complete MVP DoD is still not proven. I-02 remains
+at `REVIEW`; no source implementation, downstream task, deferred scope, or
+pending OpenSpec task is authorized by this checkpoint.
+
+### Reviewed evidence and remaining boundary
+
+- Canonical checkout: `D:\\agy-cli-projects\\AOS\\Cryptox`, branch
+  `MVP_IMPLEMENTATION`, source/business baseline `f952387`. The Manager's
+  accepted delta is limited to `TASKS.md` and `HANDOFF.md`; the pre-existing
+  untracked `.codex/config.toml` remains excluded. No source drift was found.
+- `TASKS.md` remains authoritative at 58 rows: 57 `DONE`, only `I-02`
+  `REVIEW`, and no other task active. INS-173 used one fresh same-directory
+  Manager and three fresh hidden workers sequentially; all are closed.
+- Fresh evidence supports PostgreSQL/Auth/ownership, targeted cleanup,
+  browser chart-control, and restored build/typecheck/lint/test/runtime/static
+  gates. The full tests reported `462` passed with `9` environment-gated skips.
+- Final DoD is still missing real News/RSS and isolated Sentiment, configured
+  Gemini 3.6 `LLM_AUTHORING_V1` draft/validation/Save/Approve/provenance and
+  failure behavior, generated Backtest/Evaluation/Experiment/Leaderboard data,
+  induced Binance recovery, authenticated browser demo, and fresh execution of
+  the eight architecture scenarios. The running News capability is degraded;
+  LLM process/provider evidence was not obtained. These remain
+  `BLOCKED`/`UNVERIFIED`, not PASS.
+- OpenSpec is correctly installed globally as `@fission-ai/openspec@1.11.0`
+  and the Instructor's direct `11/11 PASS` validation remains carried evidence;
+  Manager-context lookup remains `BLOCKED`/`UNVERIFIED`.
+
+### HOLD boundary
+
+The next authorization may cover only a bounded final-I-02 evidence pass for
+the existing approved scope, including environment-supported provider and
+runtime probes and exact cleanup of ephemeral local evidence. It must define
+write scope and stop conditions explicitly. It may not add requirements,
+modify source/config/dependencies/migrations/infrastructure/specs/README,
+change provider protocol, request secrets in chat, activate deferred scope, or
+mark I-02 `DONE` without independent acceptance of the complete matrix.
 
 ## INS-173 — APPROVED_FOR_EXECUTION for final I-02 evidence after environment recovery
 

@@ -3865,3 +3865,40 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-093`, and `INS-173`.
+
+## DEC-095 — Hold after INS-173 final I-02 evidence pass
+
+Status: `HOLD`
+
+Authority: Instructor review of the completed INS-173 / DEC-094 packet. The
+fresh result proves PostgreSQL/Auth/ownership with targeted cleanup, partial
+browser chart-control, and restored build/typecheck/lint/full-test/runtime,
+architecture, artifact, scope, traceability, and secret/log gates. I-02 remains
+`REVIEW`; the board remains 58 rows with 57 `DONE`, only I-02 active, and no
+downstream task started.
+
+The complete MVP DoD is not proven. Real News/RSS and isolated Sentiment,
+configured Gemini 3.6 `LLM_AUTHORING_V1` draft/validation/Save/Approve,
+provenance and failure behavior, application-generated Backtest/Evaluation/
+Experiment/Trade/Leaderboard data, induced Binance disconnect/gap recovery,
+authenticated browser demo, and fresh execution of the eight architecture
+scenarios remain `BLOCKED` or `UNVERIFIED`. The running News capability was
+degraded and the Manager context could not establish process-loaded LLM
+configuration or Docker/OpenSpec availability. The tests' environment-gated
+skips and the carried OpenSpec `@fission-ai/openspec@1.11.0` `11/11 PASS` do not
+close those live requirements.
+
+No source/business-state drift or unapproved implementation change exists. The
+Manager's accepted checkpoint delta is limited to `TASKS.md` and `HANDOFF.md`;
+the pre-existing `.codex/config.toml` remains excluded. No feature work,
+provider protocol change, deferred scope, pending OpenSpec implementation, or
+I-02 promotion is authorized while this HOLD stands. A new authorization may
+cover only the existing final-I-02 evidence boundary with explicit scope,
+cleanup, and stop conditions.
+
+Affected: `I-02`, `INS-173`, `DEC-094`, `TASKS.md`, and `HANDOFF.md`.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-094`, and `INS-174`.
