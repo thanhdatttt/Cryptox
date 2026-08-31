@@ -3781,3 +3781,44 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-091`, `INS-170`, and `INS-171`.
+
+## DEC-093 — Hold after INS-171 final I-02 verification
+
+Status: `HOLD`
+
+Authority: Instructor review of the completed INS-171 / DEC-092 verification
+pass. The fresh evidence proves only PostgreSQL-backed Auth/ownership, Binance
+historical delivery, market WebSocket/observability, and the static
+architecture-rule gate. I-02 remains `REVIEW`; the board remains 58 rows with
+57 `DONE`, only I-02 active, and no other task promoted.
+
+The final MVP DoD is not proven. Real News/RSS and isolated Sentiment,
+application-generated Backtest/Evaluation/Experiment/Leaderboard data,
+configured Gemini 3.6 `LLM_AUTHORING_V1` lifecycle and failure behavior,
+upstream disconnect/gap recovery, authenticated browser/demo evidence, and
+fresh eight-scenario execution remain `BLOCKED` or `UNVERIFIED`. The clean
+dependency reprovision also failed once with Rollup-binary `EPERM`, leaving
+dependency-dependent validation unavailable; no retry or repair was performed
+under INS-171. The Manager's Docker Compose access and LLM process
+configuration were unavailable, and `/news?limit=5` returned
+`503 CAPABILITY_UNAVAILABLE`.
+
+OpenSpec `@fission-ai/openspec@1.11.0` is genuinely installed globally and the
+Instructor's earlier direct validation passed all 11 active items. The
+Manager-context shim access failure remains `BLOCKED`/`UNVERIFIED` and is not
+treated as a product defect or a PASS.
+
+The repository contains no source/business-state drift. The Manager's accepted
+checkpoint changes are limited to `TASKS.md` and `HANDOFF.md`; the pre-existing
+untracked `.codex/config.toml` remains excluded. No feature implementation,
+provider protocol change, deferred scope, pending OpenSpec task, or I-02
+promotion is authorized while this HOLD stands. A new authorization may cover
+only environment recovery and bounded final I-02 evidence for the already
+approved scope.
+
+Affected: `I-02`, `INS-171`, `DEC-092`, `TASKS.md`, and `HANDOFF.md`.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-092`, and `INS-172`.

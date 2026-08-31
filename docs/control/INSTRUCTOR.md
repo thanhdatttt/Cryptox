@@ -2,11 +2,74 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-171`
+Instruction ID: `INS-172`
 
-Status: `APPROVED_FOR_EXECUTION`
+Status: `HOLD`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-172 — HOLD after final I-02 live/demo verification
+
+This instruction supersedes `INS-171 / APPROVED_FOR_EXECUTION`. The final
+verification pass completed once, but the evidence does not prove the complete
+MVP DoD. The repository is held at the final I-02 boundary; no implementation,
+downstream promotion, or pending active-change task is authorized by this
+checkpoint.
+
+### Reviewed checkpoint
+
+- Canonical checkout: `D:\\agy-cli-projects\\AOS\\Cryptox`, branch
+  `MVP_IMPLEMENTATION`, authorization HEAD
+  `08d9167328befd28bce999ae7470f446c6620302`. The only tracked delta after
+  the Manager pass is its control-plane update to `TASKS.md` and `HANDOFF.md`;
+  the pre-existing untracked `.codex/config.toml` remains excluded. No source
+  or business-state drift was found.
+- `TASKS.md` remains authoritative at 58 rows: 57 `DONE`, only `I-02`
+  `REVIEW`, and no other task is active. I-02 followed
+  `REVIEW -> READY -> IN_PROGRESS -> REVIEW`. No Manager or worker remains
+  active.
+- INS-171 used exactly one fresh same-directory Manager and three fresh hidden
+  workers sequentially, all evidence-only with no file changes. The Manager
+  report is retained in `HANDOFF.md` and was independently reviewed.
+- Fresh PASS evidence is limited to PostgreSQL-backed Auth/ownership, Binance
+  historical delivery, market WebSocket/observability, and the static
+  architecture gate. No fixture or skipped-test result was promoted to PASS.
+
+### Reasons for HOLD
+
+The following final acceptance evidence remains missing or unavailable:
+
+- real News/RSS and isolated persisted Sentiment;
+- application-generated Backtest, Evaluation, Experiment/Trade, and
+  user-scoped Leaderboard data;
+- configured Gemini 3.6 through the existing OpenAI-compatible
+  `LLM_AUTHORING_V1` boundary, including validation, explicit Save/Approve,
+  provenance, and failure/no-side-effect behavior;
+- induced Binance disconnect/gap recovery and authenticated browser/demo
+  verification;
+- a clean dependency reprovision, build/typecheck/lint/full tests, and
+  runtime smoke from a healthy dependency environment;
+- fresh executable evidence for the eight architecture-change scenarios.
+
+Worker C recorded `npm ci` failure (`EPERM` unlinking an existing Rollup native
+binary) and the dependency environment became incomplete; the Manager did not
+retry or repair it. Worker B could not issue an LLM request because process
+configuration/network access was unavailable in that context. The Manager
+context could not access Docker Compose and `/news?limit=5` returned
+`503 CAPABILITY_UNAVAILABLE`. These are `BLOCKED`/`UNVERIFIED`, not PASS.
+
+OpenSpec is correctly installed globally as `@fission-ai/openspec@1.11.0`, and
+the Instructor previously verified all 11 active items. The Manager context's
+global shim access failure remains `BLOCKED`/`UNVERIFIED`; no tooling change is
+authorized here.
+
+### HOLD boundary
+
+The next authorization may cover only environment recovery and final I-02
+evidence for the existing approved scope, with exact write scope and stop
+conditions. It may not add requirements, redesign architecture, activate
+deferred scope, change the provider protocol, request secrets in chat, or mark
+I-02 `DONE` without independent acceptance of the complete matrix.
 
 ## INS-171 — APPROVED_FOR_EXECUTION for final I-02 live/demo verification
 
