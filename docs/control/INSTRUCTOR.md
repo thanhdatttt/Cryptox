@@ -2,66 +2,97 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-147`
+Instruction ID: `INS-148`
 
-Status: `HOLD`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
-## INS-147 — HOLD after I-02D documentation acceptance
+## INS-148 — APPROVED_FOR_EXECUTION for final I-02 revalidation
 
-This signal supersedes INS-146 / APPROVED_FOR_EXECUTION. The Instructor has
-independently reviewed and accepted the exact I-02D README delta integrated at
-commit `f2fb6f9`, and has accepted the Manager's control closure of N-03R.
-No implementation source or business state changed under INS-146. The system
-is now at a safe checkpoint before final I-02 revalidation.
+This signal supersedes INS-147 / HOLD. The Instructor has accepted the exact
+N-03R and I-02D checkpoints and authorizes one bounded final revalidation of
+the existing I-02 packet. This is not new product scope and does not authorize
+feature repair, redesign, or downstream work.
 
-### Reviewed checkpoint and current frontier
+### Reviewed checkpoint and applicability
 
 - Canonical checkout: `D:\agy-cli-projects\AOS\Cryptox`; branch
-  `MVP_IMPLEMENTATION`. The accepted source/documentation checkpoint is
-  `f2fb6f9`; this HOLD is persisted in the containing governance commit. Git
-  is clean except for the pre-existing app-generated `.codex/config.toml`,
-  which remains excluded after that commit.
-- `TASKS.md` remains the sole operational authority with 57 rows: 55 `DONE`
-  (including N-03R), `I-02D` `REVIEW`, and `I-02` `REVIEW`; there are no
-  `READY`, `IN_PROGRESS`, or `BLOCKED` rows. The INS-146 Manager and its one
-  worker are terminal; no duplicate, retry, replacement, or downstream task
-  is active.
-- N-03R's committed runtime/test paths and evidence remain accepted at
-  `82693c6`. The exact I-02D worker delta was `README.md` only (238 insertions,
-  70 deletions); the parent integrated it without accepting `.codex/config.toml`.
+  `MVP_IMPLEMENTATION`. The accepted source/documentation checkpoint base is
+  `19f0de6`; this authorization is persisted in the containing governance
+  commit. Git is clean except for the pre-existing app-generated
+  `.codex/config.toml`, which must remain excluded.
+- `TASKS.md` is the sole operational authority with 57 rows: 55 `DONE`,
+  `I-02D` `REVIEW`, and `I-02` `REVIEW`; no `READY`, `IN_PROGRESS`, or
+  `BLOCKED` row. The INS-146 Manager and Raman worker are terminal, and no
+  Cryptox Manager/worker, retry, replacement, duplicate, or downstream task is
+  active.
+- Accepted source/documentation checkpoints are N-03R at `82693c6` and the
+  I-02D README integration at `f2fb6f9`. The current source/business state has
+  no unreviewed drift. The I-02 plan requires real Auth/ownership, Binance,
+  News/Sentiment, backtest/ranking, frontend, provenance, failure, and
+  architecture evidence; fixtures and unavailable environments cannot satisfy
+  live/demo claims.
 
-### Independent acceptance
+### Authorized Manager and worker scope
 
-- README repository links: 9/9 resolve; documented npm command surfaces exist;
-  no credential-like literal is present; `git diff --check` passes.
-- Applicable repository validation passes: build, typecheck, lint, architecture
-  dependency check, artifacts, deferred-scope checker and its 15/15 tests, and
-  runtime smoke (`/live=200`, `/ready=503`, `/health=404`). The architecture
-  script still reports its known nine forbidden dependency fixtures as a
-  diagnostic while exiting successfully; no new violation was introduced.
-- Docker/PostgreSQL composition in the Manager environment, live CoinDesk
-  collection without a configured credential, configured LLM, configured
-  browser/demo, OpenSpec CLI execution, and consolidated live architecture
-  scenarios remain `BLOCKED`/`UNVERIFIED`. README wording does not promote any
-  of those gaps, fixtures, or skipped tests to runtime `PASS`.
+Exactly one fresh same-directory Manager is authorized in the canonical
+checkout, using `gpt-5.6-luna` with `max` reasoning and no worktree. The Manager
+may:
 
-### HOLD boundary and next safe action
+1. Re-read the accepted I-02D checkpoint and move only `I-02D`
+   `REVIEW -> DONE` as a control-only closure; no README or source edit is
+   authorized for this action.
+2. Re-enter only `I-02` through `REVIEW -> READY -> IN_PROGRESS`, run the
+   final verification, and move it to `REVIEW` or `DONE` only according to
+   the evidence. It must stop before any downstream packet.
+3. Create at most two fresh hidden internal read-only verifiers, sequentially
+   in the shared checkout if needed:
+   - backend verifier: existing I-02 backend tests, runtime/REST/provider
+     boundary checks, and real-data evidence when already configured;
+   - frontend verifier: existing I-02 frontend tests and presentation/demo
+     projection checks, including fixture labeling when a browser/live
+     environment is unavailable.
 
-- `I-02` remains `REVIEW`. No final I-02 promotion, extension, or downstream
-  packet is authorized by this HOLD. The completed README is documentation
-  evidence only; it does not close the final live/demo proof.
-- The next safe action is a separately authorized final I-02 revalidation. It
-  must begin from the committed HEAD containing this HOLD, whose accepted
-  source/documentation base is `f2fb6f9`, and re-check source/business state,
-  current task dependencies, live evidence, and the functional image-derived
-  MVP behavior. It must preserve `BLOCKED`/`UNVERIFIED` for unavailable
-  providers, LLM, browser/demo, OpenSpec, or consolidated scenarios and must
-  not use the chat-supplied Gemini credential.
-- Any new source gap, provider redesign, task-DAG conflict, or deferred-scope
-  finding requires a new Instructor review; it must not be implemented under
-  this HOLD.
+The verifiers may not edit any file, create tests, change source/contracts,
+migrations, infrastructure, environment files, requirements, ADRs, OpenSpec,
+or control-plane artifacts. They may not print or request credentials, use the
+chat-supplied Gemini secret, create user-visible tasks, or create/retry/replace
+another worker. A verifier terminal failure is recorded and not retried; the
+Manager may continue only with the other already-authorized verifier.
+
+### Acceptance, validation, and stop condition
+
+The Manager must verify the applicable I-02 acceptance scenarios: real
+register/login/session/logout and two-user isolation; real Binance historical
+and realtime behavior; strategy definitions/composites; bounded Search;
+progress/results; user-specific Leaderboard; signals/markers/overlays; four
+metrics and provenance; real-source News plus local Sentiment; provider and
+failure isolation; fixture-versus-live labeling; and all eight architecture
+change scenarios. It must run the existing focused I-02 tests, relevant full
+workspace tests, clean-install/build/typecheck/lint/architecture/artifact/
+deferred-scope/runtime and exact-path checks as proportionate, and must retain
+the existing PASS versus `BLOCKED` versus `UNVERIFIED` distinctions.
+
+Real configured provider, PostgreSQL/Auth, LLM, browser/demo, or OpenSpec
+evidence may be marked PASS only when actually observed in the current
+environment. Missing Docker/Compose, credentials, external providers, browser
+automation, or OpenSpec CLI remains `BLOCKED`/`UNVERIFIED`; no fixture, skip,
+README statement, or prior historical result may be promoted. No
+`GEMINI_*` mapping or chat secret is authorized.
+
+The Manager owns only `TASKS.md` and `HANDOFF.md` state/checkpoint updates and
+may make one explicit-path staging/commit attempt. If a source gap,
+provider redesign, migration need, task-DAG conflict, or unavailable required
+evidence prevents final acceptance, it must leave `I-02` at `REVIEW` or
+`NEEDS_INSTRUCTOR_REVIEW` with the exact blocker and stop. No production fix,
+extension, automatic retry, or downstream task is authorized by INS-148.
+
+## Historical INS-147 — HOLD after I-02D documentation acceptance
+
+INS-147 accepted N-03R and the exact README-only I-02D delta, persisted the
+safe checkpoint at `19f0de6`, and left I-02 at `REVIEW` pending this explicit
+final revalidation. Its decision is preserved in `DEC-068`.
 
 ## Historical INS-145 — HOLD after N-03R acceptance and I-02D quota interruption
 

@@ -2728,3 +2728,45 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-067`, `INS-146`, `INS-147`, `I-02D`, `I-02`, and `N-03R`.
+
+## DEC-069 — Authorize final I-02 revalidation
+
+Status: `APPROVED`
+
+Authority: Independent Instructor review at the committed `INS-147 / HOLD`
+checkpoint `19f0de6`. N-03R is accepted and closed; the exact I-02D README
+delta is accepted at `f2fb6f9`; the only remaining operational review row is
+the existing final I-02 packet.
+
+Decision: Authorize exactly one fresh same-directory Manager under
+`INS-148 / APPROVED_FOR_EXECUTION` to close I-02D as a control-only
+`REVIEW -> DONE` transition and re-enter I-02 through
+`REVIEW -> READY -> IN_PROGRESS`. The Manager may use at most two fresh hidden
+read-only verifiers with disjoint backend/frontend verification scopes. No
+verifier may edit files, and no production source, contract, migration,
+infrastructure, environment, requirements, ADR, OpenSpec, or control-plane
+feature change is authorized.
+
+The Manager must validate the existing I-02 acceptance scenarios and relevant
+repository gates, use real configured data/providers where available, and
+preserve `BLOCKED`/`UNVERIFIED` for unavailable Docker/Compose, PostgreSQL,
+CoinDesk, LLM, browser/demo, OpenSpec, or consolidated live architecture
+evidence. Fixtures, skips, documentation, and prior historical evidence are
+not live PASS. The chat-supplied Gemini credential remains prohibited and no
+credential may be requested or printed.
+
+I-02 may move to `DONE` only if the complete final evidence and Full MVP DoD
+are actually satisfied; otherwise it must remain `REVIEW` or
+`NEEDS_INSTRUCTOR_REVIEW` with the precise blocker. The Manager must stop at
+this packet and make at most one explicit-path staging/commit attempt. No
+retry/replacement, extension, or downstream packet is authorized.
+
+Affected: `I-02D`, `I-02`, `TASKS.md`, `HANDOFF.md`, `INS-147`, and `INS-148`.
+Existing assignment, functional image authority, requirements, ADRs,
+contracts, architecture, data model, and deferred scope remain unchanged.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [Architecture](../architecture.md),
+[Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-068`, `INS-147`, `INS-148`, `I-02D`, and `I-02`.
