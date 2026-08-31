@@ -2515,3 +2515,75 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-063`, `INS-142`, and `I-02`.
+
+## DEC-065 — Authorize E5R News runtime and README residual packets
+
+Status: `APPROVED`
+
+Authority: Instructor review after the one fresh same-directory Manager under
+`INS-142 / DEC-063` completed the authorized final I-02 revalidation
+and stopped at `I-02 / REVIEW`. Independent local evidence proves
+the core PostgreSQL/Auth, Binance historical/realtime, Strategy/composite,
+bounded Search, persisted result, and cross-owner flows. It also proves that
+the configured News collection/scheduler is not composed into the real backend
+runtime and that `README.md` remains stale.
+
+Decision: Authorize exactly one fresh same-directory Manager under
+`INS-144 / APPROVED_FOR_EXECUTION` for the already-approved E5R
+residual group `N-03R + I-02D`. This is not a retry of `N-03`
+or `N-03A`, adds no new product scope, and does not authorize final
+`I-02` promotion.
+
+The Manager may create at most two fresh hidden internal workers, sequentially:
+
+- N-03R runtime worker: only `apps/backend/src/runtime.ts` and
+  narrowly named focused backend runtime-composition tests under
+  `apps/backend/src/`. It consumes the existing News
+  provider/scheduler boundaries and may not redesign News contracts, adapters,
+  migrations, or routes.
+- I-02D documentation worker: only `README.md`, with truthful
+  install/run, architecture, demo, validation, fixture/live, environment,
+  and deferred-scope guidance. It may not edit source or control-plane files.
+
+The Manager alone may add these two rows to `TASKS.md`, move each only
+`BLOCKED -> READY -> IN_PROGRESS -> REVIEW`, and update
+`HANDOFF.md`. `I-02` remains `REVIEW`; no downstream
+task may start. Workers may not edit control-plane files, create user-visible
+tasks, overlap write scopes, retry or replace timed-out work, or broaden into
+frontend, Strategy, Search, Backtesting, Leaderboard, contracts, migrations,
+infrastructure, arbitrary providers, autonomous/unconfigured LLM, or deferred
+scope.
+
+Acceptance and validation are exactly those in the E5R residual closure
+packets: N-03R must prove bounded initial News collection, approved interval
+scheduling, failure continuation, no overlap, idempotent shutdown, truthful
+persisted reads, and visible unconfigured-provider behavior through the real
+composition; I-02D must make all documented paths truthful without secrets or
+unavailable PASS claims. Focused/relevant tests, build, typecheck, lint,
+architecture, artifacts, scope/deferred, runtime smoke, diff, exact-path, and
+secret checks are required as applicable. Real CoinDesk, configured LLM,
+browser/demo, OpenSpec, and consolidated architecture evidence remain
+`BLOCKED`/`UNVERIFIED` when unavailable. The runtime LLM
+contract remains `LLM_AUTHORING_ENDPOINT`, `LLM_AUTHORING_MODEL`,
+and `LLM_AUTHORING_API_KEY`; no `GEMINI_*` mapping or chat
+secret is permitted.
+
+The Manager must stop after both residual packets reach `REVIEW`,
+before re-entering `I-02`. One explicit-path staging/commit attempt is
+allowed; a `.git/index.lock` permission denial is recorded without
+retry. Any material source/business-state drift, task-DAG conflict,
+contract/migration/provider redesign requirement, or out-of-scope finding is
+`NEEDS_INSTRUCTOR_REVIEW`.
+
+Affected: `N-03R`, `I-02D`, `I-02`, `N-03`,
+`N-03A`, `TASKS.md`, `HANDOFF.md`,
+`MVP_PLAN.md`, `INS-143`, and `INS-144`.
+Existing assignment, functional image authority, requirements, ADRs,
+contracts, architecture, data model, and deferred scope remain unchanged.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [Architecture](../architecture.md),
+[Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-064`, `INS-143`, `INS-144`,
+`N-03R`, `I-02D`, and `I-02`.

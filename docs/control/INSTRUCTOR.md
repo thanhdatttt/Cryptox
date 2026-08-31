@@ -2,13 +2,87 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-143`
+Instruction ID: `INS-144`
 
-Status: `HOLD`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
-## INS-143 — HOLD after independent I-02 final revalidation audit
+## INS-144 — APPROVED_FOR_EXECUTION for E5R News runtime and README residuals
+
+This signal supersedes INS-143 / HOLD. The Instructor has independently
+accepted the bounded I-02 test and core live-application evidence at source and
+business checkpoint e4d8f0f, but I-02 remains REVIEW because the approved real
+News collection path is not composed into the backend runtime and README.md
+still makes stale scaffold claims. The residual plan is recorded in the E5R
+current residual closure packets section of MVP_PLAN.md. This authorization
+adds no product capability and does not authorize final I-02 promotion.
+
+### Reviewed checkpoint and applicability
+
+- Canonical checkout: D:\agy-cli-projects\AOS\Cryptox; branch
+  MVP_IMPLEMENTATION; source/business checkpoint e4d8f0f. The pending
+  Instructor-only plan/signal/decision edits are governance-only and will be
+  committed before dispatch. After that commit, Git must be clean except for
+  the app-generated .codex/config.toml and ignored infra/db/local.env.
+- TASKS.md is the sole operational authority and currently has 55 rows:
+  54 DONE, I-02 at REVIEW, and zero READY, IN_PROGRESS, or BLOCKED. No
+  Manager, worker, retry, replacement, duplicate, or downstream task may be
+  active at dispatch. N-03R and I-02D are planned residual rows and must be
+  added only by the authorized Manager.
+- The independent audit accepted local PostgreSQL/Auth, Binance historical and
+  realtime, Strategy/composite, bounded Search, persisted result data, and
+  cross-owner isolation. Docker/migration, build/typecheck/lint, full tests,
+  architecture, artifacts, scope/deferred checks, runtime smoke, and exact
+  diff checks passed. Real configured News, configured LLM, browser/demo,
+  OpenSpec, and the consolidated architecture scenarios remain
+  UNVERIFIED or BLOCKED. No chat-supplied credential may be used.
+
+### Authorized packets and write scopes
+
+Exactly one fresh same-directory Manager is authorized in the canonical
+checkout, using gpt-5.6-luna with max reasoning and no worktree. The Manager
+may create at most two fresh hidden internal workers, sequentially because the
+checkout is shared:
+
+1. N-03R: one runtime worker may edit only apps/backend/src/runtime.ts and
+   narrowly named focused backend runtime-composition tests under
+   apps/backend/src/. It may consume the existing News provider/scheduler
+   public boundaries, but may not redesign them.
+2. I-02D: one documentation worker may edit only README.md. It must describe
+   the current install/run/architecture/demo/validation paths truthfully,
+   distinguish fixtures from live integrations, and document the existing
+   LLM_AUTHORING_* contract without any credential value.
+
+The two workers must not overlap, create user-visible tasks, edit control-plane
+files, or touch contracts, migrations, infrastructure, environment files,
+News module internals, arbitrary providers, frontend, Strategy, Search,
+Backtesting, Leaderboard, requirements, ADRs, or OpenSpec. The Manager alone
+may update TASKS.md and HANDOFF.md, and may move only N-03R and I-02D through
+BLOCKED -> READY -> IN_PROGRESS -> REVIEW. I-02 must remain REVIEW.
+
+### Acceptance, validation, and stop condition
+
+N-03R is accepted only if the existing provider-neutral News composition proves
+one bounded initial collection, approved interval scheduling, failure
+continuation, no overlapping refresh, idempotent shutdown, truthful persisted
+News/Sentiment reads, and visibly unavailable behavior when the provider is not
+configured. I-02D is accepted only if every documented command/path exists or
+is explicitly environment-dependent, real-data and fixture boundaries are
+truthful, and no unavailable provider, LLM call, browser/demo, or OpenSpec
+check is claimed as PASS. Missing CoinDesk credentials remain
+BLOCKED/UNVERIFIED; no credential request or mapping from GEMINI_* is allowed.
+
+The Manager must run focused and relevant tests plus build, typecheck, lint,
+architecture, artifacts, scope/deferred, runtime smoke, diff, exact-path, and
+secret checks as applicable, and report external evidence truthfully. One
+explicit-path staging/commit attempt is allowed; a Git permission denial is
+recorded without retry. When both packets reach REVIEW, the Manager stops
+before any I-02 transition or downstream work. Any required contract,
+migration, provider redesign, source outside scope, or material DAG mismatch
+is NEEDS_INSTRUCTOR_REVIEW.
+
+## Historical INS-143 — HOLD after independent I-02 final revalidation audit
 
 This signal supersedes `INS-142 / APPROVED_FOR_EXECUTION`. The one authorized
 same-directory Manager completed the bounded `S-04N` control closure and

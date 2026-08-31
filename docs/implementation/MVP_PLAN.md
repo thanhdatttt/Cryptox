@@ -2308,6 +2308,95 @@ Instructor signal can authorize one safe frontier without treating the legacy
 - Reviewer agents run after C-01/D-01, after pure capability waves, before I-01
   acceptance, and during I-02. They do not silently repair out-of-scope findings.
 
+## E5R current residual closure packets
+
+The current I-02 review proved the local PostgreSQL/Auth, Binance historical and
+realtime, Strategy/composite, bounded Search, persisted Experiment/Trades/
+Leaderboard, and cross-owner application flow, but it also exposed a runtime
+composition gap that the prior test-only I-02 authorization could not repair.
+The following packets reconcile already-approved requirements; they add no new
+product capability or deferred scope and must finish before a fresh I-02 final
+revalidation.
+
+### N-03R — Compose the approved real News collection in the runtime
+
+- **State / owner / wave:** BLOCKED / Backend runtime worker under a fresh
+  Manager / E5R residual.
+- **Requirement IDs:** `CSL-R-RD-01`, `CSL-R-NW-01`, `CSL-R-NW-02`,
+  `CSL-R-OB-01`, `CSL-R-DM-01`, and `CSL-R-RP-02`.
+- **Start dependencies:** `N-03` and `N-03A` DONE; current `I-02` REVIEW;
+  accepted News application/provider/scheduler boundaries; no active Manager
+  or worker. This is not a retry of N-03 or N-03A.
+- **Objective:** Wire the existing provider-neutral News module, configured
+  CoinDesk adapter, PostgreSQL repositories, and approved 1–5 minute scheduler
+  into the real backend composition. A configured runtime must perform one
+  bounded initial collection, continue on a provider failure, expose persisted
+  normalized News/Sentiment through the existing read boundary, and shut the
+  scheduler down with the runtime. An unconfigured provider must remain visibly
+  unavailable and must not select fixtures.
+- **Exact worker scope:** `apps/backend/src/runtime.ts` plus focused backend
+  runtime composition tests under `apps/backend/src/` (a new narrowly named
+  test file is allowed). No REST/WebSocket contract, migration, News module
+  contract, arbitrary provider, credential, frontend, Strategy, Search,
+  Backtesting, Leaderboard, or control-plane change is allowed. The existing
+  News scheduler implementation is consumed through its public boundary; it is
+  not redesigned here.
+- **Acceptance:** With an injected/configured provider seam, tests prove one
+  initial collection, approved interval scheduling, failure isolation, no
+  overlapping refresh, and idempotent shutdown. With the real local PostgreSQL
+  composition, readiness and `/news` remain truthful. No credential, raw HTML,
+  prompt, or provider error detail is logged or persisted. A missing CoinDesk
+  credential is reported as `BLOCKED`/`UNVERIFIED`, never as a live-data PASS.
+- **Validation:** Focused runtime tests, relevant News/Strategy/backend tests,
+  build, typecheck, lint, architecture, artifacts, scope/deferred checker,
+  runtime smoke, `git diff --check`, and exact-path review. Real CoinDesk,
+  browser/demo, LLM, and OpenSpec evidence remain separately classified.
+- **Stop boundary:** The Manager may move only N-03R through
+  `BLOCKED -> READY -> IN_PROGRESS -> REVIEW`; it stops before final I-02
+  promotion. Any need for a contract, migration, provider redesign, or source
+  outside this scope is `NEEDS_INSTRUCTOR_REVIEW`.
+
+### I-02D — Make README install/run/demo instructions truthful
+
+- **State / owner / wave:** BLOCKED / Documentation worker under the same fresh
+  Manager / E5R residual.
+- **Requirement IDs:** `CSL-R-DL-01` and the documentation portion of
+  `CSL-R-DM-01`.
+- **Start dependencies:** Current source/runtime checkpoint and N-03R plan are
+  readable; this packet is independent of implementation behavior and may run
+  only within the same authorization.
+- **Objective:** Replace the stale scaffold wording in `README.md` with
+  concise, truthful Install, Run, Architecture, Demo, validation, fixture-vs-
+  live, and required environment-variable instructions that match the current
+  repository. Do not claim unavailable providers, LLM calls, browser/demo
+  acceptance, or OpenSpec validation as PASS, and do not include credential
+  values.
+- **Exact worker scope:** `README.md` only. No source, contracts, migration,
+  infrastructure, requirements, ADR, OpenSpec, or control-plane edits.
+- **Acceptance:** Every command and path in the README exists or is explicitly
+  labeled environment-dependent; real-data requirements, fixture boundaries,
+  local Docker/PostgreSQL setup, the `LLM_AUTHORING_*` contract, and deferred
+  scope are accurately described without secrets or invented URLs.
+- **Validation:** README link/path review, `git diff --check`, secret scan, and
+  relevant build/test command existence checks. The worker must not turn a
+  documentation statement into runtime evidence.
+- **Stop boundary:** The Manager may move only I-02D through
+  `BLOCKED -> READY -> IN_PROGRESS -> REVIEW`; no final I-02 transition or
+  downstream packet is implied.
+
+### E5R residual join
+
+```text
+N-03R + I-02D
+  -> fresh I-02 final revalidation authorization
+```
+
+The Manager for a future authorization may use at most two fresh hidden workers
+with these disjoint scopes, sequentially because they share the canonical
+checkout. Both residual rows must be reviewed independently before I-02 can be
+re-entered; no fixture, skipped test, unavailable environment, or historical
+checkpoint may be promoted to live/demo evidence.
+
 ## Full MVP Definition of Done
 
 - Every REQUIRED ID resolves to implemented behavior, passing evidence, and owner.
