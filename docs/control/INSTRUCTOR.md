@@ -2,11 +2,74 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-136`
+Instruction ID: `INS-137`
 
-Status: `APPROVED_FOR_EXECUTION`
+Status: `HOLD`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-137 — HOLD after S-04L frontend evidence failure
+
+This signal supersedes `INS-136 / APPROVED_FOR_EXECUTION` after the one fresh
+S-04L Manager reached its bounded checkpoint. It authorizes no new Manager,
+worker, retry, replacement, duplicate, checker, I-02 transition, or downstream
+work until a new authorization is committed.
+
+### Independent review checkpoint
+
+- Canonical checkout: `D:\\agy-cli-projects\\AOS\\Cryptox`, branch
+  `MVP_IMPLEMENTATION`, committed HEAD remains `7ae2cfe`
+  (`INS-136 / DEC-057`). The current uncommitted delta contains the preserved
+  Strategy approval-integrity paths, the accumulated frontend authoring paths,
+  the Manager-owned `TASKS.md`/`HANDOFF.md` checkpoint, and the one untracked
+  focused test `apps/frontend/src/features/authoring.spec.ts`; untracked
+  `.codex/config.toml` remains app-generated and outside scope. No source
+  change has been accepted or committed under S-04L.
+- `TASKS.md` is authoritative: S-04I, S-04J, S-04K, and S-04L remain
+  `REVIEW`; I-02 remains `REVIEW`; no downstream packet was promoted. The
+  S-04L Manager is idle, Noether was shut down after its bounded timeout, and
+  no Cryptox Manager/worker/retry/replacement/duplicate is active.
+- The S-04L Manager correctly recorded `BLOCKED -> READY -> IN_PROGRESS ->
+  REVIEW` and did not claim DONE. Its checker worker was never dispatched.
+
+### Evidence and decision
+
+- The frontend suite independently ran `14` test files: `48 passed / 1
+  failed`. The only failure is the stale `screens.spec.tsx` expectation that
+  `Save draft` must be disabled, while the current approved READY workflow
+  intentionally exposes Save and disables only Validate/Approve.
+- The new focused authoring test ran `11/11` tests, but frontend typecheck and
+  lint fail because it calls the zero-argument fixture `news` client with an
+  argument at `apps/frontend/src/features/authoring.spec.ts:213`. The frontend
+  build passes; this is still a required acceptance failure, not a PASS.
+- Strategy independently ran `129 passed / 3 PostgreSQL-gated skips`. The
+  cross-context exactly-one approval evidence remains intact. `git diff --check`
+  passes. The deferred-scope checker correction and its live evidence remain
+  unresolved; no checker worker was authorized after the timeout.
+- PostgreSQL/Auth, configured LLM, Binance/News, browser/demo, OpenSpec CLI,
+  and any post-residue full-gate evidence remain `BLOCKED` or `UNVERIFIED`.
+  No fixture or skipped test is promoted to live PASS.
+
+Decision: keep S-04L, S-04K, S-04J, S-04I, and I-02 at `REVIEW`, persist this
+HOLD, and plan distinct packet `S-04M`. S-04M is not a retry or replacement of
+Noether: it is limited to correcting the two independently observed frontend
+test/typecheck defects and then running the previously unstarted checker worker
+under a new authorization. No source behavior, provider, contract, backend,
+migration, autonomous LLM, or downstream scope is implied.
+
+### Next review conditions
+
+- Re-read the current `MVP_PLAN.md`, `TASKS.md`, `HANDOFF.md`, requirements,
+  accepted ADRs, architecture, data model, active specs, and S-04M source/test
+  boundary before authorizing anything.
+- Verify Git and the exact uncommitted delta, no active Cryptox Manager/worker,
+  current checkpoint consistency, and no source/business-state drift. A fresh
+  same-directory Manager must use `gpt-5.6-luna` with `max` reasoning and
+  hidden internal subagents only; request `priority` service tier for children
+  when the platform supports it.
+- A later `APPROVED_FOR_EXECUTION` may authorize only S-04M's exact frontend
+  test paths followed by its disjoint checker paths. It must stop at REVIEW and
+  cannot start I-02 or any other packet.
 
 ## INS-136 — APPROVED_FOR_EXECUTION for S-04L final frontend/checker residue
 

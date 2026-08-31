@@ -292,6 +292,7 @@ S-04 module seam DONE + I-02 review gap
   -> S-04J BLOCKED: residual public completion and approval-integrity reconciliation
   -> S-04K BLOCKED: timeout residue frontend/checker reconciliation
   -> S-04L BLOCKED: final frontend acceptance/checker residue
+  -> S-04M BLOCKED: final frontend test/checker closure
   -> fresh I-02 final revalidation authorization
 ```
 
@@ -339,7 +340,7 @@ continuation of the legacy waves:
 | E2 | E1 packet reviews | `E-02` then `L-02` | Decimal evaluation and extension-aware ranking are proven |
 | E3 | E2 plus all E1 packets | `F-03` | Functional-state frontend projections pass without business logic |
 | E4 | E3 plus baseline `I-01` and `AU-02` | `I-03` | Shared-boundary joins, real-provider readiness, and reproducibility proof pass |
-| E5R | I-02 review identifies missing required LLM public composition | `S-04I` then `S-04J` then residual `S-04K`/`S-04L` only | LLM authoring is consumable through the authenticated runtime boundary and approval is exactly-once within the supported monolith |
+| E5R | I-02 review identifies missing required LLM public composition | `S-04I` then `S-04J` then residual `S-04K`/`S-04L`/`S-04M` only | LLM authoring is consumable through the authenticated runtime boundary and approval is exactly-once within the supported monolith |
 | E5 | `I-03` DONE and `S-04I`/`S-04J` accepted | Existing `I-02` | Full required demo and final verification include DEC-007 evidence |
 
 ## Task state and checkpoint protocol
@@ -1710,6 +1711,57 @@ Instructor signal can authorize one safe frontier without treating the legacy
   PostgreSQL, configured LLM, Binance/News, browser/demo, and OpenSpec checks
   are `PASS` only with actual evidence; otherwise remain `BLOCKED`/`UNVERIFIED`.
   No I-02 transition occurs under this packet.
+- **Prohibitions and stop condition:** No new LLM provider, contract, backend,
+  Strategy, migration, queue/distributed protocol, autonomous/unconfigured
+  behavior, arbitrary URL fetch, duplicate/retry/replacement worker, second
+  Manager, worktree, or downstream packet. Stop at `REVIEW` after one bounded
+  Manager checkpoint and fresh Instructor audit. **Parallel:** NO; **Critical:**
+  YES to final I-02.
+
+### S-04M — `LLM_AUTHORING_V1` Final Frontend Test and Checker Closure
+
+- **Requirement IDs:** `CSL-R-ST-05`, `CSL-R-RP-02`, `CSL-R-OW-01`, and the
+  configured-runtime portion of `CSL-R-RD-01`.
+- **State / owner / wave:** BLOCKED / one fresh Manager plus at most two
+  strictly sequential hidden internal workers / E5R residual closure. This is
+  a new, narrower packet for independently observed S-04L acceptance defects;
+  it is not a retry or replacement of Noether.
+- **Start dependencies:** `S-04L` is `REVIEW` at committed base `7ae2cfe`,
+  with the exact accumulated dirty delta recorded by `INS-137`/`DEC-058`.
+  `S-04K`, `S-04J`, `S-04I`, and `I-02` remain `REVIEW`; all original S-04I
+  dependencies remain `DONE`; no implementation task is active.
+- **Objective:** Correct only the stale READY-state frontend assertion and the
+  TypeScript call-site defect in the new focused authoring test, then execute
+  the previously unstarted exact deferred-scope checker correction. This packet
+  may not alter approved runtime behavior; any source defect requiring a file
+  outside the listed scope is a stop-and-report condition.
+- **Exact write scope and delegation:**
+  1. Exactly one fresh sequential frontend test worker may write only
+     `apps/frontend/src/features/screens.spec.tsx` and
+     `apps/frontend/src/features/authoring.spec.ts`. It may update the stale
+     assertion to match the approved READY action model and correct the fixture
+     client invocation so the focused test typechecks. It must not modify
+     production source, `fixture-data.ts`, `screens.tsx`, any contract,
+     backend, Strategy, migration, provider, or control-plane file. If a
+     production behavior correction is genuinely required, stop with
+     `NEEDS_INSTRUCTOR_REVIEW`.
+  2. Only after Worker 1 is reviewed, exactly one fresh sequential checker
+     worker may write only `scripts/check-deferred-scope.cjs` and
+     `scripts/check-deferred-scope.test.cjs`, correcting only the canonical
+     `LLM_AUTHORING_V1` boundary for `packages/contracts/rest/strategy.ts` and
+     its narrow regression coverage. It may not broaden any other rule.
+  Workers are disjoint hidden internal subagents and must not edit
+  `AGENTS.md`, `docs/control/**`, requirements, ADRs, `TASKS.md`, `HANDOFF.md`,
+  migrations, or unrelated source. The Manager alone owns the S-04M row,
+  handoff, review, and checkpoint.
+- **Acceptance/tests:** Frontend tests, the focused authoring test, typecheck,
+  and lint pass; the live deferred-scope checker and its focused regression
+  pass; existing Strategy cross-context approval evidence remains intact.
+  Run applicable workspace tests/build/typecheck/lint, architecture, artifacts,
+  scope/deferred, runtime smoke, secret/log, exact-path, whitespace, and diff
+  checks. PostgreSQL, configured LLM, Binance/News, browser/demo, and OpenSpec
+  are `PASS` only with actual evidence; otherwise remain `BLOCKED`/`UNVERIFIED`.
+  No S-04I/S-04J/S-04K or I-02 transition is authorized.
 - **Prohibitions and stop condition:** No new LLM provider, contract, backend,
   Strategy, migration, queue/distributed protocol, autonomous/unconfigured
   behavior, arbitrary URL fetch, duplicate/retry/replacement worker, second

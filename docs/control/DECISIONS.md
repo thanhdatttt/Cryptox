@@ -2187,6 +2187,46 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-055`, `INS-134`, `S-04K`, and commit `53733e1`.
 
+## DEC-058 — Hold S-04L after frontend evidence failure
+
+Status: `APPROVED`
+
+Authority: Independent Instructor audit after the single fresh Manager under
+`INS-136 / DEC-057` reached its bounded S-04L checkpoint. The Manager recorded
+the correct `REVIEW` state after Noether timed out and did not dispatch the
+checker worker. Git remains at committed HEAD `7ae2cfe`; the accumulated
+uncommitted implementation delta and the untracked focused frontend test are
+preserved for a separately authorized review. `.codex/config.toml` remains
+outside scope.
+
+Decision: Supersede `INS-136 / APPROVED_FOR_EXECUTION` with `INS-137 / HOLD`.
+Keep S-04L, S-04K, S-04J, S-04I, and I-02 at `REVIEW`. Independent frontend
+validation found `48 passed / 1 failed` across 14 files: the remaining failure
+is a stale READY-state assertion in `screens.spec.tsx`. The new authoring test
+passes `11/11`, but frontend typecheck/lint fail at its zero-argument fixture
+`news` call; build passes. Strategy remains `129 passed / 3` PostgreSQL-gated
+skips and the cross-context approval evidence is preserved. The checker worker
+was not dispatched and its correction is unresolved. No source or control
+delta is accepted as S-04L DONE, and no downstream work is authorized.
+
+Plan distinct packet `S-04M` for only these two frontend test/typecheck defects,
+followed after review by the previously unstarted narrow deferred-scope checker
+worker. S-04M is not a retry or replacement of Noether and does not expand the
+approved LLM authoring behavior. PostgreSQL/Auth, configured LLM, Binance/News,
+browser/demo, OpenSpec, and unavailable/skipped evidence remain
+`BLOCKED`/`UNVERIFIED` unless actually exercised.
+
+Affected: `S-04M`, `S-04L`, `S-04K`, `S-04J`, `S-04I`, `I-02`, `TASKS.md`,
+`HANDOFF.md`, `INS-136`, `INS-137`, and the final MVP checkpoint. Existing
+requirements, functional image authority, ADRs, contracts, architecture, data
+model, and deferred scope remain unchanged.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [Architecture](../architecture.md),
+[Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-057`, `INS-136`, and `S-04L`.
+
 ## DEC-057 — Authorize S-04L narrowly bounded final frontend/checker residue
 
 Status: `APPROVED`
