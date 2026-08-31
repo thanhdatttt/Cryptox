@@ -290,6 +290,7 @@ represented by the original extension DAG:
 S-04 module seam DONE + I-02 review gap
   -> S-04I BLOCKED: public LLM authoring composition/reconciliation
   -> S-04J BLOCKED: residual public completion and approval-integrity reconciliation
+  -> S-04K BLOCKED: timeout residue frontend/checker reconciliation
   -> fresh I-02 final revalidation authorization
 ```
 
@@ -337,7 +338,7 @@ continuation of the legacy waves:
 | E2 | E1 packet reviews | `E-02` then `L-02` | Decimal evaluation and extension-aware ranking are proven |
 | E3 | E2 plus all E1 packets | `F-03` | Functional-state frontend projections pass without business logic |
 | E4 | E3 plus baseline `I-01` and `AU-02` | `I-03` | Shared-boundary joins, real-provider readiness, and reproducibility proof pass |
-| E5R | I-02 review identifies missing required LLM public composition | `S-04I` then `S-04J` only | LLM authoring is consumable through the authenticated runtime boundary and approval is exactly-once within the supported monolith |
+| E5R | I-02 review identifies missing required LLM public composition | `S-04I` then `S-04J` then residual `S-04K` only | LLM authoring is consumable through the authenticated runtime boundary and approval is exactly-once within the supported monolith |
 | E5 | `I-03` DONE and `S-04I`/`S-04J` accepted | Existing `I-02` | Full required demo and final verification include DEC-007 evidence |
 
 ## Task state and checkpoint protocol
@@ -1593,6 +1594,67 @@ Instructor signal can authorize one safe frontier without treating the legacy
   worker, second Manager, worktree, or downstream packet. Stop at `REVIEW`
   after one bounded Manager checkpoint and fresh Instructor audit. **Parallel:**
   NO; **Critical:** YES to final I-02.
+
+### S-04K — `LLM_AUTHORING_V1` Timeout-Residue Frontend and Checker Reconciliation
+
+- **Requirement IDs:** `CSL-R-ST-05`, `CSL-R-RP-02`, `CSL-R-OW-01`, and the
+  configured-runtime portion of `CSL-R-RD-01`.
+- **State / owner / wave:** BLOCKED / one fresh Manager plus at most two
+  strictly sequential hidden internal workers / E5R residual closure. This is
+  a distinct residual packet for the preserved, unreviewed S-04J frontend
+  artifact; it is not a retry or replacement of timed-out Worker 2.
+- **Start dependencies:** `S-04J` is `REVIEW` at the Manager checkpoint whose
+  committed base is `5bc1c32`; its exact expected working-tree delta is
+  recorded by `INS-133`/`DEC-054`. `S-04I` and `I-02` remain `REVIEW`; all
+  original S-04I dependencies remain `DONE`; no implementation task is active.
+- **Objective:** Review and close only the residual frontend and deferred-scope
+  checker evidence needed for the already approved public
+  `LLM_AUTHORING_V1` composition. Preserve explicit server-side
+  endpoint/model/key configuration, bounded provider behavior, deterministic
+  validation, explicit Save/Validate/Approve, safe provenance, ownership, and
+  fail-closed unavailable/failure states.
+- **Exact write scope and delegation:**
+  1. exactly one fresh sequential frontend worker owns only
+     `apps/frontend/src/**`. It must review the preserved S-04J frontend delta,
+     correct any behavior or typing defect inside that tree, update stale
+     frontend expectations, and add focused tests for prompt and approved-News
+     input, DRAFT/VALIDATED/APPROVED/rejected/failure/unavailable transitions,
+     explicit actions, safe provenance, owner/credential boundaries, and
+     absence of raw prompt/completion. The fixture must not accept a News item
+     unless its existing extraction/template state is approved. No REST
+     contract, backend, Strategy, migration, provider, arbitrary URL fetch,
+     client identity, or control-plane edit is allowed.
+  2. only after the frontend worker is reviewed, exactly one fresh sequential
+     checker worker owns only `scripts/check-deferred-scope.cjs` and
+     `scripts/check-deferred-scope.test.cjs`. It may correct the single
+     canonical `packages/contracts/rest/strategy.ts` boundary for
+     `LLM_AUTHORING_V1` and add narrow regression coverage; no other checker
+     rule may broaden.
+  Workers have disjoint scopes and are hidden internal subagents. They must
+  not edit `AGENTS.md`, `docs/control/**`, requirements, ADRs, `TASKS.md`,
+  `HANDOFF.md`, migrations, or unrelated source. The Manager owns the new
+  `S-04K` row, latest handoff, integration, and any S-04I/S-04J closure
+  transition only after the combined acceptance is actually proven.
+- **Acceptance/tests:** Frontend uses the canonical typed REST DTOs and
+  same-origin transport, never exposes or persists provider credentials,
+  authorization headers, raw prompts, or raw completions, and renders honest
+  configured/unavailable/failure states. Save/Validate/Approve calls operate
+  on server-returned opaque draft ids and definitions. The fixture and tests
+  enforce approved-News-only input. The exact deferred-scope checker passes
+  with a regression test for the canonical REST file. Existing Strategy
+  cross-context exactly-one approval evidence remains intact.
+- **Validation:** Focused frontend/checker tests; full workspace
+  test/build/typecheck/lint; architecture, artifacts, scope/deferred checks,
+  runtime smoke, secret/log, exact-path, whitespace, and diff checks. Real
+  PostgreSQL, configured LLM, Binance/News, browser/demo, and OpenSpec checks
+  are `PASS` only with actual evidence; otherwise remain `BLOCKED`/`UNVERIFIED`.
+  No I-02 transition occurs under this packet.
+- **Prohibitions and stop condition:** No new LLM provider, contract, backend,
+  Strategy, migration, queue/distributed protocol, autonomous/unconfigured
+  behavior, arbitrary URL fetch, duplicate/retry/replacement worker, second
+  Manager, worktree, or downstream packet. Stop at `REVIEW` after one bounded
+  Manager checkpoint and fresh Instructor audit. **Parallel:** NO; **Critical:**
+  YES to final I-02.
 
 ### S-05 — Immutable `WEIGHTED_VOTE_V1` Composite
 

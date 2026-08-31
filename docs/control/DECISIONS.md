@@ -2056,3 +2056,45 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-052`, `INS-131`, `S-04I`, `S-04J`, and commit `b522724`.
+
+## DEC-054 — Hold S-04J after timed-out frontend worker; plan residual closure
+
+Status: `APPROVED`
+
+Authority: Independent Instructor audit after the single fresh Manager under
+`INS-132 / DEC-053` reached its bounded checkpoint. Git remains at committed
+HEAD `5bc1c32` with the exact Manager checkpoint delta uncommitted: two
+Strategy application/test paths, six frontend feature paths, and the Manager's
+`TASKS.md`/`HANDOFF.md`, plus untouched `.codex/config.toml`.
+
+Decision: Supersede `INS-132 / APPROVED_FOR_EXECUTION` with `INS-133 / HOLD`.
+Keep `S-04J` at `REVIEW`, leave `S-04I` and `I-02` at `REVIEW`, and do not
+dispatch the unstarted checker worker or final I-02. Worker 1 Archimedes was
+independently accepted in scope with Strategy `129` tests passed and `3`
+PostgreSQL-gated skips. Worker 2 Meitner timed out after partial frontend
+changes and returned no test/completion evidence; the parent Manager correctly
+did not retry or replace it. The Instructor independently found the frontend
+suite at `36 passed / 2 failed` because stale assertions still expect the old
+unavailable-only panel. Frontend typecheck/build pass, but this does not accept
+the unreviewed behavior. PostgreSQL, real provider, browser/demo, OpenSpec,
+Binance/News, and remaining full-gate evidence remain `BLOCKED`/`UNVERIFIED`.
+
+Plan `S-04K` as a distinct residual closure packet for the preserved partial
+frontend artifact and the exact deferred-scope checker boundary. S-04K is not
+a retry of Worker 2: it must review and finish only the unverified residue,
+add truthful frontend coverage, then run the checker in a separate disjoint
+worker. It remains within the already approved `LLM_AUTHORING_V1` boundary and
+does not expand into new provider, contract, migration, or autonomous LLM
+scope. No secret supplied in chat is stored, echoed, or included in any
+authorization.
+
+Affected: `S-04K`, `S-04J`, `S-04I`, `I-02`, `TASKS.md`, `HANDOFF.md`,
+`INS-132`, `INS-133`, and the final MVP checkpoint. Existing requirements,
+approved functional image amendments, ADRs, contracts, architecture, data
+model, and deferred scope remain unchanged.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [Architecture](../architecture.md),
+[Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-053`, `INS-132`, `S-04J`, and commit `5bc1c32`.

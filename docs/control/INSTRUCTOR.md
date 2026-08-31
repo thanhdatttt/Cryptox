@@ -2,11 +2,63 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-132`
+Instruction ID: `INS-133`
 
-Status: `APPROVED_FOR_EXECUTION`
+Status: `HOLD`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-133 — HOLD after S-04J Worker 2 timeout
+
+This signal supersedes `INS-132 / APPROVED_FOR_EXECUTION` after the one fresh
+Manager exhausted its bounded S-04J dispatch. It authorizes no new Manager,
+worker, retry, replacement, duplicate, I-02 transition, or downstream work.
+
+### Independent review checkpoint
+
+- Canonical checkout: `D:\\agy-cli-projects\\AOS\\Cryptox`, branch
+  `MVP_IMPLEMENTATION`, committed HEAD `5bc1c32` (the `INS-132`
+  authorization). The expected Manager checkpoint delta remains uncommitted
+  and is limited to `modules/strategy/application/authoring.ts`,
+  `modules/strategy/application/authoring.spec.ts`, six paths under
+  `apps/frontend/src/features/`, and the Manager-owned
+  `docs/implementation/TASKS.md`/`HANDOFF.md`; untouched untracked
+  `.codex/config.toml` remains outside the change. No other path was found.
+- The S-04J Manager `01a05711-cac0-7183-b493-6df09fefcf77` is idle and no
+  Cryptox Manager or worker is active. Worker 1 Archimedes completed in the
+  authorized Strategy scope. Worker 2 Meitner was interrupted/timed out after
+  writing frontend files and returned no completion or test evidence; it was
+  not retried or replaced. Worker 3 was correctly not dispatched.
+- `TASKS.md` is authoritative and records `S-04J REVIEW`, with `S-04I` and
+  `I-02` still `REVIEW`; no downstream packet started. The Manager checkpoint
+  remains an honest `BLOCKED -> READY -> IN_PROGRESS -> REVIEW` transition.
+
+### Independent evidence and decision
+
+- The Worker 1 Strategy delta is in scope. Independent Strategy validation
+  passes `129` tests with `3` PostgreSQL-gated skips; the skips are not live
+  PostgreSQL evidence. `git diff --check` passes.
+- The preserved frontend delta compiles and the frontend typecheck/build pass,
+  but the frontend suite fails `2` stale assertions (`36 passed / 2 failed`):
+  existing tests still expect the former unavailable-only authoring message and
+  disabled markup. No new frontend authoring test evidence was returned.
+  The partial frontend implementation is therefore unreviewed and not
+  accepted. The exact canonical deferred-scope checker was not reached.
+- PostgreSQL, real LLM provider, Binance/News, browser/demo, OpenSpec, and
+  post-frontend full-gate evidence remain `BLOCKED`/`UNVERIFIED`; no fixture or
+  skipped test is promoted to `PASS`.
+- Decision: keep `S-04J` at `REVIEW` and preserve the partial working-tree
+  artifact. A new plan packet `S-04K` is required for residual frontend
+  completion/reconciliation and the not-yet-dispatched checker worker. It is a
+  distinct residual closure packet, not a retry of the timed-out Worker 2.
+
+### HOLD boundary
+
+- Do not edit `TASKS.md` or `HANDOFF.md` as Instructor, accept the partial
+  frontend source, dispatch Worker 3 from `INS-132`, promote S-04I/S-04J, or
+  start I-02. Before any new authorization, reconcile the expected dirty delta,
+  verify no active task, and use a fresh same-directory Manager with a new
+  bounded authorization for S-04K.
 
 ## INS-132 — APPROVED_FOR_EXECUTION for S-04J residual LLM completion
 
