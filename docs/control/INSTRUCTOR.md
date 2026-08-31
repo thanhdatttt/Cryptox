@@ -2,11 +2,105 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-170`
+Instruction ID: `INS-171`
 
-Status: `HOLD`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-171 — APPROVED_FOR_EXECUTION for final I-02 live/demo verification
+
+This instruction supersedes `INS-170 / HOLD` and authorizes one bounded final
+verification pass for the already-approved MVP. It does not expand product
+scope or authorize deferred work. The initial packet is evidence-only; any
+source/business fix discovered outside the exact read-only verification scope
+requires a separate Instructor authorization.
+
+### Governing requirements and applicability
+
+- Governing REQUIRED IDs are `CSL-R-AU-01`, `CSL-R-OW-01`, `CSL-R-RD-01`,
+  `CSL-R-MD-01`–`03`, `CSL-R-FE-01`, `CSL-R-ST-01`–`07`,
+  `CSL-R-SE-01`–`03`, `CSL-R-BT-01`–`02`, `CSL-R-EV-01`, `CSL-R-LB-01`,
+  `CSL-R-VIS-01`, `CSL-R-NW-01`–`02`, `CSL-R-SN-01`, `CSL-R-RP-01`–`02`,
+  `CSL-R-AR-01`–`03`, `CSL-R-OB-01`, `CSL-R-DL-01`, and `CSL-R-DM-01`.
+- Canonical checkout: `D:\\agy-cli-projects\\AOS\\Cryptox`, branch
+  `MVP_IMPLEMENTATION`, authorization HEAD
+  `202202b` (`chore(control): hold at final I-02 verification boundary`).
+  The tracked tree is clean; only the pre-existing untracked
+  `.codex/config.toml` remains and must stay excluded. No Manager or worker is
+  active.
+- `TASKS.md` is authoritative at 58 rows: 57 `DONE`, only `I-02` `REVIEW`,
+  and no other `BLOCKED`, `READY`, or `IN_PROGRESS` row. I-01, I-02D, I-03,
+  N-03S, and N-03R are `DONE`; I-02's start dependencies are satisfied.
+- The accepted documentation/control baseline is OpenSpec `1.11.0` `11/11
+  PASS`, exact scenario preservation `64/64`, nested coverage `47/47`, LF-only
+  specs, and passing scope/architecture/artifact/secret/whitespace/diff gates.
+  Local Docker/PostgreSQL preparation and migration validation are also
+  evidenced, but they do not prove final application E2E.
+
+### Authorized Manager and evidence workers
+
+- Create exactly one fresh same-directory Manager in the canonical checkout,
+  using `gpt-5.6-luna` with `max` reasoning and no worktree. It must reread
+  `AGENTS.md` and `docs/control/prompts/ORCHESTRATOR_START.md`, verify
+  `DEC-092`, compare the current Git/checkpoint/DAG, and confirm no competing
+  Cryptox task before execution.
+- The Manager may create at most three fresh hidden internal workers, strictly
+  sequentially because they share the canonical checkout. Each worker is
+  evidence-only with write scope `none`: it may read files and run bounded
+  tests/HTTP/browser/provider/Docker commands, but may not edit or stage any
+  tracked file, create a commit, create a worker, or alter source/business
+  state. Do not retry, replace, or duplicate any historical agent.
+- Worker A: verify real PostgreSQL/Auth and ownership E2E using the repository
+  local Docker flow; real configured Binance historical/realtime delivery,
+  four-chart/recovery behavior where executable; real News/RSS and isolated
+  Sentiment; and application-generated Backtest/Evaluation/Leaderboard data.
+  It must label unavailable Docker/network/provider/browser evidence
+  `BLOCKED`/`UNVERIFIED` and never treat fixtures or skipped tests as live PASS.
+- Worker B: verify the configured `LLM_AUTHORING_V1` path end-to-end with the
+  existing provider-neutral OpenAI-compatible boundary and the configured
+  Gemini 3.6 model: prompt/URL draft, deterministic validation, explicit Save,
+  explicit Approve, immutable persisted version/provenance, timeout/failure
+  no-side-effect, and authenticated frontend/backend composition. Never print
+  or log API keys, cookies, sessions, raw credentials, or provider response
+  secrets. Do not switch protocol, add fallback/retry, or use a different model.
+- Worker C: verify clean install/reprovision, full build/typecheck/lint/test,
+  runtime readiness, final README Install/Run/Architecture/Demo truthfulness,
+  requirement traceability, and all eight assignment architecture change
+  scenarios. It may use prior accepted evidence only when source/business state
+  is unchanged and must identify which evidence is fresh versus carried.
+- The Manager alone may update `TASKS.md` and `HANDOFF.md`; workers may not
+  edit them. No source, spec, requirements, ADR, architecture, data model,
+  active change, dependency, environment/credential, migration, infrastructure,
+  generated artifact, or README edit is authorized by this initial pass.
+
+### Acceptance and stop condition
+
+- Re-enter only `I-02` through `REVIEW -> READY -> IN_PROGRESS -> REVIEW`;
+  leave it at `REVIEW` unless every applicable final DoD gate is genuinely
+  proven. Do not start any downstream task or pending OpenSpec implementation
+  task.
+- The Manager must provide an ID-by-ID evidence matrix for all REQUIRED IDs,
+  classify each as `PASS`, `UNVERIFIED`, or `BLOCKED`, distinguish live data
+  from fixtures, record exact commands/endpoints/results without secrets, and
+  state whether the full MVP DoD is proven. Any missing live evidence is a
+  blocker, not a reason to claim completion.
+- Required gates include real Auth/ownership, Binance/News/Sentiment/LLM and
+  browser/demo evidence, clean setup, application-generated results, build,
+  typecheck, lint, tests, runtime/architecture/artifact/scope checks,
+  traceability, README, secret/log, and clean-Git checks. Unavailable tools or
+  providers remain `UNVERIFIED`/`BLOCKED`.
+- The Manager may make at most one explicit-path checkpoint staging/commit
+  attempt containing only `TASKS.md` and `HANDOFF.md`. If a genuine minor
+  control-only checkpoint correction is needed, it may edit only those files;
+  any source/business change must stop `NEEDS_INSTRUCTOR_REVIEW`. If Git is
+  denied, record the exact error once and stop without retry.
+
+No feature implementation, source repair, OpenSpec implementation task,
+provider protocol change, Gemini native SDK, automatic retry/fallback,
+credential request, fixture substitution, Docker/migration redesign, deferred
+scope, or final I-02 promotion is authorized until the evidence is independently
+reviewed.
 
 ## INS-170 — HOLD after accepted OpenSpec/control reconciliation
 

@@ -3743,3 +3743,41 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-090`, `INS-169`, and `INS-170`.
+
+## DEC-092 — Authorize final I-02 live/demo verification
+
+Status: `APPROVED`
+
+Authority: Instructor review at the clean `INS-170 / HOLD` checkpoint
+`202202b`. All prior OpenSpec/control defects are closed and independently
+verified: OpenSpec `1.11.0` `11/11 PASS`, exact scenario preservation `64/64`,
+nested requirements `47/47`, LF-only active specs, and applicable repository
+gates pass. Docker server `28.5.1`, repository local PostgreSQL preparation,
+healthy dev/test containers, and migration up/constraints/down/remigrate
+validation are available. The board is 58 rows, 57 `DONE`, only `I-02`
+`REVIEW`, with I-01/I-02D/I-03/N-03S/N-03R `DONE` and no active Manager/worker.
+
+The remaining boundary is the existing final I-02 DoD: real PostgreSQL/Auth and
+two-user ownership E2E; configured Binance history/realtime/four-chart/recovery;
+application-generated Backtest/Evaluation/Leaderboard results; real News/RSS
+and isolated Sentiment; configured Gemini 3.6 `LLM_AUTHORING_V1` full draft,
+validation, Save/Approve, persistence, provenance, and failure behavior; clean
+install/reprovision; authenticated browser/demo; complete requirement matrix;
+README truthfulness; and the eight architecture change scenarios. Fixtures,
+skips, historical-only evidence, or unavailable tools cannot become final PASS.
+
+Authorize exactly one fresh same-directory `gpt-5.6-luna` Manager with `max`
+reasoning and up to three strictly sequential fresh hidden evidence-only
+workers, each with write scope `none`; no worktree, retry, replacement, or
+duplicate. The Manager may update only `TASKS.md` and `HANDOFF.md` for the
+checkpoint. No source/business change, provider protocol change, deferred
+scope, or pending active-change implementation is authorized. I-02 may move
+only `REVIEW -> READY -> IN_PROGRESS -> REVIEW` and cannot be marked `DONE`
+without the full evidence matrix and independent Instructor acceptance.
+
+Affected: every approved REQUIRED ID, `I-02`, `INS-170`, and `INS-171`.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-091`, `INS-170`, and `INS-171`.
