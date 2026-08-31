@@ -3496,3 +3496,45 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-084`, `INS-163`, and `INS-164`.
+
+## DEC-086 — Hold after failed INS-164 preservation review
+
+Status: `HOLD`
+
+Authority: Instructor review after INS-164 / DEC-085 completed. The fresh
+Manager `01a0596b-ddbc-7e00-953b-287cec56d184` and single worker Popper
+`01a0596f-34e6-70d2-813c-559c38f00bd9` ran once, used the canonical checkout,
+and closed without a commit attempt after independent gates failed. No retry,
+replacement, duplicate, or worktree was used.
+
+The active OpenSpec validation is genuinely available and passes `11/11`:
+the active `mvp-implementation` change plus all ten capability specs validate,
+and all 47 requirements have nested scenarios. The worker output is not
+accepted because exact scenario preservation is `63/64`: the original
+Backtesting block `#### Scenario: Dual-trigger candle is conservative` is
+missing from its required `Deterministic historical simulation` placement.
+`git diff --check` also reports new EOF blank-line residues in nine specs.
+
+The current intentional uncommitted delta is exactly the ten active spec files
+plus Manager-owned `TASKS.md` and `HANDOFF.md`; no source/business path or
+other tracked file changed. The operational board remains 58 rows, 57 `DONE`,
+only `I-02` at `REVIEW`, with no other active row. INS-164 moved only I-02
+through `REVIEW -> READY -> IN_PROGRESS -> REVIEW` and left it at `REVIEW`.
+
+Keep the repository on `HOLD`. A fresh authorization may permit only a bounded
+correction of this known delta: restore the exact missing existing scenario,
+remove the nine introduced EOF blank-line residues, and rerun OpenSpec plus
+exact preservation/placement, Markdown/link/DAG/scope/secret/whitespace/diff
+checks. No source implementation, requirements/ADR/architecture change,
+provider or credential change, native Gemini protocol, automatic retry or
+fallback, fixture substitution, Docker/migration redesign, deferred scope,
+downstream execution, or final MVP promotion is authorized until that fresh
+review succeeds.
+
+Affected: `I-02`, the ten active OpenSpec specifications, `TASKS.md`,
+`HANDOFF.md`, `INS-164`, and the final I-02 verification boundary.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-085`, `INS-164`, and `INS-165`.

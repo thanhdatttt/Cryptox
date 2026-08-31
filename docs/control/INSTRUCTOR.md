@@ -2,11 +2,73 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-164`
+Instruction ID: `INS-165`
 
-Status: `APPROVED_FOR_EXECUTION`
+Status: `HOLD`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-165 — HOLD after failed INS-164 preservation review
+
+This is the Instructor's replaceable safe checkpoint after the bounded
+`INS-164 / APPROVED_FOR_EXECUTION` scenario-format reconciliation. OpenSpec
+validation itself passed, but independent preservation and whitespace gates did
+not. The failed worker delta is intentionally left uncommitted for a fresh,
+separately authorized correction; no final I-02 acceptance or downstream work
+is authorized from this HOLD.
+
+### Verified checkpoint and known working-tree delta
+
+- Canonical checkout: `D:\\agy-cli-projects\\AOS\\Cryptox`, branch
+  `MVP_IMPLEMENTATION`, committed governance HEAD
+  `560bdad63d922d66c3d78ad8965e4cecadd07be7` (`chore(control): authorize
+  OpenSpec scenario reconciliation`). The tracked tree was clean at that
+  authorization boundary; the pre-existing untracked `.codex/config.toml`
+  remains excluded.
+- INS-164 Manager `01a0596b-ddbc-7e00-953b-287cec56d184` and its one worker
+  Popper `01a0596f-34e6-70d2-813c-559c38f00bd9` completed once and are closed.
+  The Manager made no staging/commit attempt after the failed gates, and no
+  retry or replacement was made.
+- The current intentional uncommitted delta is exactly 12 tracked paths:
+  the ten active spec files under `openspec/specs/` listed in INS-164 plus
+  `docs/implementation/TASKS.md` and `docs/implementation/HANDOFF.md`.
+  No source, test, requirements, ADR, architecture, data model, active change,
+  environment, credential, migration, infrastructure, or generated artifact
+  changed. `.codex/config.toml` remains untracked and excluded.
+- `TASKS.md` remains the sole operational authority at 58 rows: 57 `DONE`,
+  only `I-02` `REVIEW`, and no other `BLOCKED`, `READY`, or `IN_PROGRESS` row.
+  INS-164 moved only `I-02` through `REVIEW -> READY -> IN_PROGRESS -> REVIEW`;
+  `N-03S`, `N-03R`, `I-02D`, `I-01`, and `I-03` remain `DONE`.
+
+### Independent failure evidence
+
+- OpenSpec CLI `1.11.0` through the installed absolute npm shim validates all
+  11 active items (`11/11 PASS`), and all 47 current requirements have nested
+  scenarios. This tool is available; this is not an unavailable-tool blocker.
+- Exact scenario preservation fails: the authorization baseline contains 64
+  blocks (Auth 4, Backtesting 7, Evaluation 4, Frontend 9, Leaderboard 5,
+  Market Data 7, News 9, Search 6, Sentiment 4, Strategy 9), while the current
+  delta contains 63. The missing block is exactly
+  `#### Scenario: Dual-trigger candle is conservative`, which belongs under
+  `Deterministic historical simulation` in `openspec/specs/backtesting/spec.md`.
+- `git diff --check` fails with one new blank line at EOF in nine changed specs:
+  backtesting, evaluation, frontend, leaderboard, market-data, news, search,
+  sentiment, and strategy. These residues must be removed in the correction.
+- Present scenario placements and all non-scenario content otherwise compare
+  cleanly; Markdown/link/anchor, task-DAG, scope/deferred, credential, and
+  `15/15` scope checks passed. The failed preservation/whitespace gates mean
+  the worker output is not accepted.
+
+### HOLD boundary
+
+The next authorization may repair only the known 12-path delta: restore the
+exact missing existing Backtesting scenario under its authorized requirement,
+remove only the nine introduced EOF blank-line residues, revalidate the full
+OpenSpec/spec preservation contract, and checkpoint the result. It must use a
+fresh Manager/worker authorization. No source implementation, requirement
+change, native Gemini integration, `GEMINI_*` mapping, automatic retry/fallback,
+credential change, fixture substitution, Docker/migration redesign, deferred
+scope, downstream task, or final MVP claim is authorized by this HOLD.
 
 ## INS-164 — APPROVED_FOR_EXECUTION for OpenSpec scenario-format reconciliation
 
