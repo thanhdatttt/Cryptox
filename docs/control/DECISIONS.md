@@ -1405,3 +1405,46 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-037`, `INS-116`, and commit `09ba93b`.
+
+## DEC-039 — Fresh ENV-05 and I-01R closure-validation authorization
+
+Status: `APPROVED`
+
+Authority: Fresh Instructor review after `INS-117 / HOLD` at `5c215d0`, the
+integrated reconciliation chain `9bbbfda`, `5fc0bb2`, `d274f52`, `6653191`,
+and `09ba93b`, plus current independent validation of the strict repository
+gates.
+
+Decision: Authorize exactly one fresh `INS-118 /
+APPROVED_FOR_EXECUTION` Manager attempt in the canonical same-directory
+checkout for closure validation of exactly `ENV-05` and `I-01R`. The Manager
+may update only their existing rows and the latest `HANDOFF.md`; it may move
+either row from `REVIEW` to `DONE` only after all current bounded evidence
+passes. Authorize exactly one fresh read-only internal verifier with no write
+scope. No implementation worker, source change, new task row, I-01
+resumption, I-02/I-03, extension, deferred, downstream, retry, replacement,
+duplicate, or worktree is authorized.
+
+Why: The original ENV-05/I-01R review blockers have since received separate,
+explicit reconciliations: the approved Search boundary and runtime smoke were
+made truthful, the strict architecture finding set was repaired, and the
+Strategy PostgreSQL mapping plus teardown now pass real local integration. The
+current independent checks report scope/deferred `13/13`, zero architecture
+violations, correct runtime readiness semantics, focused public-seam tests,
+workspace `409` passed with `8` expected environment-gated skips,
+build/typecheck/lint, and hygiene checks passing. This authorization only
+permits evidence-based closure of the already implemented packets; it does
+not infer or grant the next I-01 implementation scope. OpenSpec CLI remains
+`UNVERIFIED` while unavailable, and unavailable external evidence must remain
+`UNVERIFIED`/`BLOCKED`.
+
+Affected: `ENV-05`, `I-01R`, `I-01`, `I-02`, `I-03`, `MVP_PLAN.md`, `TASKS.md`,
+`HANDOFF.md`, `INS-117`, `INS-118`, and the integration DAG. Requirements,
+approved functional image amendments, accepted ADRs, integrated source,
+completed packets, and deferred scope remain unchanged.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [Architecture](../architecture.md),
+[Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-038`, `INS-117`, and commit `5c215d0`.

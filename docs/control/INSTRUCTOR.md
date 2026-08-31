@@ -2,11 +2,97 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-117`
+Instruction ID: `INS-118`
 
-Status: `HOLD`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-118 — ENV-05 and I-01R closure validation
+
+This signal supersedes `INS-117 / HOLD` after the Instructor independently
+reviewed the current Git checkpoint, the repaired validation gates, the exact
+I-01R source delta, and the task DAG. It authorizes one fresh Manager to perform
+closure validation for exactly `ENV-05` and `I-01R`. It authorizes no source
+implementation, no new task row, and no I-01 resumption.
+
+### Reviewed checkpoint and authorization boundary
+
+- The canonical checkout is `D:/agy-cli-projects/AOS/Cryptox` on
+  `MVP_IMPLEMENTATION` at `5c215d0bc92c3a335adb98d49cb429d4c867c54d`
+  (`chore(control): hold after ENV-08 and ENV-07 review`). The source and
+  business state is unchanged from that checkpoint; the sole pre-existing
+  untracked path is the untouched app-generated `.codex/config.toml`.
+- The authoritative task board has 49 rows: `44 DONE`, `3 REVIEW`
+  (`ENV-05`, `I-01R`, `I-01`), and `2 BLOCKED` (`I-02`, `I-03`). No active
+  Cryptox Manager or worker is present at dispatch.
+- The already integrated and independently reviewed reconciliation chain is
+  `9bbbfda` (I-01R public seams), `5fc0bb2` (ENV-05 bounded gate delta),
+  `d274f52` (ENV-06 boundary repair), `6653191` (ENV-07 persistence repair),
+  and `09ba93b` (ENV-08 teardown repair). No new source delta is implied by
+  this instruction.
+- Current independent evidence is green for `scope:check`, architecture
+  (`0` dependency violations), runtime smoke (`/live=200`, `/ready=503`,
+  `/health=404`), deferred-scope `13/13`, focused public-seam tests,
+  workspace tests (`409` passed with `8` expected environment-gated skips),
+  build, typecheck, lint, and `git diff --check`. The focused real Strategy
+  PostgreSQL integration evidence recorded at `INS-117` is `2/2`, exit `0`,
+  with owner/version/cross-owner assertions and clean teardown. OpenSpec CLI
+  remains `UNVERIFIED` because it is unavailable.
+
+### Authorized closure packet: `ENV-05` + `I-01R`
+
+- **Requirements / authority:** the requirement IDs and acceptance criteria
+  already recorded for `ENV-05` and `I-01R` in
+  `docs/implementation/MVP_PLAN.md`, `CSL-R-AR-01`–`03`,
+  `CSL-R-RP-02`, `CSL-R-RD-01`, `CSL-R-DL-01`, `DEC-007`, ADR-005, and the
+  approved public module/bootstrap contracts. This is a closure-validation
+  authorization, not a scope change.
+- **Manager:** create exactly one fresh Manager in the same-directory
+  canonical checkout `D:/agy-cli-projects/AOS/Cryptox` on
+  `MVP_IMPLEMENTATION`, with model `gpt-5.6-luna` and reasoning `max`. The
+  Manager must read `AGENTS.md`,
+  `docs/control/prompts/ORCHESTRATOR_START.md`, and the full authority chain,
+  then verify this signal, the reviewed checkpoint, DAG, and absence of active
+  writers before doing anything else. No worktree, historical Manager reuse,
+  duplicate, retry, or replacement is allowed.
+- **Internal verification worker:** exactly one fresh read-only internal
+  verifier is authorized to run the independent closure-gate review. Its
+  write scope is `none`: it must not edit, stage, commit, or delete any file,
+  and it must not change task state. Use `gpt-5.6-luna`, reasoning `max`, and
+  Fast/priority service tier when the subagent tool exposes that field. No
+  implementation worker is authorized because this packet has no source write
+  scope.
+- **Manager-owned write scope:** only the existing `ENV-05` and `I-01R` rows
+  in `docs/implementation/TASKS.md` and the latest
+  `docs/implementation/HANDOFF.md` checkpoint. The Manager may move each of
+  those two rows from `REVIEW` to `DONE` only when its complete bounded
+  evidence passes. It may not add a task row or alter any other state.
+- **No source write scope:** no implementation, test, tooling, configuration,
+  architecture, contract, schema, migration, provider, UI, OpenSpec,
+  requirements, ADR, `MVP_PLAN.md`, `INSTRUCTOR.md`, or `DECISIONS.md` edits
+  are authorized. If any source or governance repair is needed, stop and
+  report `NEEDS_INSTRUCTOR_REVIEW` rather than editing it.
+- **Required validation:** re-verify the starting Git checkpoint and no source
+  or business-state drift; inspect the exact I-01R delta at `9bbbfda` and the
+  ENV-05/ENV-06/ENV-07/ENV-08 evidence; rerun focused public-seam tests,
+  `npm run scope:check`, the 13-case deferred-scope suite,
+  `npm run arch:check`, `npm run runtime:smoke`, workspace test/build/
+  typecheck/lint, artifacts/source-sidecar, secret/log, exact-path,
+  whitespace, and `git diff --check`. Re-run the local PostgreSQL integration
+  and migration validation when available. Any unavailable OpenSpec, provider,
+  browser, or other environment remains `UNVERIFIED`/`BLOCKED`, never PASS.
+- **Acceptance:** record `DONE` for `ENV-05` and `I-01R` only if the current
+  strict gates remain green, the exact public boundaries and behavior are
+  preserved, the real PostgreSQL evidence remains clean, no deferred scope or
+  out-of-scope path leaked, and the task DAG/control plane is consistent. If
+  any required bounded gate fails, leave the affected row at `REVIEW` and
+  record the precise evidence and blocker in `HANDOFF.md`.
+- **Prohibitions and stop condition:** no `I-01`, `I-02`, `I-03`, E1,
+  downstream, extension, deferred, provider/demo, or final acceptance work;
+  no automatic promotion; no source patch; no task-state changes outside
+  `ENV-05`/`I-01R`. Stop immediately after the two authorized closure decisions
+  and return to the Instructor for a fresh independent review.
 
 ## INS-117 — HOLD after ENV-08 and ENV-07 independent review
 
