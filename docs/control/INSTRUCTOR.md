@@ -2,11 +2,101 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-165`
+Instruction ID: `INS-166`
 
-Status: `HOLD`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-166 — APPROVED_FOR_EXECUTION for bounded spec-delta correction
+
+This instruction supersedes `INS-165 / HOLD` and authorizes one narrowly
+bounded correction of the known uncommitted INS-164 spec delta. It restores one
+existing scenario block that was accidentally omitted and removes only the
+newly introduced EOF whitespace residues. It adds no product capability and
+does not authorize final I-02 acceptance or downstream execution.
+
+### Reviewed checkpoint and applicability
+
+- Canonical checkout: `D:\\agy-cli-projects\\AOS\\Cryptox`, branch
+  `MVP_IMPLEMENTATION`, latest committed governance HEAD
+  `c007f40` (`chore(control): hold after INS-164 preservation failure`). The
+  tracked tree at the INS-165 boundary was clean; the current intentional
+  uncommitted delta is explicitly listed below. The pre-existing untracked
+  `.codex/config.toml` remains excluded.
+- Current intentional tracked delta is exactly 12 paths: the ten active
+  capability specs under `openspec/specs/` plus
+  `docs/implementation/TASKS.md` and `docs/implementation/HANDOFF.md`. It is
+  the unaccepted INS-164 relocation/checkpoint delta, not an unrelated drift.
+  No source, test, requirements, ADR, architecture, data model, active change,
+  environment, credential, migration, infrastructure, or generated artifact
+  is in the delta.
+- `TASKS.md` remains authoritative at 58 rows: 57 `DONE`, only `I-02`
+  `REVIEW`, and no other `BLOCKED`, `READY`, or `IN_PROGRESS` row. N-03S,
+  N-03R, I-02D, I-01, and I-03 remain `DONE`; the prior Manager returned I-02
+  to `REVIEW` and started no downstream task. The prior Manager and Popper
+  worker are closed; no Cryptox Manager/worker is active.
+- Baseline for exact preservation is commit
+  `560bdad63d922d66c3d78ad8965e4cecadd07be7`, immediately before the
+  uncommitted INS-164 worker delta. It contains 64 scenario blocks; the
+  current failed delta contains 63 because only
+  `#### Scenario: Dual-trigger candle is conservative` is missing from
+  `openspec/specs/backtesting/spec.md`.
+
+### Exact correction scope and delegation
+
+- Create exactly one fresh same-directory Manager in the canonical checkout,
+  using `gpt-5.6-luna` with `max` reasoning and no worktree. It must reread
+  `AGENTS.md` and `docs/control/prompts/ORCHESTRATOR_START.md`, verify
+  `DEC-087`, compare the known dirty delta with this signal, and confirm no
+  competing active task before dispatch.
+- The Manager may create exactly one fresh hidden internal worker once only,
+  using `gpt-5.6-luna` with `max` reasoning and the fastest service tier when
+  exposed. This is a new correction worker under this authorization, not a
+  retry or replacement of Popper.
+- The worker may edit only these nine paths:
+  `openspec/specs/backtesting/spec.md`,
+  `openspec/specs/evaluation/spec.md`,
+  `openspec/specs/frontend/spec.md`,
+  `openspec/specs/leaderboard/spec.md`,
+  `openspec/specs/market-data/spec.md`,
+  `openspec/specs/news/spec.md`,
+  `openspec/specs/search/spec.md`,
+  `openspec/specs/sentiment/spec.md`, and
+  `openspec/specs/strategy/spec.md`.
+- In backtesting, restore the exact baseline scenario block named above under
+  the existing `### Requirement: Deterministic historical simulation`, once
+  and verbatim. In each of the nine listed files, remove only the one new blank
+  line at EOF reported by `git diff --check`; do not normalize unrelated line
+  endings or alter any other current INS-164 relocation. No scenario, wording,
+  requirement, traceability, link, or meaning may otherwise change.
+- The worker may not edit auth/spec.md, TASKS, HANDOFF, any governance or
+  requirement artifact, active/archived OpenSpec changes, config, source, tests,
+  dependencies, environment, credentials, migrations, infrastructure,
+  generated artifacts, or any other path. The Manager alone owns TASKS/HANDOFF.
+
+### Acceptance, validation, and stop condition
+
+- The Manager must independently prove the repaired ten-spec set contains the
+  exact 64-block scenario multiset from the baseline, every block exactly once,
+  every one of the 47 requirements has at least one nested scenario, and the
+  authorized placements remain intact. `git diff --check` must pass.
+- `openspec validate --all --no-interactive --json` must pass all 11 active
+  items. If unavailable in Manager context, record `UNVERIFIED`/`BLOCKED`;
+  Instructor will rerun the installed shim independently.
+- Exact tracked paths after Manager checkpoint may be only the ten active specs
+  plus `TASKS.md` and `HANDOFF.md`. Run Markdown/link/anchor, DAG, scope,
+  secret, whitespace, and diff checks. No implementation test rerun is needed
+  for this documentation-only correction; unavailable checks are never PASS.
+- Re-enter only I-02 through `REVIEW -> READY -> IN_PROGRESS -> REVIEW` and
+  leave it at `REVIEW`. Make at most one explicit-path staging/commit attempt
+  containing the 12 authorized paths; if denied, record the exact error once
+  and stop without retry. No downstream task or final MVP claim is allowed.
+
+No source repair, requirement change, native Gemini integration, `GEMINI_*`
+mapping, automatic retry/fallback, credential change, fixture substitution,
+Docker/migration redesign, deferred scope, active-change implementation, or
+final I-02 promotion is authorized.
 
 ## INS-165 — HOLD after failed INS-164 preservation review
 

@@ -3538,3 +3538,51 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-085`, `INS-164`, and `INS-165`.
+
+## DEC-087 — Authorize bounded correction of the failed spec delta
+
+Status: `APPROVED`
+
+Authority: Instructor review at the committed `INS-165 / HOLD` checkpoint
+`c007f40`. The current working tree intentionally contains exactly the
+unaccepted INS-164 delta: ten active OpenSpec spec files plus Manager-owned
+`TASKS.md` and `HANDOFF.md`. No source/business path or unrelated tracked drift
+is present; `.codex/config.toml` remains excluded.
+
+INS-164's formal OpenSpec validation passes `11/11` and all 47 requirements have
+nested scenarios, but exact preservation is `63/64`. The only missing baseline
+block is `#### Scenario: Dual-trigger candle is conservative` from Backtesting,
+which belongs under `Deterministic historical simulation`. `git diff --check`
+also reports one new EOF blank line in nine of the changed specs. The prior
+Manager and Popper completed once and closed; no retry or replacement is
+authorized.
+
+Authorize exactly one fresh same-directory Manager and exactly one fresh hidden
+correction worker, both using `gpt-5.6-luna` with `max` reasoning, in the
+canonical checkout and without a worktree. The new worker may edit only the
+nine spec paths listed in INS-166: restore the exact missing baseline scenario
+once and verbatim in Backtesting and remove only the nine reported EOF blank
+lines. It must preserve all other existing relocation changes and may not edit
+the auth spec, control plane, requirements, ADRs, OpenSpec change/config,
+source, tests, environment, credentials, migrations, infrastructure, or any
+other path.
+
+The Manager alone may update `TASKS.md` and `HANDOFF.md`, re-entering only I-02
+as `REVIEW -> READY -> IN_PROGRESS -> REVIEW`, and must leave I-02 at `REVIEW`.
+Acceptance requires exact equality with the baseline's 64 scenario blocks,
+correct placement under all 47 requirements, `git diff --check` PASS,
+OpenSpec `11/11` PASS, and exact-path/Markdown/link/DAG/scope/secret/whitespace
+checks. One explicit-path commit attempt maximum; no retry. If any unexpected
+semantic or path change is needed, stop at `NEEDS_INSTRUCTOR_REVIEW`.
+
+No implementation, provider, credential, Docker/migration, deferred-scope,
+downstream, or final MVP action is authorized. The Instructor will independently
+audit and integrate only a passing result before issuing the next signal.
+
+Affected: the known INS-164 spec delta, `I-02`, `TASKS.md`, `HANDOFF.md`,
+`INS-165`, and `INS-166`.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-086`, `INS-165`, and `INS-166`.
