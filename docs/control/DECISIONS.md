@@ -2685,3 +2685,46 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-066`, `INS-145`, `INS-146`,
 `N-03R`, `I-02D`, and `I-02`.
+
+## DEC-068 — Hold after I-02D acceptance
+
+Status: `APPROVED`
+
+Authority: Independent Instructor audit of the fresh same-directory Manager
+under `INS-146 / DEC-067`. The Manager closed N-03R from its committed
+evidence and completed exactly one authorized README-only I-02D worker. The
+worker changed only `README.md`; the Manager updated only `TASKS.md` and
+`HANDOFF.md` and stopped before I-02.
+
+Decision: Accept the exact I-02D documentation delta integrated at commit
+`f2fb6f9` and persist `INS-147 / HOLD`. The operational board is 57 rows:
+55 `DONE`, `I-02D` `REVIEW`, and `I-02` `REVIEW`, with no `READY`,
+`IN_PROGRESS`, or `BLOCKED` row. README links, documented command surfaces,
+secret scan, whitespace, build, typecheck, lint, architecture, artifacts,
+deferred-scope checker and its 15/15 tests, and runtime smoke pass. The known
+architecture fixture diagnostic remains only a diagnostic; no new violation
+was introduced.
+
+Docker/PostgreSQL in the Manager environment, live CoinDesk collection without
+a configured credential, configured LLM, configured browser/demo, OpenSpec CLI
+execution, and consolidated live architecture scenarios remain
+`BLOCKED`/`UNVERIFIED`. Documentation does not promote those gaps, fixtures,
+or skipped tests to runtime PASS. No chat-supplied Gemini credential was used
+or mapped.
+
+The next action requires a separate final I-02 authorization beginning from
+the committed HEAD containing this HOLD, whose accepted source/documentation
+base is `f2fb6f9`. It must independently re-check source/business state, task
+dependencies, and the remaining live/demo evidence; it must not start
+downstream work or implement a new source gap under this HOLD.
+
+Affected: `I-02D`, `I-02`, `N-03R`, `TASKS.md`, `HANDOFF.md`,
+`INS-146`, and `INS-147`. Existing assignment, functional image authority,
+requirements, ADRs, contracts, architecture, data model, and deferred scope
+remain unchanged.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [Architecture](../architecture.md),
+[Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-067`, `INS-146`, `INS-147`, `I-02D`, `I-02`, and `N-03R`.

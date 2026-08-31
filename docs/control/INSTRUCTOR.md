@@ -2,79 +2,66 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-146`
+Instruction ID: `INS-147`
 
-Status: `APPROVED_FOR_EXECUTION`
+Status: `HOLD`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
-## INS-146 — APPROVED_FOR_EXECUTION for I-02D recovery and N-03R closure
+## INS-147 — HOLD after I-02D documentation acceptance
 
-This signal supersedes INS-145 / HOLD. The Instructor has accepted the
-bounded N-03R source/test delta and its review evidence at commit 82693c6.
-The existing I-02D row is BLOCKED because its prior README-only worker
-terminated with a platform usage-limit error before changing README.md. This
-authorization is a controlled continuation of that existing residual, not a
-new product task, and it does not authorize final I-02 promotion.
+This signal supersedes INS-146 / APPROVED_FOR_EXECUTION. The Instructor has
+independently reviewed and accepted the exact I-02D README delta integrated at
+commit `f2fb6f9`, and has accepted the Manager's control closure of N-03R.
+No implementation source or business state changed under INS-146. The system
+is now at a safe checkpoint before final I-02 revalidation.
 
-### Reviewed checkpoint and applicability
+### Reviewed checkpoint and current frontier
 
-- Canonical checkout: D:\agy-cli-projects\AOS\Cryptox; branch
-  MVP_IMPLEMENTATION; reviewed HEAD 82693c6. Git is clean except for the
-  pre-existing app-generated .codex/config.toml, which remains excluded.
-- TASKS.md is the sole operational authority with 57 rows:
-  54 DONE, N-03R REVIEW, I-02 REVIEW, I-02D BLOCKED, and no READY or
-  IN_PROGRESS rows. The previous Manager and both workers are terminal; no
-  Manager, worker, retry, replacement, duplicate, or downstream task is
-  active.
-- N-03R's exact runtime/test delta is committed and independently validated:
-  runtime 2/2, News scheduler 5/5, backend 31 passed with one
-  environment-gated skip, plus typecheck, build, lint, architecture,
-  artifacts, deferred-scope, whitespace, and exact-path checks. Real
-  CoinDesk, configured LLM, browser/demo, OpenSpec, and consolidated live
-  architecture evidence remain BLOCKED/UNVERIFIED.
+- Canonical checkout: `D:\agy-cli-projects\AOS\Cryptox`; branch
+  `MVP_IMPLEMENTATION`. The accepted source/documentation checkpoint is
+  `f2fb6f9`; this HOLD is persisted in the containing governance commit. Git
+  is clean except for the pre-existing app-generated `.codex/config.toml`,
+  which remains excluded after that commit.
+- `TASKS.md` remains the sole operational authority with 57 rows: 55 `DONE`
+  (including N-03R), `I-02D` `REVIEW`, and `I-02` `REVIEW`; there are no
+  `READY`, `IN_PROGRESS`, or `BLOCKED` rows. The INS-146 Manager and its one
+  worker are terminal; no duplicate, retry, replacement, or downstream task
+  is active.
+- N-03R's committed runtime/test paths and evidence remain accepted at
+  `82693c6`. The exact I-02D worker delta was `README.md` only (238 insertions,
+  70 deletions); the parent integrated it without accepting `.codex/config.toml`.
 
-### Authorized work and scopes
+### Independent acceptance
 
-Exactly one fresh same-directory Manager is authorized in the canonical
-checkout, using gpt-5.6-luna with max reasoning and no worktree. The Manager
-may perform the following two bounded actions:
+- README repository links: 9/9 resolve; documented npm command surfaces exist;
+  no credential-like literal is present; `git diff --check` passes.
+- Applicable repository validation passes: build, typecheck, lint, architecture
+  dependency check, artifacts, deferred-scope checker and its 15/15 tests, and
+  runtime smoke (`/live=200`, `/ready=503`, `/health=404`). The architecture
+  script still reports its known nine forbidden dependency fixtures as a
+  diagnostic while exiting successfully; no new violation was introduced.
+- Docker/PostgreSQL composition in the Manager environment, live CoinDesk
+  collection without a configured credential, configured LLM, configured
+  browser/demo, OpenSpec CLI execution, and consolidated live architecture
+  scenarios remain `BLOCKED`/`UNVERIFIED`. README wording does not promote any
+  of those gaps, fixtures, or skipped tests to runtime `PASS`.
 
-1. Re-read the committed N-03R evidence and move only N-03R
-   REVIEW -> DONE if the packet boundary remains valid. This is a
-   control-plane closure; no N-03R worker or source edit is authorized.
-2. Re-enter only the existing I-02D row BLOCKED -> READY -> IN_PROGRESS
-   and dispatch at most one fresh hidden internal worker for the exact
-   README.md-only scope. This fresh authorization permits a new attempt after
-   the prior worker's terminal platform usage-limit failure; it is not an
-   automatic retry within INS-144. The worker may edit only README.md and
-   must make install/run, architecture, demo, validation, fixture/live,
-   environment, and deferred-scope guidance truthful.
+### HOLD boundary and next safe action
 
-The Manager alone may update TASKS.md and HANDOFF.md. Workers may not edit
-control-plane files, source, contracts, migrations, infrastructure,
-requirements, ADRs, OpenSpec, or any path other than README.md. I-02 must
-remain REVIEW; no downstream task or final revalidation may start. No
-credential, arbitrary provider, LLM mapping, browser/demo claim, or deferred
-scope is authorized.
-
-### Acceptance and stop condition
-
-N-03R may be marked DONE only after the Manager confirms the committed exact
-paths and evidence. I-02D is accepted only if every documented command/path
-exists or is explicitly environment-dependent, real-data and fixture
-boundaries are truthful, the existing LLM_AUTHORING_* contract is documented
-without values, and unavailable CoinDesk/LLM/browser/OpenSpec evidence is not
-claimed as PASS. No Gemini key or other chat secret may be used.
-
-Run the README-relevant path/link/secret/diff checks and the applicable
-focused/relevant repository gates; classify unavailable tools and providers
-as BLOCKED/UNVERIFIED. Make at most one explicit-path staging/commit attempt.
-If the fresh worker hits another terminal error, do not retry or replace it;
-record I-02D BLOCKED and stop. When N-03R is closed and I-02D reaches REVIEW,
-stop before I-02 revalidation. Any source, contract, migration, provider
-redesign, task-DAG conflict, or other out-of-scope need is
-NEEDS_INSTRUCTOR_REVIEW.
+- `I-02` remains `REVIEW`. No final I-02 promotion, extension, or downstream
+  packet is authorized by this HOLD. The completed README is documentation
+  evidence only; it does not close the final live/demo proof.
+- The next safe action is a separately authorized final I-02 revalidation. It
+  must begin from the committed HEAD containing this HOLD, whose accepted
+  source/documentation base is `f2fb6f9`, and re-check source/business state,
+  current task dependencies, live evidence, and the functional image-derived
+  MVP behavior. It must preserve `BLOCKED`/`UNVERIFIED` for unavailable
+  providers, LLM, browser/demo, OpenSpec, or consolidated scenarios and must
+  not use the chat-supplied Gemini credential.
+- Any new source gap, provider redesign, task-DAG conflict, or deferred-scope
+  finding requires a new Instructor review; it must not be implemented under
+  this HOLD.
 
 ## Historical INS-145 — HOLD after N-03R acceptance and I-02D quota interruption
 
