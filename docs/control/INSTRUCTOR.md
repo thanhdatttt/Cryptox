@@ -2,11 +2,86 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-115`
+Instruction ID: `INS-116`
 
-Status: `HOLD`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-116 — ENV-08 Strategy PostgreSQL integration teardown and ENV-07 closure
+
+This signal supersedes `INS-115 / HOLD` after the Instructor independently
+reviewed and integrated the exact ENV-07 source/control checkpoint. It
+authorizes one tightly coupled follow-up: repair the existing Strategy
+PostgreSQL integration-test teardown and, only if the resulting evidence is
+clean, close ENV-07. It authorizes no other implementation or downstream work.
+
+### Authorization boundary and applicability
+
+- The reviewed source/business checkpoint is `fd5fcf3` on
+  `MVP_IMPLEMENTATION`, after the ENV-07 source mapping and Manager checkpoint
+  were integrated at `6653191` and the Instructor persisted `INS-115 / HOLD`.
+  The authorization commit contains governance only; the Manager must verify
+  that no source/business state changed from `fd5fcf3`.
+- Before adding ENV-08, the authoritative board has 48 rows: `42 DONE`, `4
+  REVIEW` (`ENV-05`, `I-01R`, `I-01`, `ENV-07`), and `2 BLOCKED` (`I-02`,
+  `I-03`). No ENV-08 operational row exists yet; the Manager must add exactly
+  that one row and may move no other row except the explicitly permitted
+  ENV-07 closure below.
+- The only pre-existing untracked path is the app-generated
+  `.codex/config.toml`; it is outside scope and must remain untouched,
+  unstaged, and undeleted. No Cryptox Manager, worker, retry, replacement,
+  duplicate, or downstream task may be active at dispatch.
+
+### Authorized packet: ENV-08 plus conditional ENV-07 closure
+
+- **Requirement IDs:** `CSL-R-ST-03`–`04`, `CSL-R-OW-01`, `CSL-R-RP-02`, the
+  accepted Strategy persistence contract, and the integration evidence needed
+  before accepting ENV-07/I-01R.
+- **Manager:** create exactly one fresh Manager in the same canonical
+  same-directory checkout `D:/agy-cli-projects/AOS/Cryptox` on
+  `MVP_IMPLEMENTATION`, with model `gpt-5.6-luna` and reasoning `max`. The
+  Manager must read `AGENTS.md`,
+  `docs/control/prompts/ORCHESTRATOR_START.md`, and the full authority chain
+  before work. Internal worker dispatch must use Fast/priority service tier
+  when the subagent tool supports that field.
+- **Worker:** exactly one fresh internal worker, the sole implementation
+  writer, with the disjoint scope limited to
+  `modules/strategy/infrastructure/postgres.integration.spec.ts`. It may
+  adjust only the existing `afterAll` deletion ordering needed to satisfy the
+  composite foreign keys. It must not edit production source, control-plane
+  files, contracts, migrations, ADRs, OpenSpec, backend/frontend, other
+  modules, generated files, or stage/commit.
+- **Objective:** make the focused Strategy PostgreSQL integration suite clean
+  by deleting dependent composite rows/definitions before referenced Strategy
+  definitions and fixture users. Preserve both existing tests, fixtures,
+  assertions, owner isolation, the ENV-07 production source fix, schema,
+  migrations, contracts, and runtime behavior.
+- **Manager-owned control scope:** add exactly one `ENV-08` row to
+  `docs/implementation/TASKS.md`, move only ENV-08 through the normal state
+  sequence, and replace `docs/implementation/HANDOFF.md` with the ENV-08
+  checkpoint. After the cleanup is independently proven, the Manager may move
+  only ENV-07 from `REVIEW` to `DONE`; no other task state may change.
+- **Acceptance:** with the local Docker/PostgreSQL test database, the focused
+  command `npm --workspace @cryptox/strategy test --
+  infrastructure/postgres.integration.spec.ts` exits zero, both existing
+  tests pass, and no teardown foreign-key error remains. The evidence must
+  still prove ENV-07 same-owner composite persistence, exact component
+  versions, owner-filtered reads, and cross-owner rejection.
+- **Validation:** run focused Strategy tests and applicable workspace
+  test/build/typecheck/lint, `npm run arch:check`, `npm run scope:check`, the
+  13-case deferred-scope suite, artifacts/source-sidecar, runtime smoke,
+  secret/log, exact-path, whitespace, and `git diff --check`. Run local
+  migration validation when Docker is available. Any unavailable tool or
+  environment is `BLOCKED` or `UNVERIFIED`, never PASS; OpenSpec CLI remains
+  `UNVERIFIED` unless real evidence is obtained.
+- **Prohibitions and stop condition:** no production source, schema/migration,
+  API/DTO, ownership, algorithm, checker, broad skip, unrelated cleanup,
+  retry, replacement, duplicate, worktree, downstream, I-01R closure, I-01,
+  I-02, I-03, extension, or final/demo execution. The Manager may record
+  ENV-08 `DONE` and ENV-07 `DONE` only if the exact bounded evidence passes;
+  otherwise both remain truthfully at REVIEW/NEEDS_INSTRUCTOR_REVIEW as
+  applicable. Stop at that checkpoint and return to the Instructor.
 
 ## INS-115 — HOLD after ENV-07 Strategy PostgreSQL review
 

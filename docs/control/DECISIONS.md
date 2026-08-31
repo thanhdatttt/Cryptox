@@ -1320,3 +1320,52 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-035`, `INS-114`, and commit `6653191`.
+
+## DEC-037 — Fresh ENV-08 teardown authorization with conditional ENV-07 closure
+
+Status: `APPROVED`
+
+Authority: Independent Instructor review at `INS-115 / HOLD`, the integrated
+ENV-07 checkpoint `6653191`, and the reproducible local PostgreSQL teardown
+failure recorded in the ENV-07 handoff.
+
+Decision: Authorize exactly one fresh `INS-116 /
+APPROVED_FOR_EXECUTION` attempt for `ENV-08 — Strategy PostgreSQL Integration
+Teardown Reconciliation`, using one same-directory `gpt-5.6-luna` Manager with
+reasoning `max` and exactly one fresh internal worker. The worker may edit only
+`modules/strategy/infrastructure/postgres.integration.spec.ts` and only the
+existing `afterAll` deletion ordering needed to remove dependent composite
+rows before referenced definitions/users. The Manager may add and operate only
+the ENV-08 task row and checkpoint, and may move ENV-07 from `REVIEW` to `DONE`
+only after the focused real integration exits cleanly and proves the full
+ENV-07 acceptance. No other task may move or start.
+
+Why: ENV-07's production mapping repair is independently reviewed and
+integrated, and its two real behavior assertions pass. The required focused
+command remains nonzero solely because the unchanged teardown deletes fixture
+users before `composite_components`, violating
+`composite_components_strategy_fk`. This is a narrow test-harness defect that
+blocks truthful ENV-07 acceptance and must be repaired under a separate
+authorization; it is not permission to alter production source, schema,
+contracts, ownership, algorithms, checkers, or unrelated cleanup. Local
+migration validation and all other applicable gates pass; OpenSpec CLI remains
+`UNVERIFIED` unless available.
+
+Prohibitions: no ENV-07 source changes, migration/schema changes, API/DTO
+redesign, assertion weakening, broad skip, retry, replacement, duplicate,
+worktree, I-01R closure, I-01, I-02, I-03, extension, downstream, or final/demo
+claim. Fast/priority service tier is required for the internal worker when the
+subagent tool exposes it; unavailable environments remain `BLOCKED` or
+`UNVERIFIED`.
+
+Affected: `ENV-08`, `ENV-07`, `I-01R`, `I-01`, `I-02`, `I-03`, `MVP_PLAN.md`,
+`TASKS.md`, `HANDOFF.md`, `INS-115`, `INS-116`, and the integration DAG.
+Requirements, approved functional image amendments, accepted ADRs, the
+integrated ENV-07 source, completed packet states, and deferred scope remain
+unchanged.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [Architecture](../architecture.md),
+[Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-036`, `INS-115`, and commit `6653191`.

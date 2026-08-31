@@ -184,7 +184,7 @@ P-00 DONE -> C-01 DONE -> A-00 DONE -> C-01A READY
          +-------------------------------> I-01 <-----------------------+
 
 E-01 READY --------------------------------> B-02
-F-01 READY -> F-AUTH --(AU-01 integrate)--> F-02 -----------------> I-01S -> I-01R -> ENV-05 -> ENV-06 -> ENV-07 -> I-01 -> I-02
+F-01 READY -> F-AUTH --(AU-01 integrate)--> F-02 -----------------> I-01S -> I-01R -> ENV-05 -> ENV-06 -> ENV-07 -> ENV-08 -> I-01 -> I-02
 ```
 
 The revised critical join is:
@@ -193,7 +193,7 @@ The revised critical join is:
 A-00 -> C-01A
   -> { S-01 -> B-01 | D-01 -> L-01 } -> B-02 -> Q-01 integration
   -> { AU-01 | Q-01 integration } -> AU-02
-  -> { AU-02 | F-01 -> F-AUTH -> F-02 | real-provider lanes } -> I-01S -> I-01R -> ENV-05 -> ENV-06 -> ENV-07 -> I-01 -> I-02
+  -> { AU-02 | F-01 -> F-AUTH -> F-02 | real-provider lanes } -> I-01S -> I-01R -> ENV-05 -> ENV-06 -> ENV-07 -> ENV-08 -> I-01 -> I-02
 ```
 
 E-01 and F-01 remain independently READY after A-00 but are not started by A-00.
@@ -201,8 +201,9 @@ M-01/M-02, real built-ins, News/Sentiment, Search integration, Auth/frontend, an
 real-provider evidence complete before I-01/I-02, not before unrelated pure work.
 The ENV-05 gate must be reviewed before the separately authorized ENV-06
 application-boundary reconciliation; ENV-06 must be followed by the separately
-authorized ENV-07 live Strategy persistence reconciliation before I-01R can be
-accepted and I-01 can resume. Neither gate authorizes I-01 by itself.
+authorized ENV-07 live Strategy persistence reconciliation and its narrowly
+authorized ENV-08 integration-cleanup closure before I-01R can be accepted and
+I-01 can resume. Neither gate authorizes I-01 by itself.
 
 The legacy diagram and wave rows above preserve the original program shape at
 the A-00 checkpoint. The current operational states are owned by `TASKS.md` and
@@ -1149,6 +1150,58 @@ strict artifact repositories; unrelated cleanup.
   exact regression and all bounded gates pass, and stops for fresh Instructor
   review. It must not close ENV-06/I-01R, resume I-01, start I-02/I-03, or
   promote downstream work. **Parallel:** NO; **Critical:** YES to I-01R.
+
+### ENV-08 — Strategy PostgreSQL Integration Teardown Reconciliation
+
+- **Requirement IDs / authority:** `CSL-R-ST-03`–`04`, `CSL-R-OW-01`,
+  `CSL-R-RP-02`, the accepted Strategy persistence contract, and the
+  integration evidence required to accept ENV-07 and I-01R.
+- **State / owner / wave:** BLOCKED / fresh Manager plus one disjoint internal
+  worker / 6B.
+- **Start dependencies:** ENV-07's exact Strategy source repair is integrated
+  at `6653191`; ENV-07 remains `REVIEW / NEEDS_INSTRUCTOR_REVIEW` only because
+  the real integration command fails in its existing `afterAll` cleanup; a
+  current Instructor signal explicitly authorizes this packet; and no Cryptox
+  implementation writer is active.
+- **Integration dependencies:** A fresh Instructor review of the cleanup and
+  the resulting clean ENV-07 evidence. This packet does not authorize I-01R
+  closure, I-01, I-02, I-03, extension work, or final/demo claims.
+- **Objective:** Repair only the existing Strategy PostgreSQL integration-test
+  teardown ordering in
+  `modules/strategy/infrastructure/postgres.integration.spec.ts` so dependent
+  composite rows/definitions are removed before their referenced strategy
+  definitions and fixture users. Preserve the test fixtures, assertions,
+  owner-isolation behavior, production Strategy source, schema, migrations,
+  contracts, and all runtime behavior.
+- **Worker scope:** only
+  `modules/strategy/infrastructure/postgres.integration.spec.ts`. The worker
+  must not edit production source, control-plane files, contracts, migrations,
+  ADRs, OpenSpec, backend/frontend, other modules, or generated files, and
+  must not stage or commit.
+- **Manager-owned scope:** add exactly one `ENV-08` row to `TASKS.md`, move only
+  ENV-08 through the operational state sequence, and replace `HANDOFF.md` with
+  the ENV-08 checkpoint. After the cleanup is independently proven, the
+  Manager may move only the existing ENV-07 row from `REVIEW` to `DONE`; it may
+  not change any other task row.
+- **Forbidden:** production source changes, schema/migration changes, API or
+  DTO redesign, ownership or assertion weakening, broad skips, unrelated
+  cleanup, retries, replacements, duplicates, worktrees, and downstream
+  execution. A failing or unavailable required gate remains `BLOCKED` or
+  `UNVERIFIED`, never PASS.
+- **Acceptance/tests:** with the local PostgreSQL test database, the focused
+  Strategy integration command exits zero, both existing tests pass, and no
+  teardown foreign-key error remains. Re-run the focused Strategy tests plus
+  workspace test/build/typecheck/lint, architecture, scope, 13-case
+  deferred-scope, artifacts/source-sidecar, runtime smoke, secret/log,
+  exact-path, whitespace, and `git diff --check` validation. OpenSpec CLI is
+  `UNVERIFIED` if unavailable.
+- **Stop condition:** The Manager moves only ENV-08 through
+  `BLOCKED -> READY -> IN_PROGRESS -> REVIEW`, records ENV-08 `DONE` only when
+  the bounded integration and all applicable gates pass, may close ENV-07
+  only after that same evidence proves the ENV-07 acceptance, and then stops
+  for fresh Instructor review. It must not close I-01R, resume I-01, start
+  I-02/I-03, or promote downstream work. **Parallel:** NO; **Critical:** YES to
+  I-01R.
 
 ### I-01 — Runtime, Transports and Observability Integration
 
