@@ -553,12 +553,14 @@ export function createPostgresStrategyDependencies(
         const result = await pool.query<CompositeDefinitionRow>(
           `
             WITH input_components AS (
-              SELECT component_position, strategy_definition_id,
-                strategy_definition_version, enabled, weight
+              SELECT "componentPosition" AS component_position,
+                "strategyDefinitionId" AS strategy_definition_id,
+                "strategyDefinitionVersion" AS strategy_definition_version,
+                enabled, weight
               FROM jsonb_to_recordset($9::jsonb) AS input(
-                component_position integer,
-                strategy_definition_id uuid,
-                strategy_definition_version integer,
+                "componentPosition" integer,
+                "strategyDefinitionId" uuid,
+                "strategyDefinitionVersion" integer,
                 enabled boolean,
                 weight numeric
               )
