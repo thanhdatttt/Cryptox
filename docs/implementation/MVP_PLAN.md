@@ -2356,6 +2356,52 @@ revalidation.
   promotion. Any need for a contract, migration, provider redesign, or source
   outside this scope is `NEEDS_INSTRUCTOR_REVIEW`.
 
+### N-03S — Repair pinned HTTPS transport compatibility for real News
+
+- **State / owner / wave:** BLOCKED / one fresh backend worker under a fresh
+  Manager / E5R residual. This is a newly discovered implementation correction
+  for the already approved safe external-content boundary, not a retry of N-03,
+  N-03A, or N-03R and not new product scope.
+- **Requirement IDs:** `CSL-R-NW-02`, `CSL-R-RD-01`, `CSL-R-NW-01`,
+  `CSL-R-OB-01`, and the applicable provenance portion of `CSL-R-RP-02`.
+- **Start dependencies:** `N-03`, `N-03A`, and `N-03R` are DONE; the current
+  `I-02` row is REVIEW under `INS-157 / DEC-078`; the accepted safe-fetch
+  allowlist and configured RSS composition are already present; no Manager or
+  worker is active. Independent Instructor diagnosis found the production
+  pinned Node HTTPS transport fails under the supported Node 22 lookup mode
+  before it can consume a real CoinDesk RSS response.
+- **Objective:** Make the default pinned HTTPS transport work with the supported
+  Node runtime while retaining the validated public destination address and
+  TLS/SNI behavior. A configured CoinDesk RSS source must be able to complete
+  through `composeConfiguredNewsProviders` without an API key. The correction
+  must preserve HTTPS-only configuration, allowlist and redirect revalidation,
+  DNS/private-destination protection, omitted credentials/cookies, the 20-second
+  timeout, and the 1 MiB body limit.
+- **Exact worker scope:** `modules/news/infrastructure/safe-fetch.ts` and
+  `modules/news/infrastructure/safe-fetch.spec.ts` only. The worker may add a
+  narrowly scoped internal test seam or focused regression coverage needed to
+  prove the Node lookup callback shape and pinned-address behavior. No runtime
+  composition, REST/WebSocket contract, migration, Docker, README, frontend,
+  Strategy, LLM, provider redesign, credential, or control-plane edit is
+  allowed.
+- **Acceptance:** Focused safe-fetch tests prove the corrected pinned transport
+  path and preserve existing unsafe-destination, redirect, timeout, body-limit,
+  and no-credential behavior. Relevant News/backend tests, build, typecheck,
+  lint, architecture, artifact, deferred-scope, runtime-smoke, exact-path,
+  whitespace, and diff checks pass. After integration, Instructor-owned live
+  smoke through the production safe runtime reaches CoinDesk RSS and returns a
+  non-empty normalized document, or remains explicitly BLOCKED with the exact
+  external reason; a direct HTTP status alone is insufficient.
+- **Prohibitions:** No disabling address pinning or destination validation, no
+  unrestricted `fetch` fallback, no allowlist weakening, no API-key requirement
+  or CoinDesk JSON migration, no fixture substitution, no secret, no `GEMINI_*`
+  mapping, no retry/replacement/duplicate/worktree, and no I-02 promotion or
+  downstream execution.
+- **Stop boundary:** The Manager moves only N-03S through
+  `BLOCKED -> READY -> IN_PROGRESS -> REVIEW`, delegates exactly one fresh
+  hidden worker, reviews its exact diff, and stops. Any required path outside
+  the two listed files is `NEEDS_INSTRUCTOR_REVIEW`.
+
 ### I-02D — Make README install/run/demo instructions truthful
 
 - **State / owner / wave:** BLOCKED / Documentation worker under the same fresh
@@ -2387,7 +2433,7 @@ revalidation.
 ### E5R residual join
 
 ```text
-N-03R + I-02D
+N-03R + N-03S + I-02D
   -> fresh I-02 final revalidation authorization
 ```
 

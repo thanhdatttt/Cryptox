@@ -2,11 +2,92 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-157`
+Instruction ID: `INS-158`
 
-Status: `HOLD`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-158 — APPROVED_FOR_EXECUTION for N-03S pinned HTTPS transport correction
+
+This instruction is issued after the `INS-157 / HOLD` review and the
+Instructor's independent diagnosis of the remaining real-News failure. It
+authorizes one narrowly bounded implementation correction for the existing
+approved safe News boundary. It does not reopen N-03, N-03A, or N-03R and does
+not add product scope.
+
+### Reviewed checkpoint and applicability
+
+- Canonical checkout: `D:\\agy-cli-projects\\AOS\\Cryptox`, branch
+  `MVP_IMPLEMENTATION`, reviewed HEAD
+  `c0a5d67032fdc04a25a0023794d6bf634cff8ce8` (`chore(control): hold after
+  environment reconciliation`). The tracked tree is clean; the pre-existing
+  untracked `.codex/config.toml` remains excluded.
+- `TASKS.md` is the sole operational state authority with 57 rows: 56 `DONE`,
+  only `I-02` at `REVIEW`; `N-03`, `N-03A`, and `N-03R` are `DONE`; no other
+  row is active. `I-01`, `I-02D`, and `I-03` remain `DONE`.
+- No Cryptox Manager, worker, retry, replacement, duplicate, or worktree is
+  active. The accepted source/business/test checkpoint remains
+  `48301b240b533db4cdf53651eaaea24a3225e9ac`; later commits are governance-only
+  and the reviewed source has no material drift.
+- Applicable authority is `CSL-R-NW-02`, `CSL-R-RD-01`, `CSL-R-NW-01`,
+  `CSL-R-OB-01`, the applicable `CSL-R-RP-02` provenance boundary, ADR-009,
+  the News capability specification, and the N-03S packet in `MVP_PLAN.md`.
+
+Instructor diagnosis used a real public CoinDesk RSS URL with no credential.
+The normal HTTPS request returned 200, while the existing default pinned
+transport failed before response handling because Node 22 supplied the custom
+lookup with `all=true`; the resulting `ERR_INVALID_IP_ADDRESS` was surfaced as
+`SafeNewsFetchError / HTTP_ERROR`. This is a source transport defect. Docker,
+PostgreSQL, and migration evidence remain separately recorded as Instructor
+PASS at their own boundary and are not part of this packet.
+
+### Authorized scope
+
+Exactly one fresh same-directory Manager is authorized in the canonical
+checkout, using `gpt-5.6-luna` with `max` reasoning and no worktree. The Manager
+must reread `AGENTS.md` and `docs/control/prompts/ORCHESTRATOR_START.md`, verify
+this signal and `DEC-079`, compare the reviewed checkpoint with Git, and
+confirm the absence of competing Cryptox tasks before dispatch.
+
+The Manager may create exactly one fresh hidden internal worker, with this sole
+implementation scope:
+
+- `modules/news/infrastructure/safe-fetch.ts`
+- `modules/news/infrastructure/safe-fetch.spec.ts`
+
+The worker may correct the default pinned HTTPS transport's Node lookup callback
+compatibility and add narrowly scoped regression coverage. It must preserve
+validated address pinning and TLS/SNI, HTTPS-only and allowlist checks,
+redirect/DNS/private-destination revalidation, omission of credentials/cookies,
+the 20-second timeout, and the 1 MiB body limit.
+
+The Manager alone may update only `docs/implementation/TASKS.md` and
+`docs/implementation/HANDOFF.md` for the N-03S operational checkpoint. No
+worker may edit control-plane files.
+
+### Acceptance and stop condition
+
+- Focused safe-fetch tests cover the corrected pinned transport path and retain
+  existing unsafe-destination, redirect, timeout, body-limit, and no-credential
+  behavior.
+- Applicable News/backend tests, build, typecheck, lint, architecture,
+  artifact, deferred-scope, runtime-smoke, exact-path, whitespace, and diff
+  checks are run and truthfully recorded.
+- After integration, the Instructor independently reruns the live CoinDesk RSS
+  path through `composeConfiguredNewsProviders`/the production safe runtime.
+  A non-empty normalized response is required for PASS; direct HTTP status,
+  fixture output, skipped tests, or unavailable environment is not PASS.
+- Any need to edit another path, alter a contract/provider protocol, weaken
+  validation, add a credential, or change Docker/PostgreSQL/migrations is
+  `NEEDS_INSTRUCTOR_REVIEW` and stops execution.
+
+No unrestricted fetch fallback, allowlist weakening, CoinDesk API-key
+requirement, native Gemini integration, `GEMINI_*` mapping, secret, retry,
+replacement, duplicate, worktree, I-02 promotion, or downstream packet is
+authorized. The Manager must move only N-03S through
+`BLOCKED -> READY -> IN_PROGRESS -> REVIEW`, perform one worker review and one
+checkpoint commit attempt, then stop for independent Instructor review.
 
 ## INS-157 — HOLD after Instructor-owned environment reconciliation
 

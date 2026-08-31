@@ -3154,3 +3154,48 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-077`, `INS-156`, and `INS-157`.
+
+## DEC-079 — Authorize N-03S pinned HTTPS transport correction
+
+Status: `APPROVED`
+
+Authority: Instructor review after `INS-157 / HOLD`, against the canonical
+checkout at `c0a5d67032fdc04a25a0023794d6bf634cff8ce8` with 56 of 57 task rows
+`DONE`, only `I-02` at `REVIEW`, and no active Manager or worker.
+
+Independent live diagnosis found a real defect in the existing safe News
+transport: Node 22 invokes the custom HTTPS lookup in its multi-address lookup
+mode, while the pinned transport returns the single-address callback shape.
+The resulting `ERR_INVALID_IP_ADDRESS` is wrapped as `SafeNewsFetchError` with
+reason `HTTP_ERROR`. A normal HTTPS request to the same public CoinDesk RSS
+endpoint succeeds, so this is a bounded transport compatibility defect rather
+than evidence of a Docker, PostgreSQL, migration, or CoinDesk API-key failure.
+
+Authorize exactly one fresh same-directory Luna/max Manager under `INS-158 /`
+`APPROVED_FOR_EXECUTION` and exactly one fresh hidden worker. The worker may
+change only `modules/news/infrastructure/safe-fetch.ts` and
+`modules/news/infrastructure/safe-fetch.spec.ts` to make the default pinned
+HTTPS transport compatible with the supported Node lookup mode while retaining
+address pinning, TLS/SNI, HTTPS and allowlist checks, redirect revalidation,
+DNS/private-destination protection, no credentials/cookies, timeout, and body
+limits. The Manager may update only `TASKS.md` and `HANDOFF.md` for the N-03S
+checkpoint and must stop at `REVIEW`.
+
+No runtime composition, provider protocol, CoinDesk JSON/API migration,
+allowlist weakening, unrestricted fetch fallback, Docker, PostgreSQL,
+migration, README, frontend, LLM/Gemini, credential, retry, replacement,
+duplicate, worktree, I-02 promotion, or downstream execution is authorized.
+Focused safe-fetch and applicable repository gates are required. Instructor
+will independently run the live safe-runtime RSS smoke after integration;
+direct HTTP status, fixture output, skipped tests, or unavailable environment
+cannot be promoted to PASS. Any need for a path outside the two listed worker
+files is `NEEDS_INSTRUCTOR_REVIEW`.
+
+Affected: `N-03S`, `I-02`, `TASKS.md`, `HANDOFF.md`, `INS-157`, `INS-158`,
+`MVP_PLAN.md`, and the existing `CSL-R-NW-02`/`CSL-R-RD-01` safe News boundary.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+[ADR-009](../adr/ADR_009_controlled_llm_and_external_content.md),
+`DEC-078`, `INS-157`, and `INS-158`.
