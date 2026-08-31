@@ -3245,3 +3245,55 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-079`, `INS-158`, and `INS-159`.
+
+## DEC-081 — Authorize E5R closure and final I-02 revalidation
+
+Status: `APPROVED`
+
+Authority: Independent Instructor review at the committed `INS-159 / HOLD`
+checkpoint `a4520dc`. N-03R and I-02D are `DONE`; N-03S source and live
+safe-runtime acceptance is complete at `c228117`, with only its Manager-owned
+operational row still at `REVIEW`. The board has no `READY` or `IN_PROGRESS`
+row and no active Cryptox Manager or worker. This satisfies the E5R residual
+join recorded in `MVP_PLAN.md` and permits re-entry into the existing final
+I-02 packet.
+
+Authorize exactly one fresh same-directory Manager in the canonical checkout,
+using `gpt-5.6-luna` with `max` reasoning and no worktree. The Manager may
+close only N-03S `REVIEW -> DONE`, re-enter only I-02 through
+`REVIEW -> READY -> IN_PROGRESS`, and run the existing final I-02 verification.
+It may move I-02 to `REVIEW` or `DONE` only according to the evidence. The
+Manager alone owns the corresponding `TASKS.md` and `HANDOFF.md` updates.
+
+The Manager may create at most three fresh hidden internal read-only verifiers
+with disjoint backend, frontend/browser, and setup/traceability scopes. No
+verifier may edit files or create/retry/replace another task. The Manager and
+verifiers must preserve the distinction between real provider/demo evidence
+and fixtures, skips, historical results, or unavailable environments.
+
+Final acceptance is the existing I-02 scope: PostgreSQL-backed Auth and
+two-user ownership isolation; Binance historical/realtime/recovery and
+four-chart behavior; strategy/composite, bounded Search/progress/Top-K,
+Experiment, signals/overlays, metrics and provenance; real News and local
+Sentiment; configured LLM draft validation plus explicit Save/Approve and
+failure isolation; functional amendment behavior; all eight architecture
+change scenarios; clean setup/migration, E2E twice where available, and the
+repository quality gates. Any unavailable Docker, PostgreSQL, provider,
+browser, clean-install, or OpenSpec evidence remains `BLOCKED`/`UNVERIFIED`.
+
+This decision authorizes no source repair, native Gemini protocol, `GEMINI_*`
+mapping, automatic retry/backoff/fallback, new provider, credential change,
+fixture substitution, migration/Docker redesign, deferred scope, or
+downstream task. A provider outage must remain a truthful failure and must not
+be converted into PASS. If complete Full MVP DoD evidence is not present, the
+Manager must leave I-02 at `REVIEW` with precise blockers. It may make at most
+one explicit-path checkpoint staging/commit attempt and must stop after this
+authorization; the Instructor will independently audit the result.
+
+Affected: `N-03S`, `I-02`, `TASKS.md`, `HANDOFF.md`, `INS-159`, `INS-160`, and
+the E5R residual join.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-080`, `INS-159`, and `INS-160`.

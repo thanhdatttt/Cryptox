@@ -2,11 +2,119 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-159`
+Instruction ID: `INS-160`
 
-Status: `HOLD`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-160 — APPROVED_FOR_EXECUTION for E5R closure and final I-02 revalidation
+
+This instruction supersedes `INS-159 / HOLD` and authorizes one bounded final
+revalidation of the existing I-02 packet after the E5R residual join. It is
+not new product scope and does not authorize a provider redesign, feature
+repair, or downstream execution.
+
+### Reviewed checkpoint and applicability
+
+- Canonical checkout: `D:\\agy-cli-projects\\AOS\\Cryptox`, branch
+  `MVP_IMPLEMENTATION`, reviewed HEAD
+  `a4520dc69867ee0771da8a5fe10f194217694b84` (`chore(control): hold after
+  N-03S acceptance`). The tracked tree is clean; the pre-existing untracked
+  `.codex/config.toml` remains excluded. The ignored root `.env` is local
+  configuration and is not part of the checkpoint.
+- `TASKS.md` is the sole operational state authority with `58` rows: `56`
+  `DONE`, `I-02` `REVIEW`, `N-03S` `REVIEW`, and no `READY` or `IN_PROGRESS`
+  row. `N-03R`, `I-02D`, `I-01`, and `I-03` are `DONE`. N-03S's source/live
+  acceptance is independently recorded at `c228117`; its remaining `REVIEW`
+  state is a Manager-owned operational closure, not permission to change the
+  source.
+- `N-03R` and `I-02D` satisfy the E5R residual join in `MVP_PLAN.md`; the
+  accepted N-03S source correction and live CoinDesk safe-runtime result are
+  now independently reviewed. No Cryptox Manager, worker, retry, replacement,
+  duplicate, or worktree is active.
+- The current final I-02 acceptance remains governed by every applicable
+  required requirement, the approved functional amendment behavior, DEC-007
+  extension evidence already represented by the dependency packets, accepted
+  ADRs, architecture, data model, and the existing I-02 packet. Fixtures,
+  skipped tests, documentation statements, and historical results cannot
+  satisfy live/demo claims.
+
+### Authorized Manager and delegation
+
+Exactly one fresh same-directory Manager is authorized in the canonical
+checkout, using `gpt-5.6-luna` with `max` reasoning and no worktree. The
+Manager must reread `AGENTS.md` and
+`docs/control/prompts/ORCHESTRATOR_START.md`, verify this signal and
+`DEC-081`, compare the reviewed checkpoint with Git, and confirm that no
+competing Cryptox task is active before executing.
+
+The Manager may create at most three fresh hidden internal read-only
+verifiers, with disjoint scopes and no user-visible task or manual approval.
+They may run in parallel because they may not write files:
+
+1. Backend verifier: existing I-02 backend tests, Auth/PostgreSQL and
+   ownership boundary checks, REST/WebSocket/provider boundary checks, and
+   real configured provider evidence when available.
+2. Frontend/demo verifier: existing I-02 frontend tests and configured-mode
+   functional/browser projection checks when the browser environment is
+   available, including truthful fixture/live labeling.
+3. Setup/traceability verifier: clean-install/reprovision where available,
+   README/path and requirement/DAG/link reconciliation, architecture-change
+   scenario review, and OpenSpec CLI status.
+
+Every verifier must use the internal subagent mechanism, `gpt-5.6-luna` with
+`max` reasoning and the fastest service tier when the platform exposes one.
+Verifiers may not edit any file, request or print credentials, use the
+chat-supplied key, create another Manager/worker, retry or replace a failed
+verifier, or promote unavailable evidence.
+
+### Exact Manager-owned scope
+
+- Close only `N-03S` from `REVIEW -> DONE` after verifying its accepted
+  checkpoint; no N-03S source change is authorized.
+- Re-enter only `I-02` through `REVIEW -> READY -> IN_PROGRESS`, run the
+  existing final verification, and move it to `REVIEW` or `DONE` strictly
+  according to complete evidence. The Manager alone may update
+  `docs/implementation/TASKS.md` and
+  `docs/implementation/HANDOFF.md` for these operational transitions.
+- The Manager may record final acceptance/checkpoint evidence in
+  `HANDOFF.md`; no source, test, README, contract, migration, infrastructure,
+  environment, requirements, ADR, OpenSpec, or other control-plane feature
+  change is authorized. If a concrete implementation defect is found, stop at
+  `NEEDS_INSTRUCTOR_REVIEW` rather than fixing it under this signal.
+
+### Required acceptance and validation
+
+The Manager must verify the existing I-02 scenarios: real PostgreSQL-backed
+register/login/session expiry/logout; unauthenticated rejection and User A/B
+ownership isolation; Binance historical/realtime behavior and recovery;
+four-chart and multi-timeframe projections; strategy definitions/composites;
+bounded Search/progress/Top-K/selected Experiment; signals, entry/exit,
+markers/overlays; four metrics and provenance; real-source News and local
+LEXICON sentiment; configured LLM draft/failure behavior with deterministic
+validation and explicit Save/Approve when the provider is available; mock-only
+final configuration rejection; and all eight architecture change scenarios.
+
+It must run the applicable focused/full tests and quality gates, clean setup
+and migration evidence, build, typecheck, lint, architecture, artifacts,
+scope/deferred checks, runtime smoke, exact-path/whitespace/diff checks, and
+E2E evidence twice where the environment supports it. Docker, PostgreSQL,
+providers, browser, clean install, or OpenSpec checks that are unavailable
+must remain `BLOCKED`/`UNVERIFIED`; they are never PASS by inference. The
+configured Gemini completion currently has observed timeout/503 behavior and
+must be reported at that boundary unless a real current run completes.
+
+### Prohibitions and stop condition
+
+No native Gemini adapter, `GEMINI_*` mapping, automatic retry/backoff or
+fallback, fixture substitution, credential change, provider addition, source
+repair, migration/Docker redesign, deferred scope, or downstream packet is
+authorized. The Manager must make at most one explicit-path checkpoint
+staging/commit attempt and stop after this packet. `I-02` may become `DONE`
+only when the complete final evidence and Full MVP DoD are actually proven;
+otherwise it remains `REVIEW` with precise blockers. Instructor will audit
+the result independently before any final closure.
 
 ## INS-159 — HOLD after independent N-03S acceptance and live-provider review
 
