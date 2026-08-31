@@ -1779,3 +1779,41 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-046`, `INS-125`, and commit `db9898b`.
+
+## DEC-048 — I-03 independently accepted; HOLD before I-02
+
+Status: `APPROVED`
+
+Authority: Independent Instructor audit after the single fresh recovery Manager
+under `INS-126 / DEC-047` completed and became idle. The Manager commit is
+`223fc1b91baf83944d19f9dad57c151fe8bf5d7c` on `MVP_IMPLEMENTATION`.
+
+Decision: Accept I-03's `IN_PROGRESS -> REVIEW -> DONE` transition and supersede
+`INS-126 / APPROVED_FOR_EXECUTION` with `INS-127 / HOLD`. The commit contains
+exactly the preserved I-03 integration test artifact, the I-03 row in
+`TASKS.md`, and the latest `HANDOFF.md`; no other task or source path changed.
+Keep I-02 explicitly `BLOCKED`. A separate future Instructor authorization is
+required before I-02 may move to `READY` or start.
+
+Evidence: the final board is exactly 49 rows, `48 DONE` and `I-02 BLOCKED`;
+the only remaining worktree item is untouched app-generated
+`.codex/config.toml`; no active Manager/worker/verifier or downstream task
+exists. Independent focused I-03 tests are `4/4`; full workspace tests are
+`415 passed / 8 expected PostgreSQL-gated skips`; build/typecheck/lint,
+architecture (`182 modules / 579 dependencies`), artifact/deferred/scope
+(`13/13`), runtime smoke, whitespace, and diff checks pass. Prior real
+PostgreSQL/Binance evidence is carried forward only because source/business
+state is unchanged. Current Docker/PostgreSQL, live provider, News credential,
+OpenSpec, and browser/demo checks remain `BLOCKED`/`UNVERIFIED`; fixtures are
+not promoted to final evidence.
+
+Affected: `I-03`, `I-02`, `TASKS.md`, `HANDOFF.md`, `INS-126`, `INS-127`, and
+the final integration checkpoint. Requirements, functional image amendments,
+accepted ADRs, contracts, architecture, data model, and deferred scope remain
+unchanged.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [Architecture](../architecture.md),
+[Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-047`, `INS-126`, and commit `223fc1b`.

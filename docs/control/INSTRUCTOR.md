@@ -2,11 +2,67 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-126`
+Instruction ID: `INS-127`
 
-Status: `APPROVED_FOR_EXECUTION`
+Status: `HOLD`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-127 — HOLD after independent I-03 recovery acceptance
+
+This signal supersedes `INS-126 / APPROVED_FOR_EXECUTION` after the Instructor
+independently reviewed the completed recovery checkpoint. I-03 is accepted as
+`DONE`; this HOLD authorizes no implementation and does not automatically start
+or ready I-02.
+
+### Independent review checkpoint
+
+- Canonical checkout: `D:/agy-cli-projects/AOS/Cryptox`, branch
+  `MVP_IMPLEMENTATION`, accepted Manager checkpoint
+  `223fc1b91baf83944d19f9dad57c151fe8bf5d7c` (`chore(control): close I-03
+  under INS-126`). The source/business checkpoint `5e06fdf` is unchanged.
+- The Manager commit contains exactly the preserved
+  `apps/backend/src/i03.boundary.integration.spec.ts`, the existing I-03 row
+  in `docs/implementation/TASKS.md`, and the latest
+  `docs/implementation/HANDOFF.md`. The only remaining working-tree item is
+  the untouched app-generated `.codex/config.toml`; no source or business-state
+  drift was found.
+- `TASKS.md` is authoritative at exactly 49 rows: `48 DONE` and `I-02
+  BLOCKED`. I-03 transitioned `IN_PROGRESS -> REVIEW -> DONE`; no other task
+  was changed, started, promoted, or modified. The recovery Manager is idle;
+  no Manager, worker, verifier, retry, replacement, duplicate, or downstream
+  task is active.
+
+### Acceptance and validation decision
+
+- The preserved I-03 artifact was independently rerun and passed `4/4` tests;
+  it uses public module/bootstrap boundaries and proves the safe News/URL →
+  controlled authoring path, seeded Search → synthetic paper Backtesting →
+  Evaluation → Leaderboard with ownership/provenance, market-only ephemeral
+  WebSocket delivery, and fail-closed readiness/secret sanitization.
+- Independent workspace evidence: `415 passed / 8 expected PostgreSQL-gated
+  skips`; build, typecheck, lint, architecture (`182 modules / 579
+  dependencies`), source artifacts, deferred-scope, scope `13/13`, runtime
+  smoke, whitespace, and diff checks all passed. The skips are not promoted to
+  live-provider evidence.
+- Prior real PostgreSQL/Binance evidence remains valid as carry-forward because
+  the source/business checkpoint is unchanged. Current Docker/PostgreSQL,
+  live Binance/News access, missing News credentials, OpenSpec CLI, and
+  browser/final-demo evidence remain `BLOCKED`/`UNVERIFIED`; no mock provider or
+  fixture-only result is claimed as final evidence.
+- Decision: accept I-03 `DONE` at the Manager commit above. Keep I-02
+  `BLOCKED` until this HOLD is followed by a separate Instructor authorization
+  after final checkpoint review. No Instructor edit to `TASKS.md` or
+  `HANDOFF.md` is made.
+
+### HOLD boundary
+
+- Do not start, ready, promote, or modify I-02 or any other task under this
+  signal. Do not alter the accepted Manager checkpoint, source, contracts,
+  migrations, frontend, providers, or deferred scope.
+- I-02 is now the only DAG candidate, but it requires a fresh `INS-* /
+  APPROVED_FOR_EXECUTION` with its own exact scope, acceptance, validation,
+  prohibitions, stop condition, and clean/reconciled checkpoint.
 
 ## INS-126 — APPROVED_FOR_EXECUTION for interrupted I-03 recovery/reconciliation
 
