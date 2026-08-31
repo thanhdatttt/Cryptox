@@ -2977,3 +2977,38 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-073`, `INS-152`, and `INS-153`.
+
+## DEC-075 — Authorize optional RSS allowlist reconciliation
+
+Status: `APPROVED`
+
+Authority: Instructor review after the INS-152 output was integrated at
+`7c10afa14eff40adb85603453d2c743c6a7acfd0` and held under `INS-153 / DEC-074`.
+The runtime's optional allowlist parser currently rejects a blank
+`COINDESK_RSS_ALLOWED_URLS=` value even when the URL and a valid host/prefix
+allowlist are present in the supported `.env.example`. This is a real copied
+configuration failure, not a hypothetical provider concern.
+
+Authorize exactly one fresh same-directory Luna/max Manager and exactly one
+fresh hidden worker under `INS-154`. The worker may change only
+`apps/backend/src/runtime.ts` and
+`apps/backend/src/runtime.news-composition.spec.ts` to treat a blank optional
+RSS list as absent while retaining fail-closed malformed/all-empty allowlist,
+HTTPS, private-destination, and no-fixture behavior. No `.env.example`, Docker,
+README, module, contract, provider protocol, credential, `GEMINI_*` alias,
+retry, replacement, duplicate, or downstream packet is authorized.
+
+Acceptance is focused deterministic regression plus relevant backend/repository
+quality gates with `I-02` remaining `REVIEW`. Missing live provider, Gemini,
+Docker, PostgreSQL, browser, clean-install, and OpenSpec evidence remains
+`BLOCKED`/`UNVERIFIED`, never PASS. The Manager must stop after one worker,
+one review/integration, and one commit attempt; the Instructor will independently
+audit the resulting delta.
+
+Affected: `I-02`, `TASKS.md`, `HANDOFF.md`, `INS-153`, `INS-154`, and the
+optional RSS configuration boundary.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-074`, `INS-153`, and `INS-154`.

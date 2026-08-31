@@ -2,11 +2,94 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-153`
+Instruction ID: `INS-154`
 
-Status: `HOLD`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-154 — APPROVED_FOR_EXECUTION for optional RSS allowlist reconciliation
+
+This signal supersedes `INS-153 / HOLD` and authorizes one narrow correction
+to the already integrated INS-152 provider configuration. It exists because
+independent review found that an empty optional
+`COINDESK_RSS_ALLOWED_URLS=` line in the supported root `.env.example` is
+currently classified as invalid, so copying the template prevents the valid
+RSS URL/host/prefix configuration from composing. This is not a new provider,
+new product scope, or permission to promote I-02 or start downstream work.
+
+### Reviewed checkpoint and applicability
+
+- Canonical checkout: `D:\\agy-cli-projects\\AOS\\Cryptox`, branch
+  `MVP_IMPLEMENTATION`, reviewed HEAD
+  `7c10afa14eff40adb85603453d2c743c6a7acfd0`. This commit integrates the
+  exact reviewed INS-152 output; the tracked working tree is clean and the
+  pre-existing app-generated `.codex/config.toml` remains untracked and
+  excluded.
+- `TASKS.md` remains the sole operational state authority with 57 rows: 56
+  `DONE`, only `I-02` at `REVIEW`, and no other active task. `I-02D`, `I-01`,
+  and `I-03` remain `DONE`. The INS-152 Manager and both workers are terminal;
+  no Manager, worker, retry, replacement, duplicate, or worktree is active.
+- INS-152's runtime/configuration behavior and deterministic gates were
+  independently reviewed. The known defect is specifically in optional list
+  parsing: a blank optional allowlist value should behave as absent, while an
+  actually malformed list and an all-empty allowlist must still fail closed.
+  No other source/business/DAG drift is authorized or present.
+
+### Authorized Manager and worker scope
+
+Exactly one fresh same-directory Manager is authorized in the canonical
+checkout, using `gpt-5.6-luna` with `max` reasoning and no worktree. The Manager
+must re-read `AGENTS.md` and
+`docs/control/prompts/ORCHESTRATOR_START.md`, verify this signal and
+`DEC-075`, compare the reviewed checkpoint with Git, and re-enter only the
+existing `I-02` row through `REVIEW -> READY -> IN_PROGRESS` after checking
+dependencies and scope. It must stop at `REVIEW` after the bounded fix and may
+not start any downstream packet.
+
+The Manager may create exactly one fresh hidden internal implementation worker
+with the following scope. No second worker, verifier, retry, replacement,
+duplicate, user-visible task, branch, or worktree is authorized. The worker
+must not edit any control-plane artifact; the Manager alone owns `TASKS.md` and
+`HANDOFF.md`.
+
+- Exact worker write scope: only `apps/backend/src/runtime.ts` and
+  `apps/backend/src/runtime.news-composition.spec.ts`.
+- Treat a blank value for an optional RSS list variable as absent, without
+  weakening HTTPS validation, hostname/URL allowlisting, malformed-entry
+  rejection, private/unsafe destination rejection, or the requirement for at
+  least one non-empty matching allowlist entry.
+- Add or adjust only focused deterministic tests in the named runtime test
+  file proving that the copied `.env.example` shape composes RSS and that
+  malformed/all-empty allowlists still fail closed. Do not use a live provider
+  call, credential, fixture fallback, or new dependency.
+- Do not change `.env.example`, Docker, README, modules, contracts, migrations,
+  strategy authoring, `GEMINI_*` mapping, provider protocols, requirements,
+  ADRs, OpenSpec artifacts, frontend, or any path outside the two named files.
+
+### Acceptance, validation, and stop condition
+
+- The exact diff is limited to the two authorized runtime paths plus the
+  Manager-owned `TASKS.md`/`HANDOFF.md` checkpoint. The `.env.example` sample
+  with a blank optional URL list composes the official RSS source when its URL
+  and non-empty host/prefix allowlist are present; malformed and all-empty
+  configurations remain unavailable with no fixture fallback.
+- Run the focused runtime suite, relevant backend tests, backend typecheck,
+  build, lint, architecture/artifact/deferred-scope/scope checks, whitespace
+  checks, and any other proportionate repository gates. Preserve truthful
+  `PASS` versus `BLOCKED` versus `UNVERIFIED` classification. No live CoinDesk,
+  Gemini, Docker runtime, PostgreSQL, browser, clean-install, or OpenSpec CLI
+  evidence is created by this packet.
+- I-02 must remain `REVIEW`; this narrow parser correction does not prove the
+  full authenticated real-provider/demo acceptance and does not authorize
+  `M-02`, `AU-02`, `S-04`, `I-01`, `I-03`, or any other packet.
+- The Manager may make one explicit-path checkpoint commit attempt and must
+  stop immediately after review/integration, regardless of commit success. If
+  the issue crosses the two-file scope, stop with `NEEDS_INSTRUCTOR_REVIEW`.
+
+No credential may be requested, printed, logged, committed, or entered into a
+browser. Do not use the previously exposed chat key. The next step after this
+packet is an independent Instructor audit and a new `HOLD` signal.
 
 ## INS-153 — HOLD after independent INS-152 configuration audit
 
