@@ -2,11 +2,88 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-121`
+Instruction ID: `INS-122`
 
-Status: `HOLD`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-122 — I-01 closure validation
+
+This signal supersedes `INS-121 / HOLD` after the Instructor verified the
+integrated I-01 source checkpoint, current control plane, deterministic gates,
+local PostgreSQL/migration evidence, real Binance evidence, and bounded HTTP
+runtime evidence. It authorizes one fresh closure-only Manager attempt for
+the existing `I-01` row.
+
+### Reviewed checkpoint and applicability
+
+- The canonical checkout is `D:/agy-cli-projects/AOS/Cryptox` on
+  `MVP_IMPLEMENTATION`; the reviewed source/business checkpoint is
+  `0419f5f` (`chore(control): hold after I-01 runtime review`) with the exact
+  I-01 implementation integrated at `5e06fdf`. The tracked tree is clean;
+  the only untracked path is the untouched app-generated
+  `.codex/config.toml`.
+- The authoritative board has 49 rows: `46 DONE`, `I-01 REVIEW`, and
+  `I-02`/`I-03 BLOCKED`. No other state may change. No Cryptox Manager,
+  worker, retry, replacement, duplicate, or downstream writer is active.
+- The I-01 implementation delta was independently reviewed as seven exact
+  committed paths: five authorized backend paths plus the existing Manager
+  `TASKS.md` row and `HANDOFF.md`. No contract, module, schema, migration,
+  infrastructure, frontend, deferred, or unrelated path drift exists.
+- The current evidence is PASS for workspace tests, build, typecheck, lint,
+  architecture, artifacts, scope, deferred-scope `13/13`, runtime smoke,
+  backend PostgreSQL Auth/application integration `18/18`, Strategy
+  PostgreSQL integration `2/2`, local migration up/constraints/down/remigrate,
+  configured runtime `/live=200` and `/ready=200`, Binance historical and
+  realtime provider smoke, and bounded HTTP Auth/ownership/manual-backtest/
+  SearchRun execution. The backend focused suite has no PostgreSQL skip when
+  run against the local test database.
+- CoinDesk live News is explicitly `BLOCKED/UNVERIFIED` because the public
+  endpoint returned HTTP 401 without a configured credential. OpenSpec CLI and
+  browser/final-demo evidence remain `UNVERIFIED` where unavailable. Per the
+  approved plan, missing credentials block only live News smoke/demo; this
+  closure must not claim those checks as PASS or silently select a mock final
+  provider. They remain obligations for the later integration/final boundary.
+
+### Authorized closure packet: `I-01`
+
+- **Manager:** create exactly one fresh Manager in the canonical
+  same-directory checkout `D:/agy-cli-projects/AOS/Cryptox` on branch
+  `MVP_IMPLEMENTATION`, using `gpt-5.6-luna` with reasoning `max`. Do not use
+  a worktree, historical Manager, duplicate, retry, replacement, or another
+  user-visible task. The Manager must read `AGENTS.md`,
+  `docs/control/prompts/ORCHESTRATOR_START.md`, and the complete authority
+  chain, then verify this signal, checkpoint, DAG, and active-task absence.
+- **Verifier:** exactly one fresh sequential internal read-only verifier is
+  authorized, using `gpt-5.6-luna`, reasoning `max`, and Fast/priority service
+  tier when the subagent tool exposes it. Its write scope is `none`: it must
+  not edit, stage, commit, delete, create a child, or change task state. No
+  implementation worker is authorized for this closure packet.
+- **Manager-owned write scope:** only the existing `I-01` row in
+  `docs/implementation/TASKS.md` and the latest
+  `docs/implementation/HANDOFF.md`. The Manager may move only `I-01` from
+  `REVIEW` to `DONE` after independently verifying every applicable core
+  acceptance gate above. If evidence is incomplete or contradictory, it must
+  leave `I-01` at `REVIEW` and record the exact limitation; it must not claim
+  unavailable News, browser, OpenSpec, or final-demo evidence as PASS.
+- **Validation:** re-check exact source paths, public bootstrap boundaries,
+  trusted identity/401/404 ownership behavior, backend HTTP/WS and capability
+  tests, real local PostgreSQL Auth/application checks, migration validation,
+  real Binance historical/realtime checks, runtime readiness/liveness,
+  workspace gates, architecture/artifacts/scope/deferred checks, secret/log
+  scan, whitespace, exact-path review, and `git diff --check`. Use the
+  recorded CoinDesk/OpenSpec/browser statuses truthfully; do not replace them
+  with fixtures or skips.
+- **Prohibitions:** no source, contract, module, schema/migration, infra,
+  frontend, requirements, ADR, OpenSpec, package, or configuration edits; no
+  new task row; no I-02, I-03, extension, deferred, downstream, retry,
+  replacement, duplicate, worktree, or final/demo implementation. Do not
+  alter any task row other than I-01.
+- **Commit/stop:** make at most one coherent explicit-path commit attempt for
+  `TASKS.md` and `HANDOFF.md` only; do not stage `.codex/config.toml`. If Git
+  ACL denies it, record the exact error and do not retry. Stop immediately
+  after the I-01 closure decision and return the checkpoint to the Instructor.
 
 ## INS-121 — HOLD after I-01 runtime integration review
 

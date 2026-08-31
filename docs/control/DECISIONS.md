@@ -1566,3 +1566,44 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-041`, `INS-120`, and commit `5e06fdf`.
+
+## DEC-043 — Fresh I-01 closure-validation authorization
+
+Status: `APPROVED`
+
+Authority: Fresh Instructor review after `INS-121 / HOLD` at `0419f5f`, the
+integrated I-01 implementation at `5e06fdf`, current deterministic gates,
+local PostgreSQL/migration validation, real Binance historical/realtime
+evidence, and the bounded HTTP runtime smoke.
+
+Decision: Authorize exactly one fresh `INS-122 /
+APPROVED_FOR_EXECUTION` Manager in the canonical same-directory checkout to
+perform closure validation of exactly the existing `I-01` task. Authorize
+exactly one fresh sequential internal read-only verifier with no write scope;
+authorize no implementation worker. The Manager may update only the existing
+I-01 row and latest `HANDOFF.md`, moving I-01 from `REVIEW` to `DONE` only
+when the applicable core acceptance evidence is independently confirmed.
+No I-02, I-03, extension, deferred, downstream, retry, replacement,
+duplicate, worktree, or final/demo implementation is authorized.
+
+Why: The backend source now composes the approved public seams and has passed
+the real local PostgreSQL, migration, Binance, readiness, Auth/ownership,
+manual-backtest, and SearchRun checks required for the I-01 integration
+boundary. CoinDesk live News remains `BLOCKED/UNVERIFIED` because no
+credential is configured and the endpoint returned HTTP 401; OpenSpec CLI and
+browser/final-demo evidence remain `UNVERIFIED` where unavailable. The plan
+explicitly treats missing News credentials as a live smoke/demo limitation,
+not permission to claim PASS or select a mock final provider; those obligations
+remain for the later integration/final boundary. The closure Manager must
+preserve those truthful statuses and stop at I-01.
+
+Affected: `I-01`, `I-02`, `I-03`, `TASKS.md`, `HANDOFF.md`, `INS-121`,
+`INS-122`, and the integration DAG. Requirements, approved functional image
+amendments, accepted ADRs, contracts, integrated source, completed packets,
+and deferred scope remain unchanged.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [Architecture](../architecture.md),
+[Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-042`, `INS-121`, and commit `5e06fdf`.
