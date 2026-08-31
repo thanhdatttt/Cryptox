@@ -1817,3 +1817,49 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-047`, `INS-126`, and commit `223fc1b`.
+
+## DEC-049 — Authorize I-02 final E2E/demo verification
+
+Status: `APPROVED`
+
+Authority: Instructor review after I-03 was independently accepted under
+`INS-127 / DEC-048`, the repository returned to HOLD, I-01/I-03 were verified
+`DONE`, and the final packet was re-read from `MVP_PLAN.md`/`TASKS.md`.
+
+Decision: Issue exactly one fresh Manager authorization
+`INS-128 / APPROVED_FOR_EXECUTION` for the existing final I-02 packet. The
+Manager may use at most three disjoint internal reviewer/test children in
+parallel, with dedicated backend/frontend test scopes and either README-only
+traceability or a read-only verifier. No feature redesign, deferred scope,
+second Manager, duplicate, retry, replacement, worktree, or downstream task is
+authorized. I-02 alone may move through the normal operational states; the
+Manager owns its task row and latest handoff.
+
+Evidence: current HEAD is `a58530f` on `MVP_IMPLEMENTATION`, with only the
+untouched app-generated `.codex/config.toml` untracked; the board is exactly 49
+rows, `48 DONE` and `I-02 BLOCKED`; no competing Cryptox task is active. Docker
+Engine `28.5.1`, Compose `v2.40.3`, two healthy local PostgreSQL containers, and
+`npm run db:local:validate` (`up`, constraints, `down`, remigrate) are freshly
+verified. Live Binance/News credentials/provider access, browser/demo, and
+OpenSpec CLI availability still require truthful execution-time verification;
+unavailable evidence cannot be PASS.
+
+Acceptance includes real Auth/session and two-user isolation, real Binance
+BTCUSDT four-chart realtime market-only delivery, Strategy/Search/Experiment/
+Trade/metrics/provenance/Leaderboard behavior, real News plus local LEXICON
+Sentiment and failure demonstrations, mock-only rejection, all required
+architecture scenarios, clean setup, E2E twice, final traceability and clean
+tracked Git checkpoint. If a required item is unavailable or a defect exceeds
+the bounded app/test/doc scope, the Manager must leave I-02 `REVIEW` and report
+the exact blocker/`NEEDS_INSTRUCTOR_REVIEW`; it must not manufacture PASS or
+expand authorization.
+
+Affected: `I-02`, `I-03`, `TASKS.md`, `HANDOFF.md`, `INS-127`, `INS-128`, and
+the final MVP checkpoint. Requirements, functional image amendments, accepted
+ADRs, contracts, architecture, data model, and deferred scope remain unchanged.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [Architecture](../architecture.md),
+[Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-048`, `INS-127`, and commit `a58530f`.

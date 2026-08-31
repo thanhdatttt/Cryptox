@@ -2,11 +2,126 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-127`
+Instruction ID: `INS-128`
 
-Status: `HOLD`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-128 — APPROVED_FOR_EXECUTION for I-02 final E2E/demo verification
+
+This signal supersedes `INS-127 / HOLD` and authorizes exactly the existing
+final `I-02` packet. I-03 has been independently accepted as `DONE`; this is a
+separate final-verification authorization, not an automatic state transition.
+
+### Reviewed checkpoint and applicability
+
+- Canonical checkout: `D:/agy-cli-projects/AOS/Cryptox`, branch
+  `MVP_IMPLEMENTATION`, current committed HEAD
+  `a58530fa037ae0d46a2d76a9ce1674166aacd137` (`chore(control): hold after
+  I-03 acceptance`). The tracked tree is clean; the only remaining working-tree
+  item is untouched app-generated `.codex/config.toml`.
+- `TASKS.md` is authoritative at exactly 49 rows: `48 DONE`, including `I-01`
+  and `I-03`, and `I-02 BLOCKED`. No other task is `READY`, `IN_PROGRESS`, or
+  `REVIEW`; no Cryptox Manager, worker, verifier, retry, replacement, duplicate,
+  or downstream task is active. `HANDOFF.md` is the accepted I-03 checkpoint.
+- I-02 dependencies `I-01` and `I-03` are verified `DONE`. The local environment
+  now has fresh Docker evidence: Docker Engine `28.5.1`, Compose `v2.40.3`,
+  healthy `cryptox-local-postgres-dev-1` and `cryptox-local-postgres-test-1`,
+  and `npm run db:local:validate` passed `up`, constraints, `down`, and
+  remigrate. This evidence must still be recorded by the Manager in the final
+  handoff; it does not prove live Binance/News or browser evidence.
+
+### Authorized packet
+
+- **Packet:** `I-02` — E2E Demo, Documentation and Final Verification.
+- **Requirements:** Every REQUIRED requirement ID, especially
+  `CSL-R-AU-01`, `CSL-R-OW-01`, `CSL-R-RD-01`, `CSL-R-DL-01`, and
+  `CSL-R-DM-01`, plus the approved functional image amendment and DEC-007
+  behavior already represented by the accepted dependency packets.
+- **Objective:** Prove the complete MVP in a clean, reproducible final
+  checkpoint: runtime behavior, two-user ownership, real-provider/demo mode,
+  architecture defense, setup/documentation, requirement traceability, and
+  final handoff.
+- **Integration dependencies:** `I-01`, `I-03`, local PostgreSQL/migration
+  evidence, and live-provider smoke where required. No dependency is inferred
+  from a green unit test alone.
+
+### Exact scope and bounded delegation
+
+- Manager-owned scope: the existing I-02 row in
+  `docs/implementation/TASKS.md`, the latest
+  `docs/implementation/HANDOFF.md`, final acceptance/checkpoint evidence, and
+  narrowly scoped final setup/traceability documentation in `README.md` if a
+  concrete gap is found. The Manager may integrate worker test output and make
+  only a narrowly reviewed behavior-preserving fix in the approved app boundary
+  if it is explicitly within this packet; a new business/module/contract/schema
+  change requires stopping for Instructor review.
+- At most three internal child agents may be created, with disjoint scopes and
+  no user-visible task or manual approval. Parallelism is allowed only for
+  reviewer/test work:
+  1. backend E2E/HTTP/WebSocket/Auth/ownership proof, write scope limited to a
+     dedicated `apps/backend/src/i02*.spec.ts` test artifact;
+  2. frontend configured-mode/browser/functional-state proof, write scope
+     limited to a dedicated `apps/frontend/src/i02*.spec.tsx` test artifact;
+  3. final setup/traceability review, write scope limited to `README.md`, or a
+     read-only verifier with write scope `none` if no documentation gap exists.
+  Each child must use the internal subagent mechanism, model
+  `gpt-5.6-luna`, reasoning `max`, and `priority/Fast` service tier when
+  available. Workers may not edit `TASKS.md`, `HANDOFF.md`, Instructor or
+  decision files, requirements, ADRs, contracts, migrations, module business
+  logic, secrets, or unrelated files. The Manager must not create a second
+  Manager, duplicate worker, retry, replacement, worktree, or downstream task.
+- If a required runtime defect cannot be fixed by a narrowly reviewed,
+  behavior-preserving app-boundary change in the authorized scope, leave I-02
+  at `REVIEW` and report `NEEDS_INSTRUCTOR_REVIEW`; do not broaden the packet.
+
+### Required final acceptance
+
+The Manager must prove, with real configured mode where the requirement calls
+for it and with fixtures explicitly labeled non-final:
+
+- real register/login/current-user/session expiry/logout using PostgreSQL-backed
+  opaque HttpOnly sessions, with no credential/session/cookie/token logging;
+- User A/User B isolation and unauthenticated rejection across user-owned
+  Strategy definitions/composites, Search runs/candidates, Experiments/Trades,
+  Evaluation/Leaderboard reads and mutations, including owner-filtered
+  collections, cross-user not-found/denial, and trusted server identity;
+- real Binance BTCUSDT historical/realtime delivery to four independent charts,
+  market-only WebSocket behavior, normalized ticks/status, bounded ephemeral
+  observability, and no coupling into historical Backtesting or a general event
+  bus;
+- Strategy definitions/composite, bounded seeded Random Search with progress
+  and user-specific Top-K, selected Experiment, signals/entry/exit/overlays,
+  four finite metrics, and complete discovery/paper/ranking provenance;
+- real-source News plus local `LEXICON_V1` Sentiment, provider failure and
+  degraded-mode demonstrations, safe URL/extraction behavior, and explicit
+  rejection of mock-only final configuration;
+- all eight architecture-change scenarios required by the assignment and the
+  approved functional amendment, with no deferred enterprise identity,
+  queue/distributed, live-trading/generalized-risk, autonomous/unconfigured LLM,
+  or strict-replay scope leakage.
+
+### Validation and stop condition
+
+- Run clean setup/install where available, Docker/local PostgreSQL migration
+  validation, focused child tests, the complete workspace test suite, E2E twice
+  from clean state, build, typecheck, lint, architecture, artifact,
+  deferred-scope/scope, runtime smoke, whitespace/diff checks, and final
+  requirement/DAG/link traceability review. Record exact commands and results
+  in `HANDOFF.md`.
+- Live Binance/News, browser/final-demo, OpenSpec CLI/archive, or any required
+  environment unavailable at execution must be `BLOCKED`/`UNVERIFIED`, never
+  `PASS`; skipped tests, fixtures, prior screenshots, or carry-forward evidence
+  cannot substitute for required final mode. No secrets may be requested in
+  chat or printed.
+- The only allowed operational transition is
+  `I-02 BLOCKED -> READY -> IN_PROGRESS -> REVIEW -> DONE`, made solely by the
+  Manager. Mark `DONE` only when all applicable required evidence is complete;
+  otherwise leave `REVIEW` with the exact blocker and next evidence needed.
+- Stop after I-02 is exhausted. Do not start or promote any other task, edit
+  deferred scope, or claim final MVP completion from this signal unless the
+  complete final handoff and clean tracked Git checkpoint support it.
 
 ## INS-127 — HOLD after independent I-03 recovery acceptance
 
