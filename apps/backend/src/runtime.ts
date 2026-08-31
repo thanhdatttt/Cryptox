@@ -28,6 +28,14 @@ import {
   createNewsModule,
   createPostgresNewsDependencies,
   createNewsRefreshScheduler,
+  createRssNewsProvider,
+  createSafeNewsUrlFetcher,
+  type CoinDeskFetch,
+  type NewsProvider,
+  type NewsUrlImportExtractor,
+  type SafeDnsResolver,
+  type SafeNewsFetch,
+  type SafeNewsUrlFetchPort,
   type NewsRefreshClock,
   type NewsRefreshScheduler,
   type NewsRefreshTimer,
@@ -50,6 +58,7 @@ import {
   createOpenAiCompatibleAuthoringProvider,
   createPostgresStrategyDependencies,
   createStrategyModule,
+  type OpenAiCompatibleFetch,
   type StrategyModuleWithAuthoring,
 } from "@cryptox/strategy/bootstrap";
 import {
@@ -248,14 +257,263 @@ function dataBaseConfigured(value: string | undefined): boolean {
   return typeof value === "string" && value.trim().length > 0;
 }
 
-function configuredAuthoringProvider() {
-  const endpoint = process.env.LLM_AUTHORING_ENDPOINT?.trim();
-  const model = process.env.LLM_AUTHORING_MODEL?.trim();
-  const apiKey = process.env.LLM_AUTHORING_API_KEY;
-  if (!endpoint || !model || !apiKey?.trim()) return undefined;
+export const BACKEND_RUNTIME_ENV_NAMES = {
+  coindeskRssUrl: "COINDESK_RSS_URL",
+  coindeskRssAllowedHosts: "COINDESK_RSS_ALLOWED_HOSTS",
+  coindeskRssAllowedUrlPrefixes: "COINDESK_RSS_ALLOWED_URL_PREFIXES",
+  coindeskRssAllowedUrls: "COINDESK_RSS_ALLOWED_URLS",
+} as const;
 
-  const provider = createOpenAiCompatibleAuthoringProvider({ endpoint, model, apiKey });
+export type RuntimeEnvironment = Readonly<Record<string, string | undefined>>;
+
+export interface RuntimeProviderCompositionOptions {
+  readonly environment?: RuntimeEnvironment;
+  readonly safeNewsFetch?: SafeNewsFetch;
+  readonly safeDnsResolver?: SafeDnsResolver;
+  readonly coinDeskFetch?: CoinDeskFetch;
+  readonly authoringFetch?: OpenAiCompatibleFetch;
+}
+
+export interface ConfiguredNewsProviderComposition {
+  readonly providers: readonly NewsProvider[];
+  readonly safeUrlFetcher?: SafeNewsUrlFetchPort;
+  readonly urlImportExtractor?: NewsUrlImportExtractor;
+}
+
+function environmentText(environment: RuntimeEnvironment, name: string): string | undefined {
+  const value = environment[name];
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+interface EnvironmentList {
+  readonly present: boolean;
+  readonly valid: boolean;
+  readonly values?: readonly string[];
+}
+
+function environmentList(environment: RuntimeEnvironment, name: string): EnvironmentList {
+  const raw = environment[name];
+  if (raw === undefined) return { present: false, valid: true };
+  if (typeof raw !== "string" || !raw.trim()) return { present: true, valid: false };
+  const values = raw.split(/[,\r\n]/u).map((value) => value.trim());
+  if (values.some((value) => value.length === 0)) return { present: true, valid: false };
+  return { present: true, valid: true, values };
+}
+
+interface EnvironmentUrl {
+  readonly present: boolean;
+  readonly valid: boolean;
+  readonly value?: string;
+}
+
+function unsafeConfiguredHostname(value: string): boolean {
+  const hostname = value.toLowerCase().replace(/^\[|\]$/gu, "").replace(/\.$/u, "");
+  if (
+    hostname === "localhost"
+    || hostname.endsWith(".localhost")
+    || hostname.endsWith(".local")
+    || hostname === "local"
+    || hostname === "0.0.0.0"
+    || hostname === "::"
+  ) return true;
+
+  const octets = hostname.split(".").map(Number);
+  if (octets.length === 4 && octets.every((octet) => Number.isInteger(octet) && octet >= 0 && octet <= 255)) {
+    const [first, second] = octets;
+    if (
+      first === 0
+      || first === 10
+      || first === 127
+      || (first === 100 && second >= 64 && second <= 127)
+      || (first === 169 && second === 254)
+      || (first === 172 && second >= 16 && second <= 31)
+      || (first === 192 && second === 168)
+      || (first === 192 && second === 0)
+      || (first === 198 && second >= 18 && second <= 19)
+      || first >= 224
+    ) return true;
+  }
+  return hostname === "::1"
+    || hostname.startsWith("fc")
+    || hostname.startsWith("fd")
+    || /^fe[89ab]/u.test(hostname)
+    || hostname.startsWith("2001:db8:")
+    || hostname.startsWith("2001:10:");
+}
+
+function secureConfiguredHttpsUrl(value: string): URL | undefined {
+  try {
+    const parsed = new URL(value.trim());
+    if (parsed.protocol !== "https:" || parsed.username || parsed.password || unsafeConfiguredHostname(parsed.hostname)) {
+      return undefined;
+    }
+    parsed.hash = "";
+    return parsed;
+  } catch {
+    return undefined;
+  }
+}
+
+function environmentUrl(environment: RuntimeEnvironment, name: string): EnvironmentUrl {
+  const raw = environment[name];
+  if (raw === undefined) return { present: false, valid: true };
+  if (typeof raw !== "string" || !raw.trim()) return { present: true, valid: false };
+  const parsed = secureConfiguredHttpsUrl(raw);
+  return parsed === undefined
+    ? { present: true, valid: false }
+    : { present: true, valid: true, value: parsed.toString() };
+}
+
+function configuredHost(value: string): string | undefined {
+  const host = value.trim().toLowerCase();
+  const candidate = host.startsWith("*.") ? host.slice(2) : host;
+  if (!candidate || host.includes("*") && !host.startsWith("*.") || candidate.includes("/") || candidate.includes(":")) {
+    return undefined;
+  }
+  if (!/^[a-z0-9.-]+$/u.test(candidate) || unsafeConfiguredHostname(candidate)) return undefined;
+  return host;
+}
+
+function configuredUrlList(values: readonly string[], prefix: boolean): readonly string[] | undefined {
+  const normalized = values.map((value) => {
+    const parsed = secureConfiguredHttpsUrl(value);
+    if (parsed === undefined) return undefined;
+    if (prefix) parsed.search = "";
+    return parsed.toString();
+  });
+  return normalized.some((value) => value === undefined) ? undefined : normalized as string[];
+}
+
+function hostMatches(hostname: string, allowed: string): boolean {
+  return allowed.startsWith("*.")
+    ? hostname.endsWith(allowed.slice(1)) && hostname !== allowed.slice(2)
+    : hostname === allowed;
+}
+
+function pathMatches(target: URL, prefix: URL): boolean {
+  if (target.origin !== prefix.origin) return false;
+  if (target.pathname === prefix.pathname) return true;
+  const prefixPath = prefix.pathname.endsWith("/") ? prefix.pathname : `${prefix.pathname}/`;
+  return target.pathname.startsWith(prefixPath);
+}
+
+function allowlistCovers(target: URL, hosts: readonly string[], prefixes: readonly string[], urls: readonly string[]): boolean {
+  if (urls.includes(target.toString())) return true;
+  if (hosts.some((host) => hostMatches(target.hostname, host))) return true;
+  return prefixes.some((prefix) => {
+    const parsed = secureConfiguredHttpsUrl(prefix);
+    return parsed !== undefined && pathMatches(target, parsed);
+  });
+}
+
+interface ConfiguredRssSource {
+  readonly url: string;
+  readonly allowedHosts: readonly string[];
+  readonly allowedUrlPrefixes: readonly string[];
+  readonly allowedUrls: readonly string[];
+}
+
+function configuredRssSource(environment: RuntimeEnvironment): ConfiguredRssSource | undefined {
+  const url = environmentUrl(environment, BACKEND_RUNTIME_ENV_NAMES.coindeskRssUrl);
+  const hosts = environmentList(environment, BACKEND_RUNTIME_ENV_NAMES.coindeskRssAllowedHosts);
+  const prefixes = environmentList(environment, BACKEND_RUNTIME_ENV_NAMES.coindeskRssAllowedUrlPrefixes);
+  const urls = environmentList(environment, BACKEND_RUNTIME_ENV_NAMES.coindeskRssAllowedUrls);
+  const hasConfiguration = url.present || hosts.present || prefixes.present || urls.present;
+  if (!hasConfiguration || !url.valid || !url.value || !hosts.valid || !prefixes.valid || !urls.valid) return undefined;
+
+  const allowedHosts = (hosts.values ?? []).map(configuredHost);
+  const allowedUrlPrefixes = configuredUrlList(prefixes.values ?? [], true);
+  const allowedUrls = configuredUrlList(urls.values ?? [], false);
+  if (
+    allowedHosts.some((value) => value === undefined)
+    || allowedUrlPrefixes === undefined
+    || allowedUrls === undefined
+    || (allowedHosts.length === 0 && allowedUrlPrefixes.length === 0 && allowedUrls.length === 0)
+  ) return undefined;
+
+  const target = secureConfiguredHttpsUrl(url.value);
+  if (target === undefined) return undefined;
+  const normalizedHosts = allowedHosts as string[];
+  if (!allowlistCovers(target, normalizedHosts, allowedUrlPrefixes, allowedUrls)) return undefined;
+  return {
+    url: target.toString(),
+    allowedHosts: normalizedHosts,
+    allowedUrlPrefixes,
+    allowedUrls,
+  };
+}
+
+export function createConfiguredAuthoringProvider(
+  options: Pick<RuntimeProviderCompositionOptions, "environment" | "authoringFetch"> = {},
+) {
+  const environment = options.environment ?? process.env;
+  const endpoint = environmentText(environment, "LLM_AUTHORING_ENDPOINT");
+  const model = environmentText(environment, "LLM_AUTHORING_MODEL");
+  const apiKey = environment["LLM_AUTHORING_API_KEY"];
+  if (!endpoint || !model || typeof apiKey !== "string" || !apiKey.trim()) return undefined;
+
+  const provider = createOpenAiCompatibleAuthoringProvider({
+    endpoint,
+    model,
+    apiKey,
+    ...(options.authoringFetch === undefined ? {} : { fetch: options.authoringFetch }),
+  });
   return provider.configured ? provider : undefined;
+}
+
+export function composeConfiguredNewsProviders(
+  options: RuntimeProviderCompositionOptions = {},
+): ConfiguredNewsProviderComposition {
+  const environment = options.environment ?? process.env;
+  const providers: NewsProvider[] = [];
+
+  const apiKey = environmentText(environment, "COINDESK_API_KEY");
+  const baseUrl = environmentText(environment, "COINDESK_BASE_URL");
+  if (apiKey || baseUrl) {
+    try {
+      providers.push(createCoinDeskNewsProvider({
+        ...(apiKey === undefined ? {} : { apiKey }),
+        ...(baseUrl === undefined ? {} : { baseUrl }),
+        ...(options.coinDeskFetch === undefined ? {} : { fetch: options.coinDeskFetch }),
+      }));
+    } catch {
+      // An invalid legacy configuration remains unavailable without selecting a fixture.
+    }
+  }
+
+  let safeUrlFetcher: SafeNewsUrlFetchPort | undefined;
+  let urlImportExtractor: NewsUrlImportExtractor | undefined;
+  const rssSource = configuredRssSource(environment);
+  if (rssSource) {
+    try {
+      const source = {
+        id: "coindesk-rss",
+        kind: "RSS" as const,
+        url: rssSource.url,
+        allowedHosts: rssSource.allowedHosts,
+        allowedUrlPrefixes: rssSource.allowedUrlPrefixes,
+        allowedUrls: rssSource.allowedUrls,
+        displayName: "CoinDesk RSS",
+      };
+      const configuredSafeUrlFetcher = createSafeNewsUrlFetcher({
+        sources: [source],
+        ...(options.safeNewsFetch === undefined ? {} : { fetch: options.safeNewsFetch }),
+        ...(options.safeDnsResolver === undefined ? {} : { resolve: options.safeDnsResolver }),
+      });
+      const provider = createRssNewsProvider({ source, safeFetcher: configuredSafeUrlFetcher });
+      providers.push(provider);
+      safeUrlFetcher = configuredSafeUrlFetcher;
+      urlImportExtractor = provider;
+    } catch {
+      // Missing or unsafe RSS configuration remains unavailable without a fixture fallback.
+    }
+  }
+
+  return {
+    providers,
+    ...(safeUrlFetcher === undefined ? {} : { safeUrlFetcher }),
+    ...(urlImportExtractor === undefined ? {} : { urlImportExtractor }),
+  };
 }
 
 function nowIso(): string {
@@ -345,7 +603,7 @@ export function createBackendRuntime(options: BackendRuntimeOptions = {}): Backe
         connectionString: databaseUrl!,
         pool: authRuntime.pool,
       });
-      const provider = configuredAuthoringProvider();
+      const provider = createConfiguredAuthoringProvider();
       strategy = createStrategyModule({
         factories: strategyPublic.STRATEGY_FACTORIES,
         definitionRepository: dependencies.definitionRepository,
@@ -550,25 +808,16 @@ export function createBackendRuntime(options: BackendRuntimeOptions = {}): Backe
     }
   }
 
-  const newsConfigured = Boolean(
-    process.env.COINDESK_API_KEY?.trim() || process.env.COINDESK_BASE_URL?.trim(),
-  );
+  const configuredNews = composeConfiguredNewsProviders();
+  const newsConfigured = configuredNews.providers.length > 0;
   if (!news && realPersistence && newsConfigured) {
     try {
       const dependencies = createPostgresNewsDependencies({
         connectionString: databaseUrl!,
         pool: authRuntime.pool,
       });
-      const provider = createCoinDeskNewsProvider({
-        ...(process.env.COINDESK_API_KEY?.trim()
-          ? { apiKey: process.env.COINDESK_API_KEY.trim() }
-          : {}),
-        ...(process.env.COINDESK_BASE_URL?.trim()
-          ? { baseUrl: process.env.COINDESK_BASE_URL.trim() }
-          : {}),
-      });
       news = createNewsModule({
-        providers: [provider],
+        providers: configuredNews.providers,
         newsRepository: dependencies.newsRepository,
         sentiment,
         sentimentTimeoutMs: 1_000,
@@ -584,6 +833,12 @@ export function createBackendRuntime(options: BackendRuntimeOptions = {}): Backe
         templateRepository: dependencies.extractionTemplateRepository,
         extractionProvenanceRepository: dependencies.extractionProvenanceRepository,
         rawHtmlRepository: dependencies.rawHtmlRepository,
+        ...(configuredNews.safeUrlFetcher === undefined
+          ? {}
+          : { safeUrlFetcher: configuredNews.safeUrlFetcher }),
+        ...(configuredNews.urlImportExtractor === undefined
+          ? {}
+          : { urlImportExtractor: configuredNews.urlImportExtractor }),
       });
     } catch {
       news = undefined;

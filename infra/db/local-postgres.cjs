@@ -6,6 +6,7 @@ const { spawnSync } = require("node:child_process");
 const repositoryRoot = path.resolve(__dirname, "..", "..");
 const composeFile = path.join(repositoryRoot, "infra", "docker-compose.yml");
 const localEnvironmentFile = path.join(__dirname, "local.env");
+const rootEnvironmentFile = path.join(repositoryRoot, ".env");
 const databases = {
   development: { service: "postgres-dev", name: "cryptox_development" },
   test: { service: "postgres-test", name: "cryptox_test" },
@@ -44,9 +45,12 @@ function run(command, args, options = {}) {
 }
 
 function compose(args, options) {
+  const environmentFiles = fs.existsSync(rootEnvironmentFile)
+    ? ["--env-file", rootEnvironmentFile, "--env-file", localEnvironmentFile]
+    : ["--env-file", localEnvironmentFile];
   return run(
     "docker",
-    ["compose", "--project-name", "cryptox-local", "--env-file", localEnvironmentFile, "-f", composeFile, ...args],
+    ["compose", "--project-name", "cryptox-local", ...environmentFiles, "-f", composeFile, ...args],
     { ...options, label: "Docker Compose" },
   );
 }

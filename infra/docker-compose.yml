@@ -38,9 +38,16 @@ services:
     build:
       context: ..
       dockerfile: infra/docker/backend.Dockerfile
+    env_file:
+      - path: ../.env
+        required: false
     environment:
       PORT: 3000
+      DATABASE_URL: "postgresql://cryptox:${CRYPTOX_LOCAL_POSTGRES_PASSWORD:?Run npm run db:local:prepare first}@postgres-dev:5432/cryptox_development"
     ports: ["3000:3000"]
+    depends_on:
+      postgres-dev:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/live"]
       interval: 5s
@@ -51,7 +58,23 @@ services:
     build:
       context: ..
       dockerfile: infra/docker/frontend.Dockerfile
+      args:
+        VITE_MARKET_SOURCE: ${VITE_MARKET_SOURCE:-remote}
+        VITE_MARKET_REST_URL: ${VITE_MARKET_REST_URL:-/api}
+        VITE_MARKET_WS_URL: ${VITE_MARKET_WS_URL:-ws://localhost:3000}
+        VITE_AUTH_SOURCE: ${VITE_AUTH_SOURCE:-remote}
+        VITE_AUTH_BASE_URL: ${VITE_AUTH_BASE_URL:-/api}
+        VITE_FEATURE_SOURCE: ${VITE_FEATURE_SOURCE:-remote}
+        VITE_FEATURE_BASE_URL: ${VITE_FEATURE_BASE_URL:-/api}
     environment:
+      VITE_MARKET_SOURCE: ${VITE_MARKET_SOURCE:-remote}
+      VITE_MARKET_REST_URL: ${VITE_MARKET_REST_URL:-/api}
+      VITE_MARKET_WS_URL: ${VITE_MARKET_WS_URL:-ws://localhost:3000}
+      VITE_AUTH_SOURCE: ${VITE_AUTH_SOURCE:-remote}
+      VITE_AUTH_BASE_URL: ${VITE_AUTH_BASE_URL:-/api}
+      VITE_FEATURE_SOURCE: ${VITE_FEATURE_SOURCE:-remote}
+      VITE_FEATURE_BASE_URL: ${VITE_FEATURE_BASE_URL:-/api}
+      VITE_AUTH_PROXY_TARGET: http://backend:3000
       VITE_BACKEND_URL: http://backend:3000
     ports: ["5173:5173"]
     depends_on:

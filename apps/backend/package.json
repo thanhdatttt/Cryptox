@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "start": "node dist/apps/backend/src/main.js",
+    "start": "node --env-file-if-exists=../../.env dist/apps/backend/src/main.js",
     "dev": "ts-node src/main.ts",
     "test": "vitest run --passWithNoTests",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.auth-e2e.json --noEmit",

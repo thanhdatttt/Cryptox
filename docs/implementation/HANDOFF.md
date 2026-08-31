@@ -1,121 +1,119 @@
-# I-02 Remote Market Client Repair Execution Checkpoint — INS-150 / DEC-071
+# I-02 Provider and Local Configuration Execution Checkpoint — INS-152 / DEC-073
 
 ## Authority and applicability
 
-- Current signal: `INS-150 / APPROVED_FOR_EXECUTION`; durable decision:
-  `DEC-071`.
+- Current signal: `INS-152 / APPROVED_FOR_EXECUTION`; durable decision:
+  `DEC-073`.
 - Canonical checkout: `D:\agy-cli-projects\AOS\Cryptox`, branch
-  `MVP_IMPLEMENTATION`, same directory. The authorization checkpoint is
-  `31c7f7391cfb599b98fa080735ceccceeab23a13`; its reviewed source/business
-  checkpoint is `69d7982`. The only diff from `69d7982` to the authorization
-  checkpoint is the committed control-plane update in
-  `docs/control/INSTRUCTOR.md` and `docs/control/DECISIONS.md`; no source,
-  test, contract, migration, infrastructure, environment, requirement, ADR,
-  OpenSpec, or generated-path drift was found.
+  `MVP_IMPLEMENTATION`, same directory. The reviewed source/business
+  checkpoint is `2be555ccd834dca74d3ed53c307136f4975ebe02`; the authorization
+  checkpoint is `5ab03f545dc2e2998530a942776ac889cd7d0a89`. Before execution,
+  the only diff from the reviewed checkpoint was the committed
+  `INS-152`/`DEC-073` control-plane update; no source, business, task-DAG,
+  contract, migration, requirement, ADR, OpenSpec, or generated-path drift was
+  found.
 - The pre-existing app-generated untracked `.codex/config.toml` remains
-  excluded. No credential, token, cookie, password, or secret was requested,
-  printed, entered into the browser, or added to the repository.
+  excluded. No credential, token, cookie, password, connection string, or
+  secret was requested, printed, entered, or added to the repository.
 - Before re-entry, `TASKS.md` had 57 operational rows: `56 DONE`, only `I-02`
-  in `REVIEW`, and no other `READY`, `IN_PROGRESS`, `BLOCKED`, or `REVIEW`
-  row. `I-02D` remains `DONE`. No other Cryptox Manager/worker, retry,
-  replacement, duplicate, or user-visible worker was active or dispatched.
-- The checked-in active `mvp-implementation` proposal, design, market-data and
-  frontend capability specifications, and delivery specification were read and
-  are consistent with this bounded repair. The local OpenSpec CLI was not
-  available; formal CLI status/instruction validation is `UNVERIFIED` and was
-  not used as acceptance evidence.
+  in `REVIEW`, and no other active row. `I-02D`, `I-01`, and `I-03` were
+  already `DONE`. No other Manager/worker, retry, replacement, duplicate,
+  worktree, or downstream task was active or dispatched.
+- The governing requirements, accepted ADRs, architecture/data model, active
+  change, and relevant News/Strategy specs were read. The local OpenSpec CLI
+  is unavailable; formal CLI status/instruction validation remains
+  `UNVERIFIED` and is not acceptance evidence.
 
 ## Governing requirements and authorized boundary
 
-- Governing requirements: `CSL-R-MD-01`, `CSL-R-MD-02`, `CSL-R-MD-03`,
-  `CSL-R-FE-01`, configured-runtime portions of `CSL-R-RD-01`, and the
-  corresponding `CSL-R-DM-01` browser acceptance; applicable decisions are
-  `DEC-071` and `INS-150`, with ADR-001 as the market WebSocket boundary.
-- I-02 was re-entered exactly through `REVIEW -> READY -> IN_PROGRESS` under
-  `INS-150`. Only one fresh hidden internal implementation worker was
-  authorized. No downstream task was started or promoted.
-- Worker write scope was exactly `apps/frontend/src/market/clients.ts` and
-  `apps/frontend/src/market/clients.spec.ts`. The Manager-owned control scope
-  was limited to this checkpoint and `docs/implementation/TASKS.md`.
+- Applicable requirements are `CSL-R-RD-01`, `CSL-R-NW-01`, `CSL-R-NW-02`,
+  `CSL-R-ST-05`, `CSL-R-OB-01`, `CSL-R-RP-02`, `CSL-R-DL-01`, and
+  `CSL-R-DM-01`, with ADR-004/005/009 and the exact `INS-152`/`DEC-073`
+  boundary.
+- I-02 moved exactly through `REVIEW -> READY -> IN_PROGRESS -> REVIEW`.
+  Exactly two fresh hidden internal workers were used sequentially. No
+  downstream task was started, unlocked work was auto-started, or final I-02
+  claim was made.
+- Worker A scope was exactly `apps/backend/src/runtime.ts` and
+  `apps/backend/src/runtime.news-composition.spec.ts`.
+- Worker B scope was exactly `.env.example`, `.dockerignore`, `README.md`,
+  `apps/backend/package.json`, `apps/frontend/vite.config.ts`,
+  `infra/docker-compose.yml`, `infra/docker/backend.Dockerfile`,
+  `infra/docker/frontend.Dockerfile`, and `infra/db/local-postgres.cjs`.
+  The backend Dockerfile was reviewed and intentionally unchanged.
 
-## Worker result and independent review
+## Worker results and Manager review
 
-- Russell (`01a05875-42d3-7f03-982a-c8a768b6c4a9`) completed once. No commit,
-  branch, worktree, child worker, retry, replacement, or control-plane edit was
-  made by the worker.
-- `clients.ts` now uses the receiver-preserving `browserMarketFetch` wrapper
-  as the default `RestMarketDataClient` seam. `clients.spec.ts` adds a focused
-  regression that demonstrates the old unbound browser-like fetch raises
-  `Illegal invocation` and that the default wrapper succeeds.
-- The existing REST URL, POST method, credentials policy, DTO validation,
-  WebSocket client, subscription/reconnect behavior, and chart independence
-  are unchanged. The worker changed only the two named paths.
-- Manager review found the exact intended five-line source change and the
-  focused regression only; no backend, module, transport contract, provider,
-  fixture selection, chart calculation, or generated-path change was present.
+- Tesla (`01a05897-6560-7841-8943-7fea58702530`) completed once. The runtime
+  composes the existing safe, allowlisted HTTPS CoinDesk RSS provider from
+  explicit environment values, preserves the explicit legacy JSON path, and
+  uses only the existing provider-neutral `LLM_AUTHORING_*` authoring path.
+  Focused tests cover safe/incomplete RSS configuration, no fixture fallback,
+  legacy JSON compatibility, authoring configuration, and ignored `GEMINI_*`
+  aliases. No credential or live call was used.
+- Manager reviewed Tesla's exact two-file diff and independently ran the
+  focused runtime suite (`12/12` PASS), backend typecheck/lint, and
+  `git diff --check`.
+- Kuhn (`01a058a5-2c43-7692-a73e-396da8c0db85`) completed once. The exact
+  changed files were `.env.example`, `.dockerignore`, `README.md`,
+  `apps/backend/package.json`, `apps/frontend/vite.config.ts`,
+  `infra/docker-compose.yml`, `infra/docker/frontend.Dockerfile`, and
+  `infra/db/local-postgres.cjs`. The packet adds secret-free root env
+  documentation, optional Node env-file loading, Docker internal PostgreSQL
+  URL/health wiring, public-only frontend build/runtime values, and truthful
+  setup/demo documentation.
+- Manager made one narrow review correction inside that scope: the example
+  leaves `COINDESK_BASE_URL` empty so the no-key RSS path is the default while
+  the legacy JSON adapter remains available when explicitly configured.
+  Neither worker edited control-plane files or used a branch, worktree,
+  credential, or live provider call.
 
 ## Validation evidence
 
-- Worker-reported focused market-client test: `5/5` PASS; frontend typecheck,
-  lint, and diff check PASS.
-- Independent focused market-client test: `5/5` PASS.
-- Independent I-02 frontend test: `5/5` PASS.
-- Full frontend suite: `14` files, `50/50` tests PASS.
-- Full workspace suite: `449` tests PASS, `9` environment-gated skips, `0`
-  failures. Skips and deterministic fixture tests are not live-provider
-  evidence.
-- Frontend typecheck, frontend lint, frontend production build, root
-  typecheck, root lint, and root build: PASS.
-- Architecture check: PASS (`189` modules / `642` dependencies); the reported
-  `9` forbidden dependency fixtures are the existing intentional diagnostics.
-  Artifact check: PASS. Deferred-scope check: PASS. Deferred-scope tests:
-  `15/15` PASS. `git diff --check`: PASS. Exact tracked-path review: PASS;
-  before the final commit the only tracked paths are the two authorized source
-  paths plus Manager-owned `TASKS.md` and `HANDOFF.md`.
+- Full workspace tests: `459` passed, `9` environment-gated skips, `0`
+  failures; the independent root `npm test` process exited `0`. Focused
+  runtime tests were `12/12` PASS.
+- Root build, typecheck, and lint exited `0`. Architecture check PASS
+  (`189` modules / `644` dependencies); its nine forbidden-dependency fixture
+  diagnostics are the existing intentional checks. Artifact check PASS.
+- Deferred-scope check PASS; focused scope regression `15/15` PASS. Runtime
+  smoke PASS with the truthful no-database result `/live=200`, `/ready=503`,
+  `/health=404`.
+- Frontend production build and bundle scan PASS: no server-only database,
+  credential, or private provider configuration names were found in
+  `apps/frontend/dist`. Secret-shaped-value scan of all authorized changed
+  files found no matches.
+- Compose interpolation/configuration check PASS with the available
+  `docker-compose` v2.40.2 client. Exact-path review, `git diff --check`, and
+  source-adjacent artifact review PASS. `.codex/config.toml` remains excluded.
 
 ## Live versus fixture evidence
 
-- Live configured backend probe: `/live=200`, `/ready=200`; the optional News
-  provider was degraded. The real market history boundary returned HTTP 200
-  with 100 `BTCUSDT` candles and `provider=binance` for the bounded request.
-- Live local browser probe used `VITE_MARKET_SOURCE=remote`, the repository's
-  same-origin `/api` market REST proxy, and the existing market WebSocket URL.
-  The UI displayed `Configured market provider`, rendered exactly four market
-  chart articles, showed no history error banners, and the browser console had
-  no warning/error entries. The four charts therefore passed the repaired
-  history/fetch boundary without `Illegal invocation`.
-- The browser was not authenticated and no credential was entered. The market
-  WebSocket consequently ended in its expected unauthenticated/disconnected
-  state; authenticated realtime delivery, two-user Auth isolation, and the
-  complete final demo remain `BLOCKED`/`UNVERIFIED` and are not claimed from
-  this repair.
-- Missing configured CoinDesk News, provider-neutral `LLM_AUTHORING_*`, full
-  authenticated browser/demo evidence, clean-install evidence, and formal
-  OpenSpec CLI evidence remain `BLOCKED`/`UNVERIFIED`. No `GEMINI_*` value was
-  mapped or used. These limitations do not identify a new source gap in the
-  two-file market repair.
+- Deterministic tests and local runtime smoke are not live-provider evidence.
+  The official RSS URL and allowlist are now operable through the existing safe
+  boundary, but no live CoinDesk RSS call was made. Gemini compatibility is
+  documented and composed only through the existing `LLM_AUTHORING_*` names;
+  no native Gemini SDK or `GEMINI_*` alias exists.
+- Docker runtime evidence is `BLOCKED`: `docker compose` is not available as
+  a subcommand and the Docker daemon is inaccessible. The available
+  `docker-compose config --quiet` check proves interpolation only, not
+  container startup, health, migrations, or teardown.
+- Real configured News/LLM calls, Docker-backed PostgreSQL/Auth state and
+  migrations, authenticated browser/demo evidence, clean-install evidence,
+  and OpenSpec CLI evidence remain `BLOCKED`/`UNVERIFIED`. Historical or
+  fixture evidence is not promoted to close the final real-data gate.
 
 ## Final task state and stop boundary
 
-- I-02 transition: `REVIEW -> READY -> IN_PROGRESS -> REVIEW` under `INS-150`.
-  The bounded repair is accepted at its authorized packet boundary, but I-02
-  is not promoted to `DONE` from this fix because the broader final-demo
-  evidence remains incomplete.
-- `I-02D` remains `DONE`; all other rows remain unchanged. `I-03` and every
-  downstream/newly unlocked packet remain untouched. The Manager stops here.
-- Renewed Instructor review remains required before any I-02 promotion or
-  downstream execution. No new implementation authorization is requested by
-  this checkpoint.
-
-## Commit boundary
-
-- At most one coherent explicit-path staging/commit attempt was authorized for
-  exactly these tracked files: `apps/frontend/src/market/clients.ts`,
-  `apps/frontend/src/market/clients.spec.ts`,
-  `docs/implementation/TASKS.md`, and `docs/implementation/HANDOFF.md`.
-  `.codex/config.toml` remained excluded. The single attempt was denied with
-  the exact Git error `fatal: Unable to create
-  'D:/agy-cli-projects/AOS/Cryptox/.git/index.lock': Permission denied`; no
-  retry was made.
-- The final branch, HEAD, status, and uncommitted commit outcome are
-  authoritative in Git at handoff completion.
+- `I-02` remains `REVIEW`; its bounded provider/local-configuration packet is
+  reviewed, but the broader final-demo acceptance is not proven. `I-02D` and
+  all other rows remain unchanged. No downstream packet is authorized.
+- The single coherent explicit-path Manager staging/commit attempt was blocked
+  before staging by the exact Git error `fatal: Unable to create
+  'D:/agy-cli-projects/AOS/Cryptox/.git/index.lock': Permission denied`. No
+  commit was created, no retry was made, and `.codex/config.toml` remained
+  excluded. The authorized source/configuration/documentation and Manager
+  control delta remains uncommitted for Instructor audit.
+- The resulting Git branch, HEAD, status, and blocked commit outcome are
+  authoritative at handoff. Fresh Instructor review is required before any
+  I-02 promotion, downstream execution, or another commit attempt.
