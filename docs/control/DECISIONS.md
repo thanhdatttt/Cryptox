@@ -3345,3 +3345,51 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-081`, `INS-160`, and `INS-161`.
+
+## DEC-083 — Authorize OpenSpec and traceability reconciliation
+
+Status: `APPROVED`
+
+Authority: Instructor review at the committed `INS-161 / HOLD` checkpoint
+`5d14f27598f2b2b25c0f3d4ec44f9319a1009f9a`. The final INS-160 review left
+only `I-02` operationally at `REVIEW` (`57` of `58` rows are `DONE`); no
+Manager or worker is active. OpenSpec CLI `1.11.0` is installed and runnable
+in the Instructor context. Its active `mvp-implementation` change validates,
+but all ten active capability specs fail solely because their purpose heading
+is not in the CLI-required `## Purpose` form. The final review also identified
+seven required IDs not literally covered by the current `MVP_PLAN.md`.
+
+Authorize exactly one fresh same-directory Manager in the canonical checkout,
+using `gpt-5.6-luna` with `max` reasoning and no worktree. The Manager may
+create exactly two fresh hidden internal workers sequentially, with disjoint
+write scopes: one may normalize only the ten active capability spec headings
+under `openspec/specs/` while preserving their existing content and meaning;
+the other may edit only `docs/implementation/MVP_PLAN.md` to add traceability
+for `CSL-R-AR-02`, `CSL-R-AR-03`, `CSL-R-MD-01`, `CSL-R-SE-01`,
+`CSL-R-SE-02`, `CSL-R-ST-02`, and `CSL-R-VIS-01` to existing approved packets
+and evidence. No worker may edit source, tests, requirements, ADRs, active or
+archived changes, config, environment, task state, handoff, or credentials.
+
+The Manager alone may update `TASKS.md` and `HANDOFF.md`, and may re-enter
+only the existing `I-02` row `REVIEW -> READY -> IN_PROGRESS -> REVIEW` for
+this reconciliation. It must not mark I-02 `DONE` under this packet. Acceptance
+requires OpenSpec `validate --all --no-interactive --json` to pass for all
+active specs/change, the seven IDs to link to existing packets without DAG or
+scope changes, and exact-path/whitespace/secret/link/DAG checks to pass. Any
+semantic requirement change, new task, source repair, or extra path is
+`NEEDS_INSTRUCTOR_REVIEW`. Each worker runs once; no retry/replacement. The
+Manager makes at most one explicit-path checkpoint commit attempt and stops.
+
+No native Gemini integration, `GEMINI_*` mapping, automatic retry/fallback,
+credential change, provider addition, fixture substitution, deferred scope,
+final I-02 promotion, or downstream execution is authorized. The Instructor
+will independently rerun the CLI and audit the resulting documentation/spec
+diff before issuing the next signal.
+
+Affected: `I-02`, `TASKS.md`, `HANDOFF.md`, `MVP_PLAN.md`, `openspec/specs/**`,
+`INS-161`, and `INS-162`.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-082`, `INS-161`, and `INS-162`.

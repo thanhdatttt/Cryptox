@@ -2,11 +2,96 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-161`
+Instruction ID: `INS-162`
 
-Status: `HOLD`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-162 — APPROVED_FOR_EXECUTION for OpenSpec and traceability reconciliation
+
+This instruction supersedes `INS-161 / HOLD` and authorizes one narrowly
+bounded documentation/specification reconciliation within the existing final
+I-02 verification boundary. It repairs validator compatibility and missing
+requirement-to-plan links only; it adds no product capability and does not
+promote I-02 or start downstream work.
+
+### Reviewed checkpoint and applicability
+
+- Canonical checkout: `D:\\agy-cli-projects\\AOS\\Cryptox`, branch
+  `MVP_IMPLEMENTATION`, reviewed HEAD
+  `5d14f27598f2b2b25c0f3d4ec44f9319a1009f9a` (the current `INS-161 / HOLD`
+  governance checkpoint). The tracked tree is clean; `.codex/config.toml` remains the
+  pre-existing untracked item and the ignored `.env` remains outside Git.
+- `TASKS.md` is authoritative at `58` rows: `57` `DONE`, only `I-02`
+  `REVIEW`, with no `READY` or `IN_PROGRESS` row. `N-03S`, `N-03R`, `I-02D`,
+  `I-01`, and `I-03` are `DONE`; no Cryptox Manager or worker is active.
+- Instructor execution proved OpenSpec CLI `1.11.0` is installed and
+  executable through the local npm shim. `openspec validate --all
+  --no-interactive --json` currently passes the active `mvp-implementation`
+  change and fails exactly the ten capability specs because the CLI requires
+  `## Purpose` and `## Requirements` while those files currently start with
+  `## Purpose and boundary`.
+- Independent review also identified seven required IDs not literally covered
+  by the current `MVP_PLAN.md` traceability: `CSL-R-AR-02`,
+  `CSL-R-AR-03`, `CSL-R-MD-01`, `CSL-R-SE-01`, `CSL-R-SE-02`,
+  `CSL-R-ST-02`, and `CSL-R-VIS-01`. This is a documentation reconciliation,
+  not authority to change their approved behavior.
+
+### Authorized Manager and workers
+
+Exactly one fresh same-directory Manager is authorized in the canonical
+checkout, using `gpt-5.6-luna` with `max` reasoning and no worktree. The
+Manager must reread `AGENTS.md` and
+`docs/control/prompts/ORCHESTRATOR_START.md`, verify this signal and
+`DEC-083`, compare the actual Git checkpoint with this record, and confirm no
+competing task before dispatch.
+
+The Manager may create exactly two fresh hidden internal workers, sequentially
+because the canonical checkout is shared, with disjoint write scopes:
+
+1. OpenSpec worker: may edit only the ten active files under
+   `openspec/specs/{auth,backtesting,evaluation,frontend,leaderboard,market-data,news,search,sentiment,strategy}/spec.md`.
+   It may normalize the required top-level heading to the CLI's accepted
+   `## Purpose` form while preserving the existing purpose/boundary content,
+   requirements, scenarios, traceability, and meaning. It may not edit the
+   active change, archived changes, `openspec/config.yaml`, source, tests, or
+   any other file.
+2. Traceability worker: may edit only `docs/implementation/MVP_PLAN.md` to
+   add a concise mapping for the seven identified IDs to existing approved
+   packets/evidence and links. It may not change requirement meaning, packet
+   objectives, dependencies, task states, scope, source, tests, or any other
+   document.
+
+Workers must use the internal subagent mechanism, `gpt-5.6-luna` with `max`
+reasoning and the fastest service tier when exposed. They may not edit
+`TASKS.md`, `HANDOFF.md`, `INSTRUCTOR.md`, `DECISIONS.md`, requirements, ADRs,
+environment files, credentials, or create/retry/replace another worker.
+
+### Acceptance, validation, and stop condition
+
+- `openspec validate --all --no-interactive --json` must exit successfully with
+  all active specs and the active change valid. A CLI unavailable in Manager
+  context remains `UNVERIFIED` there; Instructor will independently rerun the
+  absolute installed shim and will not infer PASS.
+- The seven IDs must be traceable in `MVP_PLAN.md` to existing packets and
+  current evidence without adding a task, changing the DAG, or claiming live
+  evidence that is not present. Existing links and requirement authority must
+  remain intact.
+- The Manager must run Markdown/link/DAG/scope/secret/whitespace/diff checks
+  proportionate to the two documentation scopes, review both worker diffs, and
+  record exact results in `HANDOFF.md`. The Manager alone may move I-02
+  `REVIEW -> READY -> IN_PROGRESS -> REVIEW`; it must not mark I-02 `DONE`
+  under this documentation-only packet.
+- Any need for another path, semantic requirement change, source repair,
+  provider/Docker/migration change, or task addition is
+  `NEEDS_INSTRUCTOR_REVIEW`. Each worker runs once; no retry or replacement.
+  The Manager makes at most one explicit-path checkpoint commit attempt and
+  stops after this authorization.
+
+No native Gemini integration, `GEMINI_*` mapping, automatic retry/fallback,
+credential change, source/test implementation, fixture substitution, deferred
+scope, final I-02 promotion, or downstream task is authorized.
 
 ## INS-161 — HOLD after independent final I-02 review
 
