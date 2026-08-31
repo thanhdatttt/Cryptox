@@ -2,13 +2,81 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-148`
+Instruction ID: `INS-149`
 
-Status: `APPROVED_FOR_EXECUTION`
+Status: `HOLD`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
-## INS-148 — APPROVED_FOR_EXECUTION for final I-02 revalidation
+## INS-149 — HOLD after INS-148 final I-02 revalidation
+
+This signal supersedes INS-148 / APPROVED_FOR_EXECUTION. The Instructor has
+independently reviewed the Manager checkpoint and keeps the system at a safe
+hold: I-02D is accepted as DONE, while I-02 remains REVIEW because the Full
+MVP live/demo boundary is not proven. No new implementation authorization is
+issued by this signal.
+
+### Independent checkpoint and evidence
+
+- Canonical checkout: `D:\\agy-cli-projects\\AOS\\Cryptox`, branch
+  `MVP_IMPLEMENTATION`. The authorization HEAD remains
+  `a01e832f486e25e7785172b697dad8fc0a277bcf`; no production source,
+  contract, migration, infrastructure, environment, requirement, ADR,
+  OpenSpec, or generated-path drift was found. The Manager-owned checkpoint
+  delta is limited to `docs/implementation/TASKS.md` and
+  `docs/implementation/HANDOFF.md`; the pre-existing `.codex/config.toml`
+  remains excluded.
+- The Manager completed once under INS-148. Its two hidden read-only
+  verifiers completed once each, changed no files, and were not retried or
+  replaced. The operational board is 57 rows: `56 DONE`, only `I-02 REVIEW`,
+  and no other active state. `I-02D` is `DONE` by control-only closure.
+- Independent deterministic evidence is PASS: backend I-02 `6/6`, frontend
+  I-02 plus projection checks `8/8`, full workspace with no configured
+  database `448 passed / 9 expected skips`, and with the local PostgreSQL
+  test database `457 passed / 0 skipped`; build, typecheck, lint,
+  architecture (`189` modules / `642` dependencies), artifacts,
+  deferred-scope `15/15`, runtime smoke (`/live=200`, `/ready=503`,
+  `/health=404`), migration up/constraints/down/remigrate, and diff checks
+  pass. The nine architecture fixture diagnostics remain intentional test
+  fixtures and are not violations of the accepted implementation boundary.
+- Docker Compose and both local PostgreSQL containers are available to this
+  Instructor environment, but the Manager environment could not use the
+  same Compose command; that Manager-side limitation is recorded as
+  `BLOCKED`/`UNVERIFIED`, not PASS. The Instructor-side migration and
+  PostgreSQL evidence does not by itself prove the entire final demo.
+- The real CoinDesk endpoint returned HTTP `401` without a configured
+  credential, and no `COINDESK_API_KEY` is configured for the final runtime.
+  `LLM_AUTHORING_ENDPOINT`, `LLM_AUTHORING_MODEL`, and
+  `LLM_AUTHORING_API_KEY` are also not configured. No chat-supplied
+  `GEMINI_*` value was mapped or used; it is not a substitute for the
+  repository contract. Browser/demo evidence has no localhost tab, and the
+  local OpenSpec CLI remains unavailable. These items remain
+  `BLOCKED`/`UNVERIFIED`.
+- The five amendment screenshots were re-read. Their functional scope is
+  represented by the approved requirements and packets: realtime
+  multi-timeframe Binance delivery, controlled prompt/URL authoring, News
+  extraction/template/sentiment boundaries, directional paper backtesting,
+  and composite/Lite/discovery flows. Their visual layout is not an
+  additional requirement.
+
+### Hold boundary
+
+- Keep `I-02` at `REVIEW`; do not promote it to `DONE` from fixture tests,
+  README wording, skipped checks, historical evidence, or an unavailable
+  environment. Do not start downstream work or add a source repair under this
+  HOLD.
+- A future authorization may re-enter only the existing I-02 verification once
+  the missing evidence is genuinely available: a configured real News source,
+  any required provider-neutral LLM configuration for the controlled path, a
+  runnable browser/demo session, and any required OpenSpec/clean-install
+  evidence. Credentials must be supplied through a local process/environment
+  mechanism and never committed, printed, or copied into the browser.
+- No Manager or worker is active. The next authorization, if external state
+  changes, must be a fresh same-directory Luna/max Manager with an explicitly
+  bounded scope and no duplicate/retry. Until then the repository remains at
+  HOLD.
+
+## Historical INS-148 — APPROVED_FOR_EXECUTION for final I-02 revalidation
 
 This signal supersedes INS-147 / HOLD. The Instructor has accepted the exact
 N-03R and I-02D checkpoints and authorizes one bounded final revalidation of

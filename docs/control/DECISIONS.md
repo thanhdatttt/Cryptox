@@ -2770,3 +2770,47 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-068`, `INS-147`, `INS-148`, `I-02D`, and `I-02`.
+
+## DEC-070 — Hold after independent INS-148 I-02 revalidation
+
+Status: `HOLD`
+
+Authority: Independent Instructor review after the fresh same-directory
+Manager completed INS-148 / DEC-069. The Manager's exact control delta was
+limited to `TASKS.md` and `HANDOFF.md`; both hidden read-only verifiers
+completed once without edits. The five functional-amendment screenshots were
+re-read and remain functional evidence only; their approved behavior is
+already represented by the requirements and implementation packets.
+
+Decision: Accept the control-only `I-02D REVIEW -> DONE` transition, but keep
+the existing final `I-02` row at `REVIEW`. The board is 57 rows with `56 DONE`,
+one `REVIEW`, and no `READY`, `IN_PROGRESS`, or `BLOCKED` row. Independent
+validation proves deterministic I-02 behavior and local persistence: focused
+backend `6/6`, frontend/projection `8/8`, full workspace `457 passed / 0
+skipped` with the local PostgreSQL test database, migration
+up/constraints/down/remigrate, build, typecheck, lint, architecture, artifact,
+deferred-scope `15/15`, runtime smoke, and diff checks. This evidence is
+accepted only at its stated boundary.
+
+The Full MVP DoD is not yet proven. The real CoinDesk request without a
+configured credential returned HTTP `401`; the final runtime has no configured
+`COINDESK_API_KEY`, no configured `LLM_AUTHORING_*` provider, no localhost
+browser/demo session, and the local OpenSpec CLI is unavailable. Manager-side
+Compose/daemon access also remains `BLOCKED`/`UNVERIFIED`, even though the
+Instructor host independently validated local Docker/PostgreSQL. No fixture,
+skip, README statement, or historical result is promoted to live PASS. No
+chat-supplied Gemini credential was mapped or used.
+
+No implementation packet is safe to open under this HOLD. A future fresh
+authorization may re-enter only I-02 after the missing configured provider and
+demo evidence exists; it must not add a new provider, silently map `GEMINI_*`,
+start downstream work, or retry a failed worker. Deferred scope and all other
+task states remain unchanged.
+
+Affected: `I-02D`, `I-02`, `TASKS.md`, `HANDOFF.md`, `INS-148`, and `INS-149`.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [Architecture](../architecture.md),
+[Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-069`, `INS-148`, `INS-149`, `I-02D`, and `I-02`.
