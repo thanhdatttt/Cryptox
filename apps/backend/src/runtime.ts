@@ -291,10 +291,19 @@ interface EnvironmentList {
   readonly values?: readonly string[];
 }
 
-function environmentList(environment: RuntimeEnvironment, name: string): EnvironmentList {
+function environmentList(
+  environment: RuntimeEnvironment,
+  name: string,
+  options: { readonly blankIsAbsent?: boolean } = {},
+): EnvironmentList {
   const raw = environment[name];
   if (raw === undefined) return { present: false, valid: true };
-  if (typeof raw !== "string" || !raw.trim()) return { present: true, valid: false };
+  if (typeof raw !== "string") return { present: true, valid: false };
+  if (!raw.trim()) {
+    return options.blankIsAbsent
+      ? { present: false, valid: true }
+      : { present: true, valid: false };
+  }
   const values = raw.split(/[,\r\n]/u).map((value) => value.trim());
   if (values.some((value) => value.length === 0)) return { present: true, valid: false };
   return { present: true, valid: true, values };
@@ -417,7 +426,9 @@ function configuredRssSource(environment: RuntimeEnvironment): ConfiguredRssSour
   const url = environmentUrl(environment, BACKEND_RUNTIME_ENV_NAMES.coindeskRssUrl);
   const hosts = environmentList(environment, BACKEND_RUNTIME_ENV_NAMES.coindeskRssAllowedHosts);
   const prefixes = environmentList(environment, BACKEND_RUNTIME_ENV_NAMES.coindeskRssAllowedUrlPrefixes);
-  const urls = environmentList(environment, BACKEND_RUNTIME_ENV_NAMES.coindeskRssAllowedUrls);
+  const urls = environmentList(environment, BACKEND_RUNTIME_ENV_NAMES.coindeskRssAllowedUrls, {
+    blankIsAbsent: true,
+  });
   const hasConfiguration = url.present || hosts.present || prefixes.present || urls.present;
   if (!hasConfiguration || !url.valid || !url.value || !hosts.valid || !prefixes.valid || !urls.valid) return undefined;
 

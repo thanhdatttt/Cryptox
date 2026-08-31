@@ -65,12 +65,13 @@ async function waitFor(check: () => boolean): Promise<void> {
 }
 
 describe("backend News runtime composition (CSL-R-RD-01, CSL-R-NW-01, CSL-R-NW-02, CSL-R-OB-01)", () => {
-  it("composes the configured CoinDesk RSS provider through the safe HTTPS boundary", async () => {
+  it("composes the copied .env.example CoinDesk RSS shape through the safe HTTPS boundary", async () => {
     const rssUrl = "https://www.coindesk.com/arc/outboundfeeds/rss/?output=1";
     const environment = {
       [BACKEND_RUNTIME_ENV_NAMES.coindeskRssUrl]: rssUrl,
       [BACKEND_RUNTIME_ENV_NAMES.coindeskRssAllowedHosts]: "www.coindesk.com",
       [BACKEND_RUNTIME_ENV_NAMES.coindeskRssAllowedUrlPrefixes]: "https://www.coindesk.com/arc/outboundfeeds/rss/",
+      [BACKEND_RUNTIME_ENV_NAMES.coindeskRssAllowedUrls]: "",
     };
     const rssBody = `<?xml version="1.0"?><rss><channel><item>
       <guid>rss-guid-1</guid><title>Bitcoin market update</title>
@@ -149,12 +150,22 @@ describe("backend News runtime composition (CSL-R-RD-01, CSL-R-NW-01, CSL-R-NW-0
       [BACKEND_RUNTIME_ENV_NAMES.coindeskRssUrl]: "https://www.coindesk.com/rss",
       [BACKEND_RUNTIME_ENV_NAMES.coindeskRssAllowedHosts]: "www.coindesk.com,",
     }],
+    ["malformed optional URL allowlist", {
+      [BACKEND_RUNTIME_ENV_NAMES.coindeskRssUrl]: "https://www.coindesk.com/rss",
+      [BACKEND_RUNTIME_ENV_NAMES.coindeskRssAllowedUrls]: "https://www.coindesk.com/rss,",
+    }],
+    ["all-empty effective allowlist", {
+      [BACKEND_RUNTIME_ENV_NAMES.coindeskRssUrl]: "https://www.coindesk.com/rss",
+      [BACKEND_RUNTIME_ENV_NAMES.coindeskRssAllowedUrls]: "",
+    }],
     ["allowlist does not cover URL", {
       [BACKEND_RUNTIME_ENV_NAMES.coindeskRssUrl]: "https://www.coindesk.com/rss",
       [BACKEND_RUNTIME_ENV_NAMES.coindeskRssAllowedHosts]: "feeds.example.test",
     }],
   ])("rejects %s RSS configuration without fixture fallback", (_label, environment) => {
+    let fetchCalls = 0;
     const safeNewsFetch: SafeNewsFetch = async () => {
+      fetchCalls += 1;
       throw new Error("unsafe RSS configuration must not contact a remote destination");
     };
 
@@ -163,6 +174,7 @@ describe("backend News runtime composition (CSL-R-RD-01, CSL-R-NW-01, CSL-R-NW-0
     expect(composition.providers).toHaveLength(0);
     expect(composition.safeUrlFetcher).toBeUndefined();
     expect(composition.urlImportExtractor).toBeUndefined();
+    expect(fetchCalls).toBe(0);
   });
 
   it("preserves explicit legacy CoinDesk JSON adapter composition", async () => {
