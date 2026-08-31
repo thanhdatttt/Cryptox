@@ -2186,3 +2186,46 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-055`, `INS-134`, `S-04K`, and commit `53733e1`.
+
+## DEC-057 — Authorize S-04L narrowly bounded final frontend/checker residue
+
+Status: `APPROVED`
+
+Authority: Independent Instructor audit under `DEC-056 / INS-135` found that
+S-04K stopped safely after its sole frontend worker timed out. The preserved
+delta remains exact and uncommitted at the governance checkpoint `53733e1`;
+the latest governance HOLD is `57c1281`. No active Manager or worker exists.
+
+Decision: Issue exactly one fresh same-directory Manager authorization
+`INS-136 / APPROVED_FOR_EXECUTION` for distinct packet `S-04L`. This is not a
+retry or replacement of Pasteur: it is limited to the known remaining
+frontend acceptance residue and the checker worker never dispatched. Use at
+most two hidden internal workers, strictly sequentially and with disjoint
+scopes; do not start I-02 or downstream work.
+
+Worker 1 may write only the explicitly listed existing frontend state/client/
+fixture/test files under `apps/frontend/src/**` in `INS-136`, and must fix the
+known cache/transport and post-approval projection concerns, update the two
+stale assertions, and add focused authoring-state/boundary coverage. It must
+not modify `screens.tsx`, fixture-data, contracts, backend, Strategy,
+migrations, providers, or control plane. After review, Worker 2 may write only
+the two deferred-scope checker files and fix only the canonical
+`packages/contracts/rest/strategy.ts` allowlist boundary with a regression
+test. No other checker or product scope is authorized.
+
+The Manager owns `S-04L` TASKS/HANDOFF/integration and may reconcile
+S-04I/S-04J/S-04K only after combined acceptance is proven. Required full
+gates and external evidence remain truthful: PostgreSQL, configured LLM,
+Binance/News, browser/demo, and OpenSpec are `BLOCKED`/`UNVERIFIED` unless
+actually exercised. No secret supplied in chat is stored or echoed.
+
+Affected: `S-04L`, `S-04K`, `S-04J`, `S-04I`, `I-02`, `TASKS.md`, `HANDOFF.md`,
+`INS-135`, `INS-136`, and the final MVP checkpoint. Existing requirements,
+approved functional image amendments, ADRs, contracts, architecture, data
+model, and deferred scope remain unchanged.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [Architecture](../architecture.md),
+[Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-056`, `INS-135`, `S-04L`, and commit `57c1281`.
