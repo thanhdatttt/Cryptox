@@ -8,6 +8,70 @@ Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
 
+## INS-167 — HOLD after INS-166 correction review
+
+This instruction supersedes `INS-166 / APPROVED_FOR_EXECUTION` and persists a
+safe checkpoint after the fresh correction worker produced a structurally valid
+but non-preservational documentation delta. No source implementation, final
+I-02 acceptance, or downstream execution is authorized from this HOLD.
+
+### Verified checkpoint and known working-tree delta
+
+- Canonical checkout: `D:\\agy-cli-projects\\AOS\\Cryptox`, branch
+  `MVP_IMPLEMENTATION`, latest committed governance HEAD
+  `78649a54b217accc0e63a467c96f248fa9969cc4` (`chore(control): authorize spec
+  delta correction`). The tracked tree is intentionally dirty with exactly
+  twelve paths: the ten active capability specs plus Manager-owned
+  `docs/implementation/TASKS.md` and `docs/implementation/HANDOFF.md`. The
+  pre-existing untracked `.codex/config.toml` remains excluded. No source,
+  test, requirement, ADR, architecture, data-model, active-change,
+  environment, credential, migration, infrastructure, generated, or deferred
+  scope path changed.
+- `TASKS.md` remains authoritative at 58 rows: 57 `DONE`, only `I-02`
+  `REVIEW`, and no other `BLOCKED`, `READY`, or `IN_PROGRESS` row. N-03S,
+  N-03R, I-02D, I-01, and I-03 remain `DONE`; no Cryptox Manager or worker is
+  active. INS-166 re-entered only `I-02` through
+  `REVIEW -> READY -> IN_PROGRESS -> REVIEW` and started no downstream task.
+- INS-166 used exactly one fresh same-directory Manager and exactly one fresh
+  hidden worker, Averroes `01a05988-8f79-75c3-a85c-ba0c9ef400fc`, once and
+  closed. It made no commit attempt. No retry, replacement, duplicate, or
+  worktree was used.
+
+### Independent review evidence
+
+- OpenSpec CLI `1.11.0` is genuinely installed globally as
+  `@fission-ai/openspec@1.11.0`; the Instructor ran the absolute shim
+  `C:\\Users\\admin\\AppData\\Roaming\\npm\\openspec.cmd` directly and
+  obtained `11/11 PASS` for the active change and all ten capability specs.
+  The Manager context could not access that shim and correctly recorded
+  `BLOCKED/UNVERIFIED`; no Manager-side PASS is inferred.
+- Exact scenario preservation is now `64/64`, all `47/47` requirements have
+  nested scenarios, and the Backtesting dual-trigger block is present exactly
+  once under its authorized requirement. `git diff --check` passes.
+- Acceptance still fails because `openspec/specs/evaluation/spec.md`
+  contains the final evaluation-failure invariant twice, and the nine worker
+  targets (`backtesting`, `evaluation`, `frontend`, `leaderboard`,
+  `market-data`, `news`, `search`, `sentiment`, and `strategy`) contain
+  unauthorized mixed line endings (`git ls-files --eol` reports `w/mixed`).
+  These are outside the INS-166 allowance to preserve all other bytes.
+
+### HOLD boundary
+
+The next authorization may permit only a fresh, bounded correction of this
+known twelve-path delta: remove exactly the one duplicate invariant in
+`evaluation/spec.md` and restore the repository's original LF byte convention
+in exactly the nine affected spec files, while preserving all 64 existing
+scenario blocks, their placements, and all other content byte-for-byte. A
+fresh Manager and one fresh worker are required; Averroes must not be retried
+or replaced under this authorization. The Manager alone may update
+`TASKS.md`/`HANDOFF.md`, re-enter only `I-02` through
+`REVIEW -> READY -> IN_PROGRESS -> REVIEW`, and must stop at `REVIEW`.
+
+No source repair, requirement/ADR/architecture change, native Gemini
+integration, credential change, automatic retry/fallback, fixture substitution,
+Docker/migration redesign, deferred scope, active-change implementation,
+downstream task, or final MVP claim is authorized.
+
 ## INS-166 — APPROVED_FOR_EXECUTION for bounded spec-delta correction
 
 This instruction supersedes `INS-165 / HOLD` and authorizes one narrowly

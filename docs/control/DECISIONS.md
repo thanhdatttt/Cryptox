@@ -3586,3 +3586,44 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-086`, `INS-165`, and `INS-166`.
+
+## DEC-088 — Hold after failed INS-166 preservation review
+
+Status: `HOLD`
+
+Authority: Instructor review after `INS-166 / DEC-087`. The fresh same-directory
+Manager `01a05983-76af-7a50-bc62-c84ce66ec14a` and one fresh hidden worker
+Averroes `01a05988-8f79-75c3-a85c-ba0c9ef400fc` completed once and closed with
+no staging or commit attempt. No retry, replacement, duplicate, or worktree
+was used.
+
+The correction now preserves all 64 baseline scenario blocks exactly once and
+places scenarios under all 47 requirements; `git diff --check` passes. The
+Instructor independently ran the installed global OpenSpec CLI `1.11.0` via
+the absolute npm shim and verified `11/11 PASS`. This proves the OpenSpec
+installation is valid, while the Manager's inability to access the shim remains
+`BLOCKED/UNVERIFIED` and is not converted to PASS.
+
+The output is not accepted because the non-scenario preservation gate found one
+duplicate final invariant in `openspec/specs/evaluation/spec.md`, and byte-level
+review found unauthorized mixed line endings in the nine worker target specs:
+backtesting, evaluation, frontend, leaderboard, market-data, news, search,
+sentiment, and strategy. The current intentional tracked delta remains exactly
+the ten active specs plus Manager-owned `TASKS.md` and `HANDOFF.md`; no source
+or business-state drift is present. The board remains 58 rows, 57 `DONE`, only
+`I-02` at `REVIEW`, and no other active task.
+
+Keep the repository on `HOLD`. A fresh authorization may allow only removal of
+that one duplicate invariant and restoration of the original LF bytes in the
+nine affected specs, with exact 64-block preservation, OpenSpec, whitespace,
+path, link, DAG, scope, and secret checks. No implementation, provider,
+credential, Docker/migration, deferred-scope, downstream, or final I-02 action
+is authorized until that correction is independently accepted.
+
+Affected: `I-02`, the ten active OpenSpec specs, `TASKS.md`, `HANDOFF.md`,
+`INS-166`, and `INS-167`.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-087`, `INS-166`, and `INS-167`.
