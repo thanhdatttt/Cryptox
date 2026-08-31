@@ -1961,3 +1961,51 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-050`, `INS-129`, `S-04I`, and commit `22bc88e`.
+
+## DEC-052 — S-04I partial checkpoint accepted; residual completion required
+
+Status: `APPROVED`
+
+Authority: Independent Instructor audit after the single fresh Manager under
+`INS-130 / DEC-051` completed its bounded S-04I scope and became idle. The
+Manager's Git staging attempt was denied by the environment, so the parent
+Instructor independently staged and committed the exact audited delta at
+`f872590` without including the untouched `.codex/config.toml`.
+
+Decision: Accept the S-04I implementation only as a safe partial source/control
+checkpoint and supersede `INS-130 / APPROVED_FOR_EXECUTION` with `INS-131 /
+HOLD`. Keep both `S-04I` and `I-02` at `REVIEW`; neither is `DONE`, and no
+downstream packet is promoted. Preserve the Strategy/REST/backend composition
+already implemented. Record `S-04J` in `MVP_PLAN.md` as a distinct residual
+closure packet for the missing frontend composition, the unproven exactly-one
+approval invariant across separate request contexts, and the narrow deferred-
+scope checker boundary. S-04J is not a retry, replacement, or reopening of
+S-04I.
+
+Evidence: focused S-04I tests pass `37/37`; the workspace passes `433` tests
+with `8` environment-gated skips; build/typecheck/lint, architecture (`187
+modules / 631 dependencies`), artifacts, `test:scope-check` `13/13`, runtime
+smoke, and diff checks pass. PostgreSQL migration/integration is `BLOCKED`
+because both Compose clients cannot access the Docker daemon/named pipe in this
+environment; live provider, frontend/browser authoring, real Binance/News,
+OpenSpec CLI, and live deferred-scope execution remain `UNVERIFIED` or
+`BLOCKED`. `npm run scope:check` fails on the single known canonical REST-file
+boundary mismatch. Fixture tests do not become real-provider or browser PASS.
+
+The independent audit also found that `approvalChain` is created per authoring
+port/request. Sequential repeated approval is covered, but two separate
+authenticated request contexts can race before the persisted draft is marked
+approved, so the required exactly-one immutable definition is not yet proven.
+This is a material correctness gap and requires the explicitly scoped S-04J
+review before final I-02 verification.
+
+Affected: `S-04I`, `S-04J`, `I-02`, `TASKS.md`, `HANDOFF.md`, `INS-130`,
+`INS-131`, and the final MVP checkpoint. Requirements, approved functional
+image amendments, accepted ADRs, contracts, architecture, data model, and
+deferred scope remain unchanged.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [Architecture](../architecture.md),
+[Data model](../data-model.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-051`, `INS-130`, `INS-131`, `S-04I`, `S-04J`, and commit `f872590`.

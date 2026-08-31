@@ -289,6 +289,7 @@ represented by the original extension DAG:
 ```text
 S-04 module seam DONE + I-02 review gap
   -> S-04I BLOCKED: public LLM authoring composition/reconciliation
+  -> S-04J BLOCKED: residual public completion and approval-integrity reconciliation
   -> fresh I-02 final revalidation authorization
 ```
 
@@ -296,6 +297,14 @@ S-04 module seam DONE + I-02 review gap
 `LLM_AUTHORING_V1` behavior, not an expansion into autonomous or unconfigured
 LLM use. It must be added to `TASKS.md` by the Manager before execution; the
 Instructor does not edit the operational board.
+
+`S-04J` is a separately authorized residual closure packet, not a retry or
+reopening of `S-04I`. It exists because the bounded S-04I checkpoint composed
+the Strategy/REST/backend seams but left the frontend unavailable, and the
+independent review found that request-local approval serialization does not
+prove the required exactly-one approval across separate authenticated request
+contexts. The Manager must add its own row before execution and may reconcile
+`S-04I` to `DONE` only after S-04J's acceptance is independently satisfied.
 
 ## Execution waves
 
@@ -328,8 +337,8 @@ continuation of the legacy waves:
 | E2 | E1 packet reviews | `E-02` then `L-02` | Decimal evaluation and extension-aware ranking are proven |
 | E3 | E2 plus all E1 packets | `F-03` | Functional-state frontend projections pass without business logic |
 | E4 | E3 plus baseline `I-01` and `AU-02` | `I-03` | Shared-boundary joins, real-provider readiness, and reproducibility proof pass |
-| E5R | I-02 review identifies missing required LLM public composition | `S-04I` only | LLM authoring is consumable through the authenticated runtime boundary |
-| E5 | `I-03` DONE and `S-04I` accepted | Existing `I-02` | Full required demo and final verification include DEC-007 evidence |
+| E5R | I-02 review identifies missing required LLM public composition | `S-04I` then `S-04J` only | LLM authoring is consumable through the authenticated runtime boundary and approval is exactly-once within the supported monolith |
+| E5 | `I-03` DONE and `S-04I`/`S-04J` accepted | Existing `I-02` | Full required demo and final verification include DEC-007 evidence |
 
 ## Task state and checkpoint protocol
 
@@ -1519,6 +1528,71 @@ Instructor signal can authorize one safe frontier without treating the legacy
   evidence is unavailable; a fresh Instructor authorization is required before
   I-02 final revalidation. **Parallel:** NO across the three dependent workers;
   **Critical:** YES to final I-02.
+
+### S-04J — `LLM_AUTHORING_V1` Residual Completion and Approval Integrity
+
+- **Requirement IDs:** `CSL-R-ST-05`, `CSL-R-RP-02`, `CSL-R-OW-01`, and the
+  configured-runtime portion of `CSL-R-RD-01`.
+- **State / owner / wave:** BLOCKED / Manager plus at most three strictly
+  sequential bounded workers / E5R residual closure. This packet follows the
+  independently reviewed partial `S-04I` checkpoint; it is not a retry,
+  replacement, or reopening of `S-04I`.
+- **Start dependencies:** `S-04I` is `REVIEW` at the committed partial
+  checkpoint `f872590`; `I-02` is `REVIEW`; all original S-04I start
+  dependencies remain `DONE`. No downstream packet is authorized.
+- **Objective:** Finish the approved public `LLM_AUTHORING_V1` composition and
+  close the approval-integrity gap. The runtime remains provider-neutral and
+  server-side; explicit endpoint/model/key configuration, deterministic
+  validation, human Save/Approve, safe provenance, and fail-closed behavior
+  remain unchanged.
+- **Exact write scope and delegation:**
+  1. exactly one sequential Strategy worker owns only the authoring approval
+     concurrency/idempotency correction and focused tests under
+     `modules/strategy/application/**` and
+     `modules/strategy/infrastructure/**`; no canonical contract, migration,
+     other module, provider-specific adapter, or control-plane change. The
+     worker must prove that two separately-created authenticated authoring
+     ports approving the same owner/draft concurrently produce one immutable
+     definition and the same result, while preserving owner isolation and no
+     secret persistence. If a schema/migration change is necessary, stop and
+     report `NEEDS_INSTRUCTOR_REVIEW`.
+  2. after the Strategy checkpoint, exactly one sequential frontend worker owns
+     only `apps/frontend/src/**`, including the typed REST client methods,
+     private store state, authoring panel, fixture coverage, and focused tests.
+     It must expose distinct prompt/approved-News input, DRAFT, VALIDATED,
+     APPROVED, failure, and unavailable states with explicit Save/Validate/
+     Approve actions. It must never contain provider credentials, client-side
+     business logic, arbitrary URL fetching, or client identity authority.
+  3. after feature review, exactly one sequential checker worker owns only
+     `scripts/check-deferred-scope.cjs` and
+     `scripts/check-deferred-scope.test.cjs`, correcting the exact canonical
+     REST-file boundary for `LLM_AUTHORING_V1` and adding regression coverage.
+     No other checker rule or feature scope may be broadened.
+  Workers have disjoint write scopes, are hidden internal subagents, and may
+  not edit `AGENTS.md`, `docs/control/**`, requirements, ADRs, `TASKS.md`,
+  `HANDOFF.md`, migrations, or unrelated source. The Manager owns the new
+  `S-04J` row, the `HANDOFF.md` checkpoint, integration, and the explicitly
+  permitted `S-04I` closure transition only after acceptance.
+- **Acceptance/tests:** Public REST and frontend composition are exercised
+  through the same typed DTOs; provider output remains structured and bounded;
+  unauthenticated/cross-owner/unsafe-field behavior remains rejected; two
+  separate request contexts cannot create duplicate definitions for one
+  approval; no provider key/prompt/completion is returned or persisted; the
+  frontend is not `UNAVAILABLE` when the typed authoring transport is present
+  and remains honest when the capability is unavailable. S-04I is moved to
+  `DONE` only when its complete acceptance is now proven.
+- **Validation:** Focused Strategy, REST/backend, frontend, and checker tests;
+  full workspace test/build/typecheck/lint; architecture, artifacts,
+  deferred-scope and scope checks; runtime smoke; secret/log, exact-path,
+  whitespace, and diff checks. PostgreSQL, real provider, browser/demo, and
+  OpenSpec evidence are `PASS` only when actually run; otherwise they remain
+  `UNVERIFIED`/`BLOCKED` and are not fabricated. No I-02 transition occurs.
+- **Prohibitions and stop condition:** No autonomous/unconfigured LLM,
+  arbitrary URL fetch, automatic approval, migration, queue/distributed
+  protocol, feature outside the three scopes, duplicate/retry/replacement
+  worker, second Manager, worktree, or downstream packet. Stop at `REVIEW`
+  after one bounded Manager checkpoint and fresh Instructor audit. **Parallel:**
+  NO; **Critical:** YES to final I-02.
 
 ### S-05 — Immutable `WEIGHTED_VOTE_V1` Composite
 
