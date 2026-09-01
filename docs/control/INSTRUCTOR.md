@@ -2,11 +2,82 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-184`
+Instruction ID: `INS-185`
 
-Status: `HOLD`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-185 — APPROVED_FOR_EXECUTION for Instructor-owned privileged I-02 verification
+
+This instruction supersedes `INS-184 / HOLD` and implements the evidence
+ownership refinement approved by `DEC-105`. It authorizes the Instructor to
+perform the privileged live/demo verification that some Manager contexts cannot
+perform. It authorizes no feature implementation.
+
+### Applicability and packet
+
+- Canonical checkout: `D:\\agy-cli-projects\\AOS\\Cryptox`, branch
+  `MVP_IMPLEMENTATION`. The accepted source/business checkpoint is `f86ab93`;
+  the reviewed control checkpoints are `af2e4a0` and `228bff9`. The only
+  untracked path is the pre-existing `.codex/config.toml` and it is excluded.
+- `TASKS.md` remains authoritative at 58 rows: 57 `DONE`, only `I-02`
+  `REVIEW`. No Cryptox Manager or worker is active. The Instructor must not
+  change task state or `HANDOFF.md` under this evidence packet.
+- The packet covers only final evidence for already-approved MVP behavior:
+  real local PostgreSQL/Auth/ownership, Binance history/realtime, configured
+  RSS/News and Sentiment, configured Gemini `LLM_AUTHORING_V1`, generated
+  Search/Backtest/Evaluation/Experiment/Trade/Leaderboard data, browser/demo,
+  clean setup/migration checks, traceability, observability, and the eight
+  architecture scenarios required by I-02 and `DEC-007`.
+
+### Instructor execution scope
+
+- The Instructor may run repository tests and static gates, inspect the
+  canonical source/diff, use the existing process-scoped `.env` without
+  printing values, inspect/start/stop the local Docker/Compose services, run
+  local PostgreSQL migration validation without resetting unrelated data, call
+  the configured real providers, and use the browser/demo boundary where
+  available.
+- Real provider results must be sanitized: never print API keys, passwords,
+  cookies, bearer/session tokens, database URLs, raw provider payloads, article
+  bodies, or other credential-bearing logs. A configured provider is not a PASS
+  until a real call and the relevant application behavior succeed.
+- Temporary records are allowed only in the local test/development boundary
+  with a unique marker and exact, read-verified cleanup. If safe isolation or
+  cleanup is unavailable, record `BLOCKED`/`UNVERIFIED` and do not create the
+  records merely to improve the matrix. No cloud database, destructive reset,
+  mock substitution, fallback promotion, or secret request is allowed.
+- This is an Instructor evidence packet, so no Manager or worker is created.
+  If verification exposes a concrete implementation defect, stop that path,
+  preserve the evidence, set the next signal to `HOLD`, and issue a separate
+  bounded Manager-to-worker authorization with exact source scope. The
+  Instructor must not edit feature source directly.
+
+### Acceptance and stop condition
+
+- Produce an independent sanitized matrix for every applicable REQUIRED ID,
+  clearly separating live PASS, fixture/static evidence, carried evidence,
+  `UNVERIFIED`, and `BLOCKED`. Required final acceptance includes real
+  register/login/session/logout and ownership isolation, real Binance and
+  News/Sentiment behavior, configured Gemini draft/validate/explicit approval
+  with persistence and provenance, application-generated result records,
+  browser/demo flows, observability/failure evidence, clean setup/migrations,
+  and all eight architecture scenarios.
+- Re-run the failed Argon2 timing test in the Instructor environment as a
+  diagnostic and run the full applicable validation suite once. A pass in one
+  context must not erase a reproducible failure in another; classify timeout
+  or unavailable infrastructure truthfully.
+- No task promotion, source/config/dependency/migration/schema/contract/
+  provider-protocol/frontend/OpenSpec change, deferred scope, downstream
+  start, or final I-02 `DONE` transition is authorized by INS-185. The
+  Instructor stops after the evidence matrix and independent DoD decision,
+  then replaces this signal with `HOLD` before any implementation packet.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-105`, and `INS-185`.
 
 ## INS-184 — HOLD after INS-183 final evidence checkpoint
 
