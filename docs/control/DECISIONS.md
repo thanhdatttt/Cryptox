@@ -4061,3 +4061,45 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-098`, and `INS-178`.
+
+## DEC-100 — Authorize final I-02 evidence on the corrected build
+
+Status: `APPROVED`
+
+Authority: Instructor review of the accepted `30f184c` News SQL correction and
+the committed `INS-178 / HOLD` checkpoint `cfcdba2`. The corrected local
+Compose build is available; `/live`, `/ready`, `/news`, and frontend reachability
+are healthy, but real News/Sentiment persistence and the remaining final DoD
+paths are not yet proven. The board remains 58 rows, 57 `DONE`, only `I-02`
+`REVIEW`, with no active Manager or worker.
+
+Authorize exactly one fresh same-directory `gpt-5.6-luna` Manager with `max`
+reasoning and at most three strictly sequential hidden evidence-only workers,
+each with repository write scope `none`. The packet is limited to final I-02
+evidence for already-approved behavior: real PostgreSQL/Auth/ownership,
+Binance history/realtime/recovery, real RSS/News/Sentiment, generated
+Backtest/Evaluation/Experiment/Trade/Leaderboard records, configured Gemini
+3.6 `LLM_AUTHORING_V1` lifecycle and failure behavior, authenticated
+browser/demo, validation, traceability, and eight architecture scenarios.
+
+One reversible local Compose/backend restart or rebuild may be used only to
+load the committed build and trigger the existing startup collection; no data
+reset or tracked-file change is allowed. The Manager may update only
+`TASKS.md` and `HANDOFF.md`, re-enter only `I-02: REVIEW -> READY -> IN_PROGRESS
+-> REVIEW`, and must stop without marking I-02 `DONE`. Temporary data requires
+unique markers and exact cleanup. No source/config/dependency/migration/
+infrastructure/contract/OpenSpec change, provider protocol change, fallback,
+retry, fixture promotion, secret emission, deferred scope, or downstream work
+is authorized. Unavailable checks remain `BLOCKED`/`UNVERIFIED`.
+
+The Manager must return a complete sanitized REQUIRED-ID matrix and stop for
+independent Instructor review. The carried global OpenSpec validation is
+`@fission-ai/openspec@1.11.0`, 11/11 PASS; Manager-context CLI unavailability
+must remain explicit.
+
+Affected: `I-02`, `INS-178`, `DEC-099`, `TASKS.md`, and `HANDOFF.md`.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-099`, and `INS-179`.

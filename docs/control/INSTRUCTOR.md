@@ -2,11 +2,89 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-178`
+Instruction ID: `INS-179`
 
-Status: `HOLD`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-179 — APPROVED_FOR_EXECUTION for final I-02 evidence on corrected build
+
+This instruction supersedes `INS-178 / HOLD`. It authorizes one fresh,
+evidence-only final I-02 pass using the accepted News SQL correction and the
+already-approved MVP boundary. It does not authorize further source repair,
+new scope, or final promotion without independent Instructor acceptance.
+
+### Applicability and packet
+
+- Canonical checkout: `D:\\agy-cli-projects\\AOS\\Cryptox`, branch
+  `MVP_IMPLEMENTATION`. Authorization predecessor is `cfcdba2`; source/
+  business checkpoint is `30f184c`, which contains the accepted two-file News
+  SQL correction. The only untracked path is the pre-existing
+  `.codex/config.toml`, excluded from all changes.
+- `TASKS.md` is authoritative at 58 rows: 57 `DONE`, only `I-02` `REVIEW`,
+  and no Manager or worker is active at dispatch.
+- The sole packet is final I-02 live/demo evidence for the existing approved
+  requirements: PostgreSQL/Auth/ownership, Binance history/realtime/recovery,
+  real News/RSS and isolated Sentiment, generated Backtest/Evaluation/
+  Experiment/Trade/Leaderboard data, configured Gemini 3.6
+  `LLM_AUTHORING_V1`, authenticated browser/demo, current setup/validation,
+  traceability, and all eight architecture scenarios.
+
+### Manager and worker limits
+
+- Create exactly one fresh same-directory Manager with `gpt-5.6-luna` and
+  `max` reasoning. No worktree, branch, duplicate, retry, replacement, or
+  user-visible worker task.
+- The Manager may create at most three fresh hidden internal workers,
+  strictly sequentially, each evidence-only with repository write scope
+  `none`. They may use the corrected running local services, public
+  HTTP/WebSocket/provider/browser boundaries, process-scoped `.env`, existing
+  dependencies, and exact local DB inspection/cleanup. No worker may edit,
+  stage, or commit any repository path or change business state except
+  uniquely marked temporary records created through approved public flows and
+  removed only after exact read-verified cleanup.
+- The Manager alone may update only `docs/implementation/TASKS.md` and
+  `docs/implementation/HANDOFF.md`, re-enter only
+  `I-02: REVIEW -> READY -> IN_PROGRESS -> REVIEW`, and must not mark I-02
+  `DONE`. It must stop immediately after its checkpoint.
+- A single reversible local Compose/backend restart or rebuild may be used as
+  environment validation to load the already-committed corrected build and
+  trigger its existing startup News collection; it must not reset data, alter
+  tracked files, or redesign infrastructure. If unavailable in Manager
+  context, classify it `BLOCKED`/`UNVERIFIED`; do not retry or repair.
+
+### Acceptance and stop condition
+
+- Require a complete sanitized REQUIRED-ID matrix, exact command/endpoint
+  results, live versus carried versus fixture versus `UNVERIFIED`/`BLOCKED`
+  labels, and an explicit full-MVP-DoD decision. `/news` returning 200 alone
+  is not News PASS: real configured RSS/Website collection, persisted
+  normalized News, and isolated persisted Sentiment must be evidenced.
+- Exercise configured Gemini 3.6 through the existing OpenAI-compatible
+  authoring boundary: PROMPT draft, validation, explicit Save/Approve,
+  immutable version/provenance, owner isolation, unsafe-input rejection, and
+  failure/no-side-effect behavior. Do not expose keys, endpoint/model values,
+  cookies, tokens, passwords, database URLs, headers, or raw provider data.
+- Generate Backtest/Evaluation/Experiment/Trade/Leaderboard records through
+  public application flows and clean only exact temporary markers. Exercise
+  authenticated browser/demo behavior, Binance recovery where safely
+  inducible, and all eight architecture scenarios. Fixtures and skipped tests
+  are not live evidence.
+- Run build, typecheck, lint, full tests, runtime smoke, architecture,
+  artifacts, scope/deferred, scope tests, secret/log, traceability,
+  whitespace/diff, and exact-path checks. The Instructor-carried global
+  OpenSpec `@fission-ai/openspec@1.11.0` validation is `11/11 PASS`; a Manager
+  context that cannot access the CLI must report that limitation rather than
+  fabricate a fresh PASS.
+- If any source/config/dependency/migration/infrastructure/contract/provider
+  protocol change is needed, stop with `NEEDS_INSTRUCTOR_REVIEW`. Otherwise
+  return I-02 to `REVIEW`, preserve every other task state, make at most one
+  control-only checkpoint staging/commit attempt, and stop. The Instructor
+  independently accepts or rejects final DoD.
+
+No downstream task, deferred scope, pending OpenSpec task, or implementation
+change is authorized by `INS-179`.
 
 ## INS-178 — HOLD after INS-177 News SQL correction
 
