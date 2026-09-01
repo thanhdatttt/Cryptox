@@ -4493,3 +4493,45 @@ Canonical references: [Contributor rules](../AGENTS.md),
 [Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-109`, `DEC-110`, and `INS-190`.
+
+## DEC-112 — Authorize the bounded normal simulator accounting correction
+
+Status: `APPROVED`
+
+Authority: Instructor review under `DEC-111`, the real backend Binance history
+response, and a direct reproduction of the normal simulator's accounting
+failure on that real candle set.
+
+Decision: Authorize exactly one fresh same-directory Manager and exactly one
+hidden worker to correct only the residual-capital failure in the normal
+`BACKTEST_EXECUTION_V1` simulator. The worker scope is restricted to
+`modules/backtesting/domain/simulator.ts` and
+`modules/backtesting/domain/simulator.spec.ts`. The Manager alone may update
+`TASKS.md`/`HANDOFF.md` and may re-enter only `I-02` through
+`REVIEW -> READY -> IN_PROGRESS -> REVIEW`; no final promotion is authorized.
+
+Why: real closed Binance candles are complete, yet the normal entry calculation
+recomputes quantity, notional, and fee with binary floating-point values and can
+classify a rounding residual as an actual capital overspend. The live flow then
+fails before it can generate the required application-owned Experiment/Trade/
+Evaluation/Leaderboard result. This is a concrete defect in the already
+approved Backtesting path, not permission to broaden scope or change the
+database/provider boundary.
+
+Acceptance: add a deterministic realistic-magnitude regression for the normal
+entry path; preserve legitimate insufficient-capital rejection, existing fee/
+slippage and result semantics, deterministic Trade IDs/marker linkage, public
+contracts, and synthetic paper fixed-point behavior; pass focused/full tests
+and applicable static gates. Instructor-owned real Binance/direct-simulator and
+PostgreSQL-backed manual/Search evidence is required before any later I-02
+decision. Unavailable checks remain `BLOCKED`/`UNVERIFIED`.
+
+Prohibitions: no migration/schema, REST/WebSocket, persistence adapter,
+runtime/provider/frontend/News/Gemini change, evaluation/leaderboard redesign,
+deferred scope, new task row, branch/worktree stream, duplicate/retry/
+replacement Manager or worker, or final MVP/I-02 acceptance.
+
+Canonical references: [Contributor rules](../AGENTS.md),
+[Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-111`, `INS-190`, and `INS-191`.

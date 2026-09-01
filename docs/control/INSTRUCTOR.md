@@ -2,11 +2,87 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-190`
+Instruction ID: `INS-191`
 
-Status: `HOLD`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-191 — APPROVED_FOR_EXECUTION for the bounded normal simulator accounting fix
+
+This instruction supersedes `INS-190 / HOLD` only for the bounded normal
+Backtest simulator correction below. It does not accept the final MVP, promote
+`I-02`, or authorize any downstream or unrelated packet.
+
+### Applicability, evidence, and packet
+
+- Canonical checkout: `D:\\agy-cli-projects\\AOS\\Cryptox`, branch
+  `MVP_IMPLEMENTATION`, reviewed checkpoint
+  `9c0fe4cf19f32bc97d8c77e7e29adb1f14249b3d`. The checkpoint contains the
+  accepted INS-189 Trade-ID correction and the INS-190 HOLD; the only current
+  untracked path is the pre-existing `.codex/config.toml`, which remains
+  excluded.
+- `TASKS.md` is authoritative at 58 rows: 57 `DONE` and only `I-02` in
+  `REVIEW`. A fresh task-status review found no active Cryptox Manager or
+  worker. No branch or worktree stream is being opened.
+- Instructor evidence verified that the rebuilt local Docker Compose runtime
+  has healthy backend/frontend/PostgreSQL development and test services,
+  `/live=200`, `/ready=200`, and migration up/constraints/down/remigrate
+  validation. The real backend Binance history endpoint returned 48 complete
+  closed `BTCUSDT` 1h candles for the bounded range used in the probe.
+- The same real candle set, passed directly to the current normal simulator
+  with a valid MA strategy, independently reaches the `entry-negative-capital`
+  accounting branch. The public PostgreSQL-backed manual probe also ends at
+  sanitized `SIMULATION_FAILED` before Experiment/Trade/Evaluation/Leaderboard
+  acceptance. This is a source-level normal simulator accounting failure, not
+  a provider-completeness finding. No raw provider payload, credential, or
+  secret is part of this authorization.
+
+This is a correction within already-approved `CSL-R-BT-01` behavior and does
+not add a task row, capability, schema, provider protocol, or product scope.
+
+### Authorization and exact write scope
+
+- Create exactly one fresh same-directory Manager in this canonical checkout,
+  using `gpt-5.6-luna` with maximum reasoning. The Manager may create exactly
+  one fresh hidden worker. No parallel Manager, duplicate, retry, replacement,
+  branch, or worktree is allowed.
+- The worker may write only:
+  1. `modules/backtesting/domain/simulator.ts`
+  2. `modules/backtesting/domain/simulator.spec.ts`
+- The worker must add a deterministic regression that reproduces the normal
+  `BACKTEST_EXECUTION_V1` residual-accounting failure at realistic market-price
+  magnitude and proves a valid funded entry succeeds without permitting a real
+  overspend. It must preserve the approved public result shape, fee/slippage
+  semantics, deterministic trade ordering/IDs/markers, and existing golden
+  values. Synthetic paper fixed-point behavior must remain unchanged and
+  covered by existing tests.
+- The Manager alone may update `docs/implementation/TASKS.md` and
+  `docs/implementation/HANDOFF.md`, and may move only `I-02` through
+  `REVIEW -> READY -> IN_PROGRESS -> REVIEW`. No other task may change state;
+  `I-02` must not become `DONE` under this signal.
+
+### Acceptance, validation, and prohibitions
+
+Acceptance requires the focused simulator regression and existing Backtesting
+tests to pass, plus full workspace tests, typecheck, lint, build,
+architecture/artifact/deferred/scope checks, whitespace, exact-path, and
+secret/log checks. The Manager must report unavailable OpenSpec, provider,
+PostgreSQL, browser, or live-demo checks as `UNVERIFIED`/`BLOCKED`, never
+`PASS`. The Instructor will independently rebuild the backend, rerun the real
+Binance history/direct-simulator reproduction, and rerun the exact cleaned-up
+PostgreSQL-backed manual/Search flow before issuing any later signal.
+
+The packet forbids migration/schema, REST/WebSocket, persistence, runtime,
+provider, frontend, News, Gemini/LLM, evaluation/leaderboard, task-DAG,
+deferred-scope, branch/worktree, duplicate/retry/replacement, and final-I-02
+changes. The Manager stops immediately after this one checkpoint at
+`I-02 REVIEW` and does not start newly unlocked work.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-111`, `DEC-112`, and `INS-190`.
 
 ## INS-190 — HOLD after INS-189 live revalidation
 
