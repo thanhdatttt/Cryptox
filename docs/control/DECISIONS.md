@@ -4169,3 +4169,34 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-101`, and `INS-181`.
+
+## DEC-103 — Hold after accepted configured-News UUID correction
+
+Status: `HOLD`
+
+Authority: Independent Instructor review of `INS-181 / DEC-102`. The configured
+News adapter correction and focused tests were integrated at `f86ab93`. The
+adapter now uses the existing stable provider-identity UUID authority instead of
+the reproduced `document-<sha256-prefix>` value that caused PostgreSQL
+`22P02`/`string_to_uuid`. The source/test and Manager checkpoint diff was
+reviewed as exactly authorized. Focused configured-News tests pass 6/6 and the
+Manager's full formal gates pass where executable.
+
+The board remains 58 rows, 57 `DONE`, only `I-02` `REVIEW`; no Manager/worker is
+active and `.codex/config.toml` is the only untracked path. The correction is
+accepted, but fresh live News/Sentiment persistence on the rebuilt service is
+still missing, as are the remaining final I-02 evidence paths: configured
+Gemini lifecycle, generated result data, induced Binance recovery,
+authenticated browser/demo, clean reprovision, and eight integrated scenarios.
+
+`INS-181` is closed at `HOLD` without I-02 promotion. A next authorization may
+cover only final evidence on the corrected build, potentially using parallel
+disjoint evidence-only lanes with no source or control-plane writes. No new
+source fix, migration, provider protocol, deferred scope, downstream task, or
+final acceptance is approved by this decision. Unavailable checks remain
+`BLOCKED`/`UNVERIFIED`.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-102`, and `INS-182`.

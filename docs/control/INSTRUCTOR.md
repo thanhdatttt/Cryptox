@@ -2,11 +2,54 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-181`
+Instruction ID: `INS-182`
 
-Status: `APPROVED_FOR_EXECUTION`
+Status: `HOLD`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-182 — HOLD after accepted configured-News UUID correction
+
+This instruction supersedes `INS-181 / APPROVED_FOR_EXECUTION`. The bounded
+source correction was independently reviewed and integrated, but the final
+I-02 evidence gate is still open.
+
+### Reviewed result
+
+- Canonical checkout is `D:\\agy-cli-projects\\AOS\\Cryptox`, branch
+  `MVP_IMPLEMENTATION`, at `f86ab93`. The commit contains only the accepted
+  configured-News correction, its focused test coverage, and the Manager-owned
+  `TASKS.md`/`HANDOFF.md` checkpoint. The only untracked path remains the
+  pre-existing `.codex/config.toml`.
+- The configured adapter now uses the existing stable UUID identity authority;
+  `providerItemId` and extraction provenance are preserved. Independent focused
+  test is 6/6 PASS; the Manager reports News 36/36, root 462 passed with 9
+  environment-gated skips, build/typecheck/lint/architecture/artifact/scope/
+  runtime-smoke and 15/15 scope tests PASS.
+- `TASKS.md` remains authoritative at 58 rows: 57 `DONE`, only `I-02`
+  `REVIEW`; the INS-181 Manager and its one worker are closed, with no active
+  Cryptox Manager/worker.
+- The reproduced persistence defect is no longer covered by the old source
+  path, but no fresh live collection/rebuild probe has yet established
+  persisted real News and isolated Sentiment on the corrected build. Full I-02
+  also lacks the remaining generated-data, Gemini, recovery, browser/demo,
+  clean reprovision, and eight-scenario evidence.
+
+### HOLD boundary
+
+No source repair, task promotion, downstream start, or final MVP acceptance is
+authorized by this HOLD. The next instruction may authorize only a fresh final
+I-02 evidence pass on the corrected build, with any parallel workers limited to
+disjoint evidence-only lanes and no repository writes. Unavailable tools or
+environments remain `BLOCKED`/`UNVERIFIED`; unit tests, fixtures, skipped tests,
+or HTTP 200 alone are not final acceptance.
+
+Affected: `I-02`, `INS-181`, `DEC-102`, `TASKS.md`, and `HANDOFF.md`.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-102`, and `INS-182`.
 
 ## INS-181 — APPROVED_FOR_EXECUTION for the narrow configured-News UUID correction
 
