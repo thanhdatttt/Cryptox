@@ -2,11 +2,94 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-182`
+Instruction ID: `INS-183`
 
-Status: `HOLD`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-183 — APPROVED_FOR_EXECUTION for parallel final I-02 evidence
+
+This instruction supersedes `INS-182 / HOLD`. It authorizes one fresh final
+I-02 evidence pass on the accepted configured-News UUID correction, with
+parallel evidence lanes that have no repository write scope.
+
+### Applicability and packet
+
+- Canonical checkout: `D:\\agy-cli-projects\\AOS\\Cryptox`, branch
+  `MVP_IMPLEMENTATION`. Governance predecessor is `89f7391`; the reviewed
+  source/business checkpoint is `f86ab93`, which contains the accepted
+  configured-News UUID correction and Manager checkpoint. The only untracked
+  path is the pre-existing `.codex/config.toml` and it is excluded.
+- `TASKS.md` is authoritative at 58 rows: 57 `DONE`, only `I-02` `REVIEW`;
+  no Manager or worker is active at dispatch.
+- The packet is final evidence for the already-approved MVP only:
+  PostgreSQL/Auth/ownership, Binance history/realtime/recovery, real RSS/News
+  and isolated Sentiment, generated Backtest/Evaluation/Experiment/Trade/
+  Leaderboard data, configured Gemini 3.6 `LLM_AUTHORING_V1`, authenticated
+  browser/demo, validation/traceability, and all eight architecture scenarios.
+
+### Parallel Manager and worker limits
+
+- Create exactly one fresh same-directory Manager with `gpt-5.6-luna` and
+  `max` reasoning. No worktree, branch, duplicate, retry, replacement, or
+  second Manager.
+- The Manager may create at most three fresh hidden internal evidence workers
+  in parallel, using the available multi-agent mechanism. Parallelism is
+  allowed only because all workers have repository write scope `none` and
+  disjoint evidence/data lanes. Do not create user-visible worker tasks or ask
+  the user for approval. Do not spawn a replacement if one lane fails.
+- Lane A — local infrastructure and providers: real Auth/ownership, Binance
+  history/realtime/observability/recovery where safely inducible, configured
+  RSS/News persistence, isolated Sentiment, and health/readiness. Lane B —
+  configured Gemini authoring: live PROMPT draft, validation, explicit
+  Save/Approve, immutable version/provenance, owner isolation, unsafe-input
+  rejection, and provider-failure/no-side-effect behavior. Lane C — generated
+  application/demo: Search/Backtest/Evaluation/Experiment/Trade/Leaderboard
+  records, authenticated browser/UI flow, and the eight architecture-change
+  scenarios not already covered by A/B. Workers must coordinate only through
+  their assigned lane; no lane may rely on another lane's temporary records.
+- Every temporary user, draft, strategy, run, result, or other business record
+  must use a unique lane marker and be removed through an exact, read-verified
+  approved public path before the lane ends. If exact cleanup or isolation is
+  unavailable, report `BLOCKED`/`UNVERIFIED` and do not claim PASS. No shared
+  account, shared marker, database reset, migration, or destructive cleanup.
+- A single reversible local Compose/backend rebuild or restart may be performed
+  once before or during this pass solely to load committed `f86ab93` and trigger
+  existing collection. It may not alter tracked files, reset data, or redesign
+  infrastructure. If unavailable in Manager context, the Manager must report
+  it `BLOCKED`/`UNVERIFIED`; the Instructor may carry separately observed
+  evidence.
+
+### Write and acceptance boundary
+
+- Workers may read the repository and use public HTTP/WebSocket/provider/
+  browser boundaries, existing dependencies, and process-scoped `.env`, but
+  may not edit, stage, or commit any repository path. The Manager may update
+  only `docs/implementation/TASKS.md` and `docs/implementation/HANDOFF.md`.
+  It may re-enter only `I-02: REVIEW -> READY -> IN_PROGRESS -> REVIEW` and
+  must not mark I-02 `DONE`.
+- No source/config/dependency/migration/schema/contract/provider-protocol/
+  frontend/OpenSpec change, fixture promotion, fallback, secret emission,
+  deferred scope, or downstream task is authorized.
+- Require a complete sanitized REQUIRED-ID matrix with exact commands,
+  endpoint/provider results, evidence class, cleanup, and an explicit full-MVP
+  DoD decision. Run build, typecheck, lint, tests, architecture, artifacts,
+  scope/deferred, scope tests, runtime smoke, traceability, secret/log,
+  whitespace, exact-path, and diff checks as applicable. Fixtures and skipped
+  tests are not live evidence; unavailable tools/environments are
+  `BLOCKED`/`UNVERIFIED`.
+- OpenSpec CLI validation remains carried Instructor evidence
+  `@fission-ai/openspec@1.11.0`, 11/11; a Manager context that cannot access
+  the CLI must report that limitation, not fabricate a fresh PASS.
+- After all lanes end, the Manager must close workers, return I-02 to `REVIEW`,
+  record a sanitized checkpoint, and stop for independent Instructor review.
+  No final promotion is authorized by INS-183.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-103`, and `INS-183`.
 
 ## INS-182 — HOLD after accepted configured-News UUID correction
 

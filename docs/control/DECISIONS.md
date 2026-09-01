@@ -4200,3 +4200,44 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-102`, and `INS-182`.
+
+## DEC-104 — Authorize parallel final I-02 evidence
+
+Status: `APPROVED`
+
+Authority: Instructor review of `INS-182 / DEC-103` and accepted source commit
+`f86ab93`. The configured-News adapter now uses the existing stable UUID
+identity authority, and focused plus full News tests pass. The board remains
+58 rows, 57 `DONE`, only `I-02` `REVIEW`; the prior Manager and worker are
+closed, and no active Cryptox Manager/worker exists. The only untracked path is
+the pre-existing `.codex/config.toml`.
+
+Authorize exactly one fresh same-directory `gpt-5.6-luna` Manager with `max`
+reasoning. It may create at most three fresh hidden internal evidence workers
+in parallel, with repository write scope `none` and disjoint lanes: (A)
+infrastructure/Auth/Binance/News/Sentiment, (B) configured Gemini
+`LLM_AUTHORING_V1`, and (C) generated results/browser/demo/eight architecture
+scenarios. No user-visible worker task, duplicate, retry, or replacement is
+allowed. Temporary business records require unique lane markers and exact
+read-verified public cleanup; shared accounts/state and data reset are
+prohibited.
+
+One reversible local Compose/backend rebuild or restart may load `f86ab93` and
+trigger existing collection. The Manager alone may update `TASKS.md` and
+`HANDOFF.md`, may re-enter only I-02 through `REVIEW -> READY -> IN_PROGRESS
+-> REVIEW`, and must stop without marking it `DONE`.
+
+Acceptance is a complete sanitized REQUIRED-ID matrix and full-MVP-DoD
+decision based on real provider/runtime evidence, applicable formal gates,
+cleanup, and traceability. No source/config/dependency/migration/schema/
+contract/provider-protocol/frontend/OpenSpec change, fixture promotion,
+fallback, secret emission, deferred scope, downstream work, or final promotion
+is authorized. Unavailable checks remain `BLOCKED`/`UNVERIFIED`; carried
+Instructor OpenSpec `@fission-ai/openspec@1.11.0` 11/11 is not a fresh Manager
+PASS. The Manager must stop for independent Instructor review after closing
+all lanes.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-103`, and `INS-183`.
