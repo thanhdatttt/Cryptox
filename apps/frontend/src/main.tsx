@@ -14,8 +14,8 @@ import "./auth.css";
 const nav: Array<[AppScreen, string, string]> = [["market", "Realtime", "∿"], ["strategy", "Strategy Library", "⌘"], ["backtest", "Backtest", "▥"], ["search", "Search", "⌕"], ["leaderboard", "Leaderboard", "▥"], ["news", "News", "▤"], ["settings", "Settings", "⚙"]];
 const Panel = ({ title, children, className = "" }: { title?: string; children: React.ReactNode; className?: string }) => <section className={`panel ${className}`}>{title && <h2>{title}</h2>}{children}</section>;
 const Btn = ({ children, primary, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & { primary?: boolean }) => <button {...props} className={`btn ${primary ? "primary" : ""}`}>{children}</button>;
-const ErrorBox = ({ error }: { error: unknown }) => error ? <p className="error">{error instanceof Error ? error.message : String(error)}</p> : null;
-const Loading = () => <p className="muted">Loading live backend data...</p>;
+const ErrorBox = ({ error }: { error: unknown }) => error ? <p className="error" role="alert">{error instanceof Error ? error.message : String(error)}</p> : null;
+const Loading = () => <p className="muted" aria-live="polite">Loading live backend data...</p>;
 const Empty = ({ children }: { children: React.ReactNode }) => <p className="muted empty-state">{children}</p>;
 
 const MailIcon = () => <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6.5h16v11H4z" /><path d="m5 8 7 5 7-5" /></svg>;

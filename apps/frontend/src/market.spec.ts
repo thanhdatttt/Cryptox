@@ -9,7 +9,7 @@ describe("Market tick presentation", () => {
     expect(formatMarketQuantity(0.00007)).toBe("0.00007");
   });
 
-  it("filters to the selected primary pair, orders newest first, and bounds live rows", () => {
+  it("filters to the selected top pair, orders newest first, and bounds live rows", () => {
     const ticks = Array.from({ length: 10 }, (_, index) => tick("BTCUSDT", `2025-01-01T00:00:${String(index).padStart(2, "0")}.000Z`, index + 100)).concat(tick("ETHUSDT", "2025-01-01T00:01:00.000Z", 200));
     const rows = recentMarketTicks(ticks, "BTCUSDT", 8);
     expect(rows).toHaveLength(8);
@@ -18,6 +18,7 @@ describe("Market tick presentation", () => {
   });
 
   it("reports honest empty states for paused, unavailable, and connected streams", () => {
+    expect(tickEmptyState({ tone: "paused", label: "No active charts" }, { loading: false })).toContain("Select a chart");
     expect(tickEmptyState({ tone: "paused", label: "Realtime paused" }, { loading: false })).toContain("paused");
     expect(tickEmptyState({ tone: "error", label: "Connection error" }, { loading: false })).toContain("unavailable");
     expect(tickEmptyState({ tone: "connected", label: "Receiving data" }, { loading: false })).toContain("waiting");

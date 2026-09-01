@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { appRoutePath, canAddChart, defaultMarketLayout, equalWeights, initialChartPanels, MARKET_LAYOUT_STORAGE_KEY, marketConnectionSummary, mergeCandle, nextChartId, parameterDefaults, parseAppRoute, persistMarketLayout, persistSearchRunId, readMarketLayout, readSearchRunId, SEARCH_RUN_STORAGE_KEY, validateMarketLayout } from "./state";
 
 describe("frontend presentation state", () => {
-  it("keeps four independent initial chart selections and caps additional panels", () => {
+  it("starts with an empty Market workspace and still caps added panels at four", () => {
+    expect(defaultMarketLayout()).toEqual({ version: 2, panels: [], realtimeEnabled: true, selectedPair: "BTCUSDT" });
     expect(initialChartPanels.map((panel) => panel.timeframe)).toEqual(["1m", "5m", "15m", "1h"]);
     expect(canAddChart(initialChartPanels)).toBe(false);
     expect(canAddChart(initialChartPanels.slice(0, 3))).toBe(true);
@@ -11,7 +12,7 @@ describe("frontend presentation state", () => {
   it("round-trips a valid layout for navigation and refresh, but falls back for invalid or stale storage", () => {
     const values = new Map<string, string>();
     const storage = { getItem: (key: string) => values.get(key) ?? null, setItem: (key: string, value: string) => { values.set(key, value); } };
-    const layout = { ...defaultMarketLayout(), panels: initialChartPanels.slice(0, 2).map((panel) => ({ ...panel, pair: panel.id === "chart-1" ? "ETHUSDT" : panel.pair })), primaryPanelId: "chart-2", realtimeEnabled: false };
+    const layout = { ...defaultMarketLayout(), panels: initialChartPanels.slice(0, 2).map((panel) => ({ ...panel, pair: panel.id === "chart-1" ? "ETHUSDT" : panel.pair })), selectedPair: "ETHUSDT", realtimeEnabled: false };
     persistMarketLayout(layout, storage);
     expect(values.has(MARKET_LAYOUT_STORAGE_KEY)).toBe(true);
     expect(readMarketLayout(storage)).toEqual(layout);
@@ -21,13 +22,23 @@ describe("frontend presentation state", () => {
     expect(readMarketLayout(storage)).toEqual(defaultMarketLayout());
   });
 
-  it("validates primary panel, unique ids, and chart bounds before restoring", () => {
+  it("validates selected pair, unique ids, and chart bounds before restoring", () => {
     const layout = defaultMarketLayout();
     expect(validateMarketLayout(layout)).toEqual(layout);
-    expect(validateMarketLayout({ ...layout, primaryPanelId: "missing" })).toBeUndefined();
-    expect(validateMarketLayout({ ...layout, panels: [{ ...layout.panels[0]!, id: "chart-1" }, { ...layout.panels[1]!, id: "chart-1" }] })).toBeUndefined();
-    expect(validateMarketLayout({ ...layout, panels: [] })).toBeUndefined();
-    expect(nextChartId(layout.panels)).toBe("chart-5");
+    expect(validateMarketLayout({ ...layout, selectedPair: "unsupported pair" })).toBeUndefined();
+    expect(validateMarketLayout({ ...layout, panels: [{ ...initialChartPanels[0]!, id: "chart-1" }, { ...initialChartPanels[1]!, id: "chart-1" }] })).toBeUndefined();
+    expect(validateMarketLayout({ ...layout, panels: initialChartPanels.map((panel) => ({ ...panel })).concat({ id: "chart-5", pair: "BTCUSDT", timeframe: "1d" }) })).toBeUndefined();
+    expect(nextChartId(layout.panels)).toBe("chart-1");
+  });
+
+  it("adds duplicate timeframe panels with the selected pair until the four-chart limit", () => {
+    const empty = defaultMarketLayout();
+    const first = addMarketPanel(empty, "BTCUSDT", "1m")!;
+    const second = addMarketPanel(first, "BTCUSDT", "1m")!;
+    const full = initialChartPanels.reduce((current) => addMarketPanel(current, "ETHUSDT", "1h")!, empty);
+    expect(second.panels.map((panel) => `${panel.pair}:${panel.timeframe}`)).toEqual(["BTCUSDT:1m", "BTCUSDT:1m"]);
+    expect(full.panels).toHaveLength(4);
+    expect(addMarketPanel(full, "BTCUSDT", "5m")).toBeUndefined();
   });
 
   it("merges repeated/forming candle updates by timestamp without regressing a closed candle", () => {

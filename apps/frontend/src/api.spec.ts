@@ -59,6 +59,12 @@ describe("frontend backend transport", () => {
     expect(socket.disconnect).toHaveBeenCalledOnce();
   });
 
+  it("submits a saved single strategy without inventing a composite id", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(response({ candidateId: "candidate-1", status: "QUEUED" }, 202));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(api.backtest({ leaderboardScopeId: "scope-1", strategyDefinitionIds: ["definition-1"], maxAttempts: 1 })).resolves.toMatchObject({ candidateId: "candidate-1", status: "QUEUED" });
+    expect(JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string)).toEqual({ leaderboardScopeId: "scope-1", strategyDefinitionIds: ["definition-1"], maxAttempts: 1 });
+  });
   it("loads supported market pairs and timeframes from the backend contract", async () => {
     const fetchMock = vi.fn().mockResolvedValue(response({ provider: "BINANCE", pairs: ["BTCUSDT", "ETHUSDT"], timeframes: ["1m", "5m"] }));
     vi.stubGlobal("fetch", fetchMock);

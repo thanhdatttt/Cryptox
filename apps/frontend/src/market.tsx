@@ -166,6 +166,7 @@ export const recentMarketTicks = (ticks: MarketTick[], pair: string, limit = 8):
 
 export function tickEmptyState(summary: { tone: string; label: string }, capabilities: { loading: boolean; error?: unknown }): string {
   if (capabilities.error) return "Supported market pairs are unavailable; live trades cannot be confirmed.";
+  if (summary.label === "No active charts") return "Select a chart to receive live trades for this pair.";
   if (summary.tone === "error") return "Live trades unavailable while the provider connection is in error.";
   if (summary.tone === "paused") return "Realtime is paused; no live trades are being received.";
   if (summary.tone === "pending") return "Waiting for authenticated live trade events.";
@@ -176,7 +177,7 @@ export function tickEmptyState(summary: { tone: string; label: string }, capabil
 export interface MarketScreenProps { layout: MarketLayoutState; onLayoutChange: (layout: MarketLayoutState) => void; }
 
 export function MarketScreen({ layout, onLayoutChange }: MarketScreenProps) {
-  const { panels, realtimeEnabled, primaryPanelId } = layout;
+  const { panels, realtimeEnabled, selectedPair } = layout;
   const [states, setStates] = useState<Record<string, string>>({});
   const [ticks, setTicks] = useState<MarketTick[]>([]);
   const [lastUpdate, setLastUpdate] = useState<string>();
@@ -184,7 +185,6 @@ export function MarketScreen({ layout, onLayoutChange }: MarketScreenProps) {
   const [signalDefinitionId, setSignalDefinitionId] = useState("");
   const definitions = useQuery({ queryKey: ["strategies", "definitions"], queryFn: api.definitions });
   const [capabilities, setCapabilities] = useState<{ data?: MarketCapabilities; loading: boolean; error?: unknown }>({ loading: true });
-  const primary = panels.find((panel) => panel.id === primaryPanelId) ?? panels[0] ?? defaultMarketLayout().panels[0]!;
   const availablePairs = capabilities.data?.pairs ?? [];
   const availableTimeframes = capabilities.data?.timeframes ?? [];
   const pairsReady = Boolean(capabilities.data && availablePairs.length > 0);
@@ -211,15 +211,17 @@ export function MarketScreen({ layout, onLayoutChange }: MarketScreenProps) {
   const removePanel = (id: string) => {
     const nextPanels = panels.filter((item) => item.id !== id);
     if (!nextPanels.length) return;
-    onLayoutChange({ ...layout, panels: nextPanels, primaryPanelId: primaryPanelId === id ? nextPanels[0]!.id : primaryPanelId });
+    if (panels.length <= 1) return;
+    onLayoutChange({ ...layout, panels: nextPanels });
     setStates((current) => { const next = { ...current }; delete next[id]; return next; });
   };
   const addTick = (tick: MarketTick) => {
-    if (tick.pair !== primary.pair) return;
-    setTicks((current) => recentMarketTicks([...current, tick], primary.pair));
+    if (tick.pair !== selectedPair) return;
+    setTicks((current) => recentMarketTicks([...current, tick], selectedPair));
     setLastUpdate(tick.timestamp);
   };
   const summary = (() => {
+    if (!panels.length) return { label: "No active charts", tone: "paused" as const };
     if (!realtimeEnabled) return { label: "Realtime paused", tone: "paused" as const };
     if (Object.values(states).some((state) => state === "ERROR" || state === "DISCONNECTED")) return { label: "Connection error", tone: "error" as const };
     if (Object.values(states).some((state) => state === "RECONNECTING")) return { label: "Reconnecting", tone: "pending" as const };
@@ -229,8 +231,11 @@ export function MarketScreen({ layout, onLayoutChange }: MarketScreenProps) {
   })();
   const providerId = capabilities.data?.provider ?? provider;
   const providerLabel = providerId === "BINANCE" ? "Binance public market data" : providerId ? `${providerId} market data` : capabilities.loading ? "Loading provider" : "Provider unavailable";
-  const updatePrimary = (pair: string, timeframe: Timeframe) => updatePanel(primary.id, pair, timeframe);
-  const addChart = () => { if (!canAddChart(panels)) return; const timeframe = availableTimeframes.find((item) => !panels.some((panel) => panel.timeframe === item)) ?? availableTimeframes[0] ?? "1h"; onLayoutChange({ ...layout, panels: [...panels, { id: nextChartId(panels), pair: availablePairs[0] ?? primary.pair, timeframe }] }); };
+  const addChart = (timeframe: Timeframe) => {
+    if (!pairsReady || !availableTimeframes.includes(timeframe)) return;
+    const nextLayout = addMarketPanel(layout, selectedPair, timeframe);
+    if (nextLayout) onLayoutChange(nextLayout);
+  };
   return <div className="market-screen">
     <div className="market-header"><div><h1>Realtime Chart – Đa khung thời gian</h1><p>Backend candles and authenticated WebSocket updates, with independent controls for up to four charts.</p></div><div className="market-header-actions"><span className="market-source-pill"><i />Source: {providerLabel} · {summary.label}</span></div></div>
     <section className="market-controlbar"><label className="market-pair-control">Pair / Coin<select aria-label="Market pair" value={primary.pair} disabled={!pairsReady} onChange={(event) => updatePrimary(event.target.value, primary.timeframe)}>{(availablePairs.length ? availablePairs : [primary.pair]).map((item) => <option key={item}>{item}</option>)}</select></label><div className="market-timeframe-control"><b>Timeframe</b><div>{availableTimeframes.map((item) => <button type="button" key={item} className={primary.timeframe === item ? "active" : ""} onClick={() => updatePrimary(primary.pair, item)}>{item}</button>)}</div></div><label className="market-pair-control"><span>Signal strategy</span><select aria-label="Signal strategy" value={signalDefinitionId} disabled={definitions.isLoading || !definitions.data?.length} onChange={(event) => setSignalDefinitionId(event.target.value)}><option value="">Select saved strategy</option>{definitions.data?.map((definition: StrategyDefinition) => <option key={definition.id} value={definition.id}>{definition.strategyName} · v{definition.version}</option>)}</select></label><div className="market-realtime-control"><b>Realtime</b><button type="button" aria-label="Realtime toggle" aria-pressed={realtimeEnabled} className={`market-toggle ${realtimeEnabled ? "active" : ""}`} onClick={() => onLayoutChange({ ...layout, realtimeEnabled: !realtimeEnabled })}><i /></button></div><span className={`market-receiving-pill ${summary.tone}`}><i />{summary.label}</span><button type="button" className="market-add-chart" disabled={!canAddChart(panels)} onClick={addChart}>+ Add chart ({panels.length}/4)</button></section>

@@ -6,8 +6,8 @@ import { chartBounds, percent } from "./visuals";
 
 const Panel = ({ title, children, className = "" }: { title?: string; children: React.ReactNode; className?: string }) => <section className={`panel ${className}`}>{title && <h2>{title}</h2>}{children}</section>;
 const Btn = ({ children, primary, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & { primary?: boolean }) => <button {...props} className={`btn ${primary ? "primary" : ""}`}>{children}</button>;
-const ErrorBox = ({ error }: { error: unknown }) => error ? <p className="error">{error instanceof Error ? error.message : String(error)}</p> : null;
-const Loading = () => <p className="muted">Loading live backend data...</p>;
+const ErrorBox = ({ error }: { error: unknown }) => error ? <p className="error" role="alert">{error instanceof Error ? error.message : String(error)}</p> : null;
+const Loading = () => <p className="muted" aria-live="polite">Loading live backend data...</p>;
 const Empty = ({ children }: { children: React.ReactNode }) => <p className="muted empty-state">{children}</p>;
 const terminalCandidate = (status?: string) => status === "COMPLETED" || status === "FAILED" || status === "CANCELLED";
 const terminalSearch = (state?: string) => state === "COMPLETED" || state === "FAILED" || state === "CANCELLED";

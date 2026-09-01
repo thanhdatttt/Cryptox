@@ -5,8 +5,8 @@ import { equalWeights, parameterDefaults } from "./state";
 
 const Panel = ({ title, children, className = "" }: { title?: string; children: React.ReactNode; className?: string }) => <section className={`panel ${className}`}>{title && <h2>{title}</h2>}{children}</section>;
 const Btn = ({ children, primary, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & { primary?: boolean }) => <button {...props} className={`btn ${primary ? "primary" : ""}`}>{children}</button>;
-const ErrorBox = ({ error }: { error: unknown }) => error ? <p className="error strategy-error">{error instanceof Error ? error.message : String(error)}</p> : null;
-const Loading = () => <p className="muted">Loading live backend data...</p>;
+const ErrorBox = ({ error }: { error: unknown }) => error ? <p className="error strategy-error" role="alert">{error instanceof Error ? error.message : String(error)}</p> : null;
+const Loading = () => <p className="muted" aria-live="polite">Loading live backend data...</p>;
 const Empty = ({ children }: { children: React.ReactNode }) => <div className="strategy-empty">{children}</div>;
 type SourceType = "TEXT" | "URL";
 type Resource<T> = { data?: T; isLoading: boolean; error: unknown; refetch: () => unknown };
