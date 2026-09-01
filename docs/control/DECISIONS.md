@@ -4135,3 +4135,37 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-100`, and `INS-180`.
+
+## DEC-102 — Authorize configured-News UUID normalization correction
+
+Status: `APPROVED`
+
+Authority: Instructor review of `INS-180 / DEC-101`. The defect is reproduced
+against the local compiled application and PostgreSQL: the configured RSS
+provider produces a `document-<sha256-prefix>` item id, and the existing
+repository insert fails with PostgreSQL `22P02` / `string_to_uuid` against the
+approved UUID `news_items.id` column. The provider fetch itself succeeds. The
+canonical branch is `MVP_IMPLEMENTATION` at governance commit `44ab577`, with
+source/business checkpoint `30f184c`; the board remains 58 rows, 57 `DONE`,
+only `I-02` `REVIEW`, and no active Manager/worker.
+
+Authorize exactly one fresh same-directory `gpt-5.6-luna` Manager with `max`
+reasoning and exactly one hidden worker. The sole implementation packet is
+the configured-News UUID-compatible stable item-id correction and focused
+regression coverage in `modules/news/infrastructure/configured.ts` and
+`modules/news/infrastructure/configured.spec.ts`. The worker writes only those
+two paths; the Manager alone may update `TASKS.md` and `HANDOFF.md`, may
+re-enter only I-02 through `REVIEW -> READY -> IN_PROGRESS -> REVIEW`, and
+must stop without marking I-02 `DONE`.
+
+Acceptance requires a valid stable UUID for configured RSS/Website/HTML items,
+preserved provider identity/extraction behavior, focused News tests and the
+relevant formal gates. No migration, schema/query, contract, runtime,
+provider-protocol, dependency, frontend, LLM, fallback, fixture, deferred,
+downstream, or unrelated repair is authorized. Any further issue requires a
+new Instructor review. Unavailable checks remain `BLOCKED`/`UNVERIFIED`.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-101`, and `INS-181`.

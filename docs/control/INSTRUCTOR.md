@@ -2,11 +2,77 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-180`
+Instruction ID: `INS-181`
 
-Status: `HOLD`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-181 — APPROVED_FOR_EXECUTION for the narrow configured-News UUID correction
+
+This instruction supersedes `INS-180 / HOLD`. It authorizes one fresh bounded
+implementation pass for the reproduced configured-News persistence defect.
+It does not authorize final I-02 acceptance or any unrelated repair.
+
+### Applicability and packet
+
+- Canonical checkout: `D:\\agy-cli-projects\\AOS\\Cryptox`, branch
+  `MVP_IMPLEMENTATION`. Governance predecessor is `44ab577`; reviewed
+  source/business checkpoint remains `30f184c`, including the accepted News
+  SQL qualification correction. The only untracked path is the pre-existing
+  `.codex/config.toml` and it is excluded from all changes.
+- `TASKS.md` is authoritative at 58 rows: 57 `DONE`, only `I-02` `REVIEW`,
+  with no active Manager or worker at dispatch.
+- Packet: correct the configured Website/RSS/HTML News adapter so the
+  normalized item identity written through the existing PostgreSQL repository
+  is UUID-compatible and stable for the same provider identity; add focused
+  regression coverage. Governing requirements are `CSL-R-NW-01`,
+  `CSL-R-NW-02`, `CSL-R-RD-01`, and `CSL-R-SN-01` only to the extent needed
+  to restore the already-approved real News persistence boundary.
+
+### Manager and worker limits
+
+- Create exactly one fresh same-directory Manager with `gpt-5.6-luna` and
+  `max` reasoning. No worktree, branch, duplicate, retry, replacement, or
+  user-visible worker task.
+- The Manager must create exactly one fresh hidden implementation worker,
+  delegated under `AGENTS.md`, with the only source write scope:
+  `modules/news/infrastructure/configured.ts` and
+  `modules/news/infrastructure/configured.spec.ts`. The worker may not edit,
+  stage, or commit control-plane files or any other path.
+- The Manager may review/integrate the worker result and update only
+  `docs/implementation/TASKS.md` and `docs/implementation/HANDOFF.md`.
+  It may re-enter only `I-02: REVIEW -> READY -> IN_PROGRESS -> REVIEW` and
+  must not mark `I-02` `DONE`.
+- No migration, schema, PostgreSQL query, contract, runtime composition,
+  provider protocol, dependency, frontend, LLM, fallback, fixture promotion,
+  deferred scope, downstream task, or unrelated source change is authorized.
+
+### Acceptance and stop condition
+
+- Use the existing provider-neutral normalization/identity authority or an
+  equivalent UUID-compatible implementation; do not weaken the PostgreSQL
+  UUID contract or introduce a second identity scheme.
+- Focused tests must prove configured RSS/Website/HTML output has a valid
+  UUID item id, remains stable for the same provider identity, and preserves
+  provider item identity and extraction behavior. Run the relevant News suite,
+  build, typecheck, lint, architecture, artifacts, scope/deferred, whitespace,
+  exact-path, and diff-scope checks.
+- The Manager must report the exact changed paths, tests and results, and a
+  sanitized checkpoint. If the two-path scope is insufficient, or any other
+  source/config/schema/infrastructure issue appears, stop with
+  `NEEDS_INSTRUCTOR_REVIEW`; do not expand the packet.
+- After review/integration, stop at `REVIEW`. A separate Instructor
+  authorization is required for live News/Sentiment and final I-02 evidence.
+  Unavailable tools or environments are `BLOCKED`/`UNVERIFIED`, never `PASS`.
+
+No downstream task, deferred scope, OpenSpec change, or final promotion is
+authorized by `INS-181`.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-101`, and `INS-181`.
 
 ## INS-180 — HOLD after INS-179 News persistence diagnosis
 
