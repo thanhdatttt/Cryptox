@@ -27,3 +27,74 @@ body{min-width:0;background:#f8fafc;color:#17233a}.app>aside{position:fixed;inse
 /* Lightweight Charts owns candle, volume, scale, and interaction rendering. */
 .market-candle-visual{height:244px}.market-lightweight-chart{width:100%;height:220px}
 .backend-overlay.overlay-line{fill:none;stroke:#7a54d8;stroke-width:1.7}.backend-overlay.overlay-zone rect{fill:#8c6ee52b;stroke:#8060d0;stroke-width:1}.backend-overlay.overlay-signal circle{fill:#e79625;stroke:#fff;stroke-width:1.5}.backend-overlay.overlay-signal text{fill:#a15f0d;font-size:8px;font-weight:700}.legend-overlay{display:inline-block;width:9px;height:9px;border-radius:2px}.legend-overlay.overlay-line{background:#7a54d8}.legend-overlay.overlay-zone{background:#9a7bea88}.legend-overlay.overlay-signal{background:#e79625;border-radius:50%}.search-config-grid{display:grid;grid-template-columns:repeat(3,minmax(140px,1fr));gap:10px;margin-bottom:12px}.search-space{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px;padding:10px;border:1px solid #e4e9f0;border-radius:7px}.search-space legend{padding:0 5px;color:#66758b;font-size:10px}.search-space label{padding:6px 8px;border:1px solid #e4e9f0;border-radius:5px;background:#fbfcff;color:#34435b;font-size:10px}.trade-pagination{justify-content:flex-end}.experiment-panel tr.selected{background:#fff8eb}@media(max-width:760px){.search-config-grid{grid-template-columns:1fr}.search-space{display:grid;grid-template-columns:1fr}}
+
+/* Shared typography contract for readable controls and responsive data surfaces. */
+:root {
+  --type-page-title: 28px;
+  --type-card-title: 16px;
+  --type-body: 16px;
+  --type-control: 15px;
+  --type-support: 14px;
+  --type-meta: 14px;
+  --type-dense: 14px;
+  --leading-heading: 1.25;
+  --leading-body: 1.5;
+  --leading-control: 1.35;
+  --leading-support: 1.45;
+}
+
+button,
+input,
+textarea,
+select {
+  font-size: var(--type-control);
+  line-height: var(--leading-control);
+}
+
+table,
+.strategy-table,
+th,
+td {
+  font-size: var(--type-control);
+  line-height: var(--leading-control);
+}
+
+.panel h2,
+.market-side-title h2,
+.market-card-heading h2 {
+  font-size: var(--type-card-title);
+  line-height: var(--leading-heading);
+}
+
+.error,
+.success,
+.muted,
+.strategy-error,
+.market-error {
+  font-size: var(--type-support);
+  line-height: var(--leading-support);
+}
+
+.chart text {
+  font-size: var(--type-dense);
+}
+
+@media (max-width: 1320px) {
+  .heading,
+  .market-header,
+  .strategy-header,
+  .toolbar,
+  .news-toolbar {
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 760px) {
+  .validation-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .market-card-footer span {
+    white-space: normal;
+  }
+}

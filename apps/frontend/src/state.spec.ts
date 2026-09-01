@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { appRoutePath, canAddChart, defaultMarketLayout, equalWeights, initialChartPanels, MARKET_LAYOUT_STORAGE_KEY, marketConnectionSummary, mergeCandle, nextChartId, parameterDefaults, parseAppRoute, persistMarketLayout, persistSearchRunId, readMarketLayout, readSearchRunId, SEARCH_RUN_STORAGE_KEY, validateMarketLayout } from "./state";
+import { addMarketPanel, appRoutePath, canAddChart, defaultMarketLayout, equalWeights, initialChartPanels, MARKET_LAYOUT_STORAGE_KEY, marketConnectionSummary, mergeCandle, nextChartId, parameterDefaults, parseAppRoute, persistMarketLayout, persistSearchRunId, readMarketLayout, readSearchRunId, SEARCH_RUN_STORAGE_KEY, validateMarketLayout } from "./state";
 
 describe("frontend presentation state", () => {
   it("starts with an empty Market workspace and still caps added panels at four", () => {

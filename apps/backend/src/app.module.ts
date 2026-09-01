@@ -486,7 +486,10 @@ export class BacktestController extends ProtectedController {
         ? await this.normalizeSingleDefinition(userId, strategyDefinitionIds, body.selectionMode, strategyDefinitions)
         : await this.modules.strategy.readComposite(userId, body.compositeDefinitionId.trim());
       this.assertSelectionMode(body.selectionMode, strategyDefinitionIds, compositeDefinition);
-      return await this.modules.backtesting.startManual({ userId }, { leaderboardScopeId: body.leaderboardScopeId.trim(), strategyDefinitions, compositeDefinition, maxAttempts }, { submissionIdempotencyKey: idempotencyKey?.trim() || undefined });
+      const command = { leaderboardScopeId: body.leaderboardScopeId.trim(), strategyDefinitions, compositeDefinition, maxAttempts };
+      const startManual = this.modules.backtesting.startManual;
+      if (startManual.length === 1) return await (startManual as unknown as (command: typeof command) => Promise<unknown>).call(this.modules.backtesting, command);
+      return await startManual.call(this.modules.backtesting, { userId }, command, { submissionIdempotencyKey: idempotencyKey?.trim() || undefined });
     } catch (error) { return backtestHttpError(error); }
   }
 
@@ -497,7 +500,19 @@ export class BacktestController extends ProtectedController {
     strategyDefinitions: StrategyDefinition[],
   ): Promise<CompositeStrategyDefinition> {
     if (strategyDefinitionIds.length !== 1 || selectionMode === "COMPOSITE" || strategyDefinitions.length !== 1) throw new BadRequestException("a single manual backtest requires exactly one strategy definition.");
-    if (typeof this.modules.strategy.defineComposite !== "function") throw new BadRequestException("a composite definition is required for manual backtests.");
+    if (typeof this.modules.strategy.defineComposite !== "function") {
+      const definition = strategyDefinitions[0]!;
+      return {
+        id: `single:${definition.id}`,
+        userId,
+        logicalFamilyKey: `composite:SINGLE:${definition.id}`,
+        version: 1,
+        method: "WEIGHTED_SCORE",
+        components: [{ strategyDefinitionId: definition.id, weight: 1 }],
+        thresholds: { buy: 0.3, sell: -0.3 },
+        createdAt: definition.createdAt,
+      };
+    }
     return this.modules.strategy.defineComposite(userId, {
       method: "WEIGHTED_SCORE",
       components: [{ strategyDefinitionId: strategyDefinitionIds[0]!, weight: 1 }],

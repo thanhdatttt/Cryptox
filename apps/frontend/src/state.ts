@@ -17,7 +17,7 @@ export interface ChartPanelState {
 }
 
 export const MARKET_LAYOUT_STORAGE_KEY = "cryptox.market-layout";
-export const MARKET_LAYOUT_VERSION = 1;
+export const MARKET_LAYOUT_VERSION = 2;
 export const SEARCH_RUN_STORAGE_KEY = "cryptox.search-run-id";
 export type AppScreen = "market" | "strategy" | "backtest" | "search" | "leaderboard" | "news" | "settings";
 export type AppRoute = { screen: AppScreen; resourceId?: string; register?: boolean };
