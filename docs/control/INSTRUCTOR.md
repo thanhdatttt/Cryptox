@@ -2,11 +2,86 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-186`
+Instruction ID: `INS-187`
 
-Status: `HOLD`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-187 — APPROVED_FOR_EXECUTION for the bounded Backtest/Leaderboard transaction seam
+
+This instruction supersedes `INS-186 / HOLD` only for the narrowly bounded
+implementation correction below. It does not accept the final MVP or authorize
+any other packet.
+
+### Applicability and packet
+
+- Canonical checkout: `D:\\agy-cli-projects\\AOS\\Cryptox`, branch
+  `MVP_IMPLEMENTATION`.
+- Source/business checkpoint remains `f86ab93`; the latest reviewed
+  Instructor control checkpoint is `4b9beba`. No source or business-state drift
+  was found after the `INS-186` evidence review.
+- `TASKS.md` remains authoritative at 58 rows: 57 `DONE`, only `I-02`
+  `REVIEW`. No Cryptox Manager or worker is active. The only untracked path is
+  `.codex/config.toml` and it is excluded.
+- The packet is a narrowly reviewed fix permitted by the existing I-02 plan;
+  it is not a new product capability, task-row expansion, or branch stream.
+
+### Authorization and exact write scope
+
+- Create exactly one fresh same-directory Manager in the canonical checkout,
+  using `gpt-5.6-luna` with maximum reasoning. The Manager may create exactly
+  one fresh hidden worker. No parallel Manager, duplicate, retry, replacement,
+  branch, or worktree is allowed.
+- The worker may write only these paths:
+  1. `modules/backtesting/infrastructure/postgres.ts`
+  2. `modules/leaderboard/infrastructure/postgres.ts`
+  3. `apps/backend/src/runtime.ts`
+  4. `modules/backtesting/infrastructure/postgres.spec.ts`
+  5. `modules/leaderboard/infrastructure/postgres.spec.ts`
+  6. `apps/backend/src/runtime.completion-composition.spec.ts` (new focused
+     regression file only if needed).
+- The Manager alone may update `docs/implementation/TASKS.md` and
+  `docs/implementation/HANDOFF.md`, and may move only `I-02` through
+  `REVIEW -> READY -> IN_PROGRESS -> REVIEW`. No other task may change state.
+
+### Objective and acceptance
+
+Repair the approved synchronous-monolith completion path so the Backtesting
+Experiment insert, authoritative Experiment lookup, Leaderboard scoring, and
+Leaderboard entry admission participate in one transaction-aware persistence
+boundary. An injected query/client seam or equivalent minimal composition fix
+is allowed; public module contracts must remain stable.
+
+Acceptance requires focused regression evidence that: an in-flight Experiment
+is visible to Leaderboard through the same transaction; a successful manual
+Backtest produces persisted Experiment, EvaluationResult, Trades where
+applicable, and Leaderboard data; rollback leaves no partial completion; repeat
+completion remains idempotent; owner checks and authoritative metric/provenance
+validation remain intact; and no independent pool read is used for the
+transaction-bound completion path. Existing fixture/infrastructure tests must
+retain their behavior.
+
+The Manager must review the worker diff, run the relevant Backtesting,
+Leaderboard, backend, build, typecheck, lint, architecture, artifacts,
+deferred-scope, scope, runtime-smoke, exact-path, whitespace, and secret/log
+checks, and record every unavailable Docker/PostgreSQL/provider result as
+`BLOCKED` or `UNVERIFIED`. Manager evidence prepares the checkpoint only; the
+Instructor owns the later privileged real-data/demo/E2E acceptance.
+
+### Prohibitions and stop condition
+
+No migration/schema change, REST/WebSocket contract change, queue/distributed
+adapter, frontend, News, Binance provider, Gemini/LLM, fixture promotion,
+credential, deferred scope, unrelated cleanup, or final `I-02 DONE` transition
+is authorized. Do not alter `MVP_PLAN.md`, requirements, ADRs, OpenSpec, or
+other task rows. Stop after one Manager checkpoint at `I-02 REVIEW`; any need
+for a path outside the six listed paths is `NEEDS_INSTRUCTOR_REVIEW`.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-107`, `INS-186`, and `DEC-108`.
 
 ## INS-186 — HOLD after Instructor privileged I-02 verification
 

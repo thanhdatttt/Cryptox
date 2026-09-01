@@ -4346,3 +4346,45 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-106`, `INS-186`, and `INS-185`.
+
+## DEC-108 — Authorize the bounded Backtest/Leaderboard transaction correction
+
+Status: `APPROVED`
+
+Authority: Instructor review under `DEC-107` and the real local generated-data
+diagnostic in the canonical checkout.
+
+Decision: Authorize one fresh same-directory Manager and exactly one hidden
+worker to repair only the transaction-aware Backtest -> Leaderboard completion
+seam. The worker scope is limited to
+`modules/backtesting/infrastructure/postgres.ts`,
+`modules/leaderboard/infrastructure/postgres.ts`, `apps/backend/src/runtime.ts`,
+their two focused infrastructure test files, and the optional focused backend
+composition regression file named by `INS-187`. The Manager alone may update
+`TASKS.md`/`HANDOFF.md` and may re-enter only I-02 through `REVIEW -> READY ->
+IN_PROGRESS -> REVIEW`; it must stop without final promotion.
+
+Why: Instructor-owned live verification reached real Binance history and
+PostgreSQL setup but a manual Backtest ended with `RANKING_FAILED`. Source
+review shows the completion unit's transaction-aware Backtesting client is not
+shared by the PostgreSQL Leaderboard participant's authoritative Experiment
+lookup, so the uncommitted Experiment can be invisible at ranking time. This
+is a concrete implementation defect in an already-approved requirement path,
+not a reason to create parallel branches or broaden product scope.
+
+Acceptance: the same transaction must make the inserted Experiment visible to
+Leaderboard, preserve atomic rollback, idempotency, owner isolation,
+authoritative metrics/provenance, and existing public contracts. All relevant
+static/formal tests must pass; unavailable environment evidence remains
+`BLOCKED`/`UNVERIFIED`. The Instructor must independently rerun the privileged
+real manual/Search flows after the Manager checkpoint and retains final
+live/demo/E2E ownership under `DEC-106`.
+
+Prohibitions: no migration/schema, REST/WebSocket, queue/distributed, frontend,
+News/Binance/Gemini provider, credential, deferred-scope, task-row expansion,
+branch/worktree, duplicate/retry/replacement, or I-02 final acceptance.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-106`, `DEC-107`, and `INS-187`.
