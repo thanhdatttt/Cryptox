@@ -4024,3 +4024,40 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-097`, and `INS-177`.
+
+## DEC-099 — Hold after accepted News SQL correction
+
+Status: `HOLD`
+
+Authority: Independent Instructor review of INS-177 / DEC-098. The accepted
+source/test correction is committed at `30f184c` and its exact diff is limited
+to the authorized News PostgreSQL read query and focused regression. The
+canonical branch is `MVP_IMPLEMENTATION`; the tracked tree is clean and only
+the pre-existing `.codex/config.toml` is untracked. The board remains 58 rows,
+57 `DONE`, and only `I-02` `REVIEW`; no Manager/worker is active.
+
+Compose was rebuilt from the corrected source. `/news` now returns HTTP 200
+without the prior 42702, but the local database contains no News/Sentiment
+rows and readiness reports an isolated News-provider degradation. A direct
+compiled RSS provider probe inside the backend container fetched one item, so
+the remaining issue is collection/runtime evidence rather than the corrected
+SQL. This does not prove real News/RSS or Sentiment acceptance.
+
+I-02 also still lacks configured Gemini authoring lifecycle evidence, generated
+Backtest/Evaluation/Experiment/Trade/Leaderboard data, induced recovery,
+authenticated browser/demo, clean final reprovision evidence, and fresh
+integrated execution of all eight architecture scenarios. Static gates remain
+PASS where executable; unavailable checks remain `BLOCKED`/`UNVERIFIED`.
+
+The next authorization may cover only one evidence-only final I-02 pass using
+the corrected build and a reversible local collection/restart validation. No
+source/config/dependency/migration/infrastructure/contract/OpenSpec change,
+fixture promotion, provider-protocol change, secret emission, deferred scope,
+or downstream promotion is authorized by this HOLD.
+
+Affected: `I-02`, `INS-177`, `DEC-098`, `TASKS.md`, and `HANDOFF.md`.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-098`, and `INS-178`.

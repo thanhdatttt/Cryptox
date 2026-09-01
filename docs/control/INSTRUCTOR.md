@@ -2,11 +2,55 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-177`
+Instruction ID: `INS-178`
 
-Status: `APPROVED_FOR_EXECUTION`
+Status: `HOLD`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-178 — HOLD after INS-177 News SQL correction
+
+This instruction supersedes `INS-177 / APPROVED_FOR_EXECUTION`. The narrowly
+authorized SQL correction was integrated and reviewed, but final I-02 evidence
+is still incomplete. No new implementation or downstream work is authorized
+by this HOLD.
+
+### Reviewed result
+
+- The canonical checkout is on `MVP_IMPLEMENTATION` at `30f184c`, with the
+  accepted News source/test correction and Manager checkpoint committed. Git
+  is clean except for the pre-existing untracked `.codex/config.toml`; no
+  unrelated source/business-state drift was found.
+- `TASKS.md` remains authoritative at 58 rows: 57 `DONE`, only `I-02`
+  `REVIEW`; the INS-177 Manager and sole worker are idle/closed.
+- The worker changed exactly `modules/news/infrastructure/postgres.ts` and
+  `modules/news/infrastructure/postgres.spec.ts`. Focused 4/4, News 36/36,
+  backend 43/43 (+1 environment skip), root 462 passed (+9 skips), build,
+  typecheck, lint, architecture, artifacts, scope, scope tests, runtime smoke,
+  whitespace, and exact-path checks passed.
+- Instructor-side Compose rebuild from the corrected source succeeded. Fresh
+  `/live`, `/ready`, `/news`, and frontend checks returned 200; `/news` no
+  longer contains 42702 but currently returns zero items. The local database
+  has zero News and Sentiment rows, while an isolated compiled-provider probe
+  from the backend container fetched one RSS item. Readiness reports the
+  optional News provider as degraded. This is partial environment evidence,
+  not a real collection/Sentiment PASS.
+- Configured Gemini lifecycle, generated result data, recovery, authenticated
+  demo, and all eight integrated architecture scenarios remain
+  `BLOCKED`/`UNVERIFIED`. OpenSpec remains correctly installed globally with
+  Instructor-carried 11/11 validation; Manager-context CLI discovery remains
+  unavailable.
+
+### HOLD boundary
+
+The next authorization may cover only one fresh final-I-02 evidence pass for
+the already-approved scope, using the corrected build and a controlled local
+runtime collection attempt. It must not change source, configuration,
+dependencies, migrations, infrastructure, contracts, or OpenSpec files. A
+running-service restart/rebuild may be used only as a reversible local
+validation action with no tracked-file change; unavailable or failing
+provider/LLM/browser paths remain `BLOCKED`/`UNVERIFIED`. I-02 cannot be
+marked `DONE` without the complete matrix and independent Instructor review.
 
 ## INS-177 — APPROVED_FOR_EXECUTION for the bounded News SQL review fix
 
