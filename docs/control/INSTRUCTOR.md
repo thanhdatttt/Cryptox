@@ -2,11 +2,58 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-175`
+Instruction ID: `INS-176`
 
-Status: `APPROVED_FOR_EXECUTION`
+Status: `HOLD`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-176 — HOLD after INS-175 final I-02 evidence pass
+
+This instruction supersedes `INS-175 / APPROVED_FOR_EXECUTION`. The bounded
+evidence pass completed once, but I-02 remains `REVIEW` and the full MVP DoD
+is not proven. No further implementation or downstream work is authorized by
+this HOLD.
+
+### Reviewed checkpoint and blocker
+
+- The canonical checkout is on `MVP_IMPLEMENTATION` at `d7fb29d`; the
+  Manager's only intended tracked delta is `TASKS.md`/`HANDOFF.md`, and the
+  pre-existing `.codex/config.toml` remains excluded. No source or business
+  state drift was found.
+- `TASKS.md` remains authoritative at 58 rows: 57 `DONE`, only `I-02`
+  `REVIEW`, and no other task is active. All three INS-175 hidden workers are
+  closed; no Manager/worker remains active.
+- Fresh static gates passed (build, typecheck, lint, 462 tests with 9
+  environment-gated skips, runtime smoke, architecture, artifacts, scope,
+  scope tests, traceability, and whitespace). These do not replace missing
+  live evidence.
+- The fresh public News read returned HTTP `400` with sanitized PostgreSQL
+  code `42702`. Read-only source inspection identifies the likely bounded
+  defect in `modules/news/infrastructure/postgres.ts`: the joined News read
+  query selects and orders columns such as `id`, `canonical_url`, and
+  `normalized_content_hash` without the `news_items` qualifier while joining
+  tables that expose overlapping names. This is recorded as a diagnosis to
+  verify, not as permission to edit under INS-175.
+- Configured Gemini authoring, generated result records, recovery, complete
+  authenticated demo, and the eight integrated scenarios remain
+  `BLOCKED`/`UNVERIFIED`. OpenSpec is correctly installed globally and the
+  Instructor-carried validation remains `11/11 PASS`; Manager-context CLI
+  discovery is still `BLOCKED`/`UNVERIFIED`.
+
+### HOLD boundary
+
+Before another final I-02 evidence pass, a new authorization may cover only a
+single narrowly reviewed correction of the diagnosed News PostgreSQL read
+query. That correction must be delegated to one fresh hidden worker and be
+limited to `modules/news/infrastructure/postgres.ts` plus a focused regression
+test in `modules/news/infrastructure/postgres.spec.ts`: qualify the joined
+News-item columns and prove the existing filtering/order/projection semantics.
+It may not change contracts, migrations, providers, safe-fetch policy, runtime
+composition, credentials, frontend, other modules, or OpenSpec tooling.
+If the diagnosis is false or any additional path is required, stop with
+`NEEDS_INSTRUCTOR_REVIEW`. After an accepted correction, a separate fresh
+authorization must re-run the complete final I-02 evidence matrix.
 
 ## INS-175 — APPROVED_FOR_EXECUTION for bounded final I-02 evidence
 

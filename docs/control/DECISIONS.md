@@ -3946,3 +3946,44 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-095`, and `INS-175`.
+
+## DEC-097 — Hold after INS-175 and isolate the News read defect
+
+Status: `HOLD`
+
+Authority: Independent Instructor review of the committed INS-175 / DEC-096
+execution checkpoint. The repository remains on `MVP_IMPLEMENTATION` at
+`d7fb29d` before the Manager checkpoint commit; the only expected Manager
+delta is `TASKS.md`/`HANDOFF.md`, and no source/business-state drift exists.
+The board is still 58 rows with 57 `DONE`, only `I-02` `REVIEW`, and no active
+Manager or worker.
+
+The final evidence pass produced fresh passing static gates, but the live News
+read returned sanitized PostgreSQL error `42702`. The current joined read SQL
+in `modules/news/infrastructure/postgres.ts` contains unqualified News-item
+column references in a query joining `news_items`,
+`news_extraction_provenance`, and `extraction_templates`; this likely makes
+the application News boundary unusable even though the unit tests pass. No
+source repair is accepted under INS-175.
+
+I-02 remains `REVIEW`. The complete DoD is also missing configured Gemini
+authoring lifecycle evidence, generated Backtest/Evaluation/Experiment/Trade/
+Leaderboard data, recovery, authenticated demo, and integrated architecture
+scenarios. OpenSpec is not a bad installation: the global
+`@fission-ai/openspec@1.11.0` was directly validated 11/11 by the Instructor;
+only Manager-context discoverability remains unavailable.
+
+The next authorization may cover exactly one worker for the already-approved,
+narrow News SQL correction, limited to `modules/news/infrastructure/postgres.ts`
+and its focused regression test. It must preserve contracts, migrations,
+provider/safe-fetch behavior, runtime composition, credentials, and all other
+source. Any need outside those paths is `NEEDS_INSTRUCTOR_REVIEW`. No final
+I-02 promotion, deferred scope, pending OpenSpec task, or downstream task is
+authorized by this HOLD.
+
+Affected: `I-02`, `INS-175`, `DEC-096`, `TASKS.md`, and `HANDOFF.md`.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-096`, and `INS-176`.
