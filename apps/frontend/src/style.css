@@ -98,3 +98,225 @@ td {
     white-space: normal;
   }
 }
+
+.logout-account {
+  border-color: #f5d3d9 !important;
+  color: #c23b4e !important;
+  transition: background-color .15s ease, border-color .15s ease, transform .15s ease;
+  cursor: pointer;
+}
+
+.logout-account:hover {
+  background-color: #fff2f4 !important;
+  border-color: #e58b98 !important;
+  transform: translateY(-1px);
+}
+
+.logout-account .logout-icon {
+  background: #feecef !important;
+  color: #c93b50 !important;
+}
+
+/* Market Screen: Use full available viewport width comfortably */
+.market-screen,
+.strategy-screen {
+  max-width: 100% !important;
+  width: 100% !important;
+  padding: 20px 0 0 !important;
+}
+
+/* Chart Panel Controls: locked strictly onto 1 single line with harmonious spacing */
+.market-panel-controls {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  align-items: flex-end !important;
+  gap: 8px !important;
+  margin-top: 8px !important;
+  width: 100% !important;
+}
+
+.market-panel-controls label {
+  display: grid !important;
+  gap: 4px !important;
+  font-size: 11px !important;
+  color: #6f7d93 !important;
+  flex: 0 0 auto !important;
+}
+
+.market-panel-controls label select {
+  font-size: 12px !important;
+  padding: 4px 8px !important;
+  height: 34px !important;
+  border: 1px solid #dce4ee !important;
+  border-radius: 6px !important;
+  background: #fff !important;
+  color: #31405a !important;
+  box-sizing: border-box !important;
+}
+
+.market-panel-controls label:first-child select {
+  width: 100px !important;
+}
+
+.market-panel-controls label:nth-child(2) select {
+  width: 65px !important;
+}
+
+.market-primary-button,
+.market-remove {
+  font-size: 12px !important;
+  padding: 0 10px !important;
+  line-height: 1.2 !important;
+  white-space: nowrap !important;
+  flex: 0 0 auto !important;
+  height: 34px !important;
+  border-radius: 6px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  box-sizing: border-box !important;
+}
+
+.market-panel-status {
+  font-size: 11px !important;
+  height: 34px !important;
+  padding: 0 10px !important;
+  margin-left: auto !important;
+  flex: 0 0 auto !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+  box-sizing: border-box !important;
+}
+
+/* Market Controlbar: cohesive, evenly-spaced single row without voids or cramped elements */
+.market-controlbar {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  align-items: flex-end !important;
+  justify-content: flex-start !important;
+  gap: 18px !important;
+  padding: 16px 20px !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+  overflow-x: auto !important;
+}
+
+.market-controlbar > label,
+.market-controlbar > div {
+  flex: 0 0 auto !important;
+}
+
+.market-pair-control {
+  display: grid !important;
+  gap: 6px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  color: #202b42 !important;
+}
+
+.market-pair-control select {
+  display: block !important;
+  height: 40px !important;
+  min-width: 140px !important;
+  border: 1px solid #dfe6ef !important;
+  border-radius: 8px !important;
+  padding: 8px 12px !important;
+  background: #fff !important;
+  color: #202d45 !important;
+  font-weight: 700 !important;
+  font-size: 14px !important;
+  box-sizing: border-box !important;
+}
+
+/* Give the Strategy select enough width so "Select saved strategy" doesn't get truncated */
+.market-pair-control:nth-of-type(2) select {
+  min-width: 200px !important;
+}
+
+.market-timeframe-control {
+  display: grid !important;
+  gap: 6px !important;
+}
+
+.market-timeframe-control > b {
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  color: #202b42 !important;
+  margin: 0 !important;
+}
+
+.market-timeframe-control > div {
+  display: flex !important;
+  gap: 6px !important;
+  flex-wrap: nowrap !important;
+}
+
+.market-timeframe-control button {
+  min-width: 48px !important;
+  height: 40px !important;
+  border: 1px solid #e1e6ee !important;
+  border-radius: 8px !important;
+  background: #fff !important;
+  color: #3e4a62 !important;
+  padding: 0 12px !important;
+  font-weight: 700 !important;
+  font-size: 13px !important;
+  box-sizing: border-box !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: all 0.15s ease !important;
+}
+
+.market-realtime-control {
+  display: grid !important;
+  gap: 6px !important;
+}
+
+.market-realtime-control > b {
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  color: #202b42 !important;
+  margin: 0 !important;
+}
+
+.market-toggle {
+  height: 32px !important;
+  width: 54px !important;
+  margin-top: 4px !important;
+}
+
+.market-receiving-pill {
+  margin-bottom: 0 !important;
+  height: 40px !important;
+  box-sizing: border-box !important;
+  padding: 0 14px !important;
+  font-size: 12px !important;
+  border-radius: 20px !important;
+  flex-shrink: 0 !important;
+  align-self: flex-end !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+.market-add-chart {
+  height: 40px !important;
+  padding: 0 16px !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+  border-radius: 8px !important;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+  align-self: flex-end !important;
+  margin-left: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+
+
+
+

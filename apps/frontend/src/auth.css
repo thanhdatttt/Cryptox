@@ -160,7 +160,7 @@
 
 .auth-field {
   display: grid;
-  grid-template-columns: 22px 1fr;
+  grid-template-columns: 22px 1fr auto;
   align-items: center;
   gap: 10px;
   height: 52px;
@@ -178,6 +178,31 @@
   transform: translateY(-1px);
 }
 
+.auth-toggle-pwd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #6a7895;
+  cursor: pointer;
+  transition: color .15s ease, background-color .15s ease, transform .15s ease;
+}
+
+.auth-toggle-pwd:hover {
+  color: #17213e;
+  background: #e6ecf8;
+}
+
+.auth-toggle-pwd:focus-visible {
+  outline: 2px solid #36a8ff;
+  outline-offset: 1px;
+}
+
 .auth-field svg {
   width: 21px;
   height: 21px;
@@ -187,6 +212,13 @@
   stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+.auth-toggle-pwd svg {
+  width: 19px;
+  height: 19px;
+  stroke: currentColor;
+  stroke-width: 1.9;
 }
 
 .auth-field input {

@@ -38,6 +38,7 @@ export interface MarketLayoutState {
   panels: ChartPanelState[];
   realtimeEnabled: boolean;
   selectedPair: string;
+  primaryPanelId?: string;
 }
 
 export interface StrategyParameterDescriptor {
@@ -85,7 +86,13 @@ export const validateMarketLayout = (value: unknown): MarketLayoutState | undefi
   if (!candidate.panels.every(validPanel)) return undefined;
   const ids = candidate.panels.map((panel) => panel.id);
   if (new Set(ids).size !== ids.length) return undefined;
-  return { version: MARKET_LAYOUT_VERSION, panels: candidate.panels.map((panel) => ({ id: panel.id, pair: panel.pair, timeframe: panel.timeframe })), realtimeEnabled: candidate.realtimeEnabled, selectedPair: candidate.selectedPair };
+  return {
+    version: MARKET_LAYOUT_VERSION,
+    panels: candidate.panels.map((panel) => ({ id: panel.id, pair: panel.pair, timeframe: panel.timeframe })),
+    realtimeEnabled: candidate.realtimeEnabled,
+    selectedPair: candidate.selectedPair,
+    ...(typeof candidate.primaryPanelId === "string" ? { primaryPanelId: candidate.primaryPanelId } : {}),
+  };
 };
 
 export const readMarketLayout = (storage: MarketLayoutStorage | undefined = browserStorage()): MarketLayoutState => {

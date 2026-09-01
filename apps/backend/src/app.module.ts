@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { BadRequestException, Body, ConflictException, Controller, Get, Headers, HttpCode, Inject, Module, NotFoundException, Param, Post, Query, ServiceUnavailableException, UnauthorizedException, UnprocessableEntityException } from "@nestjs/common";
 import { AuthException, type AuthModulePublicApi } from "modules/auth/api";
 import { BACKTEST_RUNTIME_SHA256, BACKTEST_RUNTIME_VERSION } from "modules/backtesting/api/bootstrap";
+import type { BacktestSubmissionAccepted } from "modules/backtesting/api";
 import type { Timeframe } from "modules/market-data/api";
 import type { CompositeStrategyDefinition, StrategyDefinition } from "modules/strategy/api";
 import type { StrategyModuleRuntime } from "modules/strategy/api/bootstrap";
@@ -488,7 +489,7 @@ export class BacktestController extends ProtectedController {
       this.assertSelectionMode(body.selectionMode, strategyDefinitionIds, compositeDefinition);
       const command = { leaderboardScopeId: body.leaderboardScopeId.trim(), strategyDefinitions, compositeDefinition, maxAttempts };
       const startManual = this.modules.backtesting.startManual;
-      if (startManual.length === 1) return await (startManual as unknown as (command: typeof command) => Promise<unknown>).call(this.modules.backtesting, command);
+      if (startManual.length === 1) return await (startManual as unknown as (cmd: typeof command) => Promise<BacktestSubmissionAccepted>).call(this.modules.backtesting, command);
       return await startManual.call(this.modules.backtesting, { userId }, command, { submissionIdempotencyKey: idempotencyKey?.trim() || undefined });
     } catch (error) { return backtestHttpError(error); }
   }

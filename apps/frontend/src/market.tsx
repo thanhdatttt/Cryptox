@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ColorType, createChart, type CandlestickData, type HistogramData, type Time } from "lightweight-charts";
 import { api, marketSocket, type ApiCandle, type MarketCapabilities, type MarketTick, type StrategyDefinition, type Timeframe } from "./api";
-import { canAddChart, defaultMarketLayout, mergeCandle, nextChartId, type ChartPanelState, type MarketLayoutState } from "./state";
+import { addMarketPanel, canAddChart, defaultMarketLayout, mergeCandle, nextChartId, type ChartPanelState, type MarketLayoutState } from "./state";
 
 const ErrorBox = ({ error }: { error: unknown }) => error ? <div className="market-error"><b>Unable to load market data</b><span>{error instanceof Error ? error.message : String(error)}</span></div> : null;
 
@@ -188,6 +188,15 @@ export function MarketScreen({ layout, onLayoutChange }: MarketScreenProps) {
   const availablePairs = capabilities.data?.pairs ?? [];
   const availableTimeframes = capabilities.data?.timeframes ?? [];
   const pairsReady = Boolean(capabilities.data && availablePairs.length > 0);
+  const primary = panels.find((panel) => panel.id === layout.primaryPanelId) ?? panels[0] ?? { id: "chart-1", pair: selectedPair, timeframe: "1m" as Timeframe };
+
+  const updatePrimary = (pair: string, timeframe: Timeframe) => {
+    if (!panels.length) {
+      onLayoutChange({ ...layout, selectedPair: pair, panels: [{ id: "chart-1", pair, timeframe }] });
+      return;
+    }
+    updatePanel(primary.id, pair, timeframe);
+  };
   useEffect(() => {
     let active = true;
     setCapabilities({ loading: true });
@@ -231,15 +240,16 @@ export function MarketScreen({ layout, onLayoutChange }: MarketScreenProps) {
   })();
   const providerId = capabilities.data?.provider ?? provider;
   const providerLabel = providerId === "BINANCE" ? "Binance public market data" : providerId ? `${providerId} market data` : capabilities.loading ? "Loading provider" : "Provider unavailable";
-  const addChart = (timeframe: Timeframe) => {
-    if (!pairsReady || !availableTimeframes.includes(timeframe)) return;
-    const nextLayout = addMarketPanel(layout, selectedPair, timeframe);
+  const addChart = () => {
+    const availableTfs = availableTimeframes.length ? availableTimeframes : (["1m", "5m", "15m", "1h"] as Timeframe[]);
+    const nextTf = availableTfs.find((tf) => !panels.some((p) => p.timeframe === tf)) ?? availableTfs[0]!;
+    const nextLayout = addMarketPanel(layout, selectedPair, nextTf);
     if (nextLayout) onLayoutChange(nextLayout);
   };
   return <div className="market-screen">
     <div className="market-header"><div><h1>Realtime Chart – Đa khung thời gian</h1><p>Backend candles and authenticated WebSocket updates, with independent controls for up to four charts.</p></div><div className="market-header-actions"><span className="market-source-pill"><i />Source: {providerLabel} · {summary.label}</span></div></div>
     <section className="market-controlbar"><label className="market-pair-control">Pair / Coin<select aria-label="Market pair" value={primary.pair} disabled={!pairsReady} onChange={(event) => updatePrimary(event.target.value, primary.timeframe)}>{(availablePairs.length ? availablePairs : [primary.pair]).map((item) => <option key={item}>{item}</option>)}</select></label><div className="market-timeframe-control"><b>Timeframe</b><div>{availableTimeframes.map((item) => <button type="button" key={item} className={primary.timeframe === item ? "active" : ""} onClick={() => updatePrimary(primary.pair, item)}>{item}</button>)}</div></div><label className="market-pair-control"><span>Signal strategy</span><select aria-label="Signal strategy" value={signalDefinitionId} disabled={definitions.isLoading || !definitions.data?.length} onChange={(event) => setSignalDefinitionId(event.target.value)}><option value="">Select saved strategy</option>{definitions.data?.map((definition: StrategyDefinition) => <option key={definition.id} value={definition.id}>{definition.strategyName} · v{definition.version}</option>)}</select></label><div className="market-realtime-control"><b>Realtime</b><button type="button" aria-label="Realtime toggle" aria-pressed={realtimeEnabled} className={`market-toggle ${realtimeEnabled ? "active" : ""}`} onClick={() => onLayoutChange({ ...layout, realtimeEnabled: !realtimeEnabled })}><i /></button></div><span className={`market-receiving-pill ${summary.tone}`}><i />{summary.label}</span><button type="button" className="market-add-chart" disabled={!canAddChart(panels)} onClick={addChart}>+ Add chart ({panels.length}/4)</button></section>
     {capabilities.error ? <ErrorBox error={capabilities.error} /> : null}
-    <div className="market-layout"><div className="market-chart-grid">{panels.map((panel) => <LiveChart key={panel.id} panel={panel} primary={panel.id === primary.id} realtimeEnabled={realtimeEnabled} availablePairs={availablePairs} availableTimeframes={availableTimeframes} pairsReady={pairsReady} signalDefinitionId={signalDefinitionId || undefined} onChange={(pair, timeframe) => updatePanel(panel.id, pair, timeframe)} onRemove={() => removePanel(panel.id)} onSelectPrimary={() => onLayoutChange({ ...layout, primaryPanelId: panel.id })} onTick={addTick} onState={(state) => updateState(panel.id, state)} onProvider={setProvider} canRemove={panels.length > 1} />)}</div><aside className="market-sidebar"><section className="market-side-card connection-card"><div className="market-side-title"><h2>Connection status</h2><span className={`connection-pill ${summary.tone}`}><i />{summary.label}</span></div><dl><dt>Transport</dt><dd>Authenticated Socket.IO</dd><dt>Provider</dt><dd>{providerLabel}</dd><dt>Last update</dt><dd>{lastUpdate ? new Date(lastUpdate).toLocaleTimeString() : "Waiting"}</dd></dl></section><section className="market-side-card recent-ticks"><div className="market-side-title"><h2>Recent Ticks ({primary.pair})</h2></div>{ticks.length ? <table><thead><tr><th>Time</th><th>Price</th><th>Quantity</th><th>Side</th></tr></thead><tbody>{ticks.map((tick) => <tr key={`${tick.pair}-${tick.timestamp}-${tick.price}-${tick.quantity}-${tick.side}`}><td>{new Date(tick.timestamp).toLocaleTimeString()}</td><td>{tick.price.toLocaleString()}</td><td>{formatMarketQuantity(tick.quantity)}</td><td><span className={`market-tick-side ${tick.side === "BUY" ? "buy" : "sell"}`}>{tick.side}</span></td></tr>)}</tbody></table> : <div className="market-empty-side">{tickEmptyState(summary, capabilities)}</div>}</section></aside></div>
+    <div className="market-layout"><div className="market-chart-grid">{panels.length === 0 ? <div className="market-empty-chart"><div className="empty-chart-grid" aria-hidden="true"><i /><i /><i /><i /></div><span className="empty-chart-icon">⌁</span><b>No active charts</b><small>Click "+ Add chart" to start charting realtime pairs.</small></div> : panels.map((panel) => <LiveChart key={panel.id} panel={panel} primary={panel.id === primary.id} realtimeEnabled={realtimeEnabled} availablePairs={availablePairs} availableTimeframes={availableTimeframes} pairsReady={pairsReady} signalDefinitionId={signalDefinitionId || undefined} onChange={(pair, timeframe) => updatePanel(panel.id, pair, timeframe)} onRemove={() => removePanel(panel.id)} onSelectPrimary={() => onLayoutChange({ ...layout, primaryPanelId: panel.id })} onTick={addTick} onState={(state) => updateState(panel.id, state)} onProvider={setProvider} canRemove={panels.length > 1} />)}</div><aside className="market-sidebar"><section className="market-side-card connection-card"><div className="market-side-title"><h2>Connection status</h2><span className={`connection-pill ${summary.tone}`}><i />{summary.label}</span></div><dl><dt>Transport</dt><dd>Authenticated Socket.IO</dd><dt>Provider</dt><dd>{providerLabel}</dd><dt>Last update</dt><dd>{lastUpdate ? new Date(lastUpdate).toLocaleTimeString() : "Waiting"}</dd></dl></section><section className="market-side-card recent-ticks"><div className="market-side-title"><h2>Recent Ticks ({primary.pair})</h2></div>{ticks.length ? <table><thead><tr><th>Time</th><th>Price</th><th>Quantity</th><th>Side</th></tr></thead><tbody>{ticks.map((tick) => <tr key={`${tick.pair}-${tick.timestamp}-${tick.price}-${tick.quantity}-${tick.side}`}><td>{new Date(tick.timestamp).toLocaleTimeString()}</td><td>{tick.price.toLocaleString()}</td><td>{formatMarketQuantity(tick.quantity)}</td><td><span className={`market-tick-side ${tick.side === "BUY" ? "buy" : "sell"}`}>{tick.side}</span></td></tr>)}</tbody></table> : <div className="market-empty-side">{tickEmptyState(summary, capabilities)}</div>}</section></aside></div>
   </div>;
 }

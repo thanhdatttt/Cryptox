@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-const css = readFileSync(new URL("./style.css", import.meta.url), "utf8");
+const css = readFileSync(new URL("./style.css", import.meta.url), "utf8").replace(/\r\n/g, "\n");
 
 function token(name: string): number {
   const match = css.match(new RegExp(`--${name}:\\s*(\\d+)px`));
