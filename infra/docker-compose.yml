@@ -5,7 +5,7 @@ services:
       POSTGRES_USER: cryptox
       POSTGRES_PASSWORD: cryptox
       POSTGRES_DB: cryptox
-    ports: ["5432:5432"]
+    ports: ["${POSTGRES_PORT:-5432}:5432"]
     volumes: [pgdata:/var/lib/postgresql/data]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U cryptox -d cryptox"]
@@ -15,7 +15,7 @@ services:
 
   redis:
     image: redis:7
-    ports: ["6379:6379"]
+    ports: ["${REDIS_PORT:-6379}:6379"]
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -61,6 +61,17 @@ services:
       MARKET_DATA_BINANCE_REST_URL: ${MARKET_DATA_BINANCE_REST_URL:-https://api.binance.com}
       MARKET_DATA_BINANCE_WS_URL: ${MARKET_DATA_BINANCE_WS_URL:-wss://stream.binance.com:9443}
       NEWS_PROVIDER: ${NEWS_PROVIDER:-COINDESK_RSS}
+      CRAWLER_SOURCE_URLS: ${CRAWLER_SOURCE_URLS:-}
+      CRAWLER_MODEL_ENDPOINT: ${CRAWLER_MODEL_ENDPOINT:-}
+      CRAWLER_MODEL_NAME: ${CRAWLER_MODEL_NAME:-}
+      CRAWLER_LLM_API_KEY: ${CRAWLER_LLM_API_KEY:-}
+      CRAWLER_PROMPT_VERSION: ${CRAWLER_PROMPT_VERSION:-1}
+      CRAWLER_REQUEST_TIMEOUT_MS: ${CRAWLER_REQUEST_TIMEOUT_MS:-10000}
+      CRAWLER_MAX_HTML_BYTES: ${CRAWLER_MAX_HTML_BYTES:-1000000}
+      CRAWLER_MAX_INTERPRETER_HTML_BYTES: ${CRAWLER_MAX_INTERPRETER_HTML_BYTES:-64000}
+      CRAWLER_MAX_OUTPUT_BYTES: ${CRAWLER_MAX_OUTPUT_BYTES:-256000}
+      CRAWLER_MAX_CANDIDATES: ${CRAWLER_MAX_CANDIDATES:-8}
+      CRAWLER_MAX_FIELD_LENGTH: ${CRAWLER_MAX_FIELD_LENGTH:-50000}
       STRATEGY_MODEL_ENDPOINT: ${STRATEGY_MODEL_ENDPOINT:?Set STRATEGY_MODEL_ENDPOINT for the durable backend}
       STRATEGY_MODEL_NAME: ${STRATEGY_MODEL_NAME:?Set STRATEGY_MODEL_NAME for the durable backend}
       STRATEGY_LLM_API_KEY: ${STRATEGY_LLM_API_KEY:?Set STRATEGY_LLM_API_KEY for the durable backend}
@@ -73,7 +84,7 @@ services:
       BACKTEST_DEFAULT_FEE_RATE_PERCENT: ${BACKTEST_DEFAULT_FEE_RATE_PERCENT:-0}
       BACKTEST_DEFAULT_SLIPPAGE_BPS: ${BACKTEST_DEFAULT_SLIPPAGE_BPS:-5}
       BACKTEST_DEFAULT_MAX_ATTEMPTS: ${BACKTEST_DEFAULT_MAX_ATTEMPTS:-1}
-    ports: ["3000:3000"]
+    ports: ["${BACKEND_PORT:-3000}:3000"]
     depends_on:
       postgres: { condition: service_healthy }
       redis: { condition: service_healthy }
@@ -106,10 +117,10 @@ services:
     build:
       context: ..
       dockerfile: infra/docker/frontend.Dockerfile
-    environment:
-      # Vite exposes this value to the browser, so it must use the host-published API address.
-      VITE_BACKEND_URL: http://localhost:3000
-    ports: ["5173:5173"]
+      args:
+        # Vite embeds this public value during the production build.
+        VITE_BACKEND_URL: ${VITE_BACKEND_URL:-http://localhost:3000}
+    ports: ["${FRONTEND_PORT:-5173}:5173"]
     depends_on:
       backend: { condition: service_healthy }
     healthcheck:

@@ -2,6 +2,7 @@ node_modules/
 dist/
 .env
 *.tsbuildinfo
+MISSING_FEATURE*.md
 **/.env
 **/.env.*
 !.env.example

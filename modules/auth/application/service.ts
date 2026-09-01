@@ -37,7 +37,7 @@ const bcryptHasher: PasswordHasher = {
 };
 
 class Hs256JwtCodec implements TokenCodec {
-  constructor(private readonly secret: string) {}
+  constructor(private readonly secret: string) { }
 
   sign(input: { userId: string }): string {
     return jwt.sign({ sub: input.userId }, this.secret, { algorithm: "HS256", expiresIn: "1h" });
@@ -70,14 +70,13 @@ export function createInMemoryAuthDependencies(options: { jwtSecret?: string } =
 
 export function createAuthModule(dependencies?: InternalDependencies): AuthModuleRuntime {
   const provided = dependencies ?? {};
-  const defaults = dependencies ?? createInMemoryAuthDependencies();
-  const repository = provided.userRepository ?? defaults.userRepository!;
-  const jwtSecret = provided.jwtSecret?.trim() ?? defaults.jwtSecret;
+  const repository = provided.userRepository ?? new MemoryUserRepository();
+  const jwtSecret = provided.jwtSecret?.trim() ?? (process.env.NODE_ENV?.toLowerCase() === "test" ? "cryptox-test-only-secret" : undefined);
   if (!jwtSecret) throw new AuthException("CONFIGURATION_ERROR", "JWT secret is required.");
-  const clock = provided.clock ?? defaults.clock!;
-  const passwordHasher = provided.passwordHasher ?? defaults.passwordHasher!;
+  const clock = provided.clock ?? { now };
+  const passwordHasher = provided.passwordHasher ?? bcryptHasher;
   const tokenCodec = provided.tokenCodec ?? new Hs256JwtCodec(jwtSecret);
-  const idGenerator = provided.idGenerator ?? defaults.idGenerator!;
+  const idGenerator = provided.idGenerator ?? randomUUID;
 
   return {
     async register(email, password) {

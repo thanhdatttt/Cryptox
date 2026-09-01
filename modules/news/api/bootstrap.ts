@@ -10,3 +10,5 @@ export { COINDESK_RSS_FEED_URL, createCoinDeskRssProvider, createConfiguredNewsP
 export type { CoinDeskRssProviderOptions } from "../infrastructure/coindesk-rss-provider";
 export { createCrawlerNewsProvider } from "../infrastructure/crawler-provider";
 export type { CrawlerNewsProviderOptions, CrawlerLimits, FetchedNewsPage } from "../infrastructure/crawler-provider";
+export { createOpenAiCompatibleHtmlNewsInterpreter, HtmlNewsInterpreterError } from "../infrastructure/openai-html-news-interpreter";
+export type { HtmlNewsInterpreterErrorCode, OpenAiCompatibleHtmlNewsInterpreterOptions } from "../infrastructure/openai-html-news-interpreter";

@@ -115,6 +115,12 @@ describe("frontend backend transport", () => {
     expect(mapGenerationError({ code: "STRATEGY_VALIDATION_FAILED", message: "validation" }).kind).toBe("VALIDATION");
   });
 
+  it("classifies schema-invalid model output before the overlapping MODEL token", () => {
+    expect(mapGenerationError({ code: "STRATEGY_MODEL_SCHEMA_INVALID", message: "Invalid model output" })).toMatchObject({ kind: "SCHEMA", message: "Invalid model output" });
+    expect(mapGenerationError({ code: "STRATEGY_MODEL_UNAVAILABLE", message: "Model unavailable" }).kind).toBe("MODEL");
+    expect(mapGenerationError({ code: "STRATEGY_MODEL_TIMEOUT", message: "Model timed out" }).kind).toBe("MODEL");
+  });
+
   it("uses one shared socket for the union of active chart subscriptions", () => {
     const handlers = new Map<string, (value?: unknown) => void>(); const ioHandlers = new Map<string, () => void>();
     const socket = { on: (event: string, handler: (value?: unknown) => void) => { handlers.set(event, handler); return socket; }, emit: vi.fn(), disconnect: vi.fn(), io: { on: (event: string, handler: () => void) => { ioHandlers.set(event, handler); return socket.io; } } };
@@ -151,5 +157,15 @@ describe("frontend backend transport", () => {
     await Promise.resolve(); await Promise.resolve();
     expect(reconcile).toHaveBeenCalledOnce(); expect(states).toContain("ERROR"); expect(messages).toHaveLength(0);
     stop();
+  });
+
+  it("serializes Domain-Guided rules and omits them for other generators", async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(response({ searchRunId: "run-domain" })).mockResolvedValueOnce(response({ searchRunId: "run-random" }));
+    vi.stubGlobal("fetch", fetchMock);
+    await api.startSearch({ leaderboardScopeId: "scope-1", strategyDefinitionIds: ["definition-1"], generatorType: "DOMAIN_GUIDED", maxInFlight: 1, stopCondition: { maxCandidates: 2 }, domainRules: { requiredCategories: ["TREND"], allowedCategories: ["TREND", "MOMENTUM"], forbiddenCategories: ["INFORMATION"] } });
+    expect(JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string)).toMatchObject({ domainRules: { requiredCategories: ["TREND"], allowedCategories: ["TREND", "MOMENTUM"], forbiddenCategories: ["INFORMATION"] } });
+    fetchMock.mockClear();
+    await api.startSearch({ leaderboardScopeId: "scope-1", strategyDefinitionIds: ["definition-1"], generatorType: "RANDOM", maxInFlight: 1, stopCondition: { maxCandidates: 2 } });
+    expect(JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string)).not.toHaveProperty("domainRules");
   });
 });

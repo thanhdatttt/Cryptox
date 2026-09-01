@@ -6,7 +6,7 @@
 
 `modules/search` is the module that runs an unattended, bounded search for good strategy candidates. It repeats **Generate → Submit to Backtesting → (wait) → Evaluate/Score happens elsewhere → react to completion**, under an explicit stop condition, without ever running `while(true)` unbounded (brief §23). It owns three things and nothing else:
 
-1. The **Strategy Generator** — produces a `GeneratedCandidate` (Random, Domain-guided, or a future Genetic algorithm) from a `SearchSpaceConfig`.
+1. The **Strategy Generator** — produces a `GeneratedCandidate` through distinct Random, Domain-guided, and Genetic algorithms from a `SearchSpaceConfig`.
 2. The **Continuous Loop Orchestrator** — owns the `SearchRun` lifecycle (`CREATED → RUNNING → PAUSED/COMPLETED/CANCELLED/FAILED`), enforces `maxInFlight` and the stop condition, and serializes slot-filling so the loop is safe under concurrent triggers.
 3. **Search-run observability** — a durable, pollable `LoopStatus` projection and a run-scoped ranking read.
 
@@ -57,7 +57,7 @@ Out of scope (owned by other modules, consumed through their public APIs only):
 | FR-2 | The module must expose `pause`, `resume`, and `cancel` for a `SearchRun`, each idempotent and safe to call while slot-filling is in progress. |
 | FR-3 | The module must expose `status(searchRunId)` returning a durable `LoopStatus` projection sufficient for REST polling, with no reliance on in-memory state surviving a backend restart. |
 | FR-4 | The module must expose serialized, idempotent `fillAvailableSlots(searchRunId)` that generates and submits at most the run's missing in-flight slots, respecting `maxInFlight` and remaining `StopCondition` budget. |
-| FR-5 | The module must generate candidates only through the replaceable `StrategyGenerator` interface (`RANDOM`, `DOMAIN_GUIDED`, future `GENETIC`), never branching orchestration logic on generator identity. |
+| FR-5 | The module must generate candidates only through the replaceable `StrategyGenerator` interface (`RANDOM`, `DOMAIN_GUIDED`, `GENETIC`), without branching orchestration logic on generator identity. |
 | FR-6 | The module must submit every generated candidate to `modules/backtesting` through `BacktestCoordinator.submitSearchCandidate` and must never persist, query, or mutate Candidate rows itself. |
 | FR-7 | The module must expose `onCandidateFinished(searchRunId)` as an internal post-commit callback that triggers `fillAvailableSlots`; a lost callback must never be the sole path to progress. |
 | FR-8 | The module must invoke `fillAvailableSlots` on `start`, `resume`, every completion callback, and backend startup/periodic reconciliation for every `RUNNING` run. |
@@ -69,6 +69,7 @@ Out of scope (owned by other modules, consumed through their public APIs only):
 - **No unbounded loop (brief §23):** every `SearchRun` requires at least one `StopCondition` field (`maxCandidates`, `maxDurationSeconds`, or `noImprovementAfterIterations`); `POST /search-runs` additionally validates every supplied value as a positive integer.
 - **Serialized slot-filling:** `fillAvailableSlots` locks/leases the `SearchRun` row (or an equivalent per-run advisory lock) before reading counts or reserving iterations, so concurrent triggers (callback + periodic reconciliation + `resume`) cannot overfill `maxInFlight` or exceed `maxCandidates`.
 - **Search never touches Candidate persistence or BullMQ directly:** all Candidate counts/projections come from `BacktestCoordinator.summarizeSearchCandidates`; all submission goes through `BacktestCoordinator.submitSearchCandidate`; all queue cleanup goes through `BacktestCoordinator.removePendingJobs`. Search never imports `modules/backtesting/infrastructure/queue` or Candidate tables.
+- **Generator reproducibility and validity:** every generator receives the immutable `(searchRunId, iterationNumber)` context. `GENETIC` uses that context for deterministic selection, crossover, replacement, and bounded parameter mutation; descriptor snapshots constrain integer/number/enum values, defaults, required fields, bounds, steps, and declared cross-field relationships. Each generated candidate carries a SHA-256 fingerprint and lineage; a run never accepts a recorded fingerprint, and a finite retry budget ends with `GENETIC_SEARCH_SPACE_UNSATISFIABLE` when no valid unique candidate exists.
 - **In-flight accounting:** `CREATED | QUEUED | BACKTESTING | RETRY_WAIT | PROCESSING_RESULT | TERMINAL_FAILURE_PENDING` all occupy an in-flight slot. Only `COMPLETED | FAILED | CANCELLED` release one. `queuedCount` counts `CREATED | QUEUED`; `runningCount` counts the remaining four in-flight states.
 - **`failedAttemptCount` semantics:** counts every failed `BacktestAttempt` row attached to a non-cancelled Candidate of the run, including a synthetic failure Attempt inserted by Backtesting's terminal-job watchdog when no real Attempt existed at crash time. Audit Attempts belonging to a `CANCELLED` Candidate are excluded, consistent with `candidatesTested`/`failedCandidateCount`.
 - **Stop-condition evaluation order:** at every serialized `fillAvailableSlots` boundary, normal conditions are evaluated in the deterministic order `MAX_DURATION`, then `MAX_CANDIDATES`, then `NO_IMPROVEMENT`. An accepted user cancellation wins over any of these normal conditions.
@@ -89,7 +90,7 @@ Out of scope (owned by other modules, consumed through their public APIs only):
 - **Crash safety:** every mutation Search performs is either (a) one process-level transaction covering only `search_runs` plus a delegated Backtesting cancellation call, or (b) idempotent given the `(search_run_id, iteration_number)` uniqueness constraint. No Search invariant depends on an in-memory loop surviving a process restart.
 - **Layering:** `api → application → domain`; `infrastructure` implements application ports only, where present. Search's own domain (`StrategyGenerator` implementations, stop-condition evaluation) must not import HTTP, PostgreSQL, Redis, BullMQ, or framework code (`architecture.md` §1.3.1).
 - **Boundary:** other modules and `apps/backend` may only import `modules/search/api` (`start/pause/resume/cancel/status/leaderboard`) or the bootstrap facade `createSearchModule`. No module may reach into `modules/search/domain` or `modules/search/infrastructure`.
-- **Extensibility without ripple:** adding a new `StrategyGenerator` implementation (e.g. `GENETIC`) must not require changes to `modules/backtesting`, `modules/evaluation`, `modules/leaderboard`, `modules/strategy`, or the Frontend core.
+- **Extensibility without ripple:** adding a future `StrategyGenerator` implementation must not require changes to `modules/backtesting`, `modules/evaluation`, `modules/leaderboard`, `modules/strategy`, or the Frontend core.
 - **No direct async ownership:** Search must never touch BullMQ or `modules/backtesting/infrastructure/queue`; the only asynchronous boundary in the system belongs to `modules/backtesting` (`architecture.md` §1.1).
 
 ## 3. Behavior
@@ -341,8 +342,13 @@ export type GeneratorType = "RANDOM" | "DOMAIN_GUIDED" | "GENETIC";
 export type StrategyCategory =
   | "TREND" | "MOMENTUM" | "VOLATILITY" | "STRUCTURE" | "INFORMATION";
 
+export interface SearchStrategyDefinition extends StrategyDefinition {
+  category?: StrategyCategory;
+  parameterDescriptors?: readonly StrategyParameterDescriptor[];
+}
+
 export interface GeneratedCandidate {
-  strategyDefinitions: StrategyDefinition[];
+  strategyDefinitions: SearchStrategyDefinition[];
   compositeDefinition: CompositeStrategyDefinition;
   executionPolicyIntent: {
     mode: "TWO_SIDED_ONE_X_V1";
@@ -350,19 +356,32 @@ export interface GeneratedCandidate {
     takeProfitPercent?: number;
   };
   generatedBy: GeneratorType;
+  fingerprint: string;                    // stable collision-resistant candidate identity
+  lineage?: {
+    parentFingerprints: string[];
+    crossoverPoint: number;
+    mutatedParameterKeys: string[];
+    selectionMutation?: { replacedStrategyId?: string; replacementStrategyId?: string };
+  };
 }
 
 export interface StrategyGenerator {
   readonly type: GeneratorType;
-  generate(searchSpace: SearchSpaceConfig): GeneratedCandidate;
+  generate(searchSpace: SearchSpaceConfig, context?: {
+    searchRunId: string;
+    iterationNumber: number;
+  }): GeneratedCandidate;
 }
 
 export interface SearchSpaceConfig {
-  availableStrategies: StrategyDefinition[];
+  availableStrategies: SearchStrategyDefinition[];
   domainRules?: {
-    requiredCategories: StrategyCategory[]; // e.g. ["TREND", "MOMENTUM", "STRUCTURE"]
+    requiredCategories?: StrategyCategory[]; // e.g. ["TREND", "MOMENTUM", "STRUCTURE"]
+    allowedCategories?: StrategyCategory[];
+    forbiddenCategories?: StrategyCategory[];
   };
   maxComponents?: number;
+  generatedFingerprints?: string[];
 }
 
 type StopConditionFields = {

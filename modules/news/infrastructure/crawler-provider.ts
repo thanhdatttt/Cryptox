@@ -321,7 +321,165 @@ const decodeBasicEntities = (value: string): string => value
 
 const visibleText = (html: string): string => decodeBasicEntities(html.replace(/<[^>]*>/g, " ")).replace(/\s+/g, " ").trim();
 const normalizedText = (value: string): string => value.replace(/\s+/g, " ").trim();
-const candidateTokens = (value: string): string[] => [...new Set((value.toLocaleLowerCase().match(SIGNIFICANT_TOKEN) ?? []))];
+
+/**
+ * Evidence is deliberately derived from generic HTML structure and metadata,
+ * rather than a site's CSS selectors. The model output remains untrusted: a
+ * token appearing once in a page is not enough to establish provenance.
+ */
+interface PageDateEvidence { readonly timestamp: number; readonly hasTime: boolean; }
+interface PageEvidence {
+  readonly pageText: string;
+  readonly bodyText: string;
+  readonly titleText: readonly string[];
+  readonly publisherText: readonly string[];
+  readonly dates: readonly PageDateEvidence[];
+  readonly supportedUrls: ReadonlySet<string>;
+}
+
+const EVIDENCE_STOPWORDS = new Set([
+  "about", "after", "before", "call", "from", "ignore", "into", "more", "over", "previous", "read", "share", "the", "this", "tool", "under", "with",
+]);
+const SOURCE_NOISE = new Set([
+  "com", "co", "org", "net", "io", "ai", "test", "www", "news", "media", "network", "online", "official", "press", "publisher", "site", "website",
+]);
+const PROMPT_INJECTION = /\b(?:ignore|disregard|override|follow)\b[\s\S]{0,100}\b(?:previous|system|developer|user|instructions?|prompt)\b|\b(?:call|use|invoke)\s+(?:a\s+)?tool\b/i;
+const ISO_DATE = /\b\d{4}[-/]\d{1,2}[-/]\d{1,2}(?:[T\s]\d{1,2}:\d{2}(?::\d{2}(?:\.\d+)?)?(?:\s?(?:Z|[+-]\d{2}:?\d{2}))?)?\b/g;
+const NAMED_DATE = /\b(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+\d{1,2}(?:,|\s+)\s*\d{4}\b/gi;
+
+const foldEvidenceText = (value: string): string => value
+  .normalize("NFKD")
+  .replace(/\p{M}/gu, "")
+  .toLocaleLowerCase();
+
+const evidenceTokens = (value: string, ignored = EVIDENCE_STOPWORDS): string[] =>
+  [...new Set((foldEvidenceText(value).match(SIGNIFICANT_TOKEN) ?? []).filter((token) => !ignored.has(token)))];
+
+const parseAttributes = (value: string): Map<string, string> => {
+  const attributes = new Map<string, string>();
+  ATTRIBUTE.lastIndex = 0;
+  for (let attribute = ATTRIBUTE.exec(value); attribute; attribute = ATTRIBUTE.exec(value)) {
+    const parsed = attribute[2] ?? attribute[3] ?? attribute[4];
+    if (parsed !== undefined) attributes.set(attribute[1]!.toLocaleLowerCase(), decodeBasicEntities(parsed));
+  }
+  return attributes;
+};
+
+const dateEvidence = (value: string, dates: PageDateEvidence[]): void => {
+  const trimmed = normalizedText(decodeBasicEntities(value));
+  if (!trimmed) return;
+  const timestamp = Date.parse(trimmed);
+  if (!Number.isFinite(timestamp)) return;
+  dates.push({ timestamp, hasTime: /(?:T|\b\d{1,2}:\d{2}\b)/i.test(trimmed) });
+};
+
+const sameUtcDate = (left: number, right: number): boolean => {
+  const a = new Date(left);
+  const b = new Date(right);
+  return a.getUTCFullYear() === b.getUTCFullYear() && a.getUTCMonth() === b.getUTCMonth() && a.getUTCDate() === b.getUTCDate();
+};
+
+const extractPageEvidence = (html: string, pageUrl: URL): PageEvidence => {
+  const pageText = visibleText(html);
+  const bodyMatch = html.match(/<body\b[^>]*>([\s\S]*?)<\/\s*body\s*>/i);
+  const bodyEvidenceHtml = (bodyMatch?.[1] ?? html).replace(/<h[1-6]\b[^>]*>[\s\S]*?<\/\s*h[1-6]\s*>/gi, " ");
+  const bodyText = visibleText(bodyEvidenceHtml);
+  const titleText: string[] = [];
+  const publisherText: string[] = [];
+  const dates: PageDateEvidence[] = [];
+  const supportedUrls = new Set<string>([pageUrl.href]);
+  const addSupportedUrl = (value: string): void => {
+    try {
+      const url = new URL(value, pageUrl);
+      if (["http:", "https:"].includes(url.protocol) && !url.username && !url.password && url.origin === pageUrl.origin) supportedUrls.add(url.href);
+    } catch { /* Malformed links are not evidence. */ }
+  };
+
+  const titleMatch = html.match(/<title\b[^>]*>([\s\S]*?)<\/\s*title\s*>/i);
+  if (titleMatch?.[1]) titleText.push(normalizedText(visibleText(titleMatch[1])));
+
+  const meta = /<meta\b([^>]*)>/gi;
+  for (let match = meta.exec(html); match; match = meta.exec(html)) {
+    const attributes = parseAttributes(match[1] ?? "");
+    const key = (attributes.get("property") ?? attributes.get("name") ?? "").trim().toLocaleLowerCase();
+    const content = attributes.get("content");
+    if (!key || !content) continue;
+    if (["og:title", "twitter:title", "title"].includes(key)) titleText.push(normalizedText(content));
+    if (["og:site_name", "twitter:site", "article:publisher", "publisher", "source"].includes(key)) publisherText.push(normalizedText(content));
+    if (["og:url", "twitter:url"].includes(key)) addSupportedUrl(content);
+    if (/^(?:article:)?(?:published|publication|date|time|timestamp|created|modified|updated|pubdate)/.test(key)) dateEvidence(content, dates);
+  }
+
+  const links = /<(?:a|link)\b([^>]*)>/gi;
+  for (let match = links.exec(html); match; match = links.exec(html)) {
+    const attributes = parseAttributes(match[1] ?? "");
+    const href = attributes.get("href");
+    if (href) addSupportedUrl(href);
+  }
+
+  const times = /<time\b([^>]*)>([\s\S]*?)<\/\s*time\s*>/gi;
+  for (let match = times.exec(html); match; match = times.exec(html)) {
+    const attributes = parseAttributes(match[1] ?? "");
+    const datetime = attributes.get("datetime");
+    if (datetime) dateEvidence(datetime, dates);
+    else if (match[2]) {
+      const text = visibleText(match[2]);
+      for (const literal of text.match(ISO_DATE) ?? []) dateEvidence(literal, dates);
+      for (const literal of text.match(NAMED_DATE) ?? []) dateEvidence(literal, dates);
+    }
+  }
+  for (const literal of pageText.match(ISO_DATE) ?? []) dateEvidence(literal, dates);
+  for (const literal of pageText.match(NAMED_DATE) ?? []) dateEvidence(literal, dates);
+
+  return { pageText, bodyText, titleText, publisherText, dates, supportedUrls };
+};
+
+const supportsTitle = (title: string, evidence: PageEvidence): boolean => {
+  const foldedTitle = normalizedText(foldEvidenceText(title));
+  const textSources = [evidence.pageText, ...evidence.titleText].map((value) => normalizedText(foldEvidenceText(value)));
+  if (textSources.some((text) => text.includes(foldedTitle))) return true;
+  const tokens = evidenceTokens(title);
+  if (!tokens.length) return false;
+  const best = textSources.reduce((score, text) => Math.max(score, tokens.filter((token) => text.includes(token)).length), 0);
+  return best >= (tokens.length === 1 ? 1 : Math.max(2, Math.ceil(tokens.length * 0.67)));
+};
+
+const supportsContent = (content: string, bodyText: string): boolean => {
+  const tokens = evidenceTokens(content);
+  if (tokens.length < 3) return false;
+  const foldedBody = normalizedText(foldEvidenceText(bodyText));
+  const bodyTokens = evidenceTokens(bodyText);
+  const bodyTokenSet = new Set(bodyTokens);
+  const matched = tokens.filter((token) => bodyTokenSet.has(token));
+  const ratio = matched.length / tokens.length;
+  if (matched.length < 3 || ratio < 0.6) return false;
+  const bodyTokenText = bodyTokens.join(" ");
+  const hasAdjacentEvidence = tokens.slice(0, -1).some((token, index) => {
+    const next = tokens[index + 1];
+    return next !== undefined && bodyTokenText.includes(token + " " + next);
+  });
+  return hasAdjacentEvidence || matched.length >= Math.max(4, Math.ceil(tokens.length * 0.75)) || foldedBody.includes(normalizedText(foldEvidenceText(content)));
+};
+
+const supportsSource = (source: string, pageUrl: URL, publishers: readonly string[]): boolean => {
+  const sourceTokens = evidenceTokens(source, SOURCE_NOISE);
+  if (!sourceTokens.length) return false;
+  const metadataMatch = publishers.some((publisher) => {
+    const publisherTokens = evidenceTokens(publisher, SOURCE_NOISE);
+    const matched = sourceTokens.filter((token) => publisherTokens.includes(token));
+    return matched.length >= Math.max(1, Math.ceil(sourceTokens.length * 0.5));
+  });
+  if (metadataMatch) return true;
+  const hostTokens = evidenceTokens(pageUrl.hostname, SOURCE_NOISE);
+  const matched = sourceTokens.filter((token) => hostTokens.includes(token));
+  return matched.length >= (sourceTokens.length === 1 ? 1 : Math.max(2, Math.ceil(sourceTokens.length * 0.5)));
+};
+
+const supportsPublishedAt = (publishedAt: string, dates: readonly PageDateEvidence[]): boolean => {
+  const timestamp = Date.parse(publishedAt);
+  if (!Number.isFinite(timestamp) || !dates.length) return false;
+  return dates.some((evidence) => evidence.hasTime ? Math.abs(evidence.timestamp - timestamp) <= 1_000 : sameUtcDate(evidence.timestamp, timestamp));
+};
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
 const normalizeUtc = (value: unknown): string | undefined => {
@@ -340,7 +498,7 @@ const normalizeUrl = (value: unknown, pageUrl: URL): string | undefined => {
 const normalizeCandidate = (
   raw: unknown,
   pageUrl: URL,
-  pageText: string,
+  evidence: PageEvidence,
   crawledAt: string,
   limits: ResolvedCrawlerLimits,
 ): NewsItem => {
@@ -356,7 +514,10 @@ const normalizeCandidate = (
   const canonicalUrl = normalizeUrl(raw.canonicalUrl, pageUrl);
   if (!title || !content || !source || title.length > limits.maxFieldLength || content.length > limits.maxFieldLength || source.length > limits.maxFieldLength || !publishedAt || !canonicalUrl) throw new CrawlerFailure("VALIDATION", "INVALID_OUTPUT");
   const coins = [...new Set((raw.relatedCoins as string[]).map((coin) => normalizedText(coin).toUpperCase()).filter(Boolean))];
-  if (candidateTokens(`${title} ${content}`).every((token) => !pageText.toLocaleLowerCase().includes(token))) throw new CrawlerFailure("VALIDATION", "INVALID_OUTPUT");
+  if (PROMPT_INJECTION.test(title + "\n" + content + "\n" + source)) throw new CrawlerFailure("VALIDATION", "INVALID_OUTPUT");
+  if (!evidence.supportedUrls.has(canonicalUrl) || !supportsTitle(title, evidence) || !supportsContent(content, evidence.bodyText) || !supportsPublishedAt(publishedAt, evidence.dates) || !supportsSource(source, pageUrl, evidence.publisherText)) {
+    throw new CrawlerFailure("VALIDATION", "INVALID_OUTPUT");
+  }
   const item = validateNewsItem({
     id: createHash("sha256").update(canonicalUrl, "utf8").digest("hex").slice(0, 24),
     title,
@@ -424,7 +585,12 @@ export function createCrawlerNewsProvider(options: CrawlerNewsProviderOptions): 
             if (timeoutHandle) clearTimeout(timeoutHandle);
           }
         } catch (error) {
-          const failure = error instanceof CrawlerFailure ? error : new CrawlerFailure("MODEL", failureReason(error));
+          const code = isRecord(error) && typeof error.code === "string" ? error.code : undefined;
+          const failure = error instanceof CrawlerFailure
+            ? error
+            : code === "CRAWLER_MODEL_SCHEMA_INVALID"
+              ? new CrawlerFailure("SCHEMA", "INVALID_OUTPUT")
+              : new CrawlerFailure("MODEL", failureReason(error));
           observe(observability, providerName, failure.stage, failure.reason);
           continue;
         }
@@ -433,7 +599,7 @@ export function createCrawlerNewsProvider(options: CrawlerNewsProviderOptions): 
           continue;
         }
         const pageUrl = new URL(page.finalUrl!);
-        const pageText = visibleText(page.html);
+        const evidence = extractPageEvidence(page.html, pageUrl);
         const crawledAt = normalizeUtc(clock.now());
         if (!crawledAt) {
           observe(observability, providerName, "VALIDATION", "INVALID_OUTPUT");
@@ -441,7 +607,7 @@ export function createCrawlerNewsProvider(options: CrawlerNewsProviderOptions): 
         }
         for (const candidate of interpreted) {
           try {
-            items.push(normalizeCandidate(candidate, pageUrl, pageText, crawledAt, limits));
+            items.push(normalizeCandidate(candidate, pageUrl, evidence, crawledAt, limits));
           } catch (error) {
             const failure = error instanceof CrawlerFailure ? error : new CrawlerFailure("VALIDATION", "INVALID_OUTPUT");
             observe(observability, providerName, failure.stage, failure.reason);

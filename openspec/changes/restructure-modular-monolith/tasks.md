@@ -34,10 +34,10 @@
 
 ## Implementation migration preparation
 
-- [ ] Create module skeletons with only required layers; do not add empty layer directories for symmetry.
-- [ ] Create `apps/backend` and `apps/backtest-worker` composition roots without moving business logic into them.
-- [ ] Add TypeScript path aliases/workspace references for module public APIs.
-- [ ] Add architecture tests for forbidden imports and allowed module dependency direction.
-- [ ] Add contract tests for Backend/Worker queue payload compatibility.
-- [ ] Migrate modules in dependency order while preserving current transport, persistence, retry, fencing, and reconciliation behavior.
-- [x] Run documentation/path/reference checks; code-level import verification remains pending until implementation exists.
+- [x] Create module skeletons with only required layers; do not add empty layer directories for symmetry.
+- [x] Create `apps/backend` and `apps/backtest-worker` composition roots without moving business logic into them.
+- [x] Add TypeScript path aliases/workspace references for module public APIs.
+- [x] Add architecture tests for forbidden imports and allowed module dependency direction.
+- [x] Add contract tests for Backend/Worker queue payload compatibility.
+- [x] Migrate modules in dependency order while preserving current transport, persistence, retry, fencing, and reconciliation behavior.
+- [x] Run documentation/path/reference checks and code-level import verification (`npm run arch:check`).

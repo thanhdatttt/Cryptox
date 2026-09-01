@@ -6,10 +6,19 @@ import { fileURLToPath } from "node:url";
 const repositoryRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
 
 export function workerLaunchOptions({ rootDir = repositoryRoot, env = process.env } = {}) {
+  const explicitEnvironment = { ...env };
+  const envPath = resolve(rootDir, ".env");
+  if (existsSync(envPath) && typeof process.loadEnvFile === "function") {
+    try {
+      process.loadEnvFile(envPath);
+    } catch {
+      // Ignore invalid or unreadable .env file
+    }
+  }
   const outputDirectory = resolve(rootDir, "apps", "backtest-worker", "dist");
   const entryPoint = resolve(outputDirectory, "apps", "backtest-worker", "src", "main.js");
   const nodePath = env.NODE_PATH ? `${outputDirectory}${delimiter}${env.NODE_PATH}` : outputDirectory;
-  return { cwd: rootDir, entryPoint, env: { ...env, NODE_PATH: nodePath } };
+  return { cwd: rootDir, entryPoint, env: { ...process.env, ...explicitEnvironment, NODE_PATH: nodePath } };
 }
 
 export function startWorker(options = workerLaunchOptions()) {

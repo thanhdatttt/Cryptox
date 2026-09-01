@@ -8,9 +8,9 @@ const frontendPort = backendPort + 500;
 
 function wait(milliseconds) { return new Promise((resolveWait) => setTimeout(resolveWait, milliseconds)); }
 
-async function waitFor(url, expected) {
+async function waitFor(url, expected, attempts = 80) {
   let lastError;
-  for (let attempt = 0; attempt < 40; attempt += 1) {
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
     try {
       const response = await fetch(url);
       if (response.ok && await expected(response)) return;
@@ -25,7 +25,7 @@ async function waitFor(url, expected) {
 
 const child = spawn(process.execPath, [resolve(repositoryRoot, "scripts", "dev.mjs")], {
   cwd: repositoryRoot,
-  env: { ...process.env, PORT: String(backendPort), FRONTEND_PORT: String(frontendPort), DEV_SHUTDOWN_AFTER_MS: "6000", RUNTIME_PROFILE: "DEMO" },
+  env: { ...process.env, PORT: String(backendPort), FRONTEND_PORT: String(frontendPort), DEV_SHUTDOWN_AFTER_MS: "30000", RUNTIME_PROFILE: "DEMO" },
   stdio: "inherit",
 });
 

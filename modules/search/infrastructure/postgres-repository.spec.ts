@@ -17,7 +17,7 @@ describe("PostgresSearchRunRepository", () => {
     await repository.save({ ...run, state: "COMPLETED", nextIteration: 3, endedAt: "2025-01-01T00:01:00.000Z", stopReason: "MAX_CANDIDATES", updatedAt: "2025-01-01T00:01:00.000Z" });
 
     expect(calls.some((call) => call.text.startsWith("INSERT INTO search_runs") && call.values.includes(run.ownerUserId))).toBe(true);
-    expect(calls.some((call) => call.text.startsWith("UPDATE search_runs") && call.values.includes("COMPLETED"))).toBe(true);
+    expect(calls.some((call) => call.text.startsWith("UPDATE search_runs") && call.values.includes("COMPLETED") && call.values.includes(JSON.stringify(run.searchSpace)))).toBe(true);
     expect(calls.flatMap((call) => call.values)).toContain(JSON.stringify(run.searchSpace));
   });
 

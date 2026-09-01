@@ -72,11 +72,12 @@ describe("Search lifecycle projections", () => {
     let submitted = 0;
     dependencies.generators.RANDOM = {
       type: "RANDOM",
-      generate: () => ({
+      generate: (_space, context) => ({
         generatedBy: "RANDOM",
         strategyDefinitions: [],
         compositeDefinition: {} as never,
         executionPolicyIntent: { mode: "TWO_SIDED_ONE_X_V1" },
+        fingerprint: `fixture-fingerprint-${context?.iterationNumber ?? 0}`,
       }),
     };
     dependencies.backtestCoordinator = {
@@ -109,5 +110,25 @@ describe("Search lifecycle projections", () => {
     await runtime.onCandidateFinished(started.searchRunId);
 
     expect(submitted).toBe(2);
+  });
+
+  it("retries a downstream draft-validation rejection within the bounded fill budget", async () => {
+    const dependencies = createInMemorySearchDependencies();
+    const originalSubmit = dependencies.backtestCoordinator.submitSearchCandidate;
+    let submissions = 0;
+    dependencies.backtestCoordinator = {
+      ...dependencies.backtestCoordinator,
+      submitSearchCandidate: async (owner, command) => {
+        submissions += 1;
+        if (submissions === 1) throw new Error("INVALID_STRATEGY_PARAMETERS");
+        return originalSubmit(owner, command);
+      },
+    };
+    const runtime = createSearchModule(dependencies);
+    const started = await runtime.start(auth, config);
+    await runtime.fillAvailableSlots(started.searchRunId);
+
+    expect(submissions).toBeGreaterThanOrEqual(2);
+    await expect(runtime.status(auth, started.searchRunId)).resolves.toMatchObject({ state: "RUNNING", queuedCount: 1 });
   });
 });

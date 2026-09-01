@@ -17,3 +17,8 @@ test("backend launcher gives a useful error before a build", () => {
   const missingRoot = resolve(repositoryRoot, "does-not-exist");
   assert.throws(() => startBackend(backendLaunchOptions({ rootDir: missingRoot, env: {} })), /npm run build/);
 });
+
+test("explicit launcher environment wins over values loaded from the root template", () => {
+  const options = backendLaunchOptions({ rootDir: repositoryRoot, env: { RUNTIME_PROFILE: "DEMO" } });
+  assert.equal(options.env.RUNTIME_PROFILE, "DEMO");
+});

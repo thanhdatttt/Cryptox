@@ -12,7 +12,7 @@ import type { EvaluatorModulePublicApi } from "modules/evaluation/api";
 import type { LeaderboardModulePublicApi } from "modules/leaderboard/api";
 import { createBacktestingExperimentReader, createBacktestingScopeRepository, createInMemoryLeaderboardDependencies, createLeaderboardModule, createPostgresLeaderboardDependencies } from "modules/leaderboard/api/bootstrap";
 import { createBinanceMarketDataAdapter, createMarketDataModule, createRedisLatestValueCache, PostgresCandleRepository, PostgresSnapshotRepository } from "modules/market-data/api/bootstrap";
-import { createConfiguredNewsProviders, createNewsModule, PostgresNewsRepository } from "modules/news/api/bootstrap";
+import { createConfiguredNewsProviders, createNewsModule, createOpenAiCompatibleHtmlNewsInterpreter, PostgresNewsRepository } from "modules/news/api/bootstrap";
 import type { SearchModulePublicApi, SearchModuleRuntime } from "modules/search/api";
 import { createInMemorySearchDependencies, createPostgresCancellationUnitOfWork, createPostgresSearchDependencies, createSearchModule } from "modules/search/api/bootstrap";
 import { createDeterministicSentimentAdapter, createOpenAiCompatibleSentimentAdapter, createSentimentModule, PostgresSentimentResultRepository, PostgresSentimentSnapshotRepository } from "modules/sentiment/api/bootstrap";
@@ -37,7 +37,7 @@ export interface BackendModules extends Record<string, unknown> {
 
 export function composeAllModules(options: { profile?: RuntimeProfile; env?: NodeJS.ProcessEnv } = {}): BackendModules {
   const config = loadBackendRuntimeConfig(options.env ?? process.env, options.profile);
-  const postgres = config.databaseUrl ? new Pool({ connectionString: config.databaseUrl }) : undefined;
+  const postgres = config.durable && config.databaseUrl ? new Pool({ connectionString: config.databaseUrl }) : undefined;
   const marketDataProvider = config.marketDataProvider;
   const inMemoryBacktesting = createInMemoryBacktestingDependencies();
   const queue = config.durable ? new BullMqBacktestQueue(config.redisUrl!) : inMemoryBacktesting.queue;
@@ -92,8 +92,29 @@ export function composeAllModules(options: { profile?: RuntimeProfile; env?: Nod
   search = postgres
     ? createSearchModule(createPostgresSearchDependencies(postgres, { strategyService: strategy, backtestCoordinator: backtesting, leaderboardService: leaderboard, beginCancellation: () => createPostgresCancellationUnitOfWork(postgres), clock: { now: () => new Date().toISOString() } }))
     : createSearchModule({ ...createInMemorySearchDependencies(), strategyService: strategy, backtestCoordinator: backtesting, leaderboardService: leaderboard, clock: { now: () => new Date().toISOString() } });
+  const crawler = config.newsProvider === "COINDESK_RSS" ? undefined : {
+    sourceUrls: config.crawlerSourceUrls,
+    interpreter: createOpenAiCompatibleHtmlNewsInterpreter({
+      apiKey: config.crawlerLlmApiKey!,
+      model: config.crawlerModelName!,
+      endpoint: config.crawlerModelEndpoint!,
+      promptVersion: config.crawlerPromptVersion,
+      timeoutMs: config.crawlerRequestTimeoutMs,
+      maxInputBytes: config.crawlerMaxInterpreterHtmlBytes,
+      maxOutputBytes: config.crawlerMaxOutputBytes,
+      maxCandidates: config.crawlerMaxCandidates,
+      maxFieldLength: config.crawlerMaxFieldLength,
+    }),
+    limits: {
+      timeoutMs: config.crawlerRequestTimeoutMs,
+      maxHtmlBytes: config.crawlerMaxHtmlBytes,
+      maxInterpreterHtmlBytes: config.crawlerMaxInterpreterHtmlBytes,
+      maxCandidates: config.crawlerMaxCandidates,
+      maxFieldLength: config.crawlerMaxFieldLength,
+    },
+  };
   const news = createNewsModule({
-    providers: createConfiguredNewsProviders({ provider: config.newsProvider }),
+    providers: createConfiguredNewsProviders({ provider: config.newsProvider, crawler }),
     newsRepository: postgres ? new PostgresNewsRepository(postgres) : undefined,
     sentiment,
   });

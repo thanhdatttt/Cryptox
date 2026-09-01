@@ -1,0 +1,67 @@
+name: Docker smoke
+
+on:
+  pull_request:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Test
+        run: npm test
+
+      - name: Build
+        run: npm run build
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Architecture boundaries
+        run: npm run arch:check
+
+      - name: Generated artifact policy
+        run: npm run check:generated
+
+      - name: Strict OpenSpec validation
+        run: npm exec openspec -- validate --all --strict
+
+      - name: Production dependency audit
+        run: npm audit --omit=dev --audit-level=high
+
+  docker-smoke:
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Show Docker versions
+        run: |
+          docker version
+          docker compose version
+
+      - name: Build and verify the complete Compose stack
+        run: npm run docker:smoke

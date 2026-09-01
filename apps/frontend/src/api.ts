@@ -4,6 +4,7 @@ export type Timeframe = "1m" | "5m" | "15m" | "1h" | "4h" | "1d";
 export type Signal = "BUY" | "SELL" | "HOLD";
 export type CombinationMethod = "MAJORITY_VOTE" | "WEIGHTED_SCORE";
 export type GeneratorType = "RANDOM" | "DOMAIN_GUIDED" | "GENETIC";
+export type StrategyCategory = "TREND" | "MOMENTUM" | "VOLATILITY" | "STRUCTURE" | "INFORMATION";
 export type ApiCandle = { pair: string; timeframe: Timeframe; timestamp: string; open: number; high: number; low: number; close: number; volume: number; isClosed: boolean; source?: string };
 export type MarketTick = { pair: string; price: number; quantity: number; timestamp: string; side: "BUY" | "SELL" };
 export type MarketConnectionStatus = { provider: string; status: "CONNECTED" | "RECONNECTING" | "DISCONNECTED"; lastEventAt?: string; errorCode?: string };
@@ -26,7 +27,8 @@ export type DatasetSnapshotRef = { id: string; pair?: string; timeframe?: Timefr
 export type ExecutionPolicySnapshot = { policyId: string; positionPolicyId: string; sizingPolicyId: string; fillPolicyId: string; oppositeSignalPolicyId: string; stopLossPercent?: number; takeProfitPercent?: number; warmupCandles: number; sha256: string };
 export type Scope = { id: string; name: string; version?: number; pair: string; timeframe: Timeframe; datasetRange: { from: string; to: string }; datasetSnapshotId: string; datasetSnapshot?: DatasetSnapshotRef; sentimentDatasetSnapshot?: SentimentDatasetSnapshotRef; initialCapital: number; feeRatePercent: number; slippageBps: number; scoreFormulaId: string; createdAt: string; workerRuntimeVersion?: string; workerRuntimeSha256?: string; evaluationRuntimeVersion?: string; evaluationRuntimeSha256?: string; simulatorVersion?: string; simulatorSha256?: string; decimalPolicyId?: string; evaluationPolicyId?: string; riskPolicy?: { stopLossPercent?: number; takeProfitPercent?: number } };
 export type AttemptProgress = { attemptId: string; attemptNumber: number; status: string; startedAt?: string; completedAt?: string; failureCode?: string; errorMessage?: string };
-export type Candidate = { candidateId: string; origin?: "MANUAL" | "SEARCH"; selectionMode?: "SINGLE" | "COMPOSITE"; searchRunId?: string; iterationNumber?: number; leaderboardScopeId?: string; status: string; attempts?: AttemptProgress[]; maxAttempts?: number; experimentResultId?: string; failureKind?: string; failureCode?: string; lastError?: string; updatedAt?: string; createdAt?: string };
+export type CandidateLineage = { parentFingerprints: string[]; crossoverPoint: number; mutatedParameterKeys: string[]; selectionMutation?: { replacedStrategyId?: string; replacementStrategyId?: string } };
+export type Candidate = { candidateId: string; origin?: "MANUAL" | "SEARCH"; selectionMode?: "SINGLE" | "COMPOSITE"; searchRunId?: string; iterationNumber?: number; generatedBy?: GeneratorType; fingerprint?: string; lineage?: CandidateLineage; leaderboardScopeId?: string; status: string; attempts?: AttemptProgress[]; maxAttempts?: number; experimentResultId?: string; failureKind?: string; failureCode?: string; lastError?: string; updatedAt?: string; createdAt?: string };
 export type Trade = { id: string; sequence: number; pair: string; settlementAsset?: string; backtestAttemptId?: string; signal: "LONG" | "SHORT"; entryTime: string; marketEntryPrice?: number; entryPrice: number; stopLoss?: number | null; takeProfit?: number | null; exitTime: string; marketExitPrice?: number; exitPrice: number; exitReason?: "STOP_LOSS" | "TAKE_PROFIT" | "STRATEGY_CLOSE" | "RANGE_END" | string; quantity?: number; notionalEntryValue?: number; equityBeforeTrade?: number; equityAfterTrade?: number; grossProfit?: number; feeAmount?: number; slippageBps?: number; slippageAmount?: number; profit?: number; resultPercent: number; result: "WIN" | "LOSS" | "BREAKEVEN" };
 export type TradePage = { items: Trade[]; nextCursor?: string; totalCount?: number; total?: number };
 export type ExperimentMetrics = { candidateId?: string; totalReturnPercent?: number; winRatePercent?: number; numberOfTrades?: number; maxDrawdownPercent?: number; profitFactor?: number | null; profitFactorStatus?: "FINITE" | "NO_TRADES" | "NO_LOSSES" | "NO_GROSS_MOVEMENT"; sharpeRatio?: number; sharpeRatioStatus?: string };
@@ -38,7 +40,8 @@ export type StopCondition = { maxCandidates?: number; maxDurationSeconds?: numbe
 export type LoopStatus = { searchRunId: string; state: "CREATED" | "RUNNING" | "PAUSED" | "COMPLETED" | "CANCELLED" | "FAILED"; activeCandidates: Candidate[]; queuedCount: number; runningCount: number; candidatesTested: number; failedCandidateCount: number; retryExhaustedCandidateCount?: number; infrastructureFailureCandidateCount?: number; completionProcessingFailureCandidateCount?: number; failedAttemptCount?: number; averageBacktestDurationMs?: number | null; currentTopEntry?: SearchRankingEntry; createdAt: string; startedAt?: string; updatedAt: string; endedAt?: string; stopReason?: "MAX_CANDIDATES" | "MAX_DURATION" | "NO_IMPROVEMENT" | "USER_CANCELLED" | "ERROR"; stopCondition: StopCondition; lastError?: string };
 export type SearchRankingEntry = { id?: string; rank: number; searchRunId: string; leaderboardScopeId: string; candidateId: string; experimentResultId: string; scoreFormulaId: string; score: number };
 export type LeaderboardEntry = { id: string; rank: number; experimentResultId: string; leaderboardScopeId: string; scoreFormulaId: string; score: number; addedAt: string };
-export type StartSearchRequest = { leaderboardScopeId: string; strategyDefinitionIds: string[]; generatorType: GeneratorType; maxInFlight: number; maxComponents?: number; stopCondition: StopCondition };
+export type DomainRules = { requiredCategories?: StrategyCategory[]; allowedCategories?: StrategyCategory[]; forbiddenCategories?: StrategyCategory[] };
+export type StartSearchRequest = { leaderboardScopeId: string; strategyDefinitionIds: string[]; generatorType: GeneratorType; maxInFlight: number; maxComponents?: number; stopCondition: StopCondition; domainRules?: DomainRules };
 export type CandidatePage = { items: Candidate[]; nextCursor?: string; totalCount?: number };
 export type VisualizationRequest = { limit?: number; cursor?: string; from?: string; to?: string; highlightTradeId?: string };
 export type ReadCandlesQuery = { pair: string; timeframe: Timeframe; limit?: number; cursor?: string; from?: string; to?: string; includeForming?: boolean; completeness?: "ALLOW_PARTIAL" | "REQUIRE_COMPLETE" };
@@ -145,7 +148,7 @@ export const api = {
   visualization: (id: string, options: VisualizationRequest = {}) => request<ExperimentVisualization>(`/experiments/${encodeURIComponent(id)}/visualization${query(options)}`, {}, (value) => normalizeVisualization(value, id)),
   replay: (id: string) => request<ReplayVerificationAccepted>(`/experiments/${encodeURIComponent(id)}/replay-verifications`, { method: "POST" }, normalizeReplayAccepted),
   replayStatus: (id: string) => request<ReplayVerificationResult>(`/replay-verifications/${encodeURIComponent(id)}`, {}, normalizeReplayResult),
-  startSearch: (body: StartSearchRequest) => request<{ searchRunId: string }>("/search-runs", json({ leaderboardScopeId: body.leaderboardScopeId, strategyDefinitionIds: body.strategyDefinitionIds, generatorType: body.generatorType, maxInFlight: body.maxInFlight, maxComponents: body.maxComponents, ...body.stopCondition }), (value) => dto<{ searchRunId: string }>(value, "search submission")),
+  startSearch: (body: StartSearchRequest) => request<{ searchRunId: string }>("/search-runs", json({ leaderboardScopeId: body.leaderboardScopeId, strategyDefinitionIds: body.strategyDefinitionIds, generatorType: body.generatorType, maxInFlight: body.maxInFlight, maxComponents: body.maxComponents, ...(body.domainRules === undefined ? {} : { domainRules: body.domainRules }), ...body.stopCondition }), (value) => dto<{ searchRunId: string }>(value, "search submission")),
   search: (body: StartSearchRequest) => api.startSearch(body),
   searchStatus: (id: string) => request<LoopStatus>(`/search-runs/${encodeURIComponent(id)}`, {}, (value) => dto<LoopStatus>(value, "search status")),
   searchLeaderboard: (id: string) => request<SearchRankingEntry[]>(`/search-runs/${encodeURIComponent(id)}/leaderboard`, {}, (value) => arrayDto<unknown>(value, "search ranking").map(normalizeSearchRanking)),
@@ -169,8 +172,8 @@ export function mapGenerationError(error: unknown): { kind: GenerationErrorKind;
   const message = apiError?.message ?? (typeof record?.message === "string" ? record.message : error instanceof Error ? error.message : "Strategy generation failed.");
   const value = `${code ?? ""} ${message}`.toUpperCase();
   if (/SOURCE|URL|FETCH|SSRF|UNSAFE|REDIRECT|TIMEOUT_SOURCE/.test(value)) return { kind: "SOURCE", message };
-  if (/MODEL|LLM|PROVIDER|TIMEOUT_MODEL|UNAVAILABLE/.test(value)) return { kind: "MODEL", message };
   if (/SCHEMA|MALFORMED|OUTPUT/.test(value)) return { kind: "SCHEMA", message };
+  if (/MODEL|LLM|PROVIDER|TIMEOUT_MODEL|UNAVAILABLE/.test(value)) return { kind: "MODEL", message };
   if (/VALIDATION|STRATEGY|PARAMETER|WEIGHT|THRESHOLD/.test(value)) return { kind: "VALIDATION", message };
   return { kind: "UNKNOWN", message };
 }

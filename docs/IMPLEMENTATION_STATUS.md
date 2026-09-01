@@ -1,12 +1,13 @@
 # Implementation Status
 
-## Current state — 2026-08-31
+## Current state — 2026-09-01
 
 - Branch: `implement`
 - `MISSING_FEATURE_2.md`: implementation phases complete; final repository validation is recorded below.
 - Authority: OpenSpec specifications first, then the assignment/reference material. The assignment PDF is not present in this checkout; its checked-in Markdown companion and supplied images remain secondary evidence.
 - Runtime boundary: `TEST`/`DEMO` are explicit non-durable compositions. `DEVELOPMENT`/`PRODUCTION` require PostgreSQL, Redis, `JWT_SECRET`, and configured strategy model settings. Durable Compose now passes those settings through explicit environment interpolation.
 - Secrets: no `.env` file, JWT secret, model API key, or other credential is committed. `.env.example` contains only safe templates and commented credential slots.
+- Generated artifacts: TypeScript is canonical; source-tree JavaScript/declaration sidecars are removed and compiled output is emitted only beneath ignored `dist/` directories. The generated-artifact check covers both tracked and untracked sidecars.
 
 ## Completed implementation
 
@@ -26,6 +27,9 @@ visualization overlays, owner scope, and exact retained-artifact resolution are
 validated through the public Strategy API. Durable generation uses the configured
 OpenAI-compatible model adapter with bounded public-source loading, schema and
 domain validation, typed failures, and atomic definition/composite/audit writes.
+Schema-invalid model output is classified separately from model availability/timeouts;
+retryable 429/5xx failures use bounded exponential backoff with jitter and one total
+request deadline.
 Plugin hashes are derived from the executable factory artifact rather than a
 manually embedded identity string.
 
@@ -75,13 +79,17 @@ focused commits. OpenSpec remains the normative behavior specification.
 
 Final local validation passed as follows:
 
-- `npm test`: PASS — 193 tests, including the four deterministic seed tests.
+- `npm test`: PASS — 218 tests, including the four deterministic seed tests.
 - `npm run build`: PASS across all workspaces, including the Vite production build.
 - `npm run lint`: PASS — all workspace TypeScript checks.
-- `npm run arch:check`: PASS — 740 modules and 1,294 dependencies, with no violations.
-- `npm run test:workflow`: PASS — 2 launcher tests.
+- `npm run arch:check`: PASS — 655 modules and 1,174 dependencies, with no violations.
+- `npm run check:generated`: PASS — no source-tree `.js`/`.d.ts` sidecars.
+- `npm exec openspec -- validate --all --strict`: PASS — both completed changes validate.
+- `npm audit --audit-level=high`: PASS — zero vulnerabilities after compatible dependency updates.
+- `npm run test:workflow`: PASS — 3 launcher tests.
 - `npm run smoke:backend`: PASS — compiled backend health and complete route registration under explicit DEMO composition.
 - `npm run smoke:dev`: PASS — backend plus Vite launcher health under explicit DEMO composition.
+- `npm run docker:smoke`: PASS — a fresh Compose stack brought up PostgreSQL, Redis, migrations 001–019, backend, worker, and frontend; durable registration/login/me and a protected Market Data request succeeded; the isolated containers, network, and volume were then removed.
 
 The required local checks are:
 
@@ -90,33 +98,34 @@ npm test
 npm run build
 npm run lint
 npm run arch:check
+npm run check:generated
+npm exec openspec -- validate --all --strict
+npm audit --audit-level=high
 npm run test:workflow
 npm run smoke:backend
 npm run smoke:dev
+npm run docker:smoke
 ```
 
 The production-source audit covers default secrets, `OPENAI_API_KEY`, static
 fake hashes, epoch timestamps, unsupported provider placeholders, deterministic
 Search stubs, silent durable fallbacks, and unavailable UI controls.
 
-`docker compose -f infra/docker-compose.yml config --quiet` passes with
-non-secret validation environment values. A live `docker compose up --build -d`
-attempt was blocked because the Docker Desktop Linux engine named pipe was not
-available in this environment; Docker Desktop was launched once and the engine
-remained unavailable. Therefore no claim is made here for a new PostgreSQL,
-Redis, migration, backend, or worker container run. The Compose graph and all
-non-container repository checks remain verifiable independently.
+`docker compose --env-file .env -f infra/docker-compose.yml config --quiet` passes,
+and the complete isolated Docker smoke run succeeds with non-production test
+values. It verifies all 19 migrations, durable authentication, Redis, worker
+readiness, frontend serving, and cleanup without invoking an external model or
+fetching live market/news data.
 
 ## Focused commit ledger
 
-The implementation commits are recorded in `docs/IMPLEMENTATION_PLAN.md`. The
-latest code hardening commits are `f39ed8f` (`fix(provenance): remove
-production placeholders`) and `6500d6f` (`fix(search): remove fallback
-identifier`). Documentation and Compose reconciliation is kept in the final
-documentation commits after the full validation pass.
+The historical implementation commits are recorded in `docs/IMPLEMENTATION_PLAN.md`.
+No commit or push was performed during this completion pass; the current
+worktree changes are intentionally left available for review.
 
 ## Known non-blocking constraints
 
 - The assignment PDF is unavailable in this checkout; the Markdown companion and images were used for secondary traceability.
-- Docker Desktop is installed but its Linux engine was unavailable during the final container attempt.
-- Dependency audit findings, if reported by npm, are separate from the implementation contract and should be reviewed during dependency maintenance.
+- The Vite toolchain still emits its non-blocking CJS Node API deprecation warning during tests and builds.
+- The OpenSpec CLI reports a non-blocking telemetry flush warning when outbound network access is restricted.
+- The built-in live browser connection could not initialize on this Windows host because its sandbox helper failed before a page could be inspected; desktop/mobile auth QA therefore remains a manual follow-up.

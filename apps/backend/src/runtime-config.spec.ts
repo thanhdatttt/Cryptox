@@ -35,4 +35,40 @@ describe("backend runtime profiles", () => {
     const config = loadBackendRuntimeConfig({ ...durableEnvironment, BACKTEST_DEFAULT_INITIAL_CAPITAL: "2500", BACKTEST_DEFAULT_FEE_RATE_PERCENT: "0.1", BACKTEST_DEFAULT_SLIPPAGE_BPS: "8", BACKTEST_DEFAULT_MAX_ATTEMPTS: "3" }, "PRODUCTION");
     expect(config.backtestPolicyDefaults).toEqual({ initialCapital: 2500, feeRatePercent: 0.1, slippageBps: 8, maxAttempts: 3 });
   });
+
+  it("keeps RSS independent from crawler configuration", () => {
+    const config = loadBackendRuntimeConfig({ NEWS_PROVIDER: "COINDESK_RSS" }, "TEST");
+    expect(config.newsProvider).toBe("COINDESK_RSS");
+    expect(config.crawlerSourceUrls).toEqual([]);
+    expect(config.crawlerModelEndpoint).toBeUndefined();
+  });
+
+  it("requires and validates every crawler setting only when CRAWLER_LLM is selected", () => {
+    expect(() => loadBackendRuntimeConfig({ NEWS_PROVIDER: "CRAWLER_LLM" }, "TEST")).toThrow("MISSING_CONFIGURATION:CRAWLER_SOURCE_URLS");
+    const config = loadBackendRuntimeConfig({
+      NEWS_PROVIDER: "CRAWLER_LLM",
+      CRAWLER_SOURCE_URLS: "https://news.example.test/a, https://news.example.test/b",
+      CRAWLER_MODEL_ENDPOINT: "http://127.0.0.1:8080/v1/chat/completions",
+      CRAWLER_MODEL_NAME: "fake-model",
+      CRAWLER_LLM_API_KEY: "fake-key",
+      CRAWLER_REQUEST_TIMEOUT_MS: "500",
+      CRAWLER_MAX_OUTPUT_BYTES: "4096",
+    }, "TEST");
+    expect(config).toMatchObject({
+      newsProvider: "CRAWLER_LLM",
+      crawlerSourceUrls: ["https://news.example.test/a", "https://news.example.test/b"],
+      crawlerModelEndpoint: "http://127.0.0.1:8080/v1/chat/completions",
+      crawlerModelName: "fake-model",
+      crawlerLlmApiKey: "fake-key",
+      crawlerRequestTimeoutMs: 500,
+      crawlerMaxOutputBytes: 4096,
+    });
+    expect(() => loadBackendRuntimeConfig({
+      NEWS_PROVIDER: "CRAWLER_LLM",
+      CRAWLER_SOURCE_URLS: "http://127.0.0.1/private",
+      CRAWLER_MODEL_ENDPOINT: "not-a-url",
+      CRAWLER_MODEL_NAME: "fake-model",
+      CRAWLER_LLM_API_KEY: "fake-key",
+    }, "TEST")).toThrow("INVALID_CONFIGURATION:CRAWLER_MODEL_ENDPOINT");
+  });
 });

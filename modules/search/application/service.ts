@@ -2,7 +2,7 @@ import type { CancellationUnitOfWork } from "modules/backtesting/api";
 import type { AuthContext } from "modules/auth/api";
 import type { StrategyDefinition } from "modules/strategy/api";
 import type { SearchModuleDependencies } from "./ports";
-import type { GeneratedCandidate, LoopStatus, SearchRun, SearchRunRankingEntry, StopCondition } from "../domain/contracts";
+import type { GeneratedCandidate, LoopStatus, SearchRun, SearchRunRankingEntry, StopCondition, StrategyCategory } from "../domain/contracts";
 
 type OwnedStrategyDefinition = StrategyDefinition & { userId: string };
 
@@ -27,6 +27,29 @@ const validateStopCondition = (condition: StopCondition): void => {
 const ownerOf = (definition: StrategyDefinition): string | undefined => (definition as Partial<OwnedStrategyDefinition>).userId;
 const validateSearchSpaceOwner = (ownerUserId: string, searchSpace: SearchRun["searchSpace"]): void => {
   if (searchSpace.availableStrategies.some((definition) => ownerOf(definition) !== ownerUserId)) throw new Error("INVALID_SEARCH_CONFIG");
+};
+const validateDomainRules = (generatorType: SearchRun["generatorType"], searchSpace: SearchRun["searchSpace"]): void => {
+  const rules = searchSpace.domainRules;
+  if (generatorType !== "DOMAIN_GUIDED" && rules !== undefined) throw new Error("INVALID_SEARCH_CONFIG");
+  if (rules === undefined) return;
+  const known = new Set<StrategyCategory>(["TREND", "MOMENTUM", "VOLATILITY", "STRUCTURE", "INFORMATION"]);
+  const read = (value: unknown): StrategyCategory[] | undefined => {
+    if (value === undefined) return undefined;
+    if (!Array.isArray(value) || value.some((category) => typeof category !== "string" || !known.has(category as StrategyCategory))) throw new Error("INVALID_SEARCH_CONFIG");
+    const result = value as StrategyCategory[];
+    if (new Set(result).size !== result.length) throw new Error("INVALID_SEARCH_CONFIG");
+    return result;
+  };
+  const required = read(rules.requiredCategories); const allowed = read(rules.allowedCategories); const forbidden = read(rules.forbiddenCategories);
+  if (required && forbidden && required.some((category) => forbidden.includes(category))) throw new Error("DOMAIN_RULE_UNSATISFIABLE");
+  if (allowed && required && required.some((category) => !allowed.includes(category))) throw new Error("DOMAIN_RULE_UNSATISFIABLE");
+  if (allowed && forbidden && forbidden.some((category) => allowed.includes(category))) throw new Error("DOMAIN_RULE_UNSATISFIABLE");
+  const eligible = searchSpace.availableStrategies.filter((definition) => {
+    const category = definition.category;
+    return (!allowed || (category !== undefined && allowed.includes(category))) && (!category || !forbidden?.includes(category));
+  });
+  if (eligible.length === 0 || required?.some((category) => !eligible.some((definition) => definition.category === category))) throw new Error("DOMAIN_RULE_UNSATISFIABLE");
+  if (searchSpace.maxComponents !== undefined && required && required.length > searchSpace.maxComponents) throw new Error("DOMAIN_RULE_UNSATISFIABLE");
 };
 
 import { createDefaultStrategyGenerators } from "../domain/generators";
@@ -68,7 +91,7 @@ export function createInMemorySearchDependencies(): SearchModuleDependencies {
       readBenchmarkScope: async (_auth, scopeId) => ({ id: scopeId } as never),
       submitSearchCandidate: async (_auth, command) => {
         const candidateId = `search-candidate-${++sequence}`;
-        candidates.set(candidateId, { candidateId, origin: "SEARCH", selectionMode: "COMPOSITE", searchRunId: command.searchRunId, iterationNumber: command.iterationNumber, leaderboardScopeId: command.leaderboardScopeId, status: "QUEUED", attempts: [], maxAttempts: command.maxAttempts, completionAttemptCount: 0, completionMaxAttempts: 5, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
+        candidates.set(candidateId, { candidateId, origin: "SEARCH", selectionMode: "COMPOSITE", searchRunId: command.searchRunId, iterationNumber: command.iterationNumber, generatedBy: command.generatedBy, fingerprint: command.fingerprint, lineage: command.lineage, leaderboardScopeId: command.leaderboardScopeId, status: "QUEUED", attempts: [], maxAttempts: command.maxAttempts, completionAttemptCount: 0, completionMaxAttempts: 5, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
         return { candidateId, jobId: candidateId, status: "QUEUED" };
       },
       summarizeSearchCandidates: async (_auth, searchRunId) => {
@@ -90,7 +113,7 @@ export function createInMemorySearchDependencies(): SearchModuleDependencies {
 }
 
 const createRun = (searchRunId: string, config: Parameters<SearchModuleRuntime["start"]>[1], ownerUserId: string, now: string): SearchRun => ({
-  searchRunId, ownerUserId, state: "RUNNING", activeCandidates: [], queuedCount: 0, runningCount: 0, candidatesTested: 0, failedCandidateCount: 0, retryExhaustedCandidateCount: 0, infrastructureFailureCandidateCount: 0, completionProcessingFailureCandidateCount: 0, failedAttemptCount: 0, averageBacktestDurationMs: 0, createdAt: now, startedAt: now, updatedAt: now, stopCondition: config.stopCondition, searchSpace: config.searchSpace, generatorType: config.generatorType, leaderboardScopeId: config.leaderboardScopeId, maxInFlight: config.maxInFlight, nextIteration: 1, activeDurationMs: 0, activeSince: now,
+  searchRunId, ownerUserId, state: "RUNNING", activeCandidates: [], queuedCount: 0, runningCount: 0, candidatesTested: 0, failedCandidateCount: 0, retryExhaustedCandidateCount: 0, infrastructureFailureCandidateCount: 0, completionProcessingFailureCandidateCount: 0, failedAttemptCount: 0, averageBacktestDurationMs: 0, createdAt: now, startedAt: now, updatedAt: now, stopCondition: config.stopCondition, searchSpace: { ...config.searchSpace, generatedFingerprints: [...new Set(config.searchSpace.generatedFingerprints ?? [])] }, generatorType: config.generatorType, leaderboardScopeId: config.leaderboardScopeId, maxInFlight: config.maxInFlight, nextIteration: 1, activeDurationMs: 0, activeSince: now,
 });
 
 export function createSearchModule(dependencies: SearchModuleDependencies = createInMemorySearchDependencies()): SearchModuleRuntime {
@@ -125,21 +148,38 @@ export function createSearchModule(dependencies: SearchModuleDependencies = crea
     return undefined;
   };
   const submit = async (run: SearchRun, candidate: GeneratedCandidate): Promise<void> => {
-    const strategyDefinitionIds = candidate.strategyDefinitions.map((definition) => definition.id);
+    let strategyDefinitionIds = candidate.strategyDefinitions.map((definition) => definition.id);
     let compositeDefinitionId = candidate.compositeDefinition.id;
     if (dependencies.strategyService) {
       const definitions = await dependencies.strategyService.readDefinitions(run.ownerUserId, strategyDefinitionIds);
-      if (definitions.length !== strategyDefinitionIds.length || definitions.some((definition, index) => definition.id !== strategyDefinitionIds[index] || definition.userId !== run.ownerUserId)) throw new Error("INVALID_SEARCH_CONFIG");
+      if (definitions.length !== strategyDefinitionIds.length || definitions.some((definition) => definition.userId !== run.ownerUserId)) throw new Error("INVALID_SEARCH_CONFIG");
+      const persistedById = new Map(definitions.map((definition) => [definition.id, definition]));
+      const remapped = new Map<string, string>();
+      for (const generated of candidate.strategyDefinitions) {
+        const persisted = persistedById.get(generated.id);
+        if (!persisted || persisted.strategyName !== generated.strategyName) throw new Error("INVALID_SEARCH_CONFIG");
+        const sameParameters = JSON.stringify(persisted.parameters) === JSON.stringify(generated.parameters);
+        if (sameParameters) remapped.set(generated.id, persisted.id);
+        else {
+          if (!dependencies.strategyService.defineStrategy) throw new Error("INVALID_SEARCH_CONFIG");
+          const created = await dependencies.strategyService.defineStrategy(run.ownerUserId, generated.strategyName, generated.parameters);
+          if (created.userId !== run.ownerUserId) throw new Error("INVALID_SEARCH_CONFIG");
+          remapped.set(generated.id, created.id);
+        }
+      }
+      strategyDefinitionIds = candidate.strategyDefinitions.map((definition) => remapped.get(definition.id)!).filter(Boolean);
+      if (strategyDefinitionIds.length !== candidate.strategyDefinitions.length) throw new Error("INVALID_SEARCH_CONFIG");
       const persisted = await dependencies.strategyService.defineComposite(run.ownerUserId, {
         method: candidate.compositeDefinition.method,
-        components: candidate.compositeDefinition.components,
+        components: candidate.compositeDefinition.components.map((component) => ({ ...component, strategyDefinitionId: remapped.get(component.strategyDefinitionId) ?? component.strategyDefinitionId })),
         thresholds: candidate.compositeDefinition.thresholds,
       });
       const verified = await dependencies.strategyService.readComposite(run.ownerUserId, persisted.id);
-      if (verified.userId !== run.ownerUserId || verified.components.length !== candidate.compositeDefinition.components.length || verified.components.some((component, index) => component.strategyDefinitionId !== candidate.compositeDefinition.components[index]?.strategyDefinitionId || component.weight !== candidate.compositeDefinition.components[index]?.weight)) throw new Error("INVALID_SEARCH_CONFIG");
+      if (verified.userId !== run.ownerUserId || verified.components.length !== candidate.compositeDefinition.components.length || verified.components.some((component, index) => component.strategyDefinitionId !== (remapped.get(candidate.compositeDefinition.components[index]?.strategyDefinitionId ?? "") ?? candidate.compositeDefinition.components[index]?.strategyDefinitionId) || component.weight !== candidate.compositeDefinition.components[index]?.weight)) throw new Error("INVALID_SEARCH_CONFIG");
       compositeDefinitionId = verified.id;
     }
-    await dependencies.backtestCoordinator.submitSearchCandidate(authFor(run), { leaderboardScopeId: run.leaderboardScopeId, strategyDefinitionIds, compositeDefinitionId, executionPolicy: { policyId: candidate.executionPolicyIntent?.mode ?? "TWO_SIDED_ONE_X_V1", stopLossPercent: candidate.executionPolicyIntent?.stopLossPercent, takeProfitPercent: candidate.executionPolicyIntent?.takeProfitPercent }, maxAttempts: 1, searchRunId: run.searchRunId, iterationNumber: run.nextIteration, generatedBy: candidate.generatedBy });
+    await dependencies.backtestCoordinator.submitSearchCandidate(authFor(run), { leaderboardScopeId: run.leaderboardScopeId, strategyDefinitionIds, compositeDefinitionId, executionPolicy: { policyId: candidate.executionPolicyIntent?.mode ?? "TWO_SIDED_ONE_X_V1", stopLossPercent: candidate.executionPolicyIntent?.stopLossPercent, takeProfitPercent: candidate.executionPolicyIntent?.takeProfitPercent }, maxAttempts: 1, searchRunId: run.searchRunId, iterationNumber: run.nextIteration, generatedBy: candidate.generatedBy, fingerprint: candidate.fingerprint, ...(candidate.lineage ? { lineage: candidate.lineage } : {}) });
+    run.searchSpace.generatedFingerprints = [...new Set([...(run.searchSpace.generatedFingerprints ?? []), candidate.fingerprint])];
     run.nextIteration += 1;
   };
   const fill = async (searchRunId: string): Promise<void> => {
@@ -159,7 +199,27 @@ export function createSearchModule(dependencies: SearchModuleDependencies = crea
         const budget = run.stopCondition.maxCandidates === undefined ? run.maxInFlight : Math.max(0, run.stopCondition.maxCandidates - reserved);
         const slots = Math.min(Math.max(0, run.maxInFlight - inFlight(run)), budget);
         const generator = dependencies.generators[run.generatorType];
-        for (let index = 0; index < slots; index += 1) await submit(run, generator.generate(run.searchSpace));
+        if (!generator) throw new Error("UNSUPPORTED_GENERATOR");
+        let submitted = 0;
+        let attempts = 0;
+        const maxAttempts = Math.max(slots * 4, slots + 1);
+        while (submitted < slots && attempts < maxAttempts) {
+          attempts += 1;
+          let candidate: GeneratedCandidate;
+          try {
+            candidate = generator.generate(run.searchSpace, { searchRunId: run.searchRunId, iterationNumber: run.nextIteration + attempts - 1 });
+          } catch (error) {
+            if (attempts >= maxAttempts) throw error;
+            continue;
+          }
+          if ((run.searchSpace.generatedFingerprints ?? []).includes(candidate.fingerprint)) continue;
+          try {
+            await submit(run, candidate);
+            submitted += 1;
+          } catch (error) {
+            if (attempts >= maxAttempts) throw error;
+          }
+        }
         await refresh(run);
         met = stopReason(run);
         if (met && inFlight(run) === 0) Object.assign(run, { state: "COMPLETED", stopReason: met, endedAt: dependencies.clock.now() });
@@ -178,7 +238,7 @@ export function createSearchModule(dependencies: SearchModuleDependencies = crea
     return current;
   };
   return {
-    start: async (auth, config) => { assertAuth(auth); validateStopCondition(config.stopCondition); if (!Number.isInteger(config.maxInFlight) || config.maxInFlight <= 0 || !config.leaderboardScopeId || config.searchSpace.availableStrategies.length === 0) throw new Error("INVALID_SEARCH_CONFIG"); validateSearchSpaceOwner(auth.userId, config.searchSpace); await dependencies.backtestCoordinator.readBenchmarkScope(auth, config.leaderboardScopeId); const run = createRun(idGenerator(), config, auth.userId, dependencies.clock.now()); await dependencies.searchRunRepository.insert(run); void fill(run.searchRunId).catch(() => undefined); return { searchRunId: run.searchRunId }; },
+    start: async (auth, config) => { assertAuth(auth); validateStopCondition(config.stopCondition); if (!Number.isInteger(config.maxInFlight) || config.maxInFlight <= 0 || !config.leaderboardScopeId || config.searchSpace.availableStrategies.length === 0) throw new Error("INVALID_SEARCH_CONFIG"); validateSearchSpaceOwner(auth.userId, config.searchSpace); validateDomainRules(config.generatorType, config.searchSpace); await dependencies.backtestCoordinator.readBenchmarkScope(auth, config.leaderboardScopeId); const run = createRun(idGenerator(), config, auth.userId, dependencies.clock.now()); await dependencies.searchRunRepository.insert(run); void fill(run.searchRunId).catch(() => undefined); return { searchRunId: run.searchRunId }; },
     pause: async (auth, id) => { const run = await loadOwned(auth, id); if (run.state === "RUNNING") { const now = dependencies.clock.now(); await dependencies.searchRunRepository.save({ ...run, state: "PAUSED", activeDurationMs: run.activeDurationMs + (run.activeSince ? Date.parse(now) - Date.parse(run.activeSince) : 0), activeSince: undefined, updatedAt: now }); } },
     resume: async (auth, id) => { const run = await loadOwned(auth, id); if (run.state === "FAILED") throw new Error("CANNOT_RESUME_FAILED_RUN"); if (run.state === "PAUSED") { const now = dependencies.clock.now(); await dependencies.searchRunRepository.save({ ...run, state: "RUNNING", activeSince: now, updatedAt: now }); } await fill(id); },
     cancel: async (auth, id) => {

@@ -113,6 +113,8 @@ erDiagram
         text queue_job_id
         text origin
         text generated_by
+        text fingerprint
+        jsonb lineage
         int iteration_number
         int max_attempts
         int active_attempt_number
@@ -712,6 +714,8 @@ CREATE TABLE candidate_strategies (
   warmup_candles          INT NOT NULL CHECK (warmup_candles BETWEEN 0 AND 10000),
   execution_policy_sha256 CHAR(64) NOT NULL,
   generated_by            generator_type_enum,
+  fingerprint             CHAR(64),
+  lineage                 JSONB,
   iteration_number        INT,
   max_attempts             INT NOT NULL CHECK (max_attempts > 0),
   active_attempt_number    INT CHECK (active_attempt_number > 0),
@@ -733,6 +737,8 @@ CREATE TABLE candidate_strategies (
     OR
     (origin = 'SEARCH' AND search_run_id IS NOT NULL AND generated_by IS NOT NULL AND iteration_number > 0)
   ),
+  CHECK (fingerprint IS NULL OR fingerprint ~ '^[0-9a-f]{64}$'),
+  CHECK (lineage IS NULL OR jsonb_typeof(lineage) = 'object'),
   CHECK (queue_job_id = id::text),
   CHECK (completion_attempt_count BETWEEN 0 AND completion_max_attempts),
   CHECK (

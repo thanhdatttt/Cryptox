@@ -132,7 +132,7 @@ contradiction is a spec defect and MUST be fixed before implementation.
 
 | ID | Requirement |
 |---|---|
-| FR-BL-001 | The Backtesting module must persist one Candidate identity containing `candidateId`, origin, immutable `selectionMode`, origin-specific Search metadata, `leaderboardScopeId`, immutable composite-definition reference, `queueJobId`, attempt budget, and lifecycle timestamps before queue submission. Search Candidates require `searchRunId`, `generatedBy`, and positive `iterationNumber`; Manual Candidates must contain none of those Search fields. A Manual transport retry is identified by an optional durable `submissionIdempotencyKey`; the key is request metadata and is not a strategy identity. |
+| FR-BL-001 | The Backtesting module must persist one Candidate identity containing `candidateId`, origin, immutable `selectionMode`, origin-specific Search metadata, `leaderboardScopeId`, immutable composite-definition reference, `queueJobId`, attempt budget, and lifecycle timestamps before queue submission. Search Candidates require `searchRunId`, `generatedBy`, positive `iterationNumber`, a stable fingerprint, and optional genetic lineage; Manual Candidates must contain none of those Search fields. A Manual transport retry is identified by an optional durable `submissionIdempotencyKey`; the key is request metadata and is not a strategy identity. |
 | FR-BL-002 | The log must expose the Candidate's current lifecycle status using the documented states `CREATED`, `QUEUED`, `BACKTESTING`, `RETRY_WAIT`, `PROCESSING_RESULT`, `TERMINAL_FAILURE_PENDING`, `COMPLETED`, `FAILED`, and `CANCELLED`. |
 | FR-BL-003 | Every runnable worker delivery must create at most one Attempt number for the Candidate, and the persisted Attempt number must never exceed `Candidate.maxAttempts`. A redelivery that observes an existing `RUNNING` Attempt must reuse it or close it only after verified stalled/terminal evidence; repeated delivery of an already completed or terminal Candidate must create no new Attempt. |
 | FR-BL-004 | Each Attempt must retain `attemptId`, `candidateId`, `queueJobId`, `attemptNumber`, `status`, `startedAt`, optional `completedAt`, worker runtime version, worker runtime SHA-256, and bounded, redacted failure context when the Attempt fails. |
@@ -692,6 +692,13 @@ export interface SubmitSearchCandidateCommand {
   strategyDefinitionIds: string[];
   compositeDefinitionId: string;
   generatedBy: GeneratorType;
+  fingerprint: string;
+  lineage?: {
+    parentFingerprints: string[];
+    crossoverPoint: number;
+    mutatedParameterKeys: string[];
+    selectionMutation?: { replacedStrategyId?: string; replacementStrategyId?: string };
+  };
 }
 
 export type GeneratorType = "RANDOM" | "DOMAIN_GUIDED" | "GENETIC";
@@ -1508,6 +1515,14 @@ export interface CandidateProgress {
   selectionMode: "SINGLE" | "COMPOSITE"; // additive read field; derived from immutable component count
   searchRunId?: string;
   iterationNumber?: number;
+  generatedBy?: GeneratorType;
+  fingerprint?: string;
+  lineage?: {
+    parentFingerprints: string[];
+    crossoverPoint: number;
+    mutatedParameterKeys: string[];
+    selectionMutation?: { replacedStrategyId?: string; replacementStrategyId?: string };
+  };
   leaderboardScopeId: string;
   executionPolicy: ExecutionPolicySnapshot;
   status: CandidateStatus;

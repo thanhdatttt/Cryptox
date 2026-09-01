@@ -4,6 +4,8 @@ import { AuthException, type AuthModulePublicApi } from "modules/auth/api";
 import { BACKTEST_RUNTIME_SHA256, BACKTEST_RUNTIME_VERSION } from "modules/backtesting/api/bootstrap";
 import type { Timeframe } from "modules/market-data/api";
 import type { CompositeStrategyDefinition, StrategyDefinition } from "modules/strategy/api";
+import type { StrategyModuleRuntime } from "modules/strategy/api/bootstrap";
+import type { GeneratorType, SearchSpaceConfig, StrategyCategory } from "modules/search/api";
 import { composeAllModules, type BackendModules } from "./compose";
 import { MarketGateway } from "./market.gateway";
 
@@ -178,11 +180,37 @@ const parseThresholds = (value: unknown): { buy: number; sell: number } | undefi
   if (!isRecord(value) || typeof value.buy !== "number" || !Number.isFinite(value.buy) || typeof value.sell !== "number" || !Number.isFinite(value.sell)) throw new BadRequestException("thresholds must contain finite buy and sell values.");
   return { buy: value.buy, sell: value.sell };
 };
+const parseDomainRules = (value: unknown, knownCategories: ReadonlySet<string>): SearchSpaceConfig["domainRules"] | undefined => {
+  if (value === undefined) return undefined;
+  if (!isRecord(value)) throw new BadRequestException("domainRules must be an object.");
+  const readCategories = (key: "requiredCategories" | "allowedCategories" | "forbiddenCategories"): StrategyCategory[] | undefined => {
+    const raw = value[key];
+    if (raw === undefined) return undefined;
+    if (!Array.isArray(raw)) throw new BadRequestException(`${key} must be an array.`);
+    const normalized = raw.map((item) => {
+      if (typeof item !== "string" || !item.trim()) throw new BadRequestException(`${key} must contain category strings.`);
+      const category = item.trim().toUpperCase();
+      if (!knownCategories.has(category)) throw new BadRequestException(`${key} contains an unknown category.`);
+      return category as StrategyCategory;
+    });
+    if (new Set(normalized).size !== normalized.length) throw new BadRequestException(`${key} must not contain duplicates.`);
+    return normalized;
+  };
+  const required = readCategories("requiredCategories");
+  const allowed = readCategories("allowedCategories");
+  const forbidden = readCategories("forbiddenCategories");
+  const requiredSet = new Set(required ?? []);
+  const forbiddenSet = new Set(forbidden ?? []);
+  if ([...requiredSet].some((category) => forbiddenSet.has(category))) throw new BadRequestException("domainRules cannot require and forbid the same category.");
+  if (allowed && [...requiredSet].some((category) => !allowed.includes(category))) throw new BadRequestException("domainRules requiredCategories must be allowed.");
+  if (allowed && forbidden && forbidden.some((category) => allowed.includes(category))) throw new BadRequestException("domainRules forbiddenCategories must be excluded from allowedCategories.");
+  return { ...(required ? { requiredCategories: required } : {}), ...(allowed ? { allowedCategories: allowed } : {}), ...(forbidden ? { forbiddenCategories: forbidden } : {}) };
+};
 const searchHttpError = (error: unknown): never => {
   if (!(error instanceof Error)) throw error;
   if (error.message.endsWith("_NOT_FOUND")) throw new NotFoundException(error.message);
   if (error.message === "SEARCH_ACCESS_DENIED" || error.message === "BACKTEST_ACCESS_DENIED") throw new NotFoundException(error.message);
-  if (error.message.startsWith("INVALID_") || error.message === "EMPTY_SEARCH_SPACE" || error.message === "CANNOT_RESUME_FAILED_RUN") throw new BadRequestException(error.message);
+  if (error.message.startsWith("INVALID_") || ["EMPTY_SEARCH_SPACE", "DOMAIN_RULE_UNSATISFIABLE", "UNSUPPORTED_GENERATOR", "CANNOT_RESUME_FAILED_RUN"].includes(error.message)) throw new BadRequestException(error.message);
   throw error;
 };
 
@@ -542,19 +570,35 @@ export class SearchController extends ProtectedController {
   @Post()
   async start(
     @Headers("authorization") authorization: string | undefined,
-    @Body() body: { leaderboardScopeId?: unknown; strategyDefinitionIds?: unknown; generatorType?: unknown; maxCandidates?: unknown; maxDurationSeconds?: unknown; noImprovementAfterIterations?: unknown; maxInFlight?: unknown; maxComponents?: unknown },
+    @Body() body: { leaderboardScopeId?: unknown; strategyDefinitionIds?: unknown; generatorType?: unknown; domainRules?: unknown; maxCandidates?: unknown; maxDurationSeconds?: unknown; noImprovementAfterIterations?: unknown; maxInFlight?: unknown; maxComponents?: unknown },
   ) {
     const userId = await this.authenticate(authorization);
     if (typeof body?.leaderboardScopeId !== "string" || !Array.isArray(body.strategyDefinitionIds) || body.strategyDefinitionIds.length === 0 || body.strategyDefinitionIds.some((id) => typeof id !== "string")) throw new BadRequestException("leaderboardScopeId and strategyDefinitionIds are required.");
     const generatorType = body.generatorType === undefined ? "RANDOM" : body.generatorType;
     if (generatorType !== "RANDOM" && generatorType !== "DOMAIN_GUIDED" && generatorType !== "GENETIC") throw new BadRequestException("generatorType is invalid.");
+    if (generatorType !== "DOMAIN_GUIDED" && body.domainRules !== undefined) throw new BadRequestException("domainRules are supported only for DOMAIN_GUIDED searches.");
     const maxCandidates = positiveInteger(body.maxCandidates); const maxDurationSeconds = positiveInteger(body.maxDurationSeconds); const noImprovementAfterIterations = positiveInteger(body.noImprovementAfterIterations);
     if (maxCandidates === undefined && maxDurationSeconds === undefined && noImprovementAfterIterations === undefined) throw new BadRequestException("one positive stop condition is required.");
     const maxInFlight = body.maxInFlight === undefined ? 1 : positiveInteger(body.maxInFlight); const maxComponents = body.maxComponents === undefined ? undefined : positiveInteger(body.maxComponents);
     if (maxInFlight === undefined || (body.maxComponents !== undefined && maxComponents === undefined)) throw new BadRequestException("maxInFlight and maxComponents must be positive integers.");
     try {
-      const availableStrategies = await this.modules.strategy.readDefinitions(userId, body.strategyDefinitionIds);
-      return await this.modules.search.start({ userId }, { searchSpace: { availableStrategies, maxComponents }, stopCondition: { maxCandidates, maxDurationSeconds, noImprovementAfterIterations } as import("modules/search/api").StopCondition, generatorType, leaderboardScopeId: body.leaderboardScopeId, maxInFlight });
+      const definitions = await this.modules.strategy.readDefinitions(userId, body.strategyDefinitionIds);
+      const catalog = typeof (this.modules.strategy as Partial<Pick<StrategyModuleRuntime, "listStrategies">>).listStrategies === "function" ? this.modules.strategy.listStrategies() : [];
+      const availableStrategies = definitions.map((definition) => {
+        const descriptor = catalog.find((item) => item.name === definition.strategyName && item.implementationSha256 === definition.implementationSha256);
+        return { ...definition, ...(descriptor ? { category: descriptor.category, parameterDescriptors: descriptor.parameters } : {}) };
+      });
+      const knownCategories = new Set(catalog.map((descriptor) => descriptor.category));
+      const domainRules = generatorType === "DOMAIN_GUIDED" ? parseDomainRules(body.domainRules, knownCategories) : undefined;
+      if (domainRules) {
+        const eligible = availableStrategies.filter((definition) => {
+          const category = typeof definition.category === "string" ? definition.category : undefined;
+          return (!domainRules.allowedCategories || (category !== undefined && domainRules.allowedCategories.includes(category as StrategyCategory))) && (!category || !domainRules.forbiddenCategories?.includes(category as StrategyCategory));
+        });
+        if (eligible.length === 0 || (maxComponents !== undefined && (domainRules.requiredCategories?.length ?? 0) > maxComponents)) throw new BadRequestException("domainRules cannot produce a valid candidate from the selected strategies.");
+        if ((domainRules.requiredCategories ?? []).some((category) => !eligible.some((definition) => definition.category === category))) throw new BadRequestException("domainRules requiredCategories cannot be satisfied by the selected strategies.");
+      }
+      return await this.modules.search.start({ userId }, { searchSpace: { availableStrategies, maxComponents, domainRules }, stopCondition: { maxCandidates, maxDurationSeconds, noImprovementAfterIterations } as import("modules/search/api").StopCondition, generatorType: generatorType as GeneratorType, leaderboardScopeId: body.leaderboardScopeId, maxInFlight });
     } catch (error) { return searchHttpError(error); }
   }
 

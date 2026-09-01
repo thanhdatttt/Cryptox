@@ -45,6 +45,8 @@
 - [x] 7.1 Add the tool-free `HtmlNewsInterpreter` port and a schema-constrained provider adapter behind the crawler infrastructure boundary.
 - [x] 7.2 Replace selector-only crawler extraction with bounded HTML safety preprocessing, LLM interpretation, canonical normalization, and validation.
 - [x] 7.3 Add observability and tests for layout variation, prompt-like page content, malformed/hallucinated fields, timeout, provider isolation, exact-URL deduplication, and News-before-Sentiment ordering.
+- [x] 7.4 Add the concrete OpenAI-compatible `HtmlNewsInterpreter`, validated crawler runtime settings, Backend composition, Docker, and `.env.example` wiring.
+- [x] 7.5 Add local fake OpenAI-compatible server integration tests for RSS-only startup, valid crawler startup, fail-fast configuration, invalid output isolation, and RSS continuity after crawler failure.
 
 ## 8. Validation
 

@@ -320,8 +320,20 @@ Owned by `modules/search`. Search owns Search Runs, generators, stop conditions,
 ```typescript
 // modules/search/api/contracts.ts
 
+export interface SearchStrategyDefinition extends StrategyDefinition {
+  category?: StrategyCategory;
+  parameterDescriptors?: readonly StrategyParameterDescriptor[];
+}
+
+export interface CandidateLineage {
+  parentFingerprints: string[];
+  crossoverPoint: number;
+  mutatedParameterKeys: string[];
+  selectionMutation?: { replacedStrategyId?: string; replacementStrategyId?: string };
+}
+
 export interface GeneratedCandidate {
-  strategyDefinitions: StrategyDefinition[];       // complete immutable versions referenced below
+  strategyDefinitions: SearchStrategyDefinition[]; // complete immutable versions referenced below
   compositeDefinition: CompositeStrategyDefinition;
   executionPolicyIntent: {
     mode: "TWO_SIDED_ONE_X_V1";
@@ -329,22 +341,32 @@ export interface GeneratedCandidate {
     takeProfitPercent?: number;
   };
   generatedBy: GeneratorType;
+  fingerprint: string;
+  lineage?: CandidateLineage;
+}
+
+export interface GeneratorContext {
+  searchRunId: string;
+  iterationNumber: number;
 }
 
 export interface StrategyGenerator {
   readonly type: GeneratorType;
-  generate(searchSpace: SearchSpaceConfig): GeneratedCandidate;
+  generate(searchSpace: SearchSpaceConfig, context?: GeneratorContext): GeneratedCandidate;
 }
 
 // What the generator is allowed to pick from — the pool of available
 // StrategyDefinitions grouped by category, used directly by the
 // Domain-guided Generator's rule ("1 Trend + 1 Momentum + 1 Structure", brief §17).
 export interface SearchSpaceConfig {
-  availableStrategies: StrategyDefinition[];
+  availableStrategies: SearchStrategyDefinition[];
   domainRules?: {
-    requiredCategories: StrategyCategory[]; // e.g. ["TREND", "MOMENTUM", "STRUCTURE"]
+    requiredCategories?: StrategyCategory[];
+    allowedCategories?: StrategyCategory[];
+    forbiddenCategories?: StrategyCategory[];
   };
   maxComponents?: number;
+  generatedFingerprints?: string[];
 }
 
 // Brief §23: "The group must design a Stop Condition. Do not run
@@ -480,6 +502,8 @@ export interface SearchCandidateStrategy extends CandidateBase {
   searchRunId: string;
   generatedBy: GeneratorType;
   iterationNumber: number;
+  fingerprint: string;
+  lineage?: CandidateLineage;
 }
 
 export type CandidateStrategy = ManualCandidateStrategy | SearchCandidateStrategy;
@@ -503,6 +527,9 @@ export interface CandidateProgress {
   selectionMode: "SINGLE" | "COMPOSITE";
   searchRunId?: string;
   iterationNumber?: number;
+  generatedBy?: GeneratorType;
+  fingerprint?: string;
+  lineage?: CandidateLineage;
   leaderboardScopeId: string;
   executionPolicy: ExecutionPolicySnapshot;
   status: CandidateStatus;
@@ -617,6 +644,8 @@ export interface SubmitSearchCandidateCommand {
   compositeDefinitionId: string;
   executionPolicy: ExecutionPolicySnapshot;
   generatedBy: GeneratorType;
+  fingerprint: string;
+  lineage?: CandidateLineage;
 }
 
 export interface BacktestSubmissionAccepted {

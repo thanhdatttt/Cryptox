@@ -17,7 +17,7 @@ describe("OpenAI-compatible strategy generation adapter", () => {
       endpoint: "https://llm.test/chat",
       fetch: async (_url, init) => {
         requestBody = JSON.parse(String(init?.body)) as Record<string, unknown>;
-        return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ kind: "SINGLE", strategyName: "RSI", parameters: { period: 14 } }) } }] }), { status: 200, headers: { "content-type": "application/json" } });
+        return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ kind: "SINGLE", strategyName: "RSI", parameters: { period: 14 }, components: null, method: null, thresholds: null }) } }] }), { status: 200, headers: { "content-type": "application/json" } });
       },
     });
 
@@ -27,7 +27,7 @@ describe("OpenAI-compatible strategy generation adapter", () => {
   });
 
   it("maps provider and structured-output failures to bounded model errors", async () => {
-    const timeout = createOpenAiStrategyGenerationAdapter({ apiKey: "test-key", model: "test-model", fetch: async () => new Response("", { status: 504 }) });
+    const timeout = createOpenAiStrategyGenerationAdapter({ apiKey: "test-key", model: "test-model", maxRetries: 0, fetch: async () => new Response("", { status: 504 }) });
     await expect(timeout.generate(input)).rejects.toThrow("STRATEGY_MODEL_TIMEOUT");
 
     const malformed = createOpenAiStrategyGenerationAdapter({ apiKey: "test-key", model: "test-model", fetch: async () => new Response(JSON.stringify({ choices: [{ message: { content: "not-json" } }] }), { status: 200 }) });
@@ -42,16 +42,37 @@ describe("OpenAI-compatible strategy generation adapter", () => {
     await expect(authentication.generate(input)).rejects.toMatchObject({ code: "STRATEGY_MODEL_AUTHENTICATION_FAILED" });
 
     let attempts = 0;
-    const rateLimited = createOpenAiCompatibleStrategyGenerationAdapter({ apiKey: "test-key", model: "test-model", maxRetries: 1, fetch: async () => { attempts += 1; return new Response("secret provider payload", { status: 429 }); } });
+    const rateLimited = createOpenAiCompatibleStrategyGenerationAdapter({ apiKey: "test-key", model: "test-model", maxRetries: 1, sleep: async () => undefined, fetch: async () => { attempts += 1; return new Response("secret provider payload", { status: 429 }); } });
     await expect(rateLimited.generate(input)).rejects.toMatchObject({ code: "STRATEGY_MODEL_RATE_LIMITED" });
     expect(attempts).toBe(2);
 
-    const timeout = createOpenAiCompatibleStrategyGenerationAdapter({ apiKey: "test-key", model: "test-model", timeoutMs: 5, fetch: async (_url, init) => new Promise((_resolve, reject) => { init?.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError"))); }) });
+    const timeout = createOpenAiCompatibleStrategyGenerationAdapter({ apiKey: "test-key", model: "test-model", timeoutMs: 5, maxRetries: 0, fetch: async (_url, init) => new Promise((_resolve, reject) => { init?.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError"))); }) });
     await expect(timeout.generate(input)).rejects.toMatchObject({ code: "STRATEGY_MODEL_TIMEOUT" });
     expect(new StrategyModelError("STRATEGY_MODEL_ERROR").message).toBe("STRATEGY_MODEL_ERROR");
   });
 
   it("supports the provider-neutral factory while retaining the source-compatible alias", () => {
     expect(createOpenAiStrategyGenerationAdapter).toBe(createOpenAiCompatibleStrategyGenerationAdapter);
+  });
+
+  it("uses bounded exponential backoff with jitter for retryable 5xx responses", async () => {
+    let attempts = 0;
+    const delays: number[] = [];
+    const adapter = createOpenAiCompatibleStrategyGenerationAdapter({
+      apiKey: "test-key",
+      model: "test-model",
+      maxRetries: 3,
+      random: () => 0.5,
+      sleep: async (milliseconds) => { delays.push(milliseconds); },
+      fetch: async () => {
+        attempts += 1;
+        if (attempts < 4) return new Response("busy", { status: 503 });
+        return new Response(JSON.stringify({ choices: [{ message: { content: JSON.stringify({ kind: "SINGLE", strategyName: "RSI", parameters: { period: 14 } }) } }] }), { status: 200 });
+      },
+    });
+
+    await expect(adapter.generate(input)).resolves.toMatchObject({ kind: "SINGLE", strategyName: "RSI" });
+    expect(attempts).toBe(4);
+    expect(delays).toEqual([1_000, 2_000, 4_000]);
   });
 });

@@ -1,8 +1,16 @@
 import { spawn } from "node:child_process";
-import { resolve } from "node:path";
+import { existsSync } from "node:fs";
+import { createRequire } from "node:module";
+import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const repositoryRoot = resolve(fileURLToPath(new URL("..", import.meta.url)));
+const envPath = resolve(repositoryRoot, ".env");
+const explicitEnvironment = { ...process.env };
+if (existsSync(envPath) && typeof process.loadEnvFile === "function") {
+  try { process.loadEnvFile(envPath); } catch {}
+}
+Object.assign(process.env, explicitEnvironment);
 const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
 
 function run(command, args, options = {}) {
@@ -34,7 +42,10 @@ async function main() {
 
   const backend = run(process.execPath, ["scripts/start-backend.mjs"]);
   const frontendDirectory = resolve(repositoryRoot, "apps", "frontend");
-  const viteArguments = [resolve(frontendDirectory, "node_modules", "vite", "bin", "vite.js"), "--host", "0.0.0.0"];
+  const frontendRequire = createRequire(resolve(frontendDirectory, "package.json"));
+  const viteMain = frontendRequire.resolve("vite");
+  const vitePackageDirectory = dirname(dirname(dirname(viteMain)));
+  const viteArguments = [resolve(vitePackageDirectory, "bin", "vite.js"), "--host", "0.0.0.0"];
   if (process.env.FRONTEND_PORT) viteArguments.push("--port", process.env.FRONTEND_PORT);
   const backendPort = process.env.PORT ?? "3000";
   const frontend = run(process.execPath, viteArguments, { cwd: frontendDirectory, env: { ...process.env, VITE_BACKEND_URL: process.env.VITE_BACKEND_URL ?? `http://127.0.0.1:${backendPort}` } });

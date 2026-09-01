@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createMarketDataService } from "../modules/market-data/application/service.js";
+import { createMarketDataService } from "../modules/market-data/dist/application/service.js";
 import { buildSeedCandles, DEV_SEED_CANDLE_COUNT, DEV_SEED_END, DEV_SEED_PAIR, DEV_SEED_SOURCE, DEV_SEED_TIMEFRAMES, seedDevMarket } from "./seed-dev-market.mjs";
 
 const intervalMs = { "1m": 60_000, "5m": 300_000, "15m": 900_000, "1h": 3_600_000 };

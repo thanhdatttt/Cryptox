@@ -32,6 +32,7 @@ Architectural Decision Records (ADRs) capture the reasoning behind the key desig
 
 - [Node.js](https://nodejs.org/) 22 LTS or newer (npm is included)
 - Git
+- Docker Desktop or Docker Engine with Compose v2, when running the durable stack or Docker smoke workflow
 
 No Binance API key or secret is required: Market Data uses Binance's public REST and WebSocket endpoints only. Durable `DEVELOPMENT` and `PRODUCTION` profiles require PostgreSQL, Redis, a strong `JWT_SECRET`, and the configured strategy model endpoint/name/key. `TEST` and `DEMO` are explicit non-durable compositions; there is no implicit JWT or persistence fallback in durable runtime.
 
@@ -83,27 +84,42 @@ npm start
 
 The same commands work in Windows PowerShell, Command Prompt, macOS, and Linux. The launcher sets the compiled module resolution path in Node itself, not through shell-specific environment-variable syntax.
 
-### Run the durable backtest worker with PostgreSQL and Redis
+### Run the durable stack with Docker
 
-The backend uses in-memory adapters only when `DATABASE_URL` and `REDIS_URL` are absent. The real durable Backtesting path requires PostgreSQL and Redis. Start both services, apply the migrations, and set the runtime variables before starting the backend and worker:
+Docker is the supported fresh-clone path for the durable runtime. PostgreSQL,
+Redis, the backend, the backtest worker, and the production frontend run inside
+Compose. Copy the template to the one root `.env` file, fill in private values,
+and start the complete stack:
 
-```powershell
-docker compose -f infra/docker-compose.yml up -d postgres redis
-$env:DATABASE_URL = "postgres://cryptox:cryptox@localhost:5432/cryptox"
-$env:REDIS_URL = "redis://localhost:6379"
-$env:JWT_SECRET = "replace-this-with-a-long-random-production-secret"
-$env:RUNTIME_PROFILE = "DEVELOPMENT"
-$env:STRATEGY_MODEL_ENDPOINT = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
-$env:STRATEGY_MODEL_NAME = "gemini-3.7-flash"
-$env:STRATEGY_LLM_API_KEY = "set-this-in-your-private-shell-environment"
-npm run db:migrate
-npm run build
-npm run start:backend
-# In another terminal with the same DATABASE_URL and REDIS_URL:
-npm run start:worker
+```bash
+docker compose --env-file .env -f infra/docker-compose.yml up --build -d
 ```
 
-The same `DATABASE_URL`, `REDIS_URL`, `JWT_SECRET`, and strategy model settings must be present in the backend process; the worker requires the first two. Migrations create the users, versioned Strategy Library, normalized market candle/snapshot, Backtesting input-snapshot/scope/candidate/attempt/trade/experiment, durable queue-dispatch/fence, Search-run, Leaderboard, News, Sentiment-result, and Sentiment-snapshot tables. A manual backtest first commits its candidate and dispatch record to PostgreSQL, then publishes one BullMQ job with `jobId = candidateId`. The independently runnable worker claims the delivery under a database fence, persists retries and result records, and returns a duplicate-safe terminal result. Search exposes distinct deterministic `RANDOM`, `DOMAIN_GUIDED`, and `GENETIC` generators and does not require LLM credentials. News defaults to the concrete `COINDESK_RSS` provider; durable Sentiment uses the configured model adapter and persists its provenance.
+`.env` is ignored by Git and `.env.example` contains placeholders only. The
+Compose migration service applies all database migrations before the backend
+and worker start. To stop the stack, use `docker compose --env-file .env -f
+infra/docker-compose.yml down`; add `--volumes` only when intentionally
+discarding the local PostgreSQL volume.
+
+For host-process development, the same root `.env` must provide the durable
+`DATABASE_URL`, `REDIS_URL`, `JWT_SECRET`, and strategy model settings; the
+worker requires the first two. This is an advanced alternative to the
+Docker-first setup above.
+
+The durable path creates the users, versioned Strategy Library, normalized
+market candle/snapshot, Backtesting input-snapshot/scope/candidate/attempt/
+trade/experiment, durable queue-dispatch/fence, Search-run, Leaderboard, News,
+Sentiment-result, and Sentiment-snapshot tables. A manual backtest first
+commits its candidate and dispatch record to PostgreSQL, then publishes one
+BullMQ job with `jobId = candidateId`. The independently runnable worker claims
+the delivery under a database fence, persists retries and result records, and
+returns a duplicate-safe terminal result. Search exposes bounded deterministic
+`RANDOM`, `DOMAIN_GUIDED`, and `GENETIC` generators, with stable fingerprints
+and lineage persisted in the Search Run/Candidate audit path and no LLM credentials required. News defaults to the concrete
+`COINDESK_RSS` provider; durable Sentiment uses the configured model adapter and
+persists its provenance.
+
+The optional semantic HTML crawler is enabled only with `NEWS_PROVIDER=CRAWLER_LLM`. It requires `CRAWLER_SOURCE_URLS`, an OpenAI-compatible `CRAWLER_MODEL_ENDPOINT`, `CRAWLER_MODEL_NAME`, and `CRAWLER_LLM_API_KEY`; all request, HTML, output, candidate, and field bounds are validated at startup. The interpreter sends a strict JSON schema request with no tools and persists nothing when the model output is malformed. RSS remains independently usable when crawler settings are absent.
 
 Browser clients never consume Binance payloads directly: they use authenticated REST and Socket.IO messages from the backend. If Binance is unavailable, the Market screen reports unavailable history and a disconnected/reconnecting upstream state instead of creating synthetic candles.
 
@@ -125,12 +141,37 @@ npm test
 npm run build
 npm run lint
 npm run arch:check
+npm run check:generated
+npm exec openspec -- validate --all --strict
 npm run test:workflow
 npm run smoke:backend
 npm run smoke:dev
 ```
 
-The architecture check enforces the module boundaries described below. If a package install becomes inconsistent, remove only `node_modules`, run `npm install` again, then rerun the verification commands.
+Run the isolated durable Docker workflow with:
+
+```bash
+npm run docker:smoke
+```
+
+The workflow allocates unused host ports, builds the complete Compose stack,
+waits for service health, verifies PostgreSQL migrations and Redis, confirms the
+backtest worker is queue-ready, exercises registration/login and one protected
+Market Data request, loads the production-built frontend, and then removes only
+its uniquely named containers, network, and volume. It uses non-secret model
+configuration but does not invoke an external model or fetch market/news data.
+Set `DOCKER_SMOKE_KEEP=1` to retain the isolated stack for troubleshooting.
+
+The same workflow runs in `.github/workflows/docker-smoke.yml` for pushes and
+pull requests.
+
+The architecture check enforces the module boundaries described below. TypeScript
+is canonical: source-tree JavaScript/declaration sidecars are not tracked, and
+builds emit compiled output only under ignored `dist/` directories.
+`npm run check:generated` rejects both tracked and untracked `.js`/`.d.ts`
+sidecars beside module sources. If a package install becomes inconsistent,
+remove only `node_modules`, run `npm install` again, then rerun the verification
+commands.
 
 ---
 
@@ -195,7 +236,7 @@ cryptox/                               ← Repository root
 │   ├── docker-compose.yml              ← DB, queue, and deployable apps
 │   └── db/migrations/
 │
-└── .github/workflows/                  ← CI: lint, test, openspec validate
+└── .github/workflows/                  ← CI: quality gates plus Docker smoke
 ```
 
 ---
@@ -205,7 +246,7 @@ cryptox/                               ← Repository root
 - 🔌 **Plugin-based strategies** — new indicator strategies (e.g. MACD) register via `StrategyRegistry.register(...)` without edits to the Backtester, Evaluator, Leaderboard, or frontend core.
 - 📡 **Realtime market data** — exchange adapters normalize `MarketTick`/`Candle` contracts, streamed to the dashboard over WebSocket instead of polling `GET /price` in a loop.
 - 🧩 **Composable strategies** — a Composite Strategy layer combines multiple signals (majority vote / weighted score) without any single strategy knowing about the others.
-- 🔍 **Pluggable search engine** — distinct random, domain-guided, and genetic strategy-space generators behind a common `StrategyGenerator` interface.
+- 🔍 **Pluggable search engine** — bounded random, domain-guided, and genetic strategy-space generators behind a common `StrategyGenerator` interface.
 - 🧪 **Independent evaluation** — Return, Win Rate, Max Drawdown, Profit Factor, Sharpe Ratio computed by a dedicated Evaluation module, never inline in a strategy or the backtester.
 - 🏆 **Scoped Leaderboard & reproducibility** — every non-cancelled Candidate whose pipeline succeeds becomes a permanent scored Experiment; rank-eligible results appear in the Search Run ranking, while a persistent Top-10 compares Manual and Search Experiments only inside the same immutable benchmark scope and pins strategy/formula/data plus worker/evaluation runtime versions. Zero-trade results remain auditable but are not ranked.
 - ♻️ **Bounded continuous loop** — the generate → backtest → evaluate → rank pipeline runs with an explicit stop condition, not an unbounded `while(true)`.

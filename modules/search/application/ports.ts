@@ -13,7 +13,7 @@ export interface SearchRunRepository {
 export interface SearchModuleDependencies {
   searchRunRepository: SearchRunRepository;
   generators: Record<GeneratorType, import("../domain/contracts").StrategyGenerator>;
-  strategyService?: Pick<StrategyModulePublicApi, "readDefinitions" | "defineComposite" | "readComposite">;
+  strategyService?: Pick<StrategyModulePublicApi, "readDefinitions" | "defineComposite" | "readComposite"> & Partial<Pick<StrategyModulePublicApi, "defineStrategy">>;
   backtestCoordinator: Pick<import("modules/backtesting/api").BacktestLogApi, "readBenchmarkScope" | "submitSearchCandidate" | "summarizeSearchCandidates" | "cancelSearchCandidates" | "removePendingJobs">;
   leaderboardService: Pick<import("modules/leaderboard/api").LeaderboardModulePublicApi, "rankSearchRun">;
   beginCancellation(): Promise<CancellationUnitOfWork>;

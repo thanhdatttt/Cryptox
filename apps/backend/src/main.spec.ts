@@ -251,6 +251,51 @@ describe("backend composition", () => {
     expect(calls).toEqual(["start:RANDOM:1", "pause", "resume", "cancel"]);
   });
 
+  it("validates typed Domain-Guided rules against the descriptor catalog before starting a run", async () => {
+    const calls: unknown[] = [];
+    const hash = "a".repeat(64);
+    const definition = { id: "strategy-1", userId: "user-1", logicalFamilyKey: "strategy:ma", strategyName: "MA", implementationVersion: "1.0.0", implementationSha256: hash, version: 1, parameters: { fastPeriod: 2, slowPeriod: 5 }, createdAt: "2025-01-01T00:00:00.000Z" };
+    const modules = {
+      auth: { verify: async () => ({ userId: "user-1" }) },
+      backtesting: { readBenchmarkScope: async () => ({ id: "scope-1" }) },
+      strategy: {
+        readDefinitions: async () => [definition],
+        listStrategies: () => [{ name: "MA", displayName: "Moving Average", description: "fixture", category: "TREND", implementationVersion: "1.0.0", implementationSha256: hash, minimumHistoryCandles: 5, parameters: [] }],
+      },
+      search: { start: async (_auth: unknown, config: unknown) => { calls.push(config); return { searchRunId: "run-domain" }; } },
+    } as unknown as BackendModules;
+    const controller = new SearchController(modules);
+
+    await expect(controller.start("Bearer token", {
+      leaderboardScopeId: "scope-1",
+      strategyDefinitionIds: ["strategy-1"],
+      generatorType: "DOMAIN_GUIDED",
+      domainRules: { requiredCategories: ["TREND"], allowedCategories: ["TREND"] },
+      maxCandidates: 2,
+      maxInFlight: 1,
+      maxComponents: 1,
+    })).resolves.toEqual({ searchRunId: "run-domain" });
+    expect(calls[0]).toMatchObject({ generatorType: "DOMAIN_GUIDED", searchSpace: { domainRules: { requiredCategories: ["TREND"], allowedCategories: ["TREND"] }, availableStrategies: [{ category: "TREND", parameterDescriptors: [] }] } });
+
+    await expect(controller.start("Bearer token", {
+      leaderboardScopeId: "scope-1",
+      strategyDefinitionIds: ["strategy-1"],
+      generatorType: "DOMAIN_GUIDED",
+      domainRules: { requiredCategories: ["TREND"], forbiddenCategories: ["TREND"] },
+      maxCandidates: 2,
+      maxInFlight: 1,
+    })).rejects.toBeInstanceOf(BadRequestException);
+    await expect(controller.start("Bearer token", {
+      leaderboardScopeId: "scope-1",
+      strategyDefinitionIds: ["strategy-1"],
+      generatorType: "RANDOM",
+      domainRules: { requiredCategories: ["TREND"] },
+      maxCandidates: 2,
+      maxInFlight: 1,
+    })).rejects.toBeInstanceOf(BadRequestException);
+    expect(calls).toHaveLength(1);
+  });
+
   it("maps the remaining authenticated Backtesting, Search, Leaderboard, and Market transport reads without controller-owned domain logic", async () => {
     const calls: unknown[] = [];
     const modules = {

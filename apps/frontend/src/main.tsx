@@ -9,6 +9,7 @@ import { StrategyScreen } from "./strategy";
 import { queryClient, clearAuthenticatedClientState, logout } from "./query";
 import { sentimentDistribution } from "./visuals";
 import "./style.css";
+import "./auth.css";
 
 const nav: Array<[AppScreen, string, string]> = [["market", "Realtime", "∿"], ["strategy", "Strategy Library", "⌘"], ["backtest", "Backtest", "▥"], ["search", "Search", "⌕"], ["leaderboard", "Leaderboard", "▥"], ["news", "News", "▤"], ["settings", "Settings", "⚙"]];
 const Panel = ({ title, children, className = "" }: { title?: string; children: React.ReactNode; className?: string }) => <section className={`panel ${className}`}>{title && <h2>{title}</h2>}{children}</section>;
@@ -17,7 +18,63 @@ const ErrorBox = ({ error }: { error: unknown }) => error ? <p className="error"
 const Loading = () => <p className="muted">Loading live backend data...</p>;
 const Empty = ({ children }: { children: React.ReactNode }) => <p className="muted empty-state">{children}</p>;
 
-function Auth({ onAuthenticated, initialRegister = false }: { onAuthenticated: () => void; initialRegister?: boolean }) { const [register, setRegister] = useState(initialRegister); const [email, setEmail] = useState(""); const [password, setPassword] = useState(""); const [error, setError] = useState<unknown>(); useEffect(() => setRegister(initialRegister), [initialRegister]); const mutation = useMutation({ mutationFn: async () => { if (register) await api.register(email, password); return api.login(email, password); }, onSuccess: onAuthenticated, onError: setError }); return <main className="auth"><Panel title={register ? "Create account" : "Sign in"}><p className="muted">Use your authenticated Crypto Strategy Lab account.</p><form onSubmit={(event) => { event.preventDefault(); setError(undefined); mutation.mutate(); }}><label>Email<input type="email" required value={email} onChange={(event) => setEmail(event.target.value)} /></label><label>Password<input type="password" minLength={8} required value={password} onChange={(event) => setPassword(event.target.value)} /></label><ErrorBox error={error ?? mutation.error} /><Btn primary disabled={mutation.isPending}>{mutation.isPending ? "Working..." : register ? "Register" : "Login"}</Btn></form><button className="link" onClick={() => setRegister((value) => !value)}>{register ? "Already have an account? Sign in" : "Need an account? Register"}</button></Panel></main>; }
+const MailIcon = () => <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6.5h16v11H4z" /><path d="m5 8 7 5 7-5" /></svg>;
+const LockIcon = () => <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="10" width="14" height="10" rx="2" /><path d="M8 10V7a4 4 0 0 1 8 0v3M12 14v2.5" /></svg>;
+
+function Auth({ onAuthenticated, initialRegister = false }: { onAuthenticated: () => void; initialRegister?: boolean }) {
+  const [register, setRegister] = useState(initialRegister);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<unknown>();
+  useEffect(() => setRegister(initialRegister), [initialRegister]);
+  const mutation = useMutation({
+    mutationFn: async () => {
+      if (register) await api.register(email, password);
+      return api.login(email, password);
+    },
+    onSuccess: onAuthenticated,
+    onError: setError,
+  });
+  const chooseMode = (nextRegister: boolean) => {
+    setRegister(nextRegister);
+    setError(undefined);
+    mutation.reset();
+  };
+  return <main className="auth">
+    <div className="auth-glow auth-glow-cyan" />
+    <div className="auth-glow auth-glow-violet" />
+    <section className="auth-card" aria-labelledby="auth-title">
+      <div className="auth-emblem" aria-hidden="true"><span>C</span><i /></div>
+      <div className="auth-heading">
+        <span className="auth-kicker">CRYPTO STRATEGY LAB</span>
+        <h1 id="auth-title">{register ? "Create your account" : "Welcome back"}</h1>
+        <p>{register ? "Start building and testing strategies in one secure workspace." : "Sign in to continue to your strategy workspace."}</p>
+      </div>
+      <div className="auth-modes" role="tablist" aria-label="Authentication mode">
+        <button type="button" role="tab" aria-selected={!register} className={!register ? "active" : ""} onClick={() => chooseMode(false)}>Sign in</button>
+        <button type="button" role="tab" aria-selected={register} className={register ? "active" : ""} onClick={() => chooseMode(true)}>Register</button>
+      </div>
+      <form className="auth-form" onSubmit={(event) => { event.preventDefault(); setError(undefined); mutation.mutate(); }}>
+        <label>
+          <span>Email address</span>
+          <div className="auth-field"><MailIcon /><input type="email" autoComplete="email" autoFocus required placeholder="you@example.com" value={email} onChange={(event) => setEmail(event.target.value)} /></div>
+        </label>
+        <label>
+          <span>Password</span>
+          <div className="auth-field"><LockIcon /><input type="password" autoComplete={register ? "new-password" : "current-password"} minLength={8} required placeholder="At least 8 characters" value={password} onChange={(event) => setPassword(event.target.value)} /></div>
+        </label>
+        {register && <p className="auth-hint">Use 8 or more characters. Your password is stored as a secure hash.</p>}
+        <ErrorBox error={error ?? mutation.error} />
+        <button className="auth-submit" type="submit" disabled={mutation.isPending}>
+          <span>{mutation.isPending ? register ? "Creating account..." : "Signing in..." : register ? "Create account" : "Sign in"}</span>
+          {!mutation.isPending && <b aria-hidden="true">�</b>}
+        </button>
+      </form>
+      <p className="auth-switch">{register ? "Already have an account?" : "New to CryptoX?"} <button type="button" onClick={() => chooseMode(!register)}>{register ? "Sign in" : "Create an account"}</button></p>
+      <footer className="auth-trust"><i /> Secured session � Backend-authenticated workspace</footer>
+    </section>
+  </main>;
+}
 
 function Heading({ title, text }: { title: string; text: string }) { return <div className="heading"><div><h1>{title}</h1><p>{text}</p></div><span className="status"><i />Live backend</span></div>; }
 
