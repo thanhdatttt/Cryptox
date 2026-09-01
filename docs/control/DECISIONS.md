@@ -4272,3 +4272,37 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-103`, and `INS-183`.
+
+## DEC-106 — Persist Instructor-owned privileged verification in the harness
+
+Status: `APPROVED`
+
+Authority: Explicit human governance instruction, confirmed during the
+Instructor's INS-185 review.
+
+Decision: The standing Cryptox harness rule is that the Instructor directly
+executes and reviews privileged final live/demo E2E evidence and the final MVP
+Definition of Done, including local Docker/Compose, PostgreSQL, configured
+providers, real-data demonstrations, and authenticated browser flows. The
+Manager remains responsible for implementation-packet integration, static and
+formal gates, worker review, task state, and the sanitized HANDOFF checkpoint.
+Manager evidence can support review but cannot replace direct Instructor review
+when the Manager context lacks a required environment. Implementation defects
+remain Manager-to-worker work; the Instructor does not edit feature source.
+
+Why: The Instructor context has the local runtime and demonstration access that
+some Manager contexts do not. Making this role boundary explicit in the
+repository rules and bootstrap prompts reduces evidence handoff delay while
+preserving write-scope separation, cleanup, and truthful PASS/UNVERIFIED/BLOCKED
+classification.
+
+Affected: `AGENTS.md`, `docs/control/prompts/INSTRUCTOR_START.md`,
+`docs/control/prompts/ORCHESTRATOR_START.md`, the I-02 section of
+`docs/implementation/MVP_PLAN.md`, `INSTRUCTOR.md`, and `DECISIONS.md`.
+No product scope, requirement, architecture, provider protocol, or deferred
+scope changes.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-001`, `DEC-105`, and `INS-185`.

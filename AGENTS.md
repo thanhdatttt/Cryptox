@@ -29,6 +29,13 @@ The stable responsibility split is:
   authorized READY work with disjoint write scopes, reviews and integrates worker
   output, validates checkpoints, and alone updates
   `docs/implementation/TASKS.md` and `docs/implementation/HANDOFF.md`.
+- The **Instructor** owns privileged final acceptance evidence: direct live
+  Docker/Compose and PostgreSQL checks, configured-provider checks, authenticated
+  browser/demo E2E, real-data demonstrations, and the final MVP DoD decision.
+  The Manager owns packet-level implementation integration, static/formal gates,
+  and the execution checkpoint. Manager-collected evidence is supporting or
+  carried evidence only unless the Instructor independently accepts it; a
+  Manager may not promote final live/demo completion from an unavailable context.
 - **Workers** implement only an assigned packet and return scoped changes, tests,
   and checkpoint evidence. They may read but must not edit `INSTRUCTOR.md`,
   `DECISIONS.md`, `TASKS.md`, or `HANDOFF.md`, and they do not move global task
@@ -59,14 +66,15 @@ A fresh Instructor or Orchestrator starts without prior conversation context by:
    source.
 
 After that common bootstrap, a fresh Instructor inspects the relevant repository
-source/diffs, reviews the proposed frontier, appends any necessary durable decision,
-and replaces `INSTRUCTOR.md` with `HOLD`, `APPROVED_FOR_EXECUTION`, or
+source/diffs, directly performs any explicitly authorized privileged live/demo
+verification, appends any necessary durable decision, and replaces
+`INSTRUCTOR.md` with `HOLD`, `APPROVED_FOR_EXECUTION`, or
 `NEEDS_HUMAN_DECISION`. When explicitly executing an Instructor update, it commits
 the governance changes and does not implement feature code. A fresh Orchestrator
 verifies instruction applicability, task readiness, dependencies, and write-scope
-safety; assigns only the authorized READY packets; records the Instruction ID in
-the execution checkpoint; updates TASKS/HANDOFF after review and integration; and
-stops when that authorization is exhausted.
+safety; assigns only the authorized READY implementation packets; records the
+Instruction ID in the execution checkpoint; updates TASKS/HANDOFF after review and
+integration; and stops when that authorization is exhausted.
 
 Before executing an Instructor instruction, the Orchestrator must compare its
 recorded reviewed checkpoint with current Git. If source, business state, the task
@@ -151,6 +159,13 @@ OpenSpec is a concise capability/change mechanism, not the highest authority and
 ## Validation and Definition of Done
 
 Before completion, identify the governing requirement IDs and acceptance criteria, keep the diff within approved scope, and verify no deferred feature or unrelated change leaked in. As relevant, require domain unit tests, boundary integration/contract tests, architecture dependency checks, typecheck, lint, build, test suites, acceptance evidence, reproducibility/provenance, observability, truthful status documentation, and an ADR/document update for architectural changes. Generated source artifacts must not be committed unless an approved workflow explicitly owns and verifies them; do not manually edit generated files.
+
+For final I-02/MVP acceptance, the Instructor directly owns the privileged live
+and browser/demo evidence and the final DoD decision. The Manager may perform
+task-level checks and prepare a sanitized checkpoint, but must classify an
+unavailable Docker, database, provider, browser, or demo surface as
+`BLOCKED`/`UNVERIFIED` and stop for Instructor review rather than treating it as
+final PASS evidence.
 
 For user-owned resources, acceptance must include unauthenticated rejection, cross-user negative reads/mutations, owner-filtered collections, and trusted identity propagation. Passwords, raw credentials, session tokens, cookies, and token digests must never be logged. Pure Strategy execution, Backtest simulation, and Evaluation calculations remain independent of Auth infrastructure.
 

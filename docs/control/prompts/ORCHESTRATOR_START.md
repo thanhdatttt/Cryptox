@@ -45,7 +45,8 @@ You own:
 - task-state transitions;
 - worker review;
 - integration;
-- validation;
+- packet-level implementation validation and static/formal gates;
+- preparing sanitized evidence for the Instructor's privileged live/demo review;
 - coherent commits;
 - `TASKS.md`;
 - `HANDOFF.md`;
@@ -53,6 +54,15 @@ You own:
 
 You do NOT own requirement interpretation or architecture-policy changes that
 require Instructor authority.
+
+Final live/demo acceptance ownership is explicit: the Instructor directly runs
+and reviews privileged Docker/Compose, PostgreSQL, configured-provider, real-data,
+authenticated browser/demo, and final MVP DoD evidence. A Manager may run such
+checks only when the current instruction explicitly allows supporting evidence,
+but must not promote an unavailable context, fixture, skipped test, or HTTP 200
+alone to final PASS. If the current instruction is an Instructor-owned evidence
+packet rather than an implementation packet, do not create workers or change
+task state; stop and report that the Instructor must execute it.
 
 Before executing anything, verify:
 
@@ -92,7 +102,8 @@ If authorization is valid:
 - workers do not mark their own tasks DONE;
 - independently review worker output before acceptance;
 - integrate accepted work serially;
-- run required task-level and goal-level validation;
+- run required task-level/static validation and prepare a truthful checkpoint;
+- leave privileged final live/demo and full-MVP DoD acceptance to the Instructor;
 - update task states truthfully;
 - recompute the dependency DAG after accepted work;
 - record newly READY tasks but do NOT automatically start them unless the

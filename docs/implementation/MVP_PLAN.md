@@ -1284,7 +1284,8 @@ strict artifact repositories; unrelated cleanup.
 
 - **Requirements / baseline state / planned owner:** Every REQUIRED ID, especially AU-01, OW-01, RD-01,
   DL-01, and DM-01;
-  BLOCKED; Manager plus independent reviewers.
+  BLOCKED; Instructor-owned privileged live/demo verification, with Manager
+  packet-level integration/static validation and independent review support.
 - **Objective:** Prove the complete MVP, architecture defense, clean setup, demo,
   requirement traceability, and final handoff.
 - **Start/integration dependencies:** I-01 and the DEC-007 extension proof
@@ -1300,7 +1301,9 @@ strict artifact repositories; unrelated cleanup.
   provider/failure demonstrations; mock-only final configuration rejection; all
   eight architecture change scenarios.
 - **Validation:** Clean install, migration, build, typecheck, all tests, arch/artifact/
-  scope/runtime, E2E twice, clean Git state; unavailable evidence not marked PASS.
+  scope/runtime, E2E twice, clean Git state; Manager records packet-level gates
+  and the Instructor directly verifies privileged live/demo evidence and the
+  final DoD; unavailable evidence is not marked PASS.
 - **Risks:** External outage. **DoD:** Full DoD below, change archived, final checkpoint.
   **Parallel:** Reviewer/test work only. **Critical:** YES.
 
@@ -1310,8 +1313,9 @@ Instructor authorization may explicitly close the already-reviewed `S-04N`
 control row and re-enter `I-02` from `REVIEW` through `READY` before any
 execution begins. The Manager must not treat a `REVIEW` row as executable
 without that explicit re-entry authorization. Final I-02 acceptance remains
-subject to independent Instructor review; no fixture, skip, or unavailable
-environment may be promoted to a live PASS claim.
+subject to direct Instructor review of privileged live/demo evidence; no fixture,
+skip, carried claim, or unavailable environment may be promoted to a live PASS
+claim.
 
 ## DEC-007 reconciliation and extension packets
 

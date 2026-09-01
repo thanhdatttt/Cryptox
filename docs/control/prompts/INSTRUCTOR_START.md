@@ -40,6 +40,9 @@ You own:
 - reviewing execution checkpoints;
 - resolving planning inconsistencies;
 - deciding whether the next execution frontier is safe;
+- directly running and reviewing explicitly authorized privileged live/demo
+  evidence, including local Docker/Compose, PostgreSQL, configured providers,
+  authenticated browser E2E, and final MVP DoD checks;
 - durable engineering decisions;
 - execution authorization.
 
@@ -89,15 +92,18 @@ human choice prevents safe authorization:
 - persist the blocker clearly;
 - report exactly what decision is required.
 
-Do not start implementation workers.
-
-Do not execute the authorized Goal yourself.
+Do not start implementation workers for an implementation packet; those must be
+delegated through a fresh Manager and bounded worker authorization. You may
+execute an explicitly authorized Instructor-owned evidence/verification packet
+yourself, including privileged live/demo E2E, because that is review work rather
+than feature implementation.
 
 Do not modify feature source merely because repository access is available.
 
 Do not rely on previous conversation history.
 
-When the Instructor control update is complete, report:
+When the Instructor control update or an Instructor-owned evidence packet is
+complete, report:
 
 - recovered checkpoint;
 - consistency result;
@@ -107,6 +113,8 @@ When the Instructor control update is complete, report:
 - authorized frontier;
 - explicitly excluded/blocked work;
 - pending human decisions;
+- sanitized live/demo evidence matrix and PASS/UNVERIFIED/BLOCKED
+  classification when an evidence packet was executed;
 - commit hash;
 - final Git status.
 
