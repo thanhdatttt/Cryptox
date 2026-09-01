@@ -1,19 +1,57 @@
-# I-02 Final Live/Demo Verification Checkpoint — INS-175 / DEC-096
+# I-02 News PostgreSQL Review-Fix Checkpoint — INS-177 / DEC-098
 
 ## Authority and applicability
 
-- Current Instructor signal: INS-175 / APPROVED_FOR_EXECUTION.
-- Governing decision: DEC-096 / APPROVED.
+- Current Instructor signal: INS-177 / APPROVED_FOR_EXECUTION.
+- Governing decision: DEC-098 / APPROVED.
 - Canonical checkout: D:/agy-cli-projects/AOS/Cryptox.
 - Branch: MVP_IMPLEMENTATION.
-- Starting control checkpoint: d7fb29df78af34d1eff600617aafb37af991ca6e.
+- Starting control checkpoint: 445dea8cc694502fe0cba28b5dee7f72213099bd.
 - Reviewed source/business checkpoint: f32e19a1507810fa43725b209f437944d85d2cf7.
-- Applicability check: PASS. The source, business state, task DAG, approved requirements, accepted ADRs, active OpenSpec change, and implementation frontier were unchanged from the reviewed checkpoint. Only the Manager-owned TASKS.md and this HANDOFF.md were edited.
-- The board has 58 task rows: 57 DONE and only I-02 active. I-02 was transitioned exactly REVIEW -> READY -> IN_PROGRESS -> REVIEW; it is not DONE and no downstream task started.
-- This was one fresh same-directory Manager execution under INS-175 / DEC-096, not a retry or duplicate execution. No competing Manager or worker was active.
-- No source, dependency manifest, README, migration, infrastructure, specification, active-change, generated artifact, or business implementation file was edited.
+- Applicability check: PASS. The source/business checkpoint, approved requirements, accepted ADRs, active OpenSpec change, and implementation frontier were unchanged at dispatch; the only pre-existing untracked path is .codex/config.toml. The accepted implementation delta is limited to the two authorized News source/test paths plus Manager-owned control files.
+- The board has 58 task rows: 57 DONE and only I-02 active. I-02 has been transitioned exactly REVIEW -> READY -> IN_PROGRESS -> REVIEW; it is not DONE and no downstream task started.
+- This is one fresh same-directory Manager execution under INS-177 / DEC-098, not a retry or duplicate execution. The sole worker was 01a05a4b-2bfb-7673-ab41-ac32a5ddc8c8 / Nietzsche, dispatched strictly sequentially with the two authorized News infrastructure paths as its only write scope and then closed.
+- The Manager did not edit source, dependencies, README, migrations, infrastructure, specifications, active-change files, generated artifacts, or business implementation files.
 
-## Delegated evidence lanes
+## Final INS-177 execution checkpoint
+
+- Worker outcome: completed successfully; diagnosis confirmed. The joined PostgreSQL `read()` query had unqualified News-item columns colliding with overlapping provenance/template column names, producing the live sanitized 42702 error.
+- Exact changed implementation paths: `modules/news/infrastructure/postgres.ts` and `modules/news/infrastructure/postgres.spec.ts`. The worker qualified the News-item projection, related-coin/publication filters, cursor predicates, and deterministic ordering with `news_items`, preserved aliases/joins/pagination/behavior, and added SQL/projection/filter/order regression coverage.
+- Independent exact-path review: PASS. No provider, safe-fetch, runtime composition, contract, migration, schema, sentiment, frontend, dependency, README, OpenSpec, or unrelated path changed. The sole worker did not stage or commit.
+
+### Validation results
+
+- Worker: `npm exec vitest run modules/news/infrastructure/postgres.spec.ts` PASS, 4/4; News workspace typecheck PASS; worker diff whitespace PASS.
+- Manager focused regression: PASS, 4/4. News workspace suite: PASS, 36/36. Backend workspace suite: PASS, 43/43 with 1 environment-gated skip. Root `npm test`: PASS, 462 passed with 9 environment-gated skips; skipped tests are not live evidence.
+- `npm run build`: PASS; existing Vite CJS deprecation, dynamic-import, and large-chunk warnings only.
+- `npm run typecheck`: PASS.
+- `npm run lint`: PASS.
+- `npm run arch:check`: PASS; no dependency violations across 189 modules and 644 dependencies; 9 forbidden-dependency fixtures recognized.
+- `npm run artifacts:check`: PASS; no source-adjacent generated artifacts.
+- `npm run scope:check`: PASS; no deferred-scope leakage.
+- `npm run test:scope-check`: PASS, 15/15.
+- `npm run runtime:smoke`: PASS; scripted `/live=200`, `/ready=503`, `/health=404`.
+- `git diff --check`: PASS.
+- Exact-path review: PASS; tracked working-tree paths are only `docs/implementation/HANDOFF.md`, `docs/implementation/TASKS.md`, `modules/news/infrastructure/postgres.spec.ts`, and `modules/news/infrastructure/postgres.ts`. Pre-existing `.codex/config.toml` remains untracked and excluded.
+- Active OpenSpec change `mvp-implementation` was read from repository artifacts; the `openspec` CLI is unavailable in this Manager context, so CLI validation is BLOCKED/UNVERIFIED. No OpenSpec file was changed.
+
+### Runtime /news result
+
+- Before the correction, the already-running public request `GET http://127.0.0.1:3000/news?schemaVersion=1&limit=1&order=PUBLISHED_AT_DESC_PROVIDER_ID_ASC_PROVIDER_ITEM_ID_ASC` returned HTTP 400 with response content containing sanitized PostgreSQL code 42702.
+- After the corrected repository was built and the focused/backend tests passed, the same already-running service still returned HTTP 400 with response content containing 42702 and no News items. The service ports are forwarded by the existing Docker/WSL process; no Docker/Compose invocation or process restart was authorized in this pass. The public correction is therefore BLOCKED/UNVERIFIED, not PASS; this is not classified as an upstream provider outage. The corrected repository path itself is exercised by the focused SQL regression and build/typecheck gates.
+
+### Task, commit, and stop checkpoint
+
+- Authorization: `INS-177 / APPROVED_FOR_EXECUTION`, governed by committed `DEC-098`; dispatch HEAD `445dea8cc694502fe0cba28b5dee7f72213099bd`; source/business baseline `f32e19a1507810fa43725b209f437944d85d2cf7`; branch `MVP_IMPLEMENTATION`.
+- Transition: `I-02 REVIEW -> READY -> IN_PROGRESS -> REVIEW`, and no other task state changed. Final board remains 58 rows, 57 DONE, 1 REVIEW. No downstream/deferred/pending OpenSpec packet started.
+- One explicit-path staging/commit attempt was executed once with only `docs/implementation/TASKS.md`, `docs/implementation/HANDOFF.md`, `modules/news/infrastructure/postgres.ts`, and `modules/news/infrastructure/postgres.spec.ts`. `git add` exited 128 with `fatal: Unable to create 'D:/agy-cli-projects/AOS/Cryptox/.git/index.lock': Permission denied`; `git commit` was not invoked. No retry was made.
+- Final branch/HEAD/status: branch `MVP_IMPLEMENTATION`, HEAD `445dea8cc694502fe0cba28b5dee7f72213099bd`, tracked paths `M docs/implementation/HANDOFF.md`, `M docs/implementation/TASKS.md`, `M modules/news/infrastructure/postgres.spec.ts`, `M modules/news/infrastructure/postgres.ts`, and pre-existing untracked `?? .codex/config.toml`. The accepted checkpoint remains uncommitted because Git could not create `.git/index.lock`.
+
+### Remaining final I-02 evidence gaps
+
+Full MVP DoD remains NOT PROVEN. The final-I-02 gaps are real configured News/RSS and isolated persisted Sentiment (the public `/news` correction is not live-proven here); application-generated Backtest/Evaluation/Experiment/Trade/Leaderboard data; configured Gemini 3.6 `LLM_AUTHORING_V1` draft/validation/Save/Approve/provenance/failure evidence; induced Binance WebSocket recovery/gap behavior; authenticated browser/demo verification; clean install/Docker/Compose reprovision; and fresh integrated evidence for all eight architecture scenarios. OpenSpec CLI validation remains BLOCKED/UNVERIFIED in this context.
+
+## Prior INS-175 evidence (historical)
 
 The three evidence workers were dispatched strictly sequentially, with write scope NONE. Each was closed before the next lane started.
 

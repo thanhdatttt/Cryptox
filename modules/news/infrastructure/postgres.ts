@@ -224,27 +224,27 @@ export function createPostgresNewsDependencies(options: PostgresNewsOptions): Po
       const where: string[] = [];
       if (query.relatedCoins !== undefined && query.relatedCoins.length > 0) {
         const related = bind(query.relatedCoins);
-        where.push(`related_coins ?| ${related}::text[]`);
+        where.push(`news_items.related_coins ?| ${related}::text[]`);
       }
-      if (query.publishedFrom !== undefined) where.push(`published_at >= ${bind(query.publishedFrom)}::timestamptz`);
-      if (query.publishedTo !== undefined) where.push(`published_at < ${bind(query.publishedTo)}::timestamptz`);
+      if (query.publishedFrom !== undefined) where.push(`news_items.published_at >= ${bind(query.publishedFrom)}::timestamptz`);
+      if (query.publishedTo !== undefined) where.push(`news_items.published_at < ${bind(query.publishedTo)}::timestamptz`);
       const after = cursorValue(query.cursor);
       if (after) {
         const publishedAt = bind(after.publishedAt);
         const providerId = bind(after.providerId);
         const providerItemId = bind(after.providerItemId);
         where.push(`(
-          published_at < ${publishedAt}::timestamptz
-          OR (published_at = ${publishedAt}::timestamptz AND provider_id > ${providerId})
-          OR (published_at = ${publishedAt}::timestamptz AND provider_id = ${providerId} AND provider_item_id > ${providerItemId})
+          news_items.published_at < ${publishedAt}::timestamptz
+          OR (news_items.published_at = ${publishedAt}::timestamptz AND news_items.provider_id > ${providerId})
+          OR (news_items.published_at = ${publishedAt}::timestamptz AND news_items.provider_id = ${providerId} AND news_items.provider_item_id > ${providerItemId})
         )`);
       }
       const limit = bind(query.limit + 1);
       const result = await pool.query<NewsRow>(
         `
-          SELECT id::text, provider_id, provider_item_id, title, content, source,
-            published_at::text, crawled_at::text, related_coins, url,
-            canonical_url, normalized_content_hash, normalized_retain_until::text,
+          SELECT news_items.id::text, news_items.provider_id, news_items.provider_item_id, news_items.title, news_items.content, news_items.source,
+            news_items.published_at::text, news_items.crawled_at::text, news_items.related_coins, news_items.url,
+            news_items.canonical_url, news_items.normalized_content_hash, news_items.normalized_retain_until::text,
             extraction.source_kind AS extraction_source_kind,
             extraction.canonical_url AS extraction_canonical_url,
             extraction.normalized_content_hash AS extraction_normalized_content_hash,
@@ -258,7 +258,7 @@ export function createPostgresNewsDependencies(options: PostgresNewsOptions): Po
           LEFT JOIN news_extraction_provenance extraction ON extraction.news_id = news_items.id
           LEFT JOIN extraction_templates template ON template.id = extraction.template_id
           ${where.length > 0 ? `WHERE ${where.join("\n            AND ")}` : ""}
-          ORDER BY published_at DESC, provider_id ASC, provider_item_id ASC
+          ORDER BY news_items.published_at DESC, news_items.provider_id ASC, news_items.provider_item_id ASC
           LIMIT ${limit}
         `,
         values,
