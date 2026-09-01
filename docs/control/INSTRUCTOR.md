@@ -2,11 +2,83 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-185`
+Instruction ID: `INS-186`
 
-Status: `APPROVED_FOR_EXECUTION`
+Status: `HOLD`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-186 — HOLD after Instructor privileged I-02 verification
+
+This instruction supersedes `INS-185 / APPROVED_FOR_EXECUTION`. The Instructor
+completed the authorized privileged evidence pass and found that the MVP
+Definition of Done is not proven. No implementation, task-state transition, or
+downstream work is authorized by this HOLD.
+
+### Recovered checkpoint and board
+
+- Canonical checkout: `D:\\agy-cli-projects\\AOS\\Cryptox`, branch
+  `MVP_IMPLEMENTATION`.
+- Source/business checkpoint remains `f86ab93`; the later control-only commits
+  `af2e4a0`, `228bff9`, `bc0c986`, and `1157caa` were reviewed. No source or
+  business-state drift was found.
+- `TASKS.md` remains authoritative at 58 rows: 57 `DONE`, only `I-02`
+  `REVIEW`. No Cryptox Manager or worker is active. The only untracked path is
+  the pre-existing `.codex/config.toml` and it is excluded from acceptance.
+
+### Independent Instructor evidence matrix
+
+- **PASS:** Docker Desktop services are healthy through the available
+  `docker-compose` executable: backend, frontend, postgres-dev, and
+  postgres-test. `/live` and `/ready` are live; local PostgreSQL contains the
+  configured CoinDesk RSS News rows with valid UUIDs and linked Sentiment rows;
+  exact temporary-data cleanup was verified.
+- **PASS:** Equivalent local migration validation completed up, constraints,
+  down, and remigrate against the dedicated test schema without resetting the
+  development database.
+- **PASS:** Instructor-context gates: build, typecheck, lint, architecture,
+  artifacts, deferred-scope, scope tests, runtime smoke, traceability,
+  documentation paths, secret/log scans, whitespace, and explicit OpenSpec
+  validation (11/11) passed. Full tests passed with 462 tests and 9
+  environment-gated skips; skips are not acceptance evidence.
+- **PASS:** Real local PostgreSQL Auth register/current-user/logout and
+  owner-scoped Strategy/Composite isolation passed with two temporary users;
+  unauthenticated and cross-owner negatives passed; all marker records were
+  deleted and read-verified.
+- **PASS:** A real bounded Binance historical request returned 72/72 complete
+  closed candles with Binance provenance.
+- **UNVERIFIED/BLOCKED:** Configured Gemini authoring was reached with the
+  configured provider, but the live PROMPT draft returned `REJECTED`; the
+  Draft -> Validate -> Approve lifecycle and provenance were not proven. The
+  temporary Auth state was cleaned up; no fallback or fixture was used.
+- **BLOCKED:** A real generated-data diagnostic created definitions, a scope,
+  and a complete Binance history, but manual Backtest ended `FAILED` with
+  `RANKING_FAILED`; Search ended with one failed candidate and no Experiment.
+  The exact temporary records were cleaned up. Code inspection identifies a
+  transaction-visibility defect candidate: Backtesting's completion unit uses
+  a transaction-aware client while the PostgreSQL Leaderboard adapter reads
+  through an independent pool during the same completion.
+- **UNVERIFIED/BLOCKED:** Authenticated browser/demo, realtime disconnect and
+  recovery, provider failure isolation, generated Experiment/Trade/Evaluation/
+  Leaderboard records after successful completion, and all eight integrated
+  architecture scenarios remain unproven. The unauthenticated frontend loaded
+  without console errors, but that is not the authenticated demo.
+
+### Stop condition and next authorization boundary
+
+No source/config/dependency/migration/schema/contract/frontend/OpenSpec change,
+task promotion, duplicate/retry Manager or worker, branch/worktree split,
+deferred scope, or final `I-02 DONE` transition is authorized by `INS-186`.
+The next instruction may authorize only a narrowly bounded transaction-aware
+Backtest -> Leaderboard completion correction after exact source scope and
+acceptance are recorded. Implementation must be delegated through one fresh
+same-directory Manager and disjoint hidden worker scope; the Instructor keeps
+ownership of subsequent live/demo/E2E verification.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-106`, `INS-185`, and `DEC-107`.
 
 ## INS-185 — APPROVED_FOR_EXECUTION for Instructor-owned privileged I-02 verification
 

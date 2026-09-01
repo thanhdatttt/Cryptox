@@ -4306,3 +4306,43 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-001`, `DEC-105`, and `INS-185`.
+
+## DEC-107 — Hold after privileged final verification and isolate completion defect
+
+Status: `HOLD`
+
+Authority: Independent Instructor review under `INS-185`, with direct local
+Docker/PostgreSQL/provider checks in the canonical checkout.
+
+Decision: Do not promote `I-02` or claim the final MVP DoD. Instructor evidence
+proves the local Compose services, PostgreSQL/Auth ownership boundaries,
+configured CoinDesk RSS persistence, migration validation, Binance historical
+read, formal gates, and exact cleanup. Configured Gemini authoring remains
+`UNVERIFIED/BLOCKED` because the configured live PROMPT call returned a
+`REJECTED` draft. A real generated-data diagnostic reached definitions, scope,
+and complete Binance history but manual Backtest failed with the sanitized
+`RANKING_FAILED` code; the bounded Search then produced one failed candidate
+and no Experiment. This failure is not promoted as a passing final flow.
+
+Code review of the failed path identifies a concrete transaction-visibility
+defect candidate: the Backtesting PostgreSQL completion unit executes the
+Experiment insert on its transaction-aware client, while the PostgreSQL
+Leaderboard participant and its authoritative Experiment lookup use an
+independent pool during that same completion. The finding must be repaired,
+tested, and re-reviewed through a fresh bounded Manager-to-worker
+authorization; the Instructor does not edit feature source.
+
+Why: The direct privileged verification is now the authoritative final
+acceptance surface under `DEC-106`, and a real runtime failure is stronger
+evidence than fixture-only integration tests. Holding here preserves the
+single task-state authority and prevents a Manager context from turning an
+unavailable or transaction-inconsistent surface into PASS.
+
+Affected: `I-02`, the Backtesting/Leaderboard completion seam, `INSTRUCTOR.md`,
+and the next bounded authorization. No product scope, requirement,
+architecture policy, provider protocol, or deferred scope changes.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-106`, `INS-186`, and `INS-185`.
