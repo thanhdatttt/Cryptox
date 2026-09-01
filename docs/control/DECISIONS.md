@@ -4388,3 +4388,35 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-106`, `DEC-107`, and `INS-187`.
+
+## DEC-109 — Hold after INS-187 live revalidation and isolate Trade-ID defect
+
+Status: `HOLD`
+
+Authority: Independent Instructor review under `INS-187`, after rebuilding the
+canonical local backend and running the privileged real PostgreSQL/Binance
+generated-data probe.
+
+Decision: Do not promote `I-02` or claim the final MVP DoD. The INS-187 packet
+was reviewed within its authorized source scope and its deterministic gates
+passed, but the real Backtest still failed at the next persistence boundary.
+The sanitized database failure is a UUID contract violation: the Backtesting
+simulator creates Trade IDs in a candidate-derived form such as
+`candidate-id-trade-1`, while the persisted `trades.id` column requires UUID.
+The bounded Search candidate failed for the same reason; no Experiment or
+Leaderboard evidence is accepted. Exact temporary-data cleanup passed.
+
+Why: this is a concrete implementation defect outside INS-187's authorized
+transaction adapter paths. Repairing it under the old signal would violate
+write scope. The next bounded authorization must separately cover the
+simulator Trade-ID generation and focused regression evidence, while keeping
+the Instructor as final live/demo verifier.
+
+Affected: `I-02`, Backtesting simulator Trade persistence, `INSTRUCTOR.md`,
+and the next bounded authorization. No product scope, requirement,
+architecture policy, provider protocol, or deferred scope changes.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-106`, `DEC-108`, `INS-187`, and `INS-188`.

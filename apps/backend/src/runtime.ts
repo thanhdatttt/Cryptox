@@ -747,6 +747,7 @@ export function createBackendRuntime(options: BackendRuntimeOptions = {}): Backe
       const dependencies = createPostgresLeaderboardDependencies({
         connectionString: databaseUrl!,
         pool: authRuntime.pool,
+        getTransactionClient: postgresBacktesting.getTransactionClient,
         experimentRepository,
       });
       leaderboard = createLeaderboardModule(dependencies);

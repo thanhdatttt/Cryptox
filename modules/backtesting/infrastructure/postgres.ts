@@ -47,6 +47,8 @@ export interface PostgresBacktestingDependencies extends Pick<
   "candidateRepository" | "experimentRepository" | "unitOfWork" | "completionUnitOfWork" | "clock"
 > {
   readonly pool: PostgresPool;
+  /** Infrastructure-only bridge for participants in the completion transaction. */
+  readonly getTransactionClient: () => PostgresClient | undefined;
   close(): Promise<void>;
 }
 
@@ -301,8 +303,9 @@ export function createPostgresBacktestingDependencies(
   if (!options.pool && !options.connectionString.trim()) throw new Error("Backtesting PostgreSQL connection string is required");
   const pool = poolFromOptions(options);
   const transactionStorage = new AsyncLocalStorage<PostgresClient>();
+  const getTransactionClient = (): PostgresClient | undefined => transactionStorage.getStore();
   const query = <Row extends Record<string, unknown> = Record<string, unknown>>(text: string, values?: unknown[]) => {
-    const client = transactionStorage.getStore();
+    const client = getTransactionClient();
     return client ? client.query<Row>(text, values) : pool.query<Row>(text, values);
   };
   const clock = { now: () => new Date().toISOString() };
@@ -638,5 +641,5 @@ export function createPostgresBacktestingDependencies(
   };
 
   let closed = false;
-  return { pool, candidateRepository, experimentRepository, unitOfWork, completionUnitOfWork, clock, close: async () => { if (!closed) { closed = true; await pool.end(); } } };
+  return { pool, candidateRepository, experimentRepository, unitOfWork, completionUnitOfWork, clock, getTransactionClient, close: async () => { if (!closed) { closed = true; await pool.end(); } } };
 }

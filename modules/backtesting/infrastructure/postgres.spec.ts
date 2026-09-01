@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { AuthenticatedUserId } from "modules/auth/api";
+import { createLeaderboardModule, createPostgresLeaderboardDependencies } from "@cryptox/leaderboard/bootstrap";
 import type { Experiment } from "../api/contracts";
 import type { InternalPersistedExperiment } from "../application/service";
 import { createPostgresBacktestingDependencies } from "./postgres";
@@ -283,6 +284,77 @@ describe("Postgres backtesting adapter", () => {
     )).rejects.toThrow("leaderboard unavailable");
     expect(transactionQueries).toEqual(["BEGIN", "ROLLBACK"]);
     await dependencies.close();
+  });
+
+  it("shares the active completion client with the Leaderboard persistence participant", async () => {
+    const poolQueries: string[] = [];
+    const transactionQueries: string[] = [];
+    const entryRow = {
+      id: "00000000-0000-4000-8000-000000000070",
+      rank: 1,
+      candidate_id: candidateRow.id,
+      search_run_id: null,
+      experiment_id: "00000000-0000-4000-8000-000000000071",
+      leaderboard_scope_id: candidateRow.leaderboard_scope_id,
+      ranking_configuration_id: "ranking-v1",
+      score: 10,
+      added_at: candidateRow.created_at,
+    };
+    const client = {
+      query: async <Row extends Record<string, unknown>>(text: string) => {
+        transactionQueries.push(text);
+        if (text.includes("FROM leaderboard_entries")) return { rows: [entryRow] } as { rows: Row[] };
+        return { rows: [] } as { rows: Row[] };
+      },
+      release: () => undefined,
+    };
+    const pool = {
+      query: async <Row extends Record<string, unknown>>(text: string) => {
+        poolQueries.push(text);
+        return { rows: [] } as { rows: Row[] };
+      },
+      connect: async () => client,
+      end: async () => undefined,
+    };
+    const backtesting = createPostgresBacktestingDependencies({ connectionString: "", pool });
+    const leaderboardDependencies = createPostgresLeaderboardDependencies({
+      connectionString: "",
+      pool,
+      getTransactionClient: backtesting.getTransactionClient,
+    });
+    const leaderboard = createLeaderboardModule(leaderboardDependencies);
+
+    await expect(backtesting.completionUnitOfWork.commit(
+      {
+        ownerUserId: owner,
+        experiment: {} as Experiment,
+        trades: [],
+        leaderboardSubmission: {} as never,
+      },
+      {
+        insertExperiment: async () => {
+          expect(backtesting.getTransactionClient()).toBe(client);
+          return {} as Experiment;
+        },
+        submitLeaderboard: async () => {
+          expect(backtesting.getTransactionClient()).toBe(client);
+          const entries = await leaderboardDependencies.entryRepository.getActiveTopK(
+            owner,
+            candidateRow.leaderboard_scope_id,
+            1,
+          );
+          expect(entries).toHaveLength(1);
+          return { admitted: true, entry: entries[0] };
+        },
+      },
+    )).resolves.toMatchObject({ leaderboard: { admitted: true } });
+
+    expect(poolQueries).toEqual([]);
+    expect(transactionQueries[0]).toBe("BEGIN");
+    expect(transactionQueries.at(-1)).toBe("COMMIT");
+    expect(transactionQueries.some((text) => text.includes("FROM leaderboard_entries"))).toBe(true);
+    expect(backtesting.getTransactionClient()).toBeUndefined();
+    await backtesting.close();
   });
 
   it("persists the simulator equity curve and ending capital without widening the read contract", async () => {

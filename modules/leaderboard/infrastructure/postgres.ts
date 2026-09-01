@@ -14,6 +14,13 @@ export interface PostgresQueryResult<Row extends Record<string, unknown> = Recor
   readonly rowCount?: number | null;
 }
 
+export interface PostgresTransactionClient {
+  query<Row extends Record<string, unknown> = Record<string, unknown>>(
+    text: string,
+    values?: unknown[],
+  ): Promise<PostgresQueryResult<Row>>;
+}
+
 export interface PostgresPool {
   query<Row extends Record<string, unknown> = Record<string, unknown>>(
     text: string,
@@ -27,6 +34,8 @@ export interface PostgresLeaderboardOptions {
   readonly pool?: PostgresPool;
   readonly maxConnections?: number;
   readonly experimentRepository?: LeaderboardExperimentRepository;
+  /** Infrastructure-only bridge for the Backtesting completion transaction. */
+  readonly getTransactionClient?: () => PostgresTransactionClient | undefined;
 }
 
 export interface PostgresLeaderboardDependencies
@@ -195,10 +204,17 @@ export function createPostgresLeaderboardDependencies(
     throw new Error("Leaderboard PostgreSQL connection string is required");
   }
   const pool = poolFromOptions(options);
+  const query = <Row extends Record<string, unknown> = Record<string, unknown>>(
+    text: string,
+    values?: unknown[],
+  ): Promise<PostgresQueryResult<Row>> => {
+    const client = options.getTransactionClient?.();
+    return client ? client.query<Row>(text, values) : pool.query<Row>(text, values);
+  };
   let closed = false;
 
   const initialize = async (): Promise<void> => {
-    await pool.query(
+    await query(
       `
         INSERT INTO ranking_configurations
           (id, profile_id, version, name, description, formula,
@@ -222,7 +238,7 @@ export function createPostgresLeaderboardDependencies(
 
   const configurationRepository = {
     getById: async (id: string): Promise<RankingConfiguration | undefined> => {
-      const result = await pool.query<ConfigurationRow>(
+      const result = await query<ConfigurationRow>(
         `
           SELECT id, profile_id, version, name, description, formula,
             minimum_number_of_trades, tie_breakers, created_at::text
@@ -234,7 +250,7 @@ export function createPostgresLeaderboardDependencies(
       return result.rows[0] ? configurationFromRow(result.rows[0]) : undefined;
     },
     listAll: async (): Promise<readonly RankingConfiguration[]> => {
-      const result = await pool.query<ConfigurationRow>(
+      const result = await query<ConfigurationRow>(
         `
           SELECT id, profile_id, version, name, description, formula,
             minimum_number_of_trades, tie_breakers, created_at::text
@@ -251,7 +267,7 @@ export function createPostgresLeaderboardDependencies(
       ownerUserId: AuthenticatedUserId,
       command: CreateLeaderboardScopeCommand,
     ): Promise<LeaderboardScope> => {
-      const result = await pool.query<ScopeRow>(
+      const result = await query<ScopeRow>(
         `
           INSERT INTO leaderboard_scopes
             (id, owner_user_id, name, k, ranking_configuration_id, comparison_key, created_at)
@@ -277,7 +293,7 @@ export function createPostgresLeaderboardDependencies(
       ownerUserId: AuthenticatedUserId,
       id: string,
     ): Promise<LeaderboardScope | undefined> => {
-      const result = await pool.query<ScopeRow>(
+      const result = await query<ScopeRow>(
         `
           SELECT id::text, owner_user_id::text, name, k,
             ranking_configuration_id, comparison_key, created_at::text
@@ -295,7 +311,7 @@ export function createPostgresLeaderboardDependencies(
     scopeId: string,
     experimentId: string,
   ): Promise<LeaderboardEntry | undefined> => {
-    const result = await pool.query<EntryRow>(
+    const result = await query<EntryRow>(
       `
         SELECT e.id::text, e.rank, e.candidate_id::text,
           e.search_run_id::text, e.experiment_id::text,
@@ -322,7 +338,7 @@ export function createPostgresLeaderboardDependencies(
       // the frozen metric tie-break sequence. Limiting by the persisted rank here
       // can hide a newly admitted entry whose rank is appended before reordering.
       void k;
-      const result = await pool.query<EntryRow>(
+      const result = await query<EntryRow>(
         `
           SELECT e.id::text, e.rank, e.candidate_id::text,
             e.search_run_id::text, e.experiment_id::text,
@@ -341,7 +357,7 @@ export function createPostgresLeaderboardDependencies(
       ownerUserId: AuthenticatedUserId,
       searchRunId: string,
     ): Promise<readonly LeaderboardEntry[]> => {
-      const result = await pool.query<EntryRow>(
+      const result = await query<EntryRow>(
         `
           SELECT e.id::text, e.rank, e.candidate_id::text,
             e.search_run_id::text, e.experiment_id::text,
@@ -360,7 +376,7 @@ export function createPostgresLeaderboardDependencies(
       ownerUserId: AuthenticatedUserId,
       entry: Omit<LeaderboardEntry, "id" | "rank">,
     ): Promise<LeaderboardEntry> => {
-      const result = await pool.query<EntryRow>(
+      const result = await query<EntryRow>(
         `
           WITH locked_scope AS (
             SELECT id
@@ -412,7 +428,7 @@ export function createPostgresLeaderboardDependencies(
       ownerUserId: AuthenticatedUserId,
       entryId: string,
     ): Promise<void> => {
-      await pool.query(
+      await query(
         `
           DELETE FROM leaderboard_entries e
           USING leaderboard_scopes s

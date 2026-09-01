@@ -132,4 +132,37 @@ describe("Leaderboard PostgreSQL adapter", () => {
     expect(queries[1]?.values).toEqual(["user-1", "scope-1", "experiment-1"]);
     await dependencies.close();
   });
+
+  it("routes persistence queries through the active transaction client", async () => {
+    const poolQueries: string[] = [];
+    const transactionQueries: string[] = [];
+    const client = {
+      query: async <Row extends Record<string, unknown>>(text: string) => {
+        transactionQueries.push(text);
+        return { rows: [] } as { rows: Row[] };
+      },
+    };
+    const pool: PostgresPool = {
+      query: async () => {
+        poolQueries.push("pool");
+        throw new Error("transaction-bound Leaderboard query used the pool");
+      },
+      end: async () => undefined,
+    };
+    const dependencies = createPostgresLeaderboardDependencies({
+      connectionString: "",
+      pool,
+      getTransactionClient: () => client,
+    });
+
+    await dependencies.initialize();
+    await dependencies.configurationRepository.listAll();
+    await dependencies.scopeRepository.getByOwnerAndId("user-1" as never, "scope-1");
+    await dependencies.entryRepository.getActiveTopK("user-1" as never, "scope-1", 1);
+    await dependencies.entryRepository.deactivateForScopeOwner("user-1" as never, "entry-1");
+
+    expect(poolQueries).toEqual([]);
+    expect(transactionQueries).toHaveLength(5);
+    await dependencies.close();
+  });
 });

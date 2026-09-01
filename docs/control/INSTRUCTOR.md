@@ -2,11 +2,60 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-187`
+Instruction ID: `INS-188`
 
-Status: `APPROVED_FOR_EXECUTION`
+Status: `HOLD`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-188 — HOLD after INS-187 Instructor live revalidation
+
+This instruction supersedes `INS-187 / APPROVED_FOR_EXECUTION`. The bounded
+transaction-seam implementation was reviewed at packet level, but Instructor
+privileged live verification found a separate persistence-contract defect in
+the Backtesting simulator's Trade identifier generation. No implementation or
+task-state transition is authorized by this HOLD.
+
+### Recovered checkpoint and evidence
+
+- Canonical checkout: `D:\\agy-cli-projects\\AOS\\Cryptox`, branch
+  `MVP_IMPLEMENTATION`, authorization HEAD `989dfac` before the reviewed
+  Manager diff. The only pre-existing untracked path remains
+  `.codex/config.toml` and is excluded.
+- INS-187 Manager output changed exactly the five authorized implementation
+  paths plus Manager-owned `TASKS.md`/`HANDOFF.md`; no unauthorized source,
+  schema, migration, provider, frontend, or control-plane path was found.
+  Focused/global deterministic gates passed and `I-02` returned to `REVIEW`,
+  not `DONE`.
+- Instructor rebuilt the local backend from that diff. A real local probe
+  registered two temporary users, created owner-scoped Strategy definitions
+  and a Leaderboard scope, fetched complete Binance historical data, and
+  submitted a Backtest. Auth/setup/start operations returned success, but the
+  candidate ended `FAILED` with `RANKING_FAILED`.
+- The sanitized persisted failure class is a PostgreSQL UUID contract error:
+  the simulator generated a Trade identifier derived from the candidate in a
+  form like `candidate-id-trade-1`, while `trades.id` is a UUID column. The
+  same defect caused the bounded Search candidate to fail before an Experiment
+  or Leaderboard entry was persisted. Exact cleanup verified zero remaining
+  probe users, scopes, candidates, and Experiments.
+- This is a concrete source defect outside INS-187's six-path authorization,
+  so it is not silently repaired under that packet. It also means real
+  generated Experiment/Trade/Evaluation/Leaderboard acceptance remains
+  unproven and I-02 cannot be promoted.
+
+### Stop boundary
+
+No source, task row, migration/schema, REST/WebSocket, provider, frontend,
+Gemini/LLM, deferred scope, branch/worktree, duplicate/retry Manager or
+worker, or final I-02 decision is authorized by this HOLD. The next signal may
+authorize only a bounded Trade-ID correction in the Backtesting simulator and
+its focused tests, through one fresh same-directory Manager and one hidden
+worker, after exact scope and acceptance are recorded.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-108`, `INS-187`, and `DEC-109`.
 
 ## INS-187 — APPROVED_FOR_EXECUTION for the bounded Backtest/Leaderboard transaction seam
 
