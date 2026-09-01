@@ -2,11 +2,60 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-189`
+Instruction ID: `INS-190`
 
-Status: `APPROVED_FOR_EXECUTION`
+Status: `HOLD`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-190 — HOLD after INS-189 live revalidation
+
+This instruction supersedes `INS-189 / APPROVED_FOR_EXECUTION`. The Trade-ID
+source correction passed packet-level review and deterministic gates, but the
+Instructor's rebuilt real runtime probe still ended before Experiment/Trade/
+Evaluation/Leaderboard acceptance. No new implementation or task-state
+transition is authorized by this HOLD.
+
+### Recovered checkpoint and evidence
+
+- Canonical checkout: `D:\\agy-cli-projects\\AOS\\Cryptox`, branch
+  `MVP_IMPLEMENTATION`. The Manager's reviewed delta is still uncommitted
+  because its single explicit-path staging attempt, and the Instructor's
+  integration attempt, both received the repository `.git/index.lock`
+  permission denial. The tracked delta remains exactly the two authorized
+  simulator paths plus Manager-owned `TASKS.md` and `HANDOFF.md`; the
+  pre-existing untracked `.codex/config.toml` remains excluded.
+- Docker Compose was available in the Instructor context. Local PostgreSQL
+  and test migration validation passed; all four local services were healthy;
+  the backend rebuilt from the INS-189 source and `/live=200`, `/ready=200`.
+- A real local probe registered a temporary user, created owner-scoped
+  Strategy definitions and a Leaderboard scope, submitted a manual Backtest,
+  and polled the public status. The candidate ended `FAILED` with the
+  sanitized code `SIMULATION_FAILED`; no Experiment, Trade, Evaluation, or
+  Leaderboard acceptance is claimed. The exact underlying failure detail is
+  not promoted because the privileged Docker query needed to inspect it was
+  unavailable after the environment usage limit was reached.
+- The probe's exact cleanup completed successfully; its temporary user and
+  dependent records were removed. No fixture or fallback was used. The
+  ranking configuration lookup was corrected to the current repository ID on
+  the subsequent run; the remaining failure is therefore not the earlier
+  invalid ranking-ID setup mistake.
+
+### Stop boundary
+
+No source, task row, migration/schema, REST/WebSocket, persistence adapter,
+runtime, provider, frontend, News, Gemini/LLM, branch/worktree, duplicate or
+retry Manager/worker, deferred scope, or final `I-02 DONE` transition is
+authorized by this HOLD. The next signal may authorize only a narrowly
+evidenced diagnosis/fix for the remaining real Backtest `SIMULATION_FAILED`
+path, with exact source scope and acceptance after its underlying cause is
+verified. Until then `I-02` remains `REVIEW` and the Git permission/usage
+limitations remain `BLOCKED` or `UNVERIFIED`, never `PASS`.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-109`, `DEC-110`, and `INS-189`.
 
 ## INS-189 — APPROVED_FOR_EXECUTION for the bounded Backtesting Trade-ID correction
 

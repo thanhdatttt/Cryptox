@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+
 export type Pair = string;
 export type Timeframe = "1m" | "5m" | "15m" | "1h" | "4h" | "1d";
 export type Signal = "BUY" | "SELL" | "HOLD";
@@ -230,6 +232,11 @@ const simulationFailed = (message: string): never => {
 
 const FIXED_SCALE = 100_000_000n;
 const DECIMAL_PATTERN = /^([+-]?)(?:(\d+)(?:\.(\d*))?|\.(\d+))(?:e([+-]?\d+))?$/i;
+
+function tradeIdFor(namespace: string, sequence: number): string {
+  const digest = createHash("sha256").update(`${namespace}\0${sequence}`).digest("hex");
+  return `${digest.slice(0, 8)}-${digest.slice(8, 12)}-5${digest.slice(13, 16)}-8${digest.slice(17, 20)}-${digest.slice(20, 32)}`;
+}
 
 function roundQuotient(numerator: bigint, denominator: bigint): bigint {
   if (denominator <= 0n) throw new RangeError("fixed-point denominator must be positive");
@@ -657,6 +664,7 @@ function simulateSyntheticPaperBacktest(
   } satisfies FixedCandle));
   const one = FIXED_SCALE;
   const long = paperExecution.positionMode === "LONG";
+  const tradeIdNamespace = `${input.experimentId ?? input.candidateId}\0SYNTHETIC_SHORT_PAPER_V1:${paperExecution.positionMode}`;
   let cash = paperConfiguration.initialCapital;
   let position: PaperPosition | undefined;
   let pending: ScheduledSignal | undefined;
@@ -707,7 +715,7 @@ function simulateSyntheticPaperBacktest(
       entryFee,
       equityBeforeTrade,
     };
-    const tradeId = `${input.candidateId}-trade-${sequence + 1}`;
+    const tradeId = tradeIdFor(tradeIdNamespace, sequence + 1);
     tradeMarkers.push({
       tradeId,
       kind: "ENTRY",
@@ -740,7 +748,7 @@ function simulateSyntheticPaperBacktest(
     if (cash < 0n) simulationFailed("paper exit accounting produced negative capital");
 
     sequence += 1;
-    const tradeId = `${input.candidateId}-trade-${sequence}`;
+    const tradeId = tradeIdFor(tradeIdNamespace, sequence);
     const trade: Trade = {
       id: tradeId,
       experimentId: input.experimentId ?? input.candidateId,
@@ -911,6 +919,7 @@ export function simulateBacktest(input: SimulationInput): CompletedBacktestResul
   let position: OpenPosition | undefined;
   let pending: ScheduledSignal | undefined;
   let sequence = 0;
+  const tradeIdNamespace = `${input.experimentId ?? input.candidateId}\0BACKTEST_EXECUTION_V1`;
   const signals: SignalTracePoint[] = [];
   const overlays: OverlayTracePoint[] = [];
   const tradeMarkers: TradeMarker[] = [];
@@ -949,7 +958,7 @@ export function simulateBacktest(input: SimulationInput): CompletedBacktestResul
       entryFee,
       equityBeforeTrade,
     };
-    const tradeId = `${input.candidateId}-trade-${sequence + 1}`;
+    const tradeId = tradeIdFor(tradeIdNamespace, sequence + 1);
     tradeMarkers.push({
       tradeId,
       kind: "ENTRY",
@@ -992,7 +1001,7 @@ export function simulateBacktest(input: SimulationInput): CompletedBacktestResul
     }
 
     sequence += 1;
-    const tradeId = `${input.candidateId}-trade-${sequence}`;
+    const tradeId = tradeIdFor(tradeIdNamespace, sequence);
     const trade: Trade = {
       id: tradeId,
       experimentId: input.experimentId ?? input.candidateId,

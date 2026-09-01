@@ -110,6 +110,17 @@ const ohlcCandle = (
   isClosed: true,
 });
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
+
+const expectTradeIdsAndMarkersToAlign = (result: ReturnType<typeof simulateBacktest>): void => {
+  const tradeIds = result.trades.map(({ id }) => id);
+  expect(tradeIds.every((id) => UUID_PATTERN.test(id))).toBe(true);
+  expect(new Set(tradeIds).size).toBe(tradeIds.length);
+  expect(result.visualization.tradeMarkers.map(({ tradeId }) => tradeId)).toEqual(
+    result.trades.flatMap(({ id }) => [id, id]),
+  );
+};
+
 describe("deterministic historical simulator (CSL-R-BT-01 / CSL-R-VIS-01)", () => {
   it("executes a candle-t signal at the next open and never uses the final signal", () => {
     const result = simulateBacktest(
@@ -231,6 +242,15 @@ describe("deterministic historical simulator (CSL-R-BT-01 / CSL-R-VIS-01)", () =
     const second = simulateBacktest(input);
 
     expect(second).toEqual(first);
+  });
+
+  it("emits valid unique UUID Trade IDs with aligned markers for normal Long simulation", () => {
+    const result = simulateBacktest(
+      baseInput(fakeStrategy(["BUY", "SELL", "BUY", "HOLD"])),
+    );
+
+    expect(result.trades).toHaveLength(2);
+    expectTradeIdsAndMarkersToAlign(result);
   });
 
   it("contains a fake strategy failure as a typed simulation error", () => {
@@ -356,6 +376,22 @@ describe("SYNTHETIC_SHORT_PAPER_V1 fixed-point simulation (CSL-R-BT-02 / CSL-R-R
   it("produces byte-equivalent deterministic reruns for paper results", () => {
     const input = paperInput(fakeStrategy(["SELL", "HOLD", "BUY", "HOLD"]), "SYNTHETIC_SHORT");
     expect(simulateBacktest(input)).toEqual(simulateBacktest(input));
+  });
+
+  it("emits valid unique UUID Trade IDs with aligned markers for paper Long and synthetic Short", () => {
+    const long = simulateBacktest(
+      paperInput(fakeStrategy(["BUY", "SELL", "BUY", "HOLD"]), "LONG"),
+    );
+    const short = simulateBacktest(
+      paperInput(fakeStrategy(["SELL", "BUY", "SELL", "HOLD"]), "SYNTHETIC_SHORT"),
+    );
+
+    expect(long.trades).toHaveLength(2);
+    expect(short.trades).toHaveLength(2);
+    expectTradeIdsAndMarkersToAlign(long);
+    expectTradeIdsAndMarkersToAlign(short);
+    const allTradeIds = [...long.trades, ...short.trades].map(({ id }) => id);
+    expect(new Set(allTradeIds).size).toBe(allTradeIds.length);
   });
 
   it("rejects malformed paper settings before any directional simulation", () => {

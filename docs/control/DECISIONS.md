@@ -4459,3 +4459,37 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-106`, `DEC-109`, `INS-188`, and `INS-189`.
+
+## DEC-111 — Hold after INS-189 live simulation failure
+
+Status: `HOLD`
+
+Authority: Independent Instructor revalidation under `INS-189`, after
+rebuilding the canonical backend and running a real local PostgreSQL-backed
+manual Backtest probe.
+
+Decision: Do not promote `I-02` or claim final MVP completion. The bounded
+Trade-ID correction is supported by its source review, UUID/marker
+regressions, full deterministic/static gates, and successful backend rebuild,
+but the real generated-data flow still ended with the sanitized
+`SIMULATION_FAILED` candidate state before a persisted Experiment/Trade/
+Evaluation/Leaderboard result could be accepted. The exact failure detail
+remains unverified because the environment's privileged Docker query became
+unavailable after the usage limit was reached. Exact temporary-data cleanup
+passed.
+
+Why: live behavior is stronger acceptance evidence than fixture-only tests,
+and a failed live simulation cannot be silently promoted or diagnosed as a
+different persistence defect. The next authorization must first be based on a
+verified root cause and must limit the Manager/worker write scope to the
+smallest affected implementation paths. The Instructor continues to own
+privileged live/demo verification; no branch-per-Manager stream is introduced.
+
+Affected: `I-02`, the remaining real Backtest execution path, `INSTRUCTOR.md`,
+and the next bounded authorization. No product scope, requirement,
+architecture policy, provider protocol, or deferred scope changes.
+
+Canonical references: [Contributor rules](../AGENTS.md),
+[Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-109`, `DEC-110`, and `INS-190`.

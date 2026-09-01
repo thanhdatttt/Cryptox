@@ -1,100 +1,95 @@
-# I-02 Transaction Seam Checkpoint — INS-187 / DEC-108
+# I-02 Backtesting Trade-ID Correction Checkpoint — INS-189 / DEC-110
 
 ## Authority and applicability
 
 Checkpoint date: 2026-09-01.
 
-- Current Instructor signal: `INS-187 / APPROVED_FOR_EXECUTION`.
-- Governing decision: `DEC-108 / APPROVED`.
+- Current Instructor signal: `INS-189 / APPROVED_FOR_EXECUTION`.
+- Governing decision: `DEC-110 / APPROVED`.
 - Canonical checkout: `D:/agy-cli-projects/AOS/Cryptox`.
-- Starting branch and authorization HEAD: `MVP_IMPLEMENTATION / 989dfac`.
-- Reviewed source/business checkpoint: `f86ab93`. The diff from `f86ab93` to
-  `989dfac` was governance-only; no source or business-state drift was found.
-- The board started with 58 rows, 57 `DONE`, and only `I-02` `REVIEW`.
+- Branch: `MVP_IMPLEMENTATION`.
+- Reviewed source/business checkpoint: `00eb4a8`. The authorization commit
+  `428779f` changes only `docs/control/INSTRUCTOR.md` and
+  `docs/control/DECISIONS.md`; no source or business-state drift was found.
+- The board contains 58 rows: 57 `DONE` and only `I-02` in `REVIEW`.
   No other task state changed. The pre-existing `.codex/config.toml` remains
   untracked and excluded.
-- The packet was limited to the already-approved Backtest -> Leaderboard
-  transaction-aware completion seam. No final MVP or `I-02 DONE` decision was
-  authorized.
+- This packet corrects Trade-ID generation inside the approved Backtesting
+  simulator. It does not authorize final MVP acceptance or `I-02 DONE`.
 
 ## Execution and worker review
 
 - Manager state transition: `I-02 REVIEW -> READY -> IN_PROGRESS -> REVIEW`.
 - Exactly one fresh hidden worker was created in the canonical checkout:
-  Kierkegaard, agent `01a05aca-c849-7b80-bcf3-eb147f6d5ad6`.
-- The worker was restricted to the six paths authorized by `INS-187`; it did
-  not edit control-plane files, stage, commit, retry, or spawn a replacement.
-- The worker did not return a final report before its bounded waits expired. Its
-  scoped edits materialized in the checkout; the Manager closed the still-
-  `running` worker once, observed `previous_status: running`, and did not retry
-  or replace it.
-- The reviewed worker diff changes exactly these five authorized implementation
-  paths; the optional focused backend regression file was not needed:
-  `modules/backtesting/infrastructure/postgres.ts`,
-  `modules/backtesting/infrastructure/postgres.spec.ts`,
-  `modules/leaderboard/infrastructure/postgres.ts`,
-  `modules/leaderboard/infrastructure/postgres.spec.ts`, and
-  `apps/backend/src/runtime.ts`.
-- Backtesting now exposes an infrastructure-only accessor for its active
-  `AsyncLocalStorage` transaction client. Leaderboard accepts that accessor and
-  routes initialization, configuration, scope, authoritative-entry, ranking,
-  insertion, duplicate lookup, and deactivation queries through the active
-  client, falling back to the pool only outside a completion transaction.
-  Runtime composition passes the Backtesting accessor to the PostgreSQL
-  Leaderboard adapter. Public module contracts and database schema are unchanged.
-- The source diff is within scope and contains no migration, REST/WebSocket,
-  provider, frontend, deferred-scope, credential, or unrelated cleanup change.
+  Raman, agent `01a05af9-8439-7352-9654-9dcec48dd2b6`. It completed and was
+  closed after returning its report.
+- The worker was restricted to exactly these two implementation paths:
+  `modules/backtesting/domain/simulator.ts` and
+  `modules/backtesting/domain/simulator.spec.ts`. It did not edit control
+  artifacts, stage, commit, create another worker, retry, or use a branch or
+  worktree.
+- The simulator now derives deterministic UUID-compatible Trade IDs from the
+  experiment/candidate identity, execution profile and position mode where
+  applicable, plus Trade sequence. The IDs use canonical UUID formatting with
+  valid version and variant bits. The normal and synthetic-paper entry markers
+  and exit Trades use the same ID; sequence, accounting, ownership inputs,
+  public contracts, and experiment behavior remain unchanged.
+- Focused regressions cover valid unique UUID IDs and marker alignment for the
+  normal Long path and for paper Long plus synthetic Short paths.
+- Independent Manager review found no change outside the authorized source/test
+  paths and the Manager-owned control artifacts.
 
 ## Validation results
 
 | Gate | Exact command/check | Result |
 |---|---|---|
-| Focused infrastructure tests | `npm exec vitest -- run modules/backtesting/infrastructure/postgres.spec.ts modules/leaderboard/infrastructure/postgres.spec.ts` | PASS, 14/14 |
-| Backtesting workspace | `npm test --workspace @cryptox/backtesting` | PASS, 47/47 |
-| Leaderboard workspace | `npm test --workspace @cryptox/leaderboard` | PASS, 23/23 |
-| Backend workspace | `npm test --workspace @cryptox/backend` | PASS, 43; 1 Auth E2E skip |
-| Full workspace tests | `npm test` | PASS, 464; 9 environment-gated skips |
+| Focused simulator tests | `npm exec vitest -- run modules/backtesting/domain/simulator.spec.ts` | PASS, 17/17 |
+| Backtesting workspace | `npm test --workspace @cryptox/backtesting` | PASS, 49/49 |
+| Full workspace tests | `npm test` | PASS, 466 passed; 9 environment-gated skips |
 | Typecheck | `npm run typecheck` | PASS |
 | Lint | `npm run lint` | PASS |
 | Build | `npm run build` | PASS; existing Vite CJS/dynamic-import/large-chunk warnings only |
-| Architecture | `npm run arch:check` | PASS, 189 modules / 644 dependencies; 9 configured forbidden fixtures |
-| Generated artifacts | `npm run artifacts:check` | PASS; no source-adjacent generated artifacts |
+| Architecture | `npm run arch:check` | PASS, 189 modules / 645 dependencies; 9 configured forbidden fixtures |
+| Generated artifacts | `npm run artifacts:check` | PASS; no source-adjacent generated module artifacts |
 | Deferred scope | `npm run scope:check` | PASS; no deferred leakage |
 | Scope tests | `npm run test:scope-check` | PASS, 15/15 |
 | Runtime smoke | `npm run runtime:smoke` | PASS for `/live=200`, `/ready=503`, `/health=404`; not live provider/DB acceptance |
-| Whitespace | `git diff --check` | PASS; only Git LF/CRLF warnings |
-| Exact tracked scope | `git diff --name-only` compared with the authorized five source/test paths plus Manager control files | PASS; `.codex/config.toml` excluded |
-| Secret literal scan | credential-shaped literal scan over `apps modules packages scripts infra` | PASS; no match |
-| Secret/log scan | credential-bearing logging-call scan over `apps modules packages scripts infra` | PASS; no match |
-| OpenSpec | `openspec list --json` | `UNVERIFIED`; CLI is unavailable in this context. Committed active artifacts were read and unchanged. |
-| Docker Compose | `docker compose version` | `BLOCKED`; Docker reports unknown command and a local config access warning. `docker-compose version` is installed (`v2.40.2-desktop.1`), but the repository validator invokes `docker compose`. |
-| PostgreSQL/live completion | No safe live completion rerun was possible after the Docker check | `BLOCKED/UNVERIFIED`; no real generated Experiment/Leaderboard/rollback claim is promoted. |
+| Whitespace | `git diff --check` | PASS |
+| Exact tracked scope | Compared changed paths with the two worker paths plus `TASKS.md` and `HANDOFF.md` | PASS; `.codex/config.toml` excluded |
+| Secret/log scan | High-confidence scan of the authorized added lines | PASS; no credential-shaped literal or credential-bearing logging call added |
+| OpenSpec | `openspec status --change "mvp-implementation" --json` | UNVERIFIED; the CLI is unavailable in this context. Committed active artifacts were read and unchanged. |
+| PostgreSQL/Docker/provider/browser | Privileged live/demo verification | BLOCKED/UNVERIFIED in this Manager context; Instructor-owned revalidation remains required |
 
-The focused same-transaction regressions use a controlled transaction-client
-adapter and verify that no Leaderboard persistence query falls back to the pool
-while the Backtesting transaction is active. Existing adapter regressions cover
-completion rollback and duplicate/idempotent Experiment and Leaderboard paths.
-Because real PostgreSQL was unavailable in this Manager context, those live
-database behaviors remain `BLOCKED/UNVERIFIED` for Instructor revalidation.
+The nine test skips are environment-gated PostgreSQL/integration/Auth E2E
+cases. They are not live acceptance evidence. Existing repository test fixtures
+that contain placeholder credential vocabulary were not treated as secrets or
+as live-provider evidence.
 
 ## Acceptance and stop boundary
 
-- Packet-level source review and all available deterministic/static gates pass.
-- The implementation preserves owner-filtered queries, trusted owner inputs,
-  authoritative Experiment metric/provenance checks, duplicate admission
-  behavior, and transaction rollback handling in the existing application
-  orchestration.
-- Real PostgreSQL transaction visibility, generated application data, provider
-  behavior, authenticated browser/demo, and final MVP Definition of Done remain
-  Instructor-owned evidence and are not accepted by this checkpoint.
-- `I-02` is `REVIEW`, not `DONE`. No downstream work, final promotion, retry,
-  replacement, branch, worktree, second Manager/worker, or unrelated task-state
-  change was started.
-- The single authorized `git add` attempt for the reviewed seven-file checkpoint
+- INS-189 packet acceptance is supported by the source review, UUID/uniqueness
+  regressions, marker-linkage assertions, focused/full tests, and applicable
+  static/formal gates above.
+- The Manager did not run or claim real PostgreSQL completion, configured
+  Binance/News provider, authenticated browser/demo, generated live
+  Experiment/Trade/Evaluation/Leaderboard, or final MVP evidence. Those
+  remain `BLOCKED`/`UNVERIFIED` and Instructor-owned.
+- `I-02` is `REVIEW`, not `DONE`. No downstream task, final promotion,
+  retry, replacement, duplicate Manager/worker, branch, worktree, or unrelated
+  task-state change was started.
+- The single explicit-path Manager staging attempt for this four-file checkpoint
   failed with `fatal: Unable to create
   'D:/agy-cli-projects/AOS/Cryptox/.git/index.lock': Permission denied`.
-  No retry was attempted, no commit exists, and the reviewed changes remain
-  uncommitted and intact. This is the repository's safe checkpoint under the
-  current filesystem permission boundary.
-- Stop after this single INS-187 checkpoint. Independent Instructor review is
-  required before any further authorization or final I-02 decision.
+  No retry was attempted and no Manager checkpoint commit exists; the reviewed
+  changes remain intact and uncommitted.
+
+## Latest Git checkpoint
+
+- Latest committed HEAD: `428779f`.
+- Current tracked changes are limited to the two authorized simulator files and
+  Manager-owned `docs/implementation/TASKS.md`/`HANDOFF.md`.
+- The only untracked path is the pre-existing `.codex/config.toml`, excluded
+  from the packet.
+- Stop after this one Manager checkpoint attempt at `I-02 REVIEW`; independent
+  Instructor live/demo review is required before any further authorization or
+  final I-02 decision.
