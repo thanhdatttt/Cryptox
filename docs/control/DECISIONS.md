@@ -4201,6 +4201,37 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-102`, and `INS-182`.
 
+## DEC-105 — Assign privileged live/demo verification to the Instructor
+
+Status: `APPROVED`
+
+Authority: Explicit human governance instruction, confirmed during independent
+Instructor review of `INS-183 / DEC-104`.
+
+Decision: For final MVP evidence, the Instructor may directly run and verify
+privileged local Docker/Compose, PostgreSQL, configured-provider, browser/demo,
+real-data, and other read-only or tightly cleaned-up runtime checks in the
+canonical checkout. This is an evidence-ownership refinement, not permission
+to implement feature source. The Manager remains the sole operator of
+`TASKS.md` and `HANDOFF.md` during Manager packets, and any concrete source
+defect found by the Instructor must be held and sent through a fresh bounded
+Manager-to-worker authorization.
+
+Why: The Instructor context can access local runtime and demonstration
+capabilities that are unavailable in some Manager contexts. Performing those
+checks at the higher-privilege review boundary reduces avoidable evidence
+handoffs without weakening source write scopes, cleanup requirements, or the
+truthful `PASS`/`UNVERIFIED`/`BLOCKED` rules.
+
+Affected: `I-02`, `INSTRUCTOR.md`, `TASKS.md`, `HANDOFF.md`, and the
+Instructor/Manager operating workflow. No product scope, requirement,
+architecture, provider protocol, or deferred scope changes.
+
+Canonical references: [Contributor rules](../AGENTS.md),
+[Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-001`, `DEC-104`, and `INS-184`.
+
 ## DEC-104 — Authorize parallel final I-02 evidence
 
 Status: `APPROVED`

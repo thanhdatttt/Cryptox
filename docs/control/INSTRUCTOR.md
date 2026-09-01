@@ -2,11 +2,55 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-183`
+Instruction ID: `INS-184`
 
-Status: `APPROVED_FOR_EXECUTION`
+Status: `HOLD`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-184 — HOLD after INS-183 final evidence checkpoint
+
+This instruction supersedes `INS-183 / APPROVED_FOR_EXECUTION`. The Manager
+completed the authorized evidence-only pass and returned I-02 to `REVIEW`.
+Independent Instructor review finds that the full MVP Definition of Done is
+not proven, so no task promotion or implementation work is authorized by this
+HOLD.
+
+### Reviewed result
+
+- The accepted source/business checkpoint remains `f86ab93`, including the
+  configured-News UUID correction. The Manager's control-only checkpoint was
+  reviewed and committed as `af2e4a0`; that commit changes only
+  `docs/implementation/TASKS.md` and `docs/implementation/HANDOFF.md`.
+- `TASKS.md` remains authoritative at 58 rows: 57 `DONE`, only `I-02`
+  `REVIEW`. No Cryptox Manager or worker is active, and the only untracked
+  path is the pre-existing `.codex/config.toml`.
+- Lane A produced partial live evidence for health, News/Sentiment reads,
+  unauthenticated Auth boundaries, and bounded Binance history. Lane B could
+  not exercise persisted configured Gemini because its process lacked database
+  configuration. Lane C was interrupted without a report; its generated-data,
+  browser/demo, and eight-scenario evidence remains `UNVERIFIED`.
+- The Manager reported 461 workspace tests passed, 1 existing Argon2 timing
+  test failed at the 5-second limit, and 9 environment-gated tests skipped.
+  Docker Compose was `BLOCKED` in that context and OpenSpec CLI was
+  `UNVERIFIED`; neither is promoted to PASS. Instructor-carried local
+  Compose/News/Sentiment evidence remains separately labeled carried.
+
+### HOLD boundary
+
+No source repair, task promotion, downstream start, final MVP acceptance,
+fixture promotion, fallback, or deferred-scope work is authorized. The next
+authorization may cover only Instructor-owned privileged live/demo verification
+of the already-approved I-02 evidence gaps. Any concrete implementation defect
+found during that verification requires a separate bounded Manager/worker
+authorization; the Instructor must not implement feature source directly.
+Unavailable checks remain `BLOCKED`/`UNVERIFIED`, and temporary business state
+may be created only with exact, read-verified cleanup.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-104`, `DEC-105`, and `INS-184`.
 
 ## INS-183 — APPROVED_FOR_EXECUTION for parallel final I-02 evidence
 
