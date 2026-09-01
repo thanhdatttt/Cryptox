@@ -5,6 +5,7 @@ import type {
   SafeNewsUrlFetchPort,
   NormalizedNewsItemRecord,
 } from "../application/ports";
+import { newsItemIdForProviderIdentity } from "../application/normalization";
 import {
   createInMemoryExtractionTemplateRepository,
   createInMemoryNewsExtractionProvenanceRepository,
@@ -12,9 +13,10 @@ import {
   createInMemoryNewsRepository,
 } from "../application/memory";
 import {
-  ConfiguredNewsProvider,
   DEFAULT_NEWS_REFRESH_INTERVAL_MINUTES,
   createConfiguredNewsProvider,
+  createHtmlNewsProvider,
+  createWebsiteNewsProvider,
   refreshIntervalMinutes,
   type ConfiguredNewsSource,
 } from "./configured";
@@ -27,6 +29,8 @@ const source: ConfiguredNewsSource = {
   displayName: "Configured News",
   defaultRelatedCoins: ["BTC"],
 };
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/iu;
 
 const html = `
   <html><head><title>ignored page title</title><script>secret = true</script></head>
@@ -71,6 +75,25 @@ function sentimentFailure(): NewsSentimentPort {
   };
 }
 
+function expectStableUuidItem(item: NormalizedNewsItemRecord, repeated: NormalizedNewsItemRecord | undefined): void {
+  expect(item.id).toMatch(UUID_PATTERN);
+  expect(item.id).toBe(newsItemIdForProviderIdentity(item.providerId, item.providerItemId));
+  expect(repeated).toMatchObject({
+    id: item.id,
+    providerId: item.providerId,
+    providerItemId: item.providerItemId,
+    title: item.title,
+    content: item.content,
+    publishedAt: item.publishedAt,
+    url: item.url,
+    extraction: {
+      sourceKind: item.extraction?.sourceKind,
+      canonicalUrl: item.extraction?.canonicalUrl,
+      normalizedContentHash: item.extraction?.normalizedContentHash,
+    },
+  });
+}
+
 describe("configured Website/RSS/HTML News adapters [CSL-R-NW-02, CSL-R-RD-01]", () => {
   it("validates the bounded refresh policy and normalizes HTML with provenance", async () => {
     expect(refreshIntervalMinutes(undefined)).toBe(DEFAULT_NEWS_REFRESH_INTERVAL_MINUTES);
@@ -81,8 +104,10 @@ describe("configured Website/RSS/HTML News adapters [CSL-R-NW-02, CSL-R-RD-01]",
 
     const provider = createConfiguredNewsProvider({ source, safeFetcher: safeFetcher() });
     const document = await provider.fetchDocument({ limit: 10 });
+    const repeated = await provider.fetchDocument({ limit: 10 });
     expect(document.sourceKind).toBe("HTML");
     expect(document.items).toHaveLength(1);
+    expectStableUuidItem(document.items[0]!, repeated.items[0]);
     expect(document.items[0]).toMatchObject({
       providerId: source.id,
       title: "Bitcoin gains after breakout",
@@ -111,6 +136,8 @@ describe("configured Website/RSS/HTML News adapters [CSL-R-NW-02, CSL-R-RD-01]",
       </item></channel></rss>`),
     });
     const document = await provider.fetchDocument({ limit: 1 });
+    const repeated = await provider.fetchDocument({ limit: 1 });
+    expectStableUuidItem(document.items[0]!, repeated.items[0]);
     expect(document.items[0]).toMatchObject({
       providerId: "rss-source",
       providerItemId: "rss-guid-1",
@@ -118,17 +145,50 @@ describe("configured Website/RSS/HTML News adapters [CSL-R-NW-02, CSL-R-RD-01]",
       content: "The market is stable.",
       url: "https://news.example.test/articles/rss-1",
       publishedAt: "2026-01-02T00:00:00.000Z",
+      extraction: {
+        sourceKind: "RSS",
+        canonicalUrl: "https://news.example.test/articles/rss-1",
+        normalizedContentHash: expect.stringMatching(/^[0-9a-f]{64}$/),
+      },
     });
     expect(document.items[0]).not.toHaveProperty("provider-secret");
   });
 
-  it("supports Website and explicit HTML factory aliases", () => {
-    const website = new ConfiguredNewsProvider({
-      source: { ...source, kind: "WEBSITE" },
-      safeFetcher: safeFetcher(),
-    });
-    expect(website.sourceKind).toBe("CONFIGURED_WEBSITE");
-    expect(website.id).toBe(source.id);
+  it("supports Website and explicit HTML factory aliases with stable UUID identities", async () => {
+    const variants = [
+      {
+        provider: createWebsiteNewsProvider({
+          source: { ...source, kind: "WEBSITE" },
+          safeFetcher: safeFetcher(),
+        }),
+        sourceKind: "CONFIGURED_WEBSITE",
+      },
+      {
+        provider: createHtmlNewsProvider({ source, safeFetcher: safeFetcher() }),
+        sourceKind: "HTML",
+      },
+    ] as const;
+
+    for (const variant of variants) {
+      expect(variant.provider.sourceKind).toBe(variant.sourceKind);
+      expect(variant.provider.id).toBe(source.id);
+      const document = await variant.provider.fetchDocument({ limit: 1 });
+      const repeated = await variant.provider.fetchDocument({ limit: 1 });
+      expect(document.items).toHaveLength(1);
+      expectStableUuidItem(document.items[0]!, repeated.items[0]);
+      expect(document.items[0]).toMatchObject({
+        providerId: source.id,
+        title: "Bitcoin gains after breakout",
+        content: "The market is bullish and strong.",
+        publishedAt: "2026-01-02T00:00:00.000Z",
+        url: "https://news.example.test/articles/breakout",
+        extraction: {
+          sourceKind: variant.sourceKind,
+          canonicalUrl: "https://news.example.test/articles/breakout",
+          normalizedContentHash: expect.stringMatching(/^[0-9a-f]{64}$/),
+        },
+      });
+    }
   });
 });
 

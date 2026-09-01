@@ -14,6 +14,7 @@ import {
   canonicalProviderId,
   canonicalTimestamp,
   canonicalizeNewsUrl,
+  newsItemIdForProviderIdentity,
   normalizeExtractionProvenance,
   normalizeNewsItem,
   requiredNewsText,
@@ -331,7 +332,7 @@ export class ConfiguredNewsProvider implements NewsProvider, NewsUrlImportExtrac
       : parseHtml(input.body, input.canonicalUrl, this.source, input.extractedAt);
     const items = filteredItems(rawItems.map((raw) => {
       const normalized = normalizeNewsItem({
-        id: deterministicId(this.source.id, raw.providerItemId),
+        id: newsItemIdForProviderIdentity(this.source.id, raw.providerItemId),
         providerId: this.source.id,
         providerItemId: raw.providerItemId,
         title: raw.title,
