@@ -2,11 +2,57 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-179`
+Instruction ID: `INS-180`
 
-Status: `APPROVED_FOR_EXECUTION`
+Status: `HOLD`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-180 — HOLD after INS-179 News persistence diagnosis
+
+This instruction supersedes `INS-179 / APPROVED_FOR_EXECUTION`. The final
+I-02 evidence pass found a concrete source defect at the configured News
+provider/PostgreSQL persistence boundary and must not continue as if the
+provider path were proven.
+
+### Reviewed evidence
+
+- Canonical checkout is `D:\\agy-cli-projects\\AOS\\Cryptox`, branch
+  `MVP_IMPLEMENTATION`, at authorization HEAD `8eea4b1`. The only untracked
+  path is the pre-existing `.codex/config.toml`; no tracked source/business
+  drift was found before this HOLD.
+- `TASKS.md` remains authoritative at 58 rows: 57 `DONE`, only `I-02`
+  `REVIEW`; no Manager or worker is active.
+- Instructor-side Compose rebuild and restart loaded the accepted `30f184c`
+  News SQL correction. The configured RSS provider fetched one real item
+  (`HTTP 200`, XML body) from inside the backend container.
+- A bounded compiled application probe called the existing public News
+  collection path and reported one fetched item but zero stored items and one
+  rejected item. A second bounded direct repository probe reproduced the
+  failure as PostgreSQL `22P02` with routine `string_to_uuid`.
+- Source review identifies the cause: `modules/news/infrastructure/configured.ts`
+  supplies `id = document-<sha256-prefix>`, while `news_items.id` is a UUID
+  column. This is a source defect, not evidence of an unavailable Docker,
+  RSS, or Gemini environment.
+
+### HOLD boundary
+
+No final I-02 acceptance, News/Sentiment PASS, task promotion, downstream
+start, or further source/config/dependency/migration/infrastructure change is
+authorized by this HOLD. The next instruction may authorize only a narrow
+configured-News ID normalization correction and its focused regression test,
+followed by a fresh independent evidence pass. The existing `30f184c` SQL
+correction remains accepted and must not be reverted.
+
+Unavailable checks remain `BLOCKED`/`UNVERIFIED`; fixtures, skipped tests,
+HTTP 200 without persisted rows, and provider fetch alone are not acceptance.
+
+Affected: `I-02`, `INS-179`, `DEC-100`, `TASKS.md`, and `HANDOFF.md`.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-100`, and `INS-180`.
 
 ## INS-179 — APPROVED_FOR_EXECUTION for final I-02 evidence on corrected build
 

@@ -4103,3 +4103,35 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-099`, and `INS-179`.
+
+## DEC-101 — Hold after configured News UUID-boundary failure
+
+Status: `HOLD`
+
+Authority: Independent Instructor review during `INS-179 / DEC-100`. The
+canonical branch is `MVP_IMPLEMENTATION` at `8eea4b1`; the board remains 58
+rows, 57 `DONE`, only `I-02` `REVIEW`, and no Manager/worker is active. The
+pre-existing `.codex/config.toml` is the only untracked path.
+
+The real configured RSS provider fetched one item inside the rebuilt backend,
+but the existing News collection path stored zero items and rejected one. A
+bounded direct persistence probe reproduced PostgreSQL `22P02` with routine
+`string_to_uuid`. Review of `modules/news/infrastructure/configured.ts` shows
+that configured items receive a `document-<sha256-prefix>` id, while the
+approved `news_items.id` schema is UUID. Therefore real News and isolated
+Sentiment acceptance is not proven. This is a source correction boundary,
+not a Docker/RSS/Gemini availability claim.
+
+`INS-179` is closed at `HOLD` without task promotion. The next authorization
+may cover only UUID-compatible configured-News ID normalization and its
+focused regression test, followed by a new evidence pass. No migration,
+contract, provider protocol, fallback, fixture promotion, deferred scope,
+downstream task, or unrelated source repair is approved by this decision.
+Unavailable checks remain `BLOCKED`/`UNVERIFIED`.
+
+Affected: `I-02`, `INS-179`, `DEC-100`, `TASKS.md`, and `HANDOFF.md`.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-100`, and `INS-180`.
