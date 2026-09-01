@@ -4420,3 +4420,42 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-106`, `DEC-108`, `INS-187`, and `INS-188`.
+
+## DEC-110 — Authorize the bounded Backtesting Trade-ID correction
+
+Status: `APPROVED`
+
+Authority: Instructor review under `DEC-109` and the privileged real local
+PostgreSQL generated-data probe in the canonical checkout.
+
+Decision: Authorize one fresh same-directory Manager and exactly one hidden
+worker to correct only Trade-ID generation in
+`modules/backtesting/domain/simulator.ts` and its focused tests in
+`modules/backtesting/domain/simulator.spec.ts`. The Manager alone may update
+`TASKS.md`/`HANDOFF.md` and may re-enter only I-02 through
+`REVIEW -> READY -> IN_PROGRESS -> REVIEW`; it must stop without final
+promotion.
+
+Why: after the INS-187 transaction-aware Backtest/Leaderboard seam was
+integrated, real completion reached PostgreSQL Trade persistence and exposed a
+concrete UUID contract failure: simulator Trade IDs were candidate-derived
+strings while `trades.id` is an existing UUID column. The defect is outside
+INS-187's scope and must be repaired under a separate authorization. No schema
+or migration change is permitted.
+
+Acceptance: normal and synthetic paper simulator paths emit valid unique UUID
+Trade IDs with marker linkage preserved; existing sequence/accounting,
+ownership, public contracts, focused/full tests, and applicable static gates
+remain passing. The Instructor independently reruns real PostgreSQL/Binance
+manual and Search flows and retains final live/demo/I-02 authority under
+`DEC-106`.
+
+Prohibitions: no migration/schema, REST/WebSocket, persistence adapter,
+runtime, provider, frontend, News/Binance/Gemini change, credential, deferred
+scope, task-row expansion, branch/worktree, duplicate/retry/replacement, or
+I-02 final acceptance.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-106`, `DEC-109`, `INS-188`, and `INS-189`.

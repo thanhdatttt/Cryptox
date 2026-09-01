@@ -2,11 +2,77 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-188`
+Instruction ID: `INS-189`
 
-Status: `HOLD`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-189 — APPROVED_FOR_EXECUTION for the bounded Backtesting Trade-ID correction
+
+This instruction supersedes `INS-188 / HOLD` only for the narrowly bounded
+Trade-ID correction below. It does not accept the final MVP or authorize any
+other packet.
+
+### Applicability and packet
+
+- Canonical checkout: `D:\\agy-cli-projects\\AOS\\Cryptox`, branch
+  `MVP_IMPLEMENTATION`, current HEAD `00eb4a8`. The commit integrates the
+  reviewed INS-187 worker output and the Instructor HOLD; no source/business
+  drift exists beyond that bounded packet. The only pre-existing untracked
+  path remains `.codex/config.toml` and is excluded.
+- `TASKS.md` remains authoritative at 58 rows: 57 `DONE`, only `I-02`
+  `REVIEW`. No Cryptox Manager or worker is active. The prior Instructor live
+  probe reached real PostgreSQL-backed completion but exposed the UUID error
+  recorded by `INS-188`/`DEC-109`.
+- This is a narrowly bounded correction inside the already-approved
+  Backtesting implementation path, not a new task row, product capability,
+  schema change, or branch stream.
+
+### Authorization and exact write scope
+
+- Create exactly one fresh same-directory Manager in the canonical checkout,
+  using `gpt-5.6-luna` with maximum reasoning. The Manager may create exactly
+  one fresh hidden worker. No parallel Manager, duplicate, retry, replacement,
+  branch, or worktree is allowed.
+- The worker may write only:
+  1. `modules/backtesting/domain/simulator.ts`
+  2. `modules/backtesting/domain/simulator.spec.ts`
+- The Manager alone may update `docs/implementation/TASKS.md` and
+  `docs/implementation/HANDOFF.md`, and may move only `I-02` through
+  `REVIEW -> READY -> IN_PROGRESS -> REVIEW`. No other task may change state.
+
+### Objective and acceptance
+
+Correct Trade identifier generation for every approved Backtesting simulator
+path, including normal long simulation and synthetic paper simulation, so
+every persisted `Trade.id` is a valid unique UUID compatible with the existing
+PostgreSQL schema. Preserve the existing trade-marker linkage, sequence,
+ownership, public contracts, accounting, and experiment behavior; do not
+change the database schema or persistence adapters.
+
+Acceptance requires focused simulator regression evidence that both relevant
+simulation modes emit valid unique UUID Trade IDs and that marker references
+remain aligned. Existing Backtesting tests, full workspace tests, typecheck,
+lint, build, architecture, artifacts, deferred-scope, scope, exact-path,
+whitespace, and secret/log checks must pass. Unavailable checks remain
+`BLOCKED` or `UNVERIFIED`. The Instructor will independently rebuild and rerun
+the real PostgreSQL/Binance manual and Search flows after the Manager
+checkpoint; Manager evidence cannot promote I-02 or the MVP.
+
+### Prohibitions and stop condition
+
+No migration/schema, REST/WebSocket, PostgreSQL adapter, runtime composition,
+provider, frontend, News, Binance integration, Gemini/LLM, fixture promotion,
+credential, deferred scope, unrelated cleanup, or final `I-02 DONE` transition
+is authorized. Do not alter `MVP_PLAN.md`, requirements, ADRs, OpenSpec, or
+other task rows. Stop after one Manager checkpoint at `I-02 REVIEW`; any need
+for a path outside the two listed paths is `NEEDS_INSTRUCTOR_REVIEW`.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-109`, `INS-188`, and `DEC-110`.
 
 ## INS-188 — HOLD after INS-187 Instructor live revalidation
 
