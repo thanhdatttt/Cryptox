@@ -2,11 +2,71 @@
 
 Control schema/version: `LEVEL2-V1`
 
-Instruction ID: `INS-176`
+Instruction ID: `INS-177`
 
-Status: `HOLD`
+Status: `APPROVED_FOR_EXECUTION`
 
 Allowed statuses: `HOLD`, `APPROVED_FOR_EXECUTION`, `NEEDS_HUMAN_DECISION`
+
+## INS-177 — APPROVED_FOR_EXECUTION for the bounded News SQL review fix
+
+This instruction supersedes `INS-176 / HOLD`. It authorizes one narrowly
+bounded implementation correction discovered during final I-02 evidence. It
+does not add product scope or authorize final I-02 closure.
+
+### Applicability and packet
+
+- Canonical checkout: `D:\\agy-cli-projects\\AOS\\Cryptox`, branch
+  `MVP_IMPLEMENTATION`, authorization predecessor `4044cb2`. The source and
+  business checkpoint is unchanged from `f32e19a`; `.codex/config.toml` is a
+  pre-existing excluded untracked path.
+- `TASKS.md` remains authoritative at 58 rows: 57 `DONE`, only `I-02`
+  `REVIEW`, and no competing Manager or worker is active.
+- The sole authorized subpacket is the diagnosed News PostgreSQL read-query
+  correction inside the existing I-02 review-fix allowance. It is a repair of
+  approved behavior, not a new News capability, provider, schema, or scope.
+
+### Exact delegation and write scope
+
+- Create exactly one fresh same-directory Manager with `gpt-5.6-luna` and
+  `max` reasoning. No worktree, branch, duplicate, retry, replacement, or
+  user-visible worker task.
+- The Manager must create exactly one fresh hidden internal worker, with no
+  additional worker or parallel lane. The worker's only writable paths are
+  `modules/news/infrastructure/postgres.ts` and
+  `modules/news/infrastructure/postgres.spec.ts`. The worker must not edit,
+  stage, or commit control files or any other repository path.
+- The Manager alone may update only `docs/implementation/TASKS.md` and
+  `docs/implementation/HANDOFF.md`, and may re-enter only
+  `I-02: REVIEW -> READY -> IN_PROGRESS -> REVIEW`. It must preserve all
+  other task states and stop without marking I-02 `DONE`.
+
+### Acceptance and prohibitions
+
+- Verify the live `42702` diagnosis and qualify every News-item column used by
+  the joined PostgreSQL `read()` query (`news_items` versus provenance and
+  template tables), including projection, filters, cursor predicates, and
+  ordering, while preserving the existing deterministic behavior.
+- Add focused regression coverage proving the qualified SQL and the existing
+  filtering/order/projection semantics. Run the focused News PostgreSQL tests,
+  relevant News/backend tests, typecheck, build, lint, architecture,
+  artifacts, scope/deferred, runtime smoke, whitespace, diff, and exact-path
+  checks. With the already-running local services, prove `/news` no longer
+  fails from the diagnosed ambiguous-column error; an upstream provider
+  outage remains separately classified.
+- No migration, contract, provider, safe-fetch, runtime-composition,
+  sentiment, frontend, Strategy, Search, Backtesting, Leaderboard,
+  dependency, README, OpenSpec, credential, or control-policy change is
+  authorized. Do not weaken safety, use fixtures as live evidence, expose
+  secrets, or repair unrelated failures.
+- If the diagnosis is false, the fix needs a path outside the two listed
+  files, or validation exposes a broader defect, stop with
+  `NEEDS_INSTRUCTOR_REVIEW`. Unavailable tools remain `BLOCKED` or
+  `UNVERIFIED`. The Manager must review the exact diff and make one coherent
+  checkpoint commit attempt, then stop at I-02 `REVIEW` for Instructor review.
+
+No final I-02 promotion, deferred scope, pending OpenSpec task, or downstream
+execution is authorized by `INS-177`.
 
 ## INS-176 — HOLD after INS-175 final I-02 evidence pass
 

@@ -3987,3 +3987,40 @@ Canonical references: [Contributor rules](../../AGENTS.md),
 [Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
 [Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
 `DEC-096`, and `INS-176`.
+
+## DEC-098 — Authorize one bounded News PostgreSQL read correction
+
+Status: `APPROVED`
+
+Authority: Instructor review of `INS-175` evidence and the committed
+`INS-176 / HOLD` checkpoint `4044cb2`. The fresh public News read returned
+sanitized PostgreSQL error `42702`; source inspection identified unqualified
+columns in the joined News read query. This is a narrowly scoped correction of
+approved behavior within I-02's existing review-fix allowance, not new scope.
+
+Authorize exactly one fresh same-directory `gpt-5.6-luna` Manager with `max`
+reasoning and exactly one fresh hidden worker. The worker may edit only
+`modules/news/infrastructure/postgres.ts` and
+`modules/news/infrastructure/postgres.spec.ts`, qualifying the `news_items`
+projection/filter/cursor/order columns in the joined read query and adding
+focused regression coverage. The Manager may update only `TASKS.md` and
+`HANDOFF.md`, re-enter only `I-02: REVIEW -> READY -> IN_PROGRESS -> REVIEW`,
+and must stop without marking I-02 `DONE`.
+
+Acceptance requires exact-path review, focused and relevant tests, build,
+typecheck, lint, architecture/artifact/scope/runtime/whitespace/diff gates,
+and a local `/news` read that no longer fails with the diagnosed ambiguous
+column error. An upstream provider failure remains separately classified.
+No migration, contract, provider/safe-fetch, runtime-composition, frontend,
+dependency, README, OpenSpec, credential, deferred, downstream, or unrelated
+source change is authorized. If two paths are insufficient or the diagnosis
+is false, stop with `NEEDS_INSTRUCTOR_REVIEW`; unavailable checks are not PASS.
+After the checkpoint, a separate authorization is required for complete I-02
+final evidence and any promotion decision.
+
+Affected: `I-02`, `INS-176`, `DEC-097`, `TASKS.md`, and `HANDOFF.md`.
+
+Canonical references: [Contributor rules](../../AGENTS.md),
+[Requirements](../requirements.md), [MVP plan](../implementation/MVP_PLAN.md),
+[Task state](../implementation/TASKS.md), [Latest checkpoint](../implementation/HANDOFF.md),
+`DEC-097`, and `INS-177`.
