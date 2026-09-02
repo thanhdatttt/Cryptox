@@ -19,9 +19,10 @@ const DEFAULT_SOURCES: CrawlSource[] = [
   { id: "src-4", name: "The Defiant", type: "RSS", url: "https://thedefiant.io/feed", active: true },
   { id: "src-5", name: "Bitcoin Magazine", type: "RSS", url: "https://bitcoinmagazine.com/feed", active: true },
   { id: "src-6", name: "CryptoSlate", type: "RSS", url: "https://cryptoslate.com/feed/", active: true },
-  // Website sources — these require LLM-based HTML extraction (needs CRAWLER_LLM config)
-  { id: "src-7", name: "The Block", type: "WEBSITE", url: "https://www.theblock.co/latest", active: true },
+  // Website sources — scraped directly from web pages or via LLM
+  { id: "src-7", name: "Decrypt News", type: "WEBSITE", url: "https://decrypt.co/news", active: true },
   { id: "src-8", name: "Bankless", type: "WEBSITE", url: "https://www.bankless.com/read", active: true },
+  { id: "src-9", name: "CryptoSlate News", type: "WEBSITE", url: "https://cryptoslate.com/news/", active: true },
 ];
 
 function CoinIcon({ coin }: { coin: string }) {
@@ -55,7 +56,7 @@ export function News() {
   // Source configuration modal state
   const [showSourceConfig, setShowSourceConfig] = useState(false);
   const [sources, setSources] = useState<CrawlSource[]>(() => {
-    const SOURCES_VERSION = "v3"; // bump this to force defaults refresh
+    const SOURCES_VERSION = "v4"; // bump this to force defaults refresh
     try {
       const storedVersion = localStorage.getItem("cryptox.news-sources-version");
       if (storedVersion === SOURCES_VERSION) {

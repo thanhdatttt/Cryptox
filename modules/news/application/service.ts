@@ -130,6 +130,70 @@ export function createNewsModule(dependencies: InternalDependencies = createInMe
     }
   };
 
+  const scrapeWebsiteArticles = async (url: string, sourceName: string, targetCoin?: string): Promise<NewsItem[]> => {
+    try {
+      const response = await globalThis.fetch(url, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept-Language": "en-US,en;q=0.9",
+        },
+      });
+      if (!response.ok) return [];
+      const html = await response.text();
+      const origin = new URL(url).origin;
+      const now = new Date().toISOString();
+      const results: NewsItem[] = [];
+
+      const articleBlocks = html.match(/<article\b[^>]*>[\s\S]*?<\/article>/gi) || [];
+      const blocksToScan = articleBlocks.length > 0 ? articleBlocks : (html.match(/<(?:div|section)\b[^>]*(?:card|article|news|post|item)[^>]*>[\s\S]*?<\/(?:div|section)>/gi) || []).slice(0, 20);
+
+      for (const block of blocksToScan.slice(0, 15)) {
+        const titleMatch = block.match(/<h[1-4]\b[^>]*>([\s\S]*?)<\/h[1-4]>/i);
+        const linkMatch = block.match(/<a\b[^>]*\bhref=["']([^"']+)["'][^>]*>/i);
+        const descMatch = block.match(/<p\b[^>]*>([\s\S]*?)<\/p>/i);
+
+        if (titleMatch && linkMatch) {
+          const rawTitle = titleMatch[1].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+          const rawDesc = descMatch ? descMatch[1].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim() : rawTitle;
+          let rawHref = linkMatch[1].trim();
+          if (rawHref.startsWith("/")) rawHref = origin + rawHref;
+
+          if (rawTitle.length >= 10 && rawHref.startsWith("http") && !results.some((r) => r.url === rawHref)) {
+            const textToScan = `${rawTitle} ${rawDesc}`.toUpperCase();
+            const coins: string[] = [];
+            if (targetCoin && targetCoin !== "ALL" && !coins.includes(targetCoin.toUpperCase())) {
+              coins.push(targetCoin.toUpperCase());
+            }
+            for (const c of ["BTC", "ETH", "SOL", "BNB", "XRP", "ADA", "DOGE"]) {
+              if (textToScan.includes(c) && !coins.includes(c)) coins.push(c);
+            }
+            if (coins.length === 0) coins.push("BTC");
+
+            const id = createHash("sha256").update(rawHref, "utf8").digest("hex").slice(0, 24);
+            try {
+              results.push(validateNewsItem({
+                id,
+                title: rawTitle.slice(0, 500),
+                content: rawDesc.slice(0, 5000),
+                source: sourceName,
+                publishedAt: now,
+                crawledAt: now,
+                relatedCoins: coins,
+                url: rawHref,
+              }));
+            } catch {
+              // ignore invalid items
+            }
+          }
+        }
+      }
+      return results;
+    } catch {
+      return [];
+    }
+  };
+
   return {
     async collect(options?: NewsCollectOptions) {
       // 1. If HTML is directly supplied
@@ -153,34 +217,50 @@ export function createNewsModule(dependencies: InternalDependencies = createInMe
           const sourceName = src.name.replace(/\s+RSS$/i, "").replace(/\s+News$/i, "").trim().toUpperCase();
 
           if (src.type === "WEBSITE") {
-            // WEBSITE type — use the LLM-based crawler to extract news from HTML pages
-            if (!interpreter) {
-              console.warn(`[news] Skipping WEBSITE source "${sourceName}": no LLM interpreter configured. Set CRAWLER_MODEL_ENDPOINT, CRAWLER_MODEL_NAME, and CRAWLER_LLM_API_KEY in .env.`);
-              observeProviderFailure(observability, { providerName: sourceName, stage: "FETCH", reason: "ERROR" });
-              continue;
-            }
-            try {
-              const crawlerProvider = createCrawlerNewsProvider({
-                sourceUrls: [src.url],
-                interpreter,
-                name: sourceName,
-                limits: crawlerLimits,
-                observability,
-              });
-              const items = await crawlerProvider.fetch();
-              for (const rawItem of items) {
-                const item = { ...rawItem };
-                if (options.coin && options.coin !== "ALL" && !item.relatedCoins.includes(options.coin.toUpperCase())) {
-                  item.relatedCoins = [...item.relatedCoins, options.coin.toUpperCase()];
+            let websiteItems: NewsItem[] = [];
+
+            // 1. Try LLM crawler if interpreter is configured
+            if (interpreter) {
+              try {
+                const crawlerProvider = createCrawlerNewsProvider({
+                  sourceUrls: [src.url],
+                  interpreter,
+                  name: sourceName,
+                  limits: crawlerLimits,
+                  observability,
+                });
+                const fetched = await crawlerProvider.fetch();
+                if (Array.isArray(fetched) && fetched.length > 0) {
+                  websiteItems = fetched;
                 }
-                try {
-                  await persistAndAnalyze(item);
-                } catch {
-                  // ignore invalid or duplicated
-                }
+              } catch (error) {
+                observeProviderFailure(observability, { providerName: sourceName, stage: "MODEL", reason: providerFailureReason(error) });
               }
-            } catch (error) {
-              observeProviderFailure(observability, { providerName: sourceName, stage: "FETCH", reason: providerFailureReason(error) });
+            }
+
+            // 2. Fallback to direct HTML scraper if LLM had 0 results or failed/rate-limited
+            if (websiteItems.length === 0) {
+              try {
+                const scraped = await scrapeWebsiteArticles(src.url, sourceName, options.coin);
+                if (scraped.length > 0) {
+                  websiteItems = scraped;
+                }
+              } catch (error) {
+                observeProviderFailure(observability, { providerName: sourceName, stage: "FETCH", reason: providerFailureReason(error) });
+              }
+            }
+
+            // 3. Persist and analyze all discovered items
+            for (const rawItem of websiteItems) {
+              const item = { ...rawItem };
+              if (options.coin && options.coin !== "ALL" && !item.relatedCoins.includes(options.coin.toUpperCase())) {
+                item.relatedCoins = [...item.relatedCoins, options.coin.toUpperCase()];
+              }
+              try {
+                await persistAndAnalyze(item);
+              } catch {
+                // ignore invalid or duplicated
+              }
             }
             continue;
           }
