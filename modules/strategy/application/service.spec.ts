@@ -134,6 +134,12 @@ describe("strategy definition runtime", () => {
     expect(result.compositeStrategyDefinition).toMatchObject({ method: "WEIGHTED_SCORE", thresholds: { buy: 0.2, sell: -0.2 } });
     expect(await runtime.listDefinitions("user-a")).toHaveLength(2);
     expect(await runtime.listComposites("user-a")).toHaveLength(1);
+
+    // Repeated generation with identical composite proposal is idempotent
+    const repeatResult = await runtime.generateStrategy("user-a", { sourceType: "TEXT", text: "Combine trend and momentum signals again." });
+    expect(repeatResult.compositeStrategyDefinition?.id).toBe(result.compositeStrategyDefinition?.id);
+    expect(await runtime.listDefinitions("user-a")).toHaveLength(2);
+    expect(await runtime.listComposites("user-a")).toHaveLength(1);
   });
 
   it("rejects model output and timeouts without writing definitions", async () => {

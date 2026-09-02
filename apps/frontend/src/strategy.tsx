@@ -92,9 +92,15 @@ export type StrategySourceType = "USER_PROMPT" | "WEB_IMPORT" | "MANUAL_BUILDER"
 
 export interface StrategyDraft {
   id: string;
+  kind?: "SINGLE" | "COMPOSITE";
   name: string;
   strategyName: string;
   parameters: Record<string, number | string>;
+  composite?: {
+    method: CombinationMethod;
+    components: Array<{ strategyDefinitionId: string; weight: number }>;
+    thresholds?: { buy: number; sell: number };
+  };
   sourceType: StrategySourceType;
   createdAt: string;
   isSaved: boolean;
@@ -165,6 +171,17 @@ function persistDeletedStrategyId(id: string) {
   }
 }
 
+function unpersistDeletedStrategyId(id: string): string[] {
+  try {
+    const current = loadDeletedStrategyIds();
+    const next = current.filter((item) => item !== id);
+    localStorage.setItem(DELETED_STRATEGIES_KEY, JSON.stringify(next));
+    return next;
+  } catch {
+    return [];
+  }
+}
+
 const PROVENANCE_STORAGE_KEY = "cryptox_strategy_provenance_v1";
 
 function loadProvenanceMap(): Record<string, StrategySourceType> {
@@ -173,6 +190,31 @@ function loadProvenanceMap(): Record<string, StrategySourceType> {
     return raw ? JSON.parse(raw) : {};
   } catch {
     return {};
+  }
+}
+
+const CUSTOM_NAMES_STORAGE_KEY = "cryptox_strategy_custom_names_v1";
+
+function loadCustomNamesMap(): Record<string, string> {
+  try {
+    const raw = localStorage.getItem(CUSTOM_NAMES_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function persistCustomName(id: string, name: string) {
+  try {
+    const current = loadCustomNamesMap();
+    if (name.trim()) {
+      current[id] = name.trim();
+    } else {
+      delete current[id];
+    }
+    localStorage.setItem(CUSTOM_NAMES_STORAGE_KEY, JSON.stringify(current));
+  } catch {
+    // local storage unavailable
   }
 }
 
@@ -210,14 +252,27 @@ function ParsedSummary({
   result,
   sourceType,
   activeDraft,
+  definitions,
 }: {
   definition?: StrategyDefinition;
   composite?: Composite;
   result?: StrategyGenerationResult;
   sourceType: SourceType;
   activeDraft?: StrategyDraft;
+  definitions?: Resource<StrategyDefinition[]>;
 }) {
-  const currentDef: StrategyDefinition | undefined = definition ?? (activeDraft ? {
+  const currentComposite: Composite | undefined = composite ?? (activeDraft?.composite ? {
+    id: activeDraft.savedDefinitionId ?? activeDraft.id,
+    userId: "current",
+    logicalFamilyKey: `composite:${activeDraft.composite.method}`,
+    version: activeDraft.version ?? 1,
+    method: activeDraft.composite.method,
+    components: activeDraft.composite.components,
+    thresholds: activeDraft.composite.thresholds,
+    createdAt: activeDraft.createdAt,
+  } : (result?.compositeStrategyDefinition ? result.compositeStrategyDefinition : undefined));
+
+  const currentDef: StrategyDefinition | undefined = definition ?? (!currentComposite && activeDraft ? {
     id: activeDraft.savedDefinitionId ?? activeDraft.id,
     userId: "current",
     logicalFamilyKey: `strategy:${activeDraft.strategyName}`,
@@ -245,7 +300,7 @@ function ParsedSummary({
       ? "Composite Builder"
       : "User Prompt";
 
-  if (!currentDef && !composite) {
+  if (!currentDef && !currentComposite) {
     return (
       <Panel title="Strategy analyzed" className="strategy-summary-panel">
         <Empty>
@@ -257,7 +312,12 @@ function ParsedSummary({
     );
   }
 
-  if (composite) {
+  if (currentComposite) {
+    const customNames = loadCustomNamesMap();
+    const compHeroName = activeDraft?.name
+      ?? customNames[currentComposite.id]
+      ?? (currentComposite.method === "MAJORITY_VOTE" ? "Majority Vote Ensemble" : "Weighted Scoring Ensemble");
+
     return (
       <Panel title="Strategy analyzed" className="strategy-summary-panel">
         {/* Header Hero Card */}
@@ -266,12 +326,12 @@ function ParsedSummary({
             <span className="summary-hero-icon">🔀</span>
             <div className="summary-hero-meta">
               <span className="summary-type-tag">COMPOSITE ENSEMBLE</span>
-              <h3 className="summary-hero-name">{composite.method}</h3>
+              <h3 className="summary-hero-name">{compHeroName}</h3>
             </div>
             <div className="summary-verified-badge">✓ Validated</div>
           </div>
           <p className="summary-hero-desc">
-            Multi-strategy ensemble combining {composite.components.length} quantitative components.
+            Multi-strategy ensemble combining {currentComposite.components.length} quantitative components.
           </p>
         </div>
 
@@ -279,16 +339,35 @@ function ParsedSummary({
         <div className="summary-section-card">
           <div className="summary-section-title">
             <span>🧩 Member Strategy Components</span>
-            <span className="summary-count-badge">{composite.components.length} components</span>
+            <span className="summary-count-badge">{currentComposite.components.length} components</span>
           </div>
           <div className="summary-components-grid">
-            {composite.components.map((c, i) => (
-              <div className="summary-component-row" key={i}>
-                <span className="comp-bullet">●</span>
-                <span className="comp-id">{c.strategyDefinitionId}</span>
-                <span className="comp-weight">Weight: <b>{(c.weight * 100).toFixed(0)}%</b></span>
-              </div>
-            ))}
+            {currentComposite.components.map((c, i) => {
+              const memberDef = definitions?.data?.find((d) => d.id === c.strategyDefinitionId)
+                ?? (result?.strategyDefinition?.id === c.strategyDefinitionId ? result.strategyDefinition : undefined);
+              const displayName = memberDef?.strategyName ?? (
+                c.strategyDefinitionId.toLowerCase().includes("rsi") ? "RSI"
+                : c.strategyDefinitionId.toLowerCase().includes("bollinger") ? "Bollinger Bands"
+                : c.strategyDefinitionId.toLowerCase().includes("sentiment") ? "News Sentiment"
+                : c.strategyDefinitionId.toLowerCase().includes("ma") ? "Moving Average"
+                : c.strategyDefinitionId.toLowerCase().includes("support") ? "Support & Resistance"
+                : (c.strategyDefinitionId.startsWith("strategy-definition-") ? `Strategy (${c.strategyDefinitionId.slice(20, 26)})` : c.strategyDefinitionId)
+              );
+              const version = memberDef?.version ? `v${memberDef.version}` : "v1";
+
+              return (
+                <div className="summary-component-row" key={i}>
+                  <span className="comp-bullet">●</span>
+                  <div className="comp-name-group">
+                    <b className="comp-name">{displayName}</b>
+                    <span className="comp-version-pill">{version}</span>
+                  </div>
+                  {currentComposite.method === "WEIGHTED_SCORE" && (
+                    <span className="comp-weight">Weight: <b>{(c.weight * 100).toFixed(0)}%</b></span>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
 
@@ -300,19 +379,19 @@ function ParsedSummary({
           <div className="summary-params-grid">
             <div className="summary-param-tile">
               <span className="param-k">Consensus Method</span>
-              <span className="param-v">{composite.method}</span>
+              <span className="param-v">{currentComposite.method}</span>
             </div>
             <div className="summary-param-tile">
               <span className="param-k">Buy Signal</span>
-              <span className="param-v">{composite.thresholds ? `≥ ${composite.thresholds.buy}` : "Majority (>50%)"}</span>
+              <span className="param-v">{currentComposite.method === "WEIGHTED_SCORE" && currentComposite.thresholds ? `≥ ${currentComposite.thresholds.buy}` : "Majority (>50%)"}</span>
             </div>
             <div className="summary-param-tile">
               <span className="param-k">Sell Signal</span>
-              <span className="param-v">{composite.thresholds ? `≤ ${composite.thresholds.sell}` : "Majority (>50%)"}</span>
+              <span className="param-v">{currentComposite.method === "WEIGHTED_SCORE" && currentComposite.thresholds ? `≤ ${currentComposite.thresholds.sell}` : "Majority (>50%)"}</span>
             </div>
             <div className="summary-param-tile">
               <span className="param-k">Engine Version</span>
-              <span className="param-v">v{composite.version}</span>
+              <span className="param-v">v{currentComposite.version}</span>
             </div>
           </div>
         </div>
@@ -321,11 +400,11 @@ function ParsedSummary({
         <div className="summary-provenance-card">
           <div className="provenance-item">
             <span className="prov-k">Generation Source</span>
-            <span className="prov-v">Composite Builder</span>
+            <span className="prov-v">{sourceLabel}</span>
           </div>
           <div className="provenance-item">
-            <span className="prov-k">Composite UUID</span>
-            <code className="prov-v-code">{composite.id.slice(0, 18)}...</code>
+            <span className="prov-k">Database Record</span>
+            <code className="prov-v-code">{activeDraft?.isSaved ? (activeDraft.savedDefinitionId ?? currentComposite.id) : "Draft (Unsaved)"}</code>
           </div>
         </div>
       </Panel>
@@ -334,7 +413,8 @@ function ParsedSummary({
 
   // Single Strategy Definition
   const paramEntries = Object.entries(currentDef!.parameters);
-  const strategyName = currentDef!.familyName ?? currentDef!.strategyName;
+  const customNames = loadCustomNamesMap();
+  const singleStrategyName = activeDraft?.name ?? customNames[currentDef!.id] ?? currentDef!.familyName ?? currentDef!.strategyName;
 
   return (
     <Panel title="Strategy analyzed" className="strategy-summary-panel">
@@ -344,48 +424,48 @@ function ParsedSummary({
           <span className="summary-hero-icon">{iconFor(currentDef!)}</span>
           <div className="summary-hero-meta">
             <span className="summary-type-tag">SINGLE QUANT INDICATOR</span>
-            <h3 className="summary-hero-name">{strategyName}</h3>
+            <h3 className="summary-hero-name">{singleStrategyName}</h3>
           </div>
           <div className="summary-verified-badge">✓ Schema Valid</div>
         </div>
         <p className="summary-hero-desc">
-          Automated algorithmic trading strategy compiled and validated against the execution engine.
+          Automated quantitative trading algorithm configured with {paramEntries.length} parameter{paramEntries.length === 1 ? "" : "s"}.
         </p>
       </div>
 
-      {/* Structured Parameters Breakdown */}
+      {/* Numerical Parameters Grid */}
       <div className="summary-section-card">
         <div className="summary-section-title">
-          <span>⚙️ Extracted Mathematical Parameters</span>
-          <span className="summary-count-badge">{paramEntries.length} parameters</span>
+          <span>⚙️ Indicator Parameters</span>
+          <span className="summary-count-badge">{paramEntries.length} configured</span>
         </div>
         <div className="summary-params-grid">
-          {paramEntries.map(([key, val]) => (
-            <div className="summary-param-tile" key={key}>
-              <span className="param-k">{key}</span>
-              <span className="param-v">{String(val)}</span>
+          {paramEntries.map(([k, v]) => (
+            <div className="summary-param-tile" key={k}>
+              <span className="param-k">{k}</span>
+              <span className="param-v">{String(v)}</span>
             </div>
           ))}
         </div>
       </div>
 
-      {/* Execution Profile & Risk */}
+      {/* Decision Logic Card */}
       <div className="summary-section-card">
         <div className="summary-section-title">
-          <span>📈 Execution &amp; Risk Profile</span>
+          <span>⚖️ Signal Generation Rules</span>
         </div>
         <div className="summary-params-grid">
           <div className="summary-param-tile">
-            <span className="param-k">Algorithm Plugin</span>
+            <span className="param-k">Indicator Plugin</span>
             <span className="param-v">{currentDef!.strategyName}</span>
           </div>
           <div className="summary-param-tile">
-            <span className="param-k">Strategy Version</span>
-            <span className="param-v">v{currentDef!.version}</span>
+            <span className="param-k">Plugin Version</span>
+            <span className="param-v">{currentDef!.implementationVersion}</span>
           </div>
           <div className="summary-param-tile">
-            <span className="param-k">Execution Mode</span>
-            <span className="param-v">Signal Vector Execution</span>
+            <span className="param-k">Definition Version</span>
+            <span className="param-v">v{currentDef!.version}</span>
           </div>
           <div className="summary-param-tile">
             <span className="param-k">Status</span>
@@ -402,7 +482,7 @@ function ParsedSummary({
         </div>
         <div className="provenance-item">
           <span className="prov-k">Database Record</span>
-          <code className="prov-v-code">{activeDraft?.savedDefinitionId ?? (currentDef!.id.startsWith("draft-") ? "Draft (Unsaved)" : `${currentDef!.id.slice(0, 18)}...`)}</code>
+          <code className="prov-v-code">{activeDraft?.isSaved ? (activeDraft.savedDefinitionId ?? currentDef!.id) : "Draft (Unsaved)"}</code>
         </div>
       </div>
     </Panel>
@@ -413,45 +493,58 @@ function JsonPreview({ payload }: { payload?: unknown }) { const [message, setMe
 
 function ValidationSave({
   definition,
+  composite,
   result,
   sourceType,
   descriptors,
   activeDraft,
   onSaveToDatabase,
+  onUpdateName,
   isSaving,
   error,
   message,
 }: {
   definition?: StrategyDefinition;
+  composite?: Composite;
   result?: StrategyGenerationResult;
   sourceType: SourceType;
   descriptors: Resource<StrategyDescriptor[]>;
   activeDraft?: StrategyDraft;
   onSaveToDatabase: (customName: string) => Promise<void>;
+  onUpdateName?: (id: string, newName: string) => void;
   isSaving?: boolean;
   error?: unknown;
   message: string;
 }) {
-  const isComplete = Boolean(definition || result?.compositeStrategyDefinition || activeDraft);
-  const strategyName = definition?.strategyName ?? activeDraft?.strategyName ?? result?.compositeStrategyDefinition?.method ?? "RSI";
-  const supported = definition ? (descriptors.data?.some((item) => item.name === definition.strategyName) ?? true) : Boolean(result?.compositeStrategyDefinition);
-  const logicValid = Boolean(definition || result?.compositeStrategyDefinition || activeDraft);
+  const isCompositeDraft = Boolean(composite || result?.compositeStrategyDefinition || activeDraft?.composite || activeDraft?.kind === "COMPOSITE");
+  const isComplete = Boolean(definition || composite || result?.compositeStrategyDefinition || activeDraft);
+  const targetId = activeDraft?.id ?? definition?.id ?? composite?.id;
+  const customNamesMap = loadCustomNamesMap();
+  const currentSavedName = (targetId ? customNamesMap[targetId] : undefined)
+    ?? activeDraft?.name
+    ?? definition?.familyName
+    ?? definition?.strategyName
+    ?? (composite ? (composite.method === "MAJORITY_VOTE" ? "Majority Vote Ensemble" : "Weighted Scoring Ensemble") : undefined)
+    ?? (result?.compositeStrategyDefinition ? (result.compositeStrategyDefinition.method === "MAJORITY_VOTE" ? "Majority Vote Ensemble" : "Weighted Scoring Ensemble") : "");
 
-  const [customName, setCustomName] = useState("");
+  const strategyName = currentSavedName || (isCompositeDraft ? "Composite Ensemble" : "Strategy");
+  const supported = isCompositeDraft ? true : (definition ? (descriptors.data?.some((item) => item.name === definition.strategyName) ?? true) : Boolean(activeDraft));
+  const logicValid = Boolean(definition || composite || result?.compositeStrategyDefinition || activeDraft);
+
+  const [customName, setCustomName] = useState(currentSavedName);
 
   useEffect(() => {
-    if (activeDraft?.name) {
-      setCustomName(activeDraft.name);
-    } else if (definition?.familyName) {
-      setCustomName(definition.familyName);
-    } else if (definition?.strategyName) {
-      setCustomName(definition.strategyName);
-    }
-  }, [activeDraft, definition]);
+    setCustomName(currentSavedName);
+  }, [currentSavedName, targetId]);
+
+  const isNameModified = Boolean(targetId && customName.trim() && customName.trim() !== currentSavedName);
 
   const tags = useMemo(() => {
-    if (!definition && !result?.compositeStrategyDefinition && !activeDraft) return [];
-    if (result?.compositeStrategyDefinition) return ["Composite", result.compositeStrategyDefinition.method, "Multi-Asset"];
+    if (!definition && !composite && !result?.compositeStrategyDefinition && !activeDraft) return [];
+    if (composite || result?.compositeStrategyDefinition || activeDraft?.composite || activeDraft?.kind === "COMPOSITE") {
+      const meth = activeDraft?.composite?.method ?? composite?.method ?? result?.compositeStrategyDefinition?.method ?? "Ensemble";
+      return ["Composite", meth === "MAJORITY_VOTE" ? "Majority Vote" : "Weighted Score", "Multi-Indicator"];
+    }
     const t = [strategyName];
     if (definition?.familyName) t.push(definition.familyName);
     const params = definition?.parameters ?? activeDraft?.parameters ?? {};
@@ -459,13 +552,15 @@ function ValidationSave({
     if (params.emaPeriod || params.fastPeriod) t.push("Trend");
     if (params.bollingerPeriod) t.push("Bollinger");
     return Array.from(new Set(t)).slice(0, 4);
-  }, [definition, result, activeDraft, strategyName]);
+  }, [definition, composite, result, activeDraft, strategyName]);
 
-  const versionDisplay = activeDraft?.version ?? definition?.version ?? result?.compositeStrategyDefinition?.version ?? 1;
-  const isSavedInDb = activeDraft ? activeDraft.isSaved : Boolean(definition?.id);
+  const versionDisplay = activeDraft?.version ?? definition?.version ?? composite?.version ?? result?.compositeStrategyDefinition?.version ?? 1;
+  const isSavedInDb = activeDraft ? activeDraft.isSaved : Boolean(definition?.id || composite?.id);
 
   const resolvedSource = definition
     ? resolveStrategySource(definition, loadProvenanceMap())
+    : composite
+    ? "COMPOSITE_BUILDER"
     : activeDraft
     ? activeDraft.sourceType
     : (sourceType === "TEXT" ? "USER_PROMPT" : "WEB_IMPORT");
@@ -596,13 +691,29 @@ function ValidationSave({
               {isSaving ? "Saving..." : "💾 Save Strategy"}
             </button>
           ) : (
-            <a
-              href="#/backtest"
-              className="btn-backtest-link"
-              style={{ textDecoration: "none", textAlign: "center" }}
-            >
-              🚀 Run Backtest with this Strategy →
-            </a>
+            <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
+              {isNameModified && (
+                <button
+                  type="button"
+                  className="btn-save-database-primary"
+                  style={{ background: "#2563eb", cursor: "pointer" }}
+                  onClick={() => {
+                    if (targetId && customName.trim()) {
+                      onUpdateName?.(targetId, customName.trim());
+                    }
+                  }}
+                >
+                  💾 Save New Name
+                </button>
+              )}
+              <a
+                href="#/backtest"
+                className="btn-backtest-link"
+                style={{ textDecoration: "none", textAlign: "center" }}
+              >
+                🚀 Run Backtest with this Strategy →
+              </a>
+            </div>
           )}
         </div>
       </div>
@@ -717,6 +828,7 @@ function SavedStrategiesTable({
   const [filter, setFilter] = useState<"ALL" | "USER_PROMPT" | "WEB_IMPORT" | "MANUAL_BUILDER" | "COMPOSITE_BUILDER" | "DRAFTS">("ALL");
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const provenanceMap = useMemo(() => loadProvenanceMap(), [definitions.data, drafts]);
+  const customNamesMap = useMemo(() => loadCustomNamesMap(), [definitions.data, composites.data, drafts]);
 
   const unsavedDrafts = drafts.filter((d) => !d.isSaved);
   const totalSingle = definitions.data?.length ?? 0;
@@ -804,32 +916,44 @@ function SavedStrategiesTable({
                 unsavedDrafts
                   .filter((draft) => {
                     if (filter === "ALL" || filter === "DRAFTS") return true;
+                    if (filter === "COMPOSITE_BUILDER" && (draft.kind === "COMPOSITE" || draft.sourceType === "COMPOSITE_BUILDER")) return true;
                     return draft.sourceType === filter;
                   })
                   .map((draft) => {
+                    const isCompDraft = draft.kind === "COMPOSITE" || Boolean(draft.composite);
                     const sourceBadge =
                       draft.sourceType === "WEB_IMPORT"
                         ? "↗ Web Import"
                         : draft.sourceType === "MANUAL_BUILDER"
                         ? "🛠️ Manual Builder"
+                        : draft.sourceType === "COMPOSITE_BUILDER"
+                        ? "🔀 Composite Builder"
                         : "✦ User Prompt";
                     const badgeClass =
                       draft.sourceType === "WEB_IMPORT"
                         ? "badge-web-import"
                         : draft.sourceType === "MANUAL_BUILDER"
                         ? "badge-manual-builder"
+                        : draft.sourceType === "COMPOSITE_BUILDER"
+                        ? "badge-composite-builder"
                         : "badge-user-prompt";
                     const isSelected = selected?.id === draft.id;
-                    const paramSummary = Object.entries(draft.parameters)
-                      .map(([k, v]) => `${k}: ${v}`)
-                      .join(" · ");
+                    const draftTitle = draft.name || (isCompDraft ? "Composite Ensemble" : draft.strategyName);
+                    const draftSub = isCompDraft ? "Multi-Indicator Ensemble · Active Draft" : `${draft.strategyName} · Active Draft`;
+                    const logicSummary = isCompDraft && draft.composite
+                      ? (draft.composite.thresholds
+                          ? `${draft.composite.components.length} components · Buy ≥ ${draft.composite.thresholds.buy}, Sell ≤ ${draft.composite.thresholds.sell}`
+                          : `${draft.composite.components.length} components · Strict majority consensus`)
+                      : Object.entries(draft.parameters)
+                          .map(([k, v]) => `${k}: ${v}`)
+                          .join(" · ") || "Standard Parameters";
 
                     return (
                       <tr key={draft.id} className={`draft-row ${isSelected ? "selected" : ""}`}>
                         <td>
                           <div className="table-strat-cell">
-                            <span className="table-strat-name">{draft.name || draft.strategyName}</span>
-                            <span className="table-strat-sub">{draft.strategyName} · Active Draft</span>
+                            <span className="table-strat-name">{draftTitle}</span>
+                            <span className="table-strat-sub">{draftSub}</span>
                           </div>
                         </td>
                         <td>
@@ -839,7 +963,7 @@ function SavedStrategiesTable({
                         </td>
                         <td className="table-date-cell">{displayDate(draft.createdAt)}</td>
                         <td><span className="draft-version-badge">Draft</span></td>
-                        <td className="strategy-parameters">{paramSummary}</td>
+                        <td className="strategy-parameters">{logicSummary}</td>
                         <td>
                           <span className="status-pill status-pill-draft">○ Draft</span>
                         </td>
@@ -866,9 +990,9 @@ function SavedStrategiesTable({
                               onClick={() =>
                                 setDeleteTarget({
                                   id: draft.id,
-                                  name: draft.name || draft.strategyName,
+                                  name: draftTitle,
                                   type: "DRAFT",
-                                  details: paramSummary,
+                                  details: logicSummary,
                                 })
                               }
                             >
@@ -903,7 +1027,7 @@ function SavedStrategiesTable({
                         : source === "MANUAL_BUILDER"
                         ? "badge-manual-builder"
                         : "badge-user-prompt";
-                    const stratName = item.familyName ?? item.strategyName;
+                    const stratName = customNamesMap[item.id] ?? item.familyName ?? item.strategyName;
 
                     return (
                       <tr key={item.id} className={isSelected ? "selected" : ""}>
@@ -961,14 +1085,14 @@ function SavedStrategiesTable({
               {showComposite &&
                 composites.data?.map((comp) => {
                   const isSelected = selected?.id === comp.id;
-                  const methodLabel = comp.method === "MAJORITY_VOTE" ? "Majority Vote Ensemble" : "Weighted Scoring Ensemble";
+                  const methodLabel = customNamesMap[comp.id] ?? (comp.method === "MAJORITY_VOTE" ? "Majority Vote Ensemble" : "Weighted Scoring Ensemble");
                   const compNames = comp.components
                     .map((c) => {
                       const found = definitions.data?.find((d) => d.id === c.strategyDefinitionId);
                       return found?.strategyName ?? "Strategy";
                     })
                     .join(" + ");
-                  const logicSummary = comp.thresholds
+                  const logicSummary = comp.method === "WEIGHTED_SCORE" && comp.thresholds
                     ? `${comp.components.length} components (${compNames}) · Buy ≥ ${comp.thresholds.buy}, Sell ≤ ${comp.thresholds.sell}`
                     : `${comp.components.length} components (${compNames}) · Strict majority consensus`;
 
@@ -1051,7 +1175,7 @@ function SavedStrategiesTable({
   );
 }
 
-function PluginEditor({ descriptors, onSaved, error, setError }: { descriptors: Resource<StrategyDescriptor[]>; onSaved: () => void; error?: unknown; setError: (error?: unknown) => void }) {
+function PluginEditor({ descriptors, onSaved, error, setError }: { descriptors: Resource<StrategyDescriptor[]>; onSaved: (unblockedId?: string) => void; error?: unknown; setError: (error?: unknown) => void }) {
   const [selected, setSelected] = useState<StrategyDescriptor>();
   const [parameters, setParameters] = useState<Record<string, number | string>>({});
   const save = useMutation({
@@ -1059,8 +1183,9 @@ function PluginEditor({ descriptors, onSaved, error, setError }: { descriptors: 
     onSuccess: (saved) => {
       if (saved?.id) {
         recordProvenance(saved.id, "MANUAL_BUILDER");
+        unpersistDeletedStrategyId(saved.id);
       }
-      onSaved();
+      onSaved(saved?.id);
     },
     onError: setError,
   });
@@ -1163,7 +1288,7 @@ function PluginEditor({ descriptors, onSaved, error, setError }: { descriptors: 
                       value={parameters[parameter.key] ?? ""}
                       min={parameter.minimum}
                       max={parameter.maximum}
-                      step={parameter.step}
+                      step={parameter.type === "INTEGER" ? 1 : (parameter.step ?? "any")}
                       onChange={(event) => setParameters({ ...parameters, [parameter.key]: Number(event.target.value) })}
                     />
                   )}
@@ -1218,6 +1343,7 @@ function CompositeLibrary({ definitions, composites, refresh, error, setError }:
     onSuccess: (saved) => {
       if (saved?.id) {
         recordProvenance(saved.id, "COMPOSITE_BUILDER");
+        unpersistDeletedStrategyId(saved.id);
       }
       refresh();
     },
@@ -1232,7 +1358,9 @@ function CompositeLibrary({ definitions, composites, refresh, error, setError }:
   };
 
   const weightSum = Object.values(weightedComponents(selectedIds, weights)).reduce((sum, item) => sum + item.weight, 0);
-  const thresholdsValid = Number.isFinite(Number(buy)) && Number.isFinite(Number(sell)) && Number(buy) > Number(sell);
+  const buyNum = Number(buy);
+  const sellNum = Number(sell);
+  const thresholdsValid = Number.isFinite(buyNum) && Number.isFinite(sellNum) && buyNum > sellNum && buyNum >= -1 && buyNum <= 1 && sellNum >= -1 && sellNum <= 1;
   const weightedValid = method === "MAJORITY_VOTE" || (Math.abs(weightSum - 1) < 0.0001 && thresholdsValid);
   const canSave = selectedIds.length >= 2 && weightedValid && !save.isPending;
 
@@ -1333,7 +1461,7 @@ function CompositeLibrary({ definitions, composites, refresh, error, setError }:
                               type="number"
                               min={0.01}
                               max={1}
-                              step={0.05}
+                              step="any"
                               value={weights[item.id] ?? 0}
                               onChange={(event) => setWeights({ ...weights, [item.id]: Number(event.target.value) })}
                             />
@@ -1362,22 +1490,26 @@ function CompositeLibrary({ definitions, composites, refresh, error, setError }:
                   <input
                     className="threshold-input"
                     type="number"
-                    step={0.05}
+                    min={-1}
+                    max={1}
+                    step="any"
                     value={buy}
                     onChange={(event) => setBuy(event.target.value)}
                   />
-                  <small className="threshold-help">Minimum score to execute BUY.</small>
+                  <small className="threshold-help">Minimum score to execute BUY (range: -1.0 to 1.0).</small>
                 </label>
                 <label className="threshold-field">
                   <span>Sell Signal Threshold (Score &le;)</span>
                   <input
                     className="threshold-input"
                     type="number"
-                    step={0.05}
+                    min={-1}
+                    max={1}
+                    step="any"
                     value={sell}
                     onChange={(event) => setSell(event.target.value)}
                   />
-                  <small className="threshold-help">Maximum score to execute SELL.</small>
+                  <small className="threshold-help">Maximum score to execute SELL (range: -1.0 to 1.0).</small>
                 </label>
               </div>
             </div>
@@ -1442,10 +1574,14 @@ function CompositeLibrary({ definitions, composites, refresh, error, setError }:
                     </div>
                   </div>
 
-                  {composite.thresholds && (
+                  {composite.method === "WEIGHTED_SCORE" && composite.thresholds ? (
                     <div className="composite-thresholds-summary">
                       <span>Buy &ge; {composite.thresholds.buy}</span>
                       <span>Sell &le; {composite.thresholds.sell}</span>
+                    </div>
+                  ) : (
+                    <div className="composite-thresholds-summary majority-summary">
+                      <span>Strict Majority Consensus (&gt;50% agreement)</span>
                     </div>
                   )}
 
@@ -1491,13 +1627,24 @@ export function StrategyScreen() {
   const [compositeError, setCompositeError] = useState<unknown>();
   const [message, setMessage] = useState("");
 
+  const unsavedDraftIds = useMemo(() => {
+    const ids = new Set<string>();
+    drafts.filter((d) => !d.isSaved).forEach((d) => {
+      if (d.savedDefinitionId) ids.add(d.savedDefinitionId);
+      if (d.composite?.components) {
+        d.composite.components.forEach((c) => ids.add(c.strategyDefinitionId));
+      }
+    });
+    return ids;
+  }, [drafts]);
+
   const visibleDefinitions = useMemo(() => {
-    return (definitions.data ?? []).filter((d) => !deletedIds.includes(d.id));
-  }, [definitions.data, deletedIds]);
+    return (definitions.data ?? []).filter((d) => !deletedIds.includes(d.id) && !unsavedDraftIds.has(d.id));
+  }, [definitions.data, deletedIds, unsavedDraftIds]);
 
   const visibleComposites = useMemo(() => {
-    return (composites.data ?? []).filter((c) => !deletedIds.includes(c.id));
-  }, [composites.data, deletedIds]);
+    return (composites.data ?? []).filter((c) => !deletedIds.includes(c.id) && !unsavedDraftIds.has(c.id));
+  }, [composites.data, deletedIds, unsavedDraftIds]);
 
   const filteredDefinitions: Resource<StrategyDefinition[]> = {
     ...definitions,
@@ -1513,21 +1660,47 @@ export function StrategyScreen() {
     mutationFn: (input: { sourceType: "TEXT"; text: string } | { sourceType: "URL"; url: string }) => api.generateStrategy(input),
     onSuccess: (generated) => {
       setResult(generated);
+      const isComposite = generated.kind === "COMPOSITE";
       const stratDef = generated.kind === "SINGLE" ? generated.strategyDefinition : undefined;
-      const stratName = stratDef?.strategyName ?? "RSI";
-      const familyName = stratDef?.familyName ?? stratName;
-      const params = stratDef?.parameters ?? {};
-      const nextVersion = (definitions.data?.filter((d) => d.strategyName === stratName).length ?? 0) + 1;
+      const compDef = generated.kind === "COMPOSITE" ? generated.compositeStrategyDefinition : undefined;
+
+      const sourceTag: StrategySourceType = sourceType === "TEXT" ? "USER_PROMPT" : "WEB_IMPORT";
+      if (stratDef?.id) {
+        recordProvenance(stratDef.id, sourceTag);
+      }
+      if (compDef?.id) {
+        recordProvenance(compDef.id, sourceTag);
+      }
+
+      let draftName = "Strategy";
+      let stratName = "Strategy";
+      let params: Record<string, number | string> = {};
+
+      if (stratDef) {
+        stratName = stratDef.strategyName;
+        draftName = stratDef.familyName ?? stratName;
+        params = stratDef.parameters ?? {};
+      } else if (compDef) {
+        stratName = compDef.method;
+        draftName = compDef.method === "MAJORITY_VOTE" ? "Majority Vote Ensemble" : "Weighted Scoring Ensemble";
+      }
 
       const newDraft: StrategyDraft = {
         id: `draft-${Date.now()}`,
-        name: familyName,
+        kind: isComposite ? "COMPOSITE" : "SINGLE",
+        name: draftName,
         strategyName: stratName,
         parameters: params,
-        sourceType: sourceType === "TEXT" ? "USER_PROMPT" : "WEB_IMPORT",
+        composite: compDef ? {
+          method: compDef.method,
+          components: compDef.components,
+          thresholds: compDef.thresholds,
+        } : undefined,
+        sourceType: sourceTag,
         createdAt: new Date().toISOString(),
         isSaved: false,
-        version: nextVersion,
+        savedDefinitionId: stratDef?.id ?? compDef?.id,
+        version: stratDef?.version ?? compDef?.version ?? 1,
       };
 
       setActiveDraft(newDraft);
@@ -1538,10 +1711,7 @@ export function StrategyScreen() {
         return nextDrafts;
       });
       setSelected(newDraft);
-      setMessage("AI strategy draft generated! Review parameters and click 'Save Strategy' below.");
-      void queryClient.invalidateQueries({ queryKey: ["strategies"] });
-      void definitions.refetch();
-      void composites.refetch();
+      setMessage(isComposite ? "AI composite ensemble draft generated! Review logic and click 'Save Strategy' below." : "AI strategy draft generated! Review parameters and click 'Save Strategy' below.");
     },
   });
 
@@ -1553,7 +1723,10 @@ export function StrategyScreen() {
     : generatedComposite(result);
   const preview = result ?? (selected ? { source: "Draft / Database Record", strategy: selected } : (activeDraft ? { source: "Active Draft", draft: activeDraft } : undefined));
 
-  const refreshSavedStrategies = () => {
+  const refreshSavedStrategies = (unblockedId?: string) => {
+    if (unblockedId) {
+      setDeletedIds((prev) => prev.filter((id) => id !== unblockedId));
+    }
     setMessage("Database strategies refreshed.");
     void queryClient.invalidateQueries({ queryKey: ["strategies"] });
     void definitions.refetch();
@@ -1561,6 +1734,17 @@ export function StrategyScreen() {
   };
 
   const handleDeleteDraft = (draftId: string) => {
+    const target = drafts.find((d) => d.id === draftId);
+    if (target?.savedDefinitionId) {
+      persistDeletedStrategyId(target.savedDefinitionId);
+      setDeletedIds((prev) => [...prev, target.savedDefinitionId!]);
+    }
+    if (target?.composite?.components) {
+      target.composite.components.forEach((c) => {
+        persistDeletedStrategyId(c.strategyDefinitionId);
+        setDeletedIds((prev) => [...prev, c.strategyDefinitionId]);
+      });
+    }
     const nextDrafts = drafts.filter((d) => d.id !== draftId);
     setDrafts(nextDrafts);
     persistDrafts(nextDrafts);
@@ -1594,22 +1778,50 @@ export function StrategyScreen() {
 
     setIsSaving(true);
     try {
-      const saved = await api.define(targetDraft.strategyName, targetDraft.parameters);
-      recordProvenance(saved.id, targetDraft.sourceType);
+      let savedId = targetDraft.savedDefinitionId;
+      if (targetDraft.kind === "COMPOSITE" && targetDraft.composite) {
+        if (!savedId) {
+          const saved = await api.defineComposite(targetDraft.composite.method, targetDraft.composite.components, targetDraft.composite.thresholds);
+          savedId = saved.id;
+        }
+      } else {
+        if (!savedId) {
+          const saved = await api.define(targetDraft.strategyName, targetDraft.parameters);
+          savedId = saved.id;
+        }
+      }
+
+      if (savedId) {
+        recordProvenance(savedId, targetDraft.sourceType);
+        if (customName || targetDraft.name) {
+          persistCustomName(savedId, customName || targetDraft.name);
+        }
+        const nextDeleted = unpersistDeletedStrategyId(savedId);
+        setDeletedIds(nextDeleted);
+        if (targetDraft.composite?.components) {
+          targetDraft.composite.components.forEach((c) => {
+            unpersistDeletedStrategyId(c.strategyDefinitionId);
+          });
+        }
+      }
+
       const updatedDraft: StrategyDraft = {
         ...targetDraft,
         name: customName || targetDraft.name,
         isSaved: true,
-        savedDefinitionId: saved.id,
+        savedDefinitionId: savedId,
       };
       setActiveDraft(updatedDraft);
       persistActiveDraft(updatedDraft);
       setDrafts((prev) => {
-        const nextDrafts = prev.map((d) => (d.id === targetDraft.id ? updatedDraft : d));
+        const nextDrafts = prev.map((d) =>
+          (d.id === targetDraft.id || (savedId && d.savedDefinitionId === savedId))
+            ? { ...d, isSaved: true, name: customName || d.name, savedDefinitionId: savedId }
+            : d
+        );
         persistDrafts(nextDrafts);
         return nextDrafts;
       });
-      setSelected(saved);
       setMessage(`✓ Strategy "${customName || targetDraft.name}" successfully saved to PostgreSQL!`);
       await queryClient.invalidateQueries({ queryKey: ["strategies"] });
       void definitions.refetch();
@@ -1621,22 +1833,74 @@ export function StrategyScreen() {
     }
   };
 
+  const handleUpdateCustomName = (id: string, newName: string) => {
+    if (!newName.trim()) return;
+    const cleanName = newName.trim();
+    persistCustomName(id, cleanName);
+
+    setDrafts((prev) => {
+      const nextDrafts = prev.map((d) =>
+        (d.id === id || d.savedDefinitionId === id) ? { ...d, name: cleanName } : d
+      );
+      persistDrafts(nextDrafts);
+      return nextDrafts;
+    });
+
+    if (activeDraft && (activeDraft.id === id || activeDraft.savedDefinitionId === id)) {
+      const updated = { ...activeDraft, name: cleanName };
+      setActiveDraft(updated);
+      persistActiveDraft(updated);
+    }
+
+    setMessage(`✓ Strategy name updated to "${cleanName}"!`);
+    void queryClient.invalidateQueries({ queryKey: ["strategies"] });
+    void definitions.refetch();
+    void composites.refetch();
+  };
+
   const handleQuickSaveDraft = async (draft: StrategyDraft) => {
     setIsSaving(true);
     try {
-      const saved = await api.define(draft.strategyName, draft.parameters);
-      recordProvenance(saved.id, draft.sourceType);
+      let savedId = draft.savedDefinitionId;
+      if (draft.kind === "COMPOSITE" && draft.composite) {
+        if (!savedId) {
+          const saved = await api.defineComposite(draft.composite.method, draft.composite.components, draft.composite.thresholds);
+          savedId = saved.id;
+        }
+      } else {
+        if (!savedId) {
+          const saved = await api.define(draft.strategyName, draft.parameters);
+          savedId = saved.id;
+        }
+      }
+
+      if (savedId) {
+        recordProvenance(savedId, draft.sourceType);
+        persistCustomName(savedId, draft.name);
+        const nextDeleted = unpersistDeletedStrategyId(savedId);
+        setDeletedIds(nextDeleted);
+        if (draft.composite?.components) {
+          draft.composite.components.forEach((c) => {
+            unpersistDeletedStrategyId(c.strategyDefinitionId);
+          });
+        }
+      }
+
       const updatedDraft: StrategyDraft = {
         ...draft,
         isSaved: true,
-        savedDefinitionId: saved.id,
+        savedDefinitionId: savedId,
       };
       if (activeDraft?.id === draft.id) {
         setActiveDraft(updatedDraft);
         persistActiveDraft(updatedDraft);
       }
       setDrafts((prev) => {
-        const nextDrafts = prev.map((d) => (d.id === draft.id ? updatedDraft : d));
+        const nextDrafts = prev.map((d) =>
+          (d.id === draft.id || (savedId && d.savedDefinitionId === savedId))
+            ? { ...d, isSaved: true, savedDefinitionId: savedId }
+            : d
+        );
         persistDrafts(nextDrafts);
         return nextDrafts;
       });
@@ -1691,15 +1955,18 @@ export function StrategyScreen() {
             result={result}
             sourceType={sourceType}
             activeDraft={activeDraft}
+            definitions={definitions}
           />
           <JsonPreview payload={preview} />
           <ValidationSave
             definition={definition}
+            composite={composite}
             result={result}
             sourceType={sourceType}
             descriptors={descriptors}
             activeDraft={activeDraft}
             onSaveToDatabase={handleSaveToDatabase}
+            onUpdateName={handleUpdateCustomName}
             isSaving={isSaving}
             message={message}
           />
@@ -1733,12 +2000,14 @@ export function StrategyScreen() {
           setResult(undefined);
           const src = resolveStrategySource(item, loadProvenanceMap());
           setSourceType(src === "WEB_IMPORT" ? "URL" : "TEXT");
+          setCreationMode("AI_GENERATOR");
           setMessage("");
         }}
         onSelectComposite={(comp) => {
           setSelected(comp);
           setActiveDraft(undefined);
           setResult(undefined);
+          setCreationMode("AI_GENERATOR");
           setMessage("");
         }}
         onSelectDraft={(draft) => {
@@ -1746,6 +2015,7 @@ export function StrategyScreen() {
           setActiveDraft(draft);
           setResult(undefined);
           setSourceType(draft.sourceType === "WEB_IMPORT" ? "URL" : "TEXT");
+          setCreationMode("AI_GENERATOR");
           setMessage("");
         }}
         onSaveDraft={handleQuickSaveDraft}

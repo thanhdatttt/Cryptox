@@ -194,8 +194,17 @@ export function createStrategyModule(dependencies: StrategyModuleDependencies = 
   const modelTimeoutMs = finite(dependencies.modelTimeoutMs) && dependencies.modelTimeoutMs > 0 ? dependencies.modelTimeoutMs : 15_000;
   const factories = new Map(registry.list().map((descriptor) => [descriptor.name, registry.get(descriptor.name, descriptor.implementationSha256)!]));
   const lookupFactory = (name: string): StrategyFactory | undefined => {
+    const rawClean = name.trim().toUpperCase().replace(/[\s_-]+/g, "");
     return factories.get(name) ??
       factories.get(name.toUpperCase()) ??
+      Array.from(factories.entries()).find(([k]) => {
+        const cleanK = k.toUpperCase().replace(/[\s_-]+/g, "");
+        if (cleanK === rawClean) return true;
+        if (cleanK === "BOLLINGER" && (rawClean === "BOLLINGERBANDS" || rawClean === "BOLLINGERBAND")) return true;
+        if (cleanK === "MA" && (rawClean === "MOVINGAVERAGE" || rawClean === "MOVINGAVERAGECROSS" || rawClean === "MACROSS")) return true;
+        if (cleanK === "SUPPORTRESISTANCE" && (rawClean === "SUPPORTANDRESISTANCE" || rawClean === "SUPPRES")) return true;
+        return false;
+      })?.[1] ??
       Array.from(factories.entries()).find(([k]) => k.toLowerCase() === name.toLowerCase())?.[1];
   };
   const retainedFactories = new Map<string, StrategyFactory>();
@@ -273,9 +282,9 @@ export function createStrategyModule(dependencies: StrategyModuleDependencies = 
       thresholds = { buy: 0.3, sell: -0.3 };
     } else {
       const totalWeight = components.reduce((sum, component) => sum + component.weight, 0);
-      if (components.some((component) => component.weight < 0) || Math.abs(totalWeight - 1) > 1e-9) invalid("INVALID_COMPOSITE_STRATEGY");
+      if (components.some((component) => component.weight < 0) || Math.abs(totalWeight - 1) > 1e-4) invalid("INVALID_COMPOSITE_STRATEGY");
       thresholds = command.thresholds ?? { buy: 0.3, sell: -0.3 };
-      if (!finite(thresholds.buy) || !finite(thresholds.sell) || thresholds.buy <= thresholds.sell) invalid("INVALID_COMPOSITE_STRATEGY");
+      if (!finite(thresholds.buy) || !finite(thresholds.sell) || thresholds.buy <= thresholds.sell || thresholds.buy < -1 || thresholds.buy > 1 || thresholds.sell < -1 || thresholds.sell > 1) invalid("INVALID_COMPOSITE_STRATEGY");
     }
     const logicalFamilyKey = `composite:${command.method}:${components.map((component) => component.strategyDefinitionId).sort().join(",")}`;
     const content = { method: command.method, components, thresholds };
@@ -302,21 +311,44 @@ export function createStrategyModule(dependencies: StrategyModuleDependencies = 
     const record = value as Record<string, unknown>;
     if (record.kind !== "SINGLE" && record.kind !== "COMPOSITE") invalid("STRATEGY_MODEL_SCHEMA_INVALID");
     if (record.kind === "SINGLE" && !keysAre(record, ["kind", "strategyName", "parameters"], ["thresholds", "components", "method"])) invalid("STRATEGY_MODEL_SCHEMA_INVALID");
-    if (record.kind === "COMPOSITE" && !keysAre(record, ["kind", "components", "method"], ["thresholds"])) invalid("STRATEGY_MODEL_SCHEMA_INVALID");
+    if (record.kind === "COMPOSITE" && !keysAre(record, ["kind", "components", "method"], ["thresholds", "strategyName", "parameters"])) invalid("STRATEGY_MODEL_SCHEMA_INVALID");
     if (record.kind === "SINGLE") {
       const parameters = parameterRecord(record.parameters) ? record.parameters : invalid("STRATEGY_MODEL_SCHEMA_INVALID") as Record<string, number | string>;
       if (typeof record.strategyName !== "string") invalid("STRATEGY_MODEL_SCHEMA_INVALID");
       return { kind: "SINGLE", strategyName: record.strategyName as string, parameters };
     }
-    const thresholds = isPlainRecord(record.thresholds) ? record.thresholds : invalid("STRATEGY_MODEL_SCHEMA_INVALID") as Record<string, unknown>;
-    if (!Array.isArray(record.components) || record.components.length === 0 || !["MAJORITY_VOTE", "WEIGHTED_SCORE"].includes(record.method as string) || !keysAre(thresholds, ["buy", "sell"]) || !finite(thresholds.buy) || !finite(thresholds.sell)) invalid("STRATEGY_MODEL_SCHEMA_INVALID");
-    const components = (record.components as unknown[]).map((component: unknown) => {
+    if (!Array.isArray(record.components) || record.components.length === 0 || !["MAJORITY_VOTE", "WEIGHTED_SCORE"].includes(record.method as string)) invalid("STRATEGY_MODEL_SCHEMA_INVALID");
+    const method: CombinationMethod = record.method as CombinationMethod;
+    let buy = 0.3;
+    let sell = -0.3;
+    if (isPlainRecord(record.thresholds)) {
+      const t = record.thresholds as Record<string, unknown>;
+      if (!keysAre(t, ["buy", "sell"])) invalid("STRATEGY_MODEL_SCHEMA_INVALID");
+      if (finite(t.buy)) buy = t.buy as number;
+      if (finite(t.sell)) sell = t.sell as number;
+    }
+    if (buy <= sell) {
+      if (buy > 0 && sell > 0) {
+        sell = -buy;
+      } else {
+        buy = 0.3;
+        sell = -0.3;
+      }
+    }
+    const rawComponents = (record.components as unknown[]).map((component: unknown) => {
       if (!isPlainRecord(component) || !keysAre(component, ["strategyName", "parameters", "weight"]) || typeof component.strategyName !== "string" || !parameterRecord(component.parameters) || !finite(component.weight)) invalid("STRATEGY_MODEL_SCHEMA_INVALID");
       const item = component as Record<string, unknown>;
       const parameters = parameterRecord(item.parameters) ? item.parameters : invalid("STRATEGY_MODEL_SCHEMA_INVALID") as Record<string, number | string>;
       return { strategyName: item.strategyName as string, parameters, weight: item.weight as number };
     });
-    return { kind: "COMPOSITE", components, method: record.method as CombinationMethod, thresholds: { buy: thresholds.buy as number, sell: thresholds.sell as number } };
+    let components = rawComponents;
+    if (method === "WEIGHTED_SCORE") {
+      const sum = rawComponents.reduce((acc, c) => acc + c.weight, 0);
+      if (sum > 0 && Math.abs(sum - 1) > 1e-4 && rawComponents.every((c) => c.weight >= 0)) {
+        components = rawComponents.map((c) => ({ ...c, weight: Number((c.weight / sum).toFixed(4)) }));
+      }
+    }
+    return { kind: "COMPOSITE", components, method, thresholds: { buy, sell } };
   };
 
   return {

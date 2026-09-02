@@ -3171,13 +3171,31 @@ td {
   font-size: 8px;
 }
 
-.comp-id {
+.comp-name-group {
   flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.comp-name {
   font-weight: 700;
   color: #1e293b;
+  font-size: 11px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.comp-version-pill {
+  font-size: 8.5px;
+  font-weight: 700;
+  color: #475569;
+  background: #e2e8f0;
+  padding: 1px 4px;
+  border-radius: 3px;
+  line-height: 1;
 }
 
 .comp-weight {
