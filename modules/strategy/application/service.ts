@@ -193,6 +193,11 @@ export function createStrategyModule(dependencies: StrategyModuleDependencies = 
   const promptVersion = dependencies.promptVersion ?? "1";
   const modelTimeoutMs = finite(dependencies.modelTimeoutMs) && dependencies.modelTimeoutMs > 0 ? dependencies.modelTimeoutMs : 15_000;
   const factories = new Map(registry.list().map((descriptor) => [descriptor.name, registry.get(descriptor.name, descriptor.implementationSha256)!]));
+  const lookupFactory = (name: string): StrategyFactory | undefined => {
+    return factories.get(name) ??
+      factories.get(name.toUpperCase()) ??
+      Array.from(factories.entries()).find(([k]) => k.toLowerCase() === name.toLowerCase())?.[1];
+  };
   const retainedFactories = new Map<string, StrategyFactory>();
   const nextId = (kind: string): string => `${kind}-${randomUUID()}`;
   const artifactKey = (definition: StrategyDefinition): string => `${definition.strategyName}:${definition.implementationSha256}`;
@@ -230,16 +235,17 @@ export function createStrategyModule(dependencies: StrategyModuleDependencies = 
   };
   const prepareStrategy = async (userId: string, strategyName: string, parameters: Record<string, number | string>): Promise<{ definition: StrategyDefinition; isNew: boolean }> => {
     if (!userId.trim()) invalid("INVALID_USER");
-    const factory = factories.get(strategyName);
+    const factory = lookupFactory(strategyName);
     if (!factory) invalid("STRATEGY_NOT_REGISTERED");
     const registeredFactory = factory as StrategyFactory;
+    const canonicalName = registeredFactory.descriptor.name;
     const normalized = validateParameters(registeredFactory, parameters);
-    const logicalFamilyKey = `strategy:${strategyName}`;
-    const content = { strategyName, implementationSha256: registeredFactory.descriptor.implementationSha256, parameters: normalized };
+    const logicalFamilyKey = `strategy:${canonicalName}`;
+    const content = { strategyName: canonicalName, implementationSha256: registeredFactory.descriptor.implementationSha256, parameters: normalized };
     const prior = await dependencies.definitionRepository.listByLogicalFamily(userId, logicalFamilyKey);
     const existing = prior.find((definition) => digest({ strategyName: definition.strategyName, implementationSha256: definition.implementationSha256, parameters: definition.parameters }) === digest(content));
     if (existing) return { definition: existing, isNew: false };
-    const definition: StrategyDefinition = { id: nextId("strategy-definition"), userId, logicalFamilyKey, familyName: registeredFactory.descriptor.displayName, strategyName, implementationVersion: registeredFactory.descriptor.implementationVersion, implementationSha256: registeredFactory.descriptor.implementationSha256, version: Math.max(0, ...prior.map((item) => item.version)) + 1, parameters: normalized, createdAt: new Date().toISOString() };
+    const definition: StrategyDefinition = { id: nextId("strategy-definition"), userId, logicalFamilyKey, familyName: registeredFactory.descriptor.displayName, strategyName: canonicalName, implementationVersion: registeredFactory.descriptor.implementationVersion, implementationSha256: registeredFactory.descriptor.implementationSha256, version: Math.max(0, ...prior.map((item) => item.version)) + 1, parameters: normalized, createdAt: new Date().toISOString() };
     return { definition, isNew: true };
   };
   const defineStrategy = async (userId: string, strategyName: string, parameters: Record<string, number | string>): Promise<StrategyDefinition> => {
@@ -295,7 +301,7 @@ export function createStrategyModule(dependencies: StrategyModuleDependencies = 
     if (!isPlainRecord(value)) invalid("STRATEGY_MODEL_SCHEMA_INVALID");
     const record = value as Record<string, unknown>;
     if (record.kind !== "SINGLE" && record.kind !== "COMPOSITE") invalid("STRATEGY_MODEL_SCHEMA_INVALID");
-    if (record.kind === "SINGLE" && !keysAre(record, ["kind", "strategyName", "parameters"])) invalid("STRATEGY_MODEL_SCHEMA_INVALID");
+    if (record.kind === "SINGLE" && !keysAre(record, ["kind", "strategyName", "parameters"], ["thresholds", "components", "method"])) invalid("STRATEGY_MODEL_SCHEMA_INVALID");
     if (record.kind === "COMPOSITE" && !keysAre(record, ["kind", "components", "method"], ["thresholds"])) invalid("STRATEGY_MODEL_SCHEMA_INVALID");
     if (record.kind === "SINGLE") {
       const parameters = parameterRecord(record.parameters) ? record.parameters : invalid("STRATEGY_MODEL_SCHEMA_INVALID") as Record<string, number | string>;

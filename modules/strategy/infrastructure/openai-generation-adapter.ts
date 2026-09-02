@@ -151,6 +151,20 @@ export function createOpenAiCompatibleStrategyGenerationAdapter(options: OpenAiS
             try {
               const parsed: unknown = JSON.parse(content);
               if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) throw new Error("Invalid proposal object");
+              const raw = parsed as Record<string, unknown>;
+              if (raw.kind === "SINGLE") {
+                const singleParams = (raw.parameters && typeof raw.parameters === "object" && !Array.isArray(raw.parameters)) ? { ...(raw.parameters as Record<string, number | string>) } : {};
+                if (raw.thresholds && typeof raw.thresholds === "object" && !Array.isArray(raw.thresholds)) {
+                  const thresholds = raw.thresholds as Record<string, number>;
+                  if (thresholds.buy !== undefined && singleParams.buyThreshold === undefined) singleParams.buyThreshold = thresholds.buy;
+                  if (thresholds.sell !== undefined && singleParams.sellThreshold === undefined) singleParams.sellThreshold = thresholds.sell;
+                }
+                return {
+                  kind: "SINGLE",
+                  strategyName: typeof raw.strategyName === "string" ? raw.strategyName : "RSI",
+                  parameters: singleParams,
+                };
+              }
               return Object.fromEntries(Object.entries(parsed).filter(([, value]) => value !== null)) as GeneratedStrategyProposal;
             } catch { throw new StrategyModelError("STRATEGY_MODEL_SCHEMA_INVALID"); }
           } catch (error) {

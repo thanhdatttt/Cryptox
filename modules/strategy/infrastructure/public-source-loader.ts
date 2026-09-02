@@ -143,7 +143,15 @@ export function createPublicStrategySourceLoader(options: PublicStrategySourceLo
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), timeoutMs);
         try {
-          const response = await request(current, { redirect: "manual", signal: controller.signal });
+          const response = await request(current, {
+            redirect: "manual",
+            signal: controller.signal,
+            headers: {
+              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+              "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+              "Accept-Language": "en-US,en;q=0.9",
+            },
+          });
           if (response.status >= 300 && response.status < 400) {
             const location = response.headers.get("location");
             if (!location || redirect === maxRedirects) throw new Error("STRATEGY_SOURCE_REDIRECT_LIMIT");
