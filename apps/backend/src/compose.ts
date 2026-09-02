@@ -92,31 +92,40 @@ export function composeAllModules(options: { profile?: RuntimeProfile; env?: Nod
   search = postgres
     ? createSearchModule(createPostgresSearchDependencies(postgres, { strategyService: strategy, backtestCoordinator: backtesting, leaderboardService: leaderboard, beginCancellation: () => createPostgresCancellationUnitOfWork(postgres), clock: { now: () => new Date().toISOString() } }))
     : createSearchModule({ ...createInMemorySearchDependencies(), strategyService: strategy, backtestCoordinator: backtesting, leaderboardService: leaderboard, clock: { now: () => new Date().toISOString() } });
-  const crawler = config.newsProvider === "COINDESK_RSS" ? undefined : {
-    sourceUrls: config.crawlerSourceUrls,
-    interpreter: createOpenAiCompatibleHtmlNewsInterpreter({
-      apiKey: config.crawlerLlmApiKey!,
-      model: config.crawlerModelName!,
-      endpoint: config.crawlerModelEndpoint!,
+  // Create LLM interpreter for website crawling when credentials are available —
+  // regardless of NEWS_PROVIDER. This enables on-demand WEBSITE source crawling
+  // even when the default provider is COINDESK_RSS.
+  const crawlerInterpreter = config.crawlerLlmApiKey && config.crawlerModelEndpoint && config.crawlerModelName
+    ? createOpenAiCompatibleHtmlNewsInterpreter({
+      apiKey: config.crawlerLlmApiKey,
+      model: config.crawlerModelName,
+      endpoint: config.crawlerModelEndpoint,
       promptVersion: config.crawlerPromptVersion,
       timeoutMs: config.crawlerRequestTimeoutMs,
       maxInputBytes: config.crawlerMaxInterpreterHtmlBytes,
       maxOutputBytes: config.crawlerMaxOutputBytes,
       maxCandidates: config.crawlerMaxCandidates,
       maxFieldLength: config.crawlerMaxFieldLength,
-    }),
-    limits: {
-      timeoutMs: config.crawlerRequestTimeoutMs,
-      maxHtmlBytes: config.crawlerMaxHtmlBytes,
-      maxInterpreterHtmlBytes: config.crawlerMaxInterpreterHtmlBytes,
-      maxCandidates: config.crawlerMaxCandidates,
-      maxFieldLength: config.crawlerMaxFieldLength,
-    },
+    })
+    : undefined;
+  const crawlerLimits = {
+    timeoutMs: config.crawlerRequestTimeoutMs,
+    maxHtmlBytes: config.crawlerMaxHtmlBytes,
+    maxInterpreterHtmlBytes: config.crawlerMaxInterpreterHtmlBytes,
+    maxCandidates: config.crawlerMaxCandidates,
+    maxFieldLength: config.crawlerMaxFieldLength,
   };
+  const crawler = config.newsProvider !== "COINDESK_RSS" && crawlerInterpreter ? {
+    sourceUrls: config.crawlerSourceUrls,
+    interpreter: crawlerInterpreter,
+    limits: crawlerLimits,
+  } : undefined;
   const news = createNewsModule({
     providers: createConfiguredNewsProviders({ provider: config.newsProvider, crawler }),
     newsRepository: postgres ? new PostgresNewsRepository(postgres) : undefined,
     sentiment,
+    interpreter: crawlerInterpreter,
+    crawlerLimits,
   });
   const completionListener = config.durable ? new BullMqBacktestCompletionListener(config.redisUrl!, backtesting) : undefined;
   let recoveryTimer: NodeJS.Timeout | undefined;

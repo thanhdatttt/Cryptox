@@ -396,9 +396,10 @@ export class NewsController extends ProtectedController {
 
   @Post("collect")
   @HttpCode(202)
-  async collect(@Headers("authorization") authorization?: string): Promise<void> {
+  async collect(@Headers("authorization") authorization?: string, @Body() body?: unknown): Promise<void> {
     await this.authenticate(authorization);
-    try { await this.modules.news.collect(); } catch (error) { return auxiliaryHttpError(error); }
+    const options = typeof body === "object" && body !== null ? body as import("modules/news/api").NewsCollectOptions : undefined;
+    try { await this.modules.news.collect(options); } catch (error) { return auxiliaryHttpError(error); }
   }
 }
 

@@ -32,4 +32,4 @@ export interface NewsObservability {
   recordSentimentFailure?(input: { newsId: string; reason: "TIMEOUT" | "INFERENCE_ERROR" }): void;
 }
 
-export interface NewsModuleDependencies { providers: readonly NewsProvider[]; newsRepository: NewsRepository; sentiment: import("../domain/contracts").NewsSentimentPort; observability?: NewsObservability; }
+export interface NewsModuleDependencies { providers: readonly NewsProvider[]; newsRepository: NewsRepository; sentiment: import("../domain/contracts").NewsSentimentPort; observability?: NewsObservability; interpreter?: HtmlNewsInterpreter; crawlerLimits?: import("../infrastructure/crawler-provider").CrawlerLimits; }

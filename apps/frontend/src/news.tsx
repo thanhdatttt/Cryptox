@@ -12,11 +12,16 @@ export interface CrawlSource {
 }
 
 const DEFAULT_SOURCES: CrawlSource[] = [
-  { id: "src-1", name: "CoinDesk RSS", type: "RSS", url: "https://www.coindesk.com/arc/outboundfeeds/rss/", active: true },
-  { id: "src-2", name: "Cointelegraph RSS", type: "RSS", url: "https://cointelegraph.com/rss", active: true },
-  { id: "src-3", name: "The Block News", type: "WEBSITE", url: "https://www.theblock.co/latest", active: true },
-  { id: "src-4", name: "Decrypt News", type: "WEBSITE", url: "https://decrypt.co/news", active: true },
-  { id: "src-5", name: "Bankless", type: "WEBSITE", url: "https://www.bankless.com/read", active: true },
+  // RSS feeds — these serve XML that the backend RSS parser can actually parse
+  { id: "src-1", name: "CoinDesk", type: "RSS", url: "https://www.coindesk.com/arc/outboundfeeds/rss/", active: true },
+  { id: "src-2", name: "Cointelegraph", type: "RSS", url: "https://cointelegraph.com/rss", active: true },
+  { id: "src-3", name: "Decrypt", type: "RSS", url: "https://decrypt.co/feed", active: true },
+  { id: "src-4", name: "The Defiant", type: "RSS", url: "https://thedefiant.io/feed", active: true },
+  { id: "src-5", name: "Bitcoin Magazine", type: "RSS", url: "https://bitcoinmagazine.com/feed", active: true },
+  { id: "src-6", name: "CryptoSlate", type: "RSS", url: "https://cryptoslate.com/feed/", active: true },
+  // Website sources — these require LLM-based HTML extraction (needs CRAWLER_LLM config)
+  { id: "src-7", name: "The Block", type: "WEBSITE", url: "https://www.theblock.co/latest", active: true },
+  { id: "src-8", name: "Bankless", type: "WEBSITE", url: "https://www.bankless.com/read", active: true },
 ];
 
 function CoinIcon({ coin }: { coin: string }) {
@@ -30,8 +35,16 @@ function CoinIcon({ coin }: { coin: string }) {
 }
 
 export function News() {
-  const [sourceType, setSourceType] = useState<"WEBSITE" | "RSS" | "HTML">("WEBSITE");
-  const [selectedCoin, setSelectedCoin] = useState("ALL");
+  // 1. CRAWL & TRACK TARGET CONTROLS (Top Toolbar)
+  const [crawlSourceType, setCrawlSourceType] = useState<"WEBSITE" | "RSS" | "HTML">("WEBSITE");
+  const [trackedCoin, setTrackedCoin] = useState("ALL");
+  const [crawlStatusMessage, setCrawlStatusMessage] = useState<string | null>(null);
+
+  // 2. IN-FEED FILTER SYSTEM (Dedicated to Resulted News Feed)
+  const [filterSearch, setFilterSearch] = useState("");
+  const [filterSource, setFilterSource] = useState("ALL");
+  const [filterCoin, setFilterCoin] = useState("ALL");
+  const [filterSentiment, setFilterSentiment] = useState("ALL");
   const [page, setPage] = useState(1);
   const pageSize = 5;
 
@@ -42,9 +55,16 @@ export function News() {
   // Source configuration modal state
   const [showSourceConfig, setShowSourceConfig] = useState(false);
   const [sources, setSources] = useState<CrawlSource[]>(() => {
+    const SOURCES_VERSION = "v3"; // bump this to force defaults refresh
     try {
-      const stored = localStorage.getItem("cryptox.news-sources");
-      if (stored) return JSON.parse(stored);
+      const storedVersion = localStorage.getItem("cryptox.news-sources-version");
+      if (storedVersion === SOURCES_VERSION) {
+        const stored = localStorage.getItem("cryptox.news-sources");
+        if (stored) return JSON.parse(stored);
+      }
+      // version mismatch or first load — reset to new defaults
+      localStorage.setItem("cryptox.news-sources-version", SOURCES_VERSION);
+      localStorage.removeItem("cryptox.news-sources");
     } catch { /* ignore */ }
     return DEFAULT_SOURCES;
   });
@@ -65,11 +85,23 @@ export function News() {
   const queryClient = useQueryClient();
   const query = useQuery({ queryKey: ["news"], queryFn: api.news });
   const capabilities = useQuery({ queryKey: ["market", "capabilities"], queryFn: api.marketCapabilities });
+
   const collect = useMutation({
-    mutationFn: api.collectNews,
+    mutationFn: async (payload?: { sourceType?: string; sources?: Array<{ name: string; url: string; type: string }>; html?: string; coin?: string }) => {
+      const mode = payload?.sourceType ?? crawlSourceType;
+      const coin = payload?.coin ?? trackedCoin;
+      setCrawlStatusMessage(`Đang cào từ ${mode} cho ${coin === "ALL" ? "tất cả coin" : coin}...`);
+      return api.collectNews(payload);
+    },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["news"] });
+      setCrawlStatusMessage(`Cào dữ liệu hoàn tất lúc ${new Date().toLocaleTimeString()}!`);
+      setTimeout(() => setCrawlStatusMessage(null), 5000);
       setPage(1);
+    },
+    onError: (err) => {
+      setCrawlStatusMessage(`Lỗi cào dữ liệu: ${err instanceof Error ? err.message : String(err)}`);
+      setTimeout(() => setCrawlStatusMessage(null), 6000);
     },
   });
 
@@ -119,12 +151,38 @@ export function News() {
 
   const handleAnalyzeHtml = () => {
     if (!htmlInput.trim()) return;
-    collect.mutate();
+    collect.mutate({
+      sourceType: "HTML",
+      html: htmlInput,
+      coin: trackedCoin,
+    });
+  };
+
+  const handleStartCrawl = () => {
+    const activeSources = sources.filter((s) => s.active && s.type === crawlSourceType);
+    if (activeSources.length === 0) {
+      setCrawlStatusMessage(`Không có nguồn ${crawlSourceType} nào được bật. Hãy mở "Cấu hình nguồn" để thêm hoặc bật nguồn.`);
+      setTimeout(() => setCrawlStatusMessage(null), 5000);
+      return;
+    }
+    collect.mutate({
+      sourceType: crawlSourceType,
+      sources: activeSources,
+      coin: trackedCoin,
+    });
   };
 
   // Real Database Items
   const allItems: NewsItem[] = query.data ?? [];
   const analyzedItems = useMemo(() => allItems.filter((item) => Boolean(item.sentiment)), [allItems]);
+
+  // Stable timestamp that only changes when crawler / database query completes
+  const lastUpdatedTime = useMemo(() => {
+    if (query.dataUpdatedAt) {
+      return new Date(query.dataUpdatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    }
+    return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  }, [query.dataUpdatedAt]);
 
   // Dynamically derive supported pure coins from market backend pairs + crawled news items
   const availableCoins = useMemo(() => {
@@ -139,15 +197,58 @@ export function News() {
     return Array.from(set).sort();
   }, [capabilities.data?.pairs, allItems]);
 
-  // Filter news articles strictly by selected pure coin ticker
+  // Distinct sources and coins present in the database (for feed filtering)
+  const distinctSourcesInDb = useMemo(() => {
+    return Array.from(new Set(allItems.map((i) => i.source))).filter(Boolean).sort();
+  }, [allItems]);
+
+  const distinctCoinsInDb = useMemo(() => {
+    const set = new Set<string>();
+    allItems.forEach((i) => {
+      i.relatedCoins?.forEach((c) => set.add(c.toUpperCase()));
+    });
+    return Array.from(set).sort();
+  }, [allItems]);
+
+  // DEDICATED IN-FEED FILTERING (Completely independent of top toolbar crawl settings)
   const filteredItems = useMemo(() => {
     return allItems.filter((item) => {
-      if (selectedCoin === "ALL") return true;
-      const coinMatch = item.relatedCoins?.some((c) => c.toUpperCase().includes(selectedCoin));
-      const textMatch = item.title.toUpperCase().includes(selectedCoin) || item.content.toUpperCase().includes(selectedCoin);
-      return coinMatch || textMatch;
+      // 1. Keyword search (title & content)
+      if (filterSearch.trim()) {
+        const term = filterSearch.trim().toLowerCase();
+        const matchTitle = item.title?.toLowerCase().includes(term);
+        const matchContent = item.content?.toLowerCase().includes(term);
+        if (!matchTitle && !matchContent) return false;
+      }
+      // 2. Source filter
+      if (filterSource !== "ALL" && item.source !== filterSource) {
+        return false;
+      }
+      // 3. Coin filter
+      if (filterCoin !== "ALL") {
+        const coinMatch = item.relatedCoins?.some((c) => c.toUpperCase().includes(filterCoin));
+        const textMatch = item.title.toUpperCase().includes(filterCoin) || item.content.toUpperCase().includes(filterCoin);
+        if (!coinMatch && !textMatch) return false;
+      }
+      // 4. Sentiment filter
+      if (filterSentiment !== "ALL") {
+        if (!item.sentiment || item.sentiment.label.toUpperCase() !== filterSentiment.toUpperCase()) {
+          return false;
+        }
+      }
+      return true;
     });
-  }, [allItems, selectedCoin]);
+  }, [allItems, filterSearch, filterSource, filterCoin, filterSentiment]);
+
+  const isAnyFilterActive = filterSearch.trim() !== "" || filterSource !== "ALL" || filterCoin !== "ALL" || filterSentiment !== "ALL";
+
+  const handleResetFilters = () => {
+    setFilterSearch("");
+    setFilterSource("ALL");
+    setFilterCoin("ALL");
+    setFilterSentiment("ALL");
+    setPage(1);
+  };
 
   const totalPages = Math.max(1, Math.ceil(filteredItems.length / pageSize));
   const currentItems = filteredItems.slice((page - 1) * pageSize, page * pageSize);
@@ -226,53 +327,54 @@ export function News() {
       <div className="news-header">
         <div>
           <h1>News Crawler & Phân tích thị trường</h1>
-          <p>Thu thập tin tức thực tế từ backend, tự động chuẩn hoá và phân tích sentiment</p>
+          <p>Thu thập tin tức theo nguồn & coin chỉ định, chuẩn hoá và phân tích sentiment bằng AI</p>
         </div>
         <div className="news-header-status">
           <span className="live-data-pill"><i /> Nguồn dữ liệu: PostgreSQL + REST Crawler</span>
         </div>
       </div>
 
-      {/* Top Toolbar */}
+      {/* Top Toolbar: CRAWL & TRACK TARGET CONTROLS */}
       <section className="news-toolbar-card">
         {/* Source Type Selector */}
         <div className="toolbar-group">
-          <label>Nguồn</label>
+          <label>Nguồn cào (Target Source)</label>
           <div className="source-pill-tabs">
             <button
               type="button"
-              className={`source-pill ${sourceType === "WEBSITE" ? "active" : ""}`}
-              onClick={() => setSourceType("WEBSITE")}
+              className={`source-pill ${crawlSourceType === "WEBSITE" ? "active" : ""}`}
+              onClick={() => setCrawlSourceType("WEBSITE")}
+              title="Cào tin từ các trang Website đã cấu hình"
             >
               🌐 Website
             </button>
             <button
               type="button"
-              className={`source-pill ${sourceType === "RSS" ? "active" : ""}`}
-              onClick={() => setSourceType("RSS")}
+              className={`source-pill ${crawlSourceType === "RSS" ? "active" : ""}`}
+              onClick={() => setCrawlSourceType("RSS")}
+              title="Cào tin từ các luồng RSS feed"
             >
               📡 RSS
             </button>
             <button
               type="button"
-              className={`source-pill ${sourceType === "HTML" ? "active" : ""}`}
-              onClick={() => setSourceType("HTML")}
+              className={`source-pill ${crawlSourceType === "HTML" ? "active" : ""}`}
+              onClick={() => setCrawlSourceType("HTML")}
+              title="Nhập trực tiếp mã nguồn HTML hoặc upload file"
             >
               &lt;/&gt; HTML
             </button>
           </div>
         </div>
 
-        {/* Pair / Asset Selector (Pure Coins Only) */}
+        {/* Pair / Asset Selector (What coin to track when crawling) */}
         <div className="toolbar-group">
-          <label>Pair (Asset)</label>
+          <label>Coin cần theo dõi (Tracked Asset)</label>
           <select
             className="coin-select"
-            value={selectedCoin}
-            onChange={(event) => {
-              setSelectedCoin(event.target.value);
-              setPage(1);
-            }}
+            value={trackedCoin}
+            onChange={(event) => setTrackedCoin(event.target.value)}
+            title="Chọn đồng coin cần thu thập & phân tích"
           >
             <option value="ALL">Tất cả tài sản (ALL)</option>
             {availableCoins.map((coin) => (
@@ -287,6 +389,7 @@ export function News() {
             type="button"
             className="btn-source-config"
             onClick={() => setShowSourceConfig(true)}
+            title="Quản lý danh sách URL nguồn cào tin tức"
           >
             ⚙ Cấu hình nguồn ({sources.length})
           </button>
@@ -294,15 +397,23 @@ export function News() {
             type="button"
             className="btn-start-crawl"
             disabled={collect.isPending}
-            onClick={() => collect.mutate()}
+            onClick={handleStartCrawl}
           >
             {collect.isPending ? "Đang crawl..." : "▷ Bắt đầu crawl"}
           </button>
         </div>
       </section>
 
+      {/* Crawl Status Notification Banner */}
+      {crawlStatusMessage && (
+        <div className={`crawl-status-banner ${collect.isError ? "error" : "info"}`}>
+          <span>ℹ {crawlStatusMessage}</span>
+          <button type="button" onClick={() => setCrawlStatusMessage(null)}>✕</button>
+        </div>
+      )}
+
       {/* HTML Manual Dropzone / Input (Shown when HTML tab is selected) */}
-      {sourceType === "HTML" && (
+      {crawlSourceType === "HTML" && (
         <section className="html-input-card">
           <div className="html-card-header">
             <h3>&lt;/&gt; Nhập hoặc Tải lên mã nguồn HTML để phân tích</h3>
@@ -337,20 +448,124 @@ export function News() {
 
       {/* 3-Column Main Content Layout */}
       <div className="news-main-grid">
-        {/* Column 1: Tin tức đầu vào (Input News Feed) */}
+        {/* Column 1: Tin tức đầu vào (Input News Feed with Dedicated In-Feed Filter Bar) */}
         <section className="news-col news-feed-col">
           <div className="panel-title-bar">
-            <h2>Tin tức đầu vào ({filteredItems.length})</h2>
-            <span className="last-update-tag">↻ Cập nhật: {new Date().toLocaleTimeString()}</span>
+            <div>
+              <h2>Tin tức đầu vào</h2>
+              <span className="feed-count-badge">Hiển thị {filteredItems.length} / {allItems.length} tin</span>
+            </div>
+            <span className="last-update-tag">↻ Cập nhật: {lastUpdatedTime}</span>
           </div>
 
+          {/* DEDICATED IN-FEED FILTER BAR */}
+          <div className="feed-filter-bar">
+            {/* Keyword Search */}
+            <div className="feed-search-wrap">
+              <span className="feed-search-icon">🔍</span>
+              <input
+                type="text"
+                placeholder="Tìm tiêu đề, nội dung..."
+                value={filterSearch}
+                onChange={(e) => {
+                  setFilterSearch(e.target.value);
+                  setPage(1);
+                }}
+                className="feed-search-input"
+              />
+              {filterSearch && (
+                <button
+                  type="button"
+                  className="btn-clear-search"
+                  onClick={() => {
+                    setFilterSearch("");
+                    setPage(1);
+                  }}
+                  title="Xoá từ khoá tìm kiếm"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
+            {/* Filter Dropdowns Row */}
+            <div className="feed-filter-dropdowns">
+              <select
+                className="feed-filter-select"
+                value={filterSource}
+                onChange={(e) => {
+                  setFilterSource(e.target.value);
+                  setPage(1);
+                }}
+                title="Lọc theo Nguồn tin"
+              >
+                <option value="ALL">Mọi nguồn ({distinctSourcesInDb.length})</option>
+                {distinctSourcesInDb.map((src) => (
+                  <option key={src} value={src}>{src}</option>
+                ))}
+              </select>
+
+              <select
+                className="feed-filter-select"
+                value={filterCoin}
+                onChange={(e) => {
+                  setFilterCoin(e.target.value);
+                  setPage(1);
+                }}
+                title="Lọc theo Coin"
+              >
+                <option value="ALL">Mọi coin ({distinctCoinsInDb.length})</option>
+                {distinctCoinsInDb.map((coin) => (
+                  <option key={coin} value={coin}>{coin}</option>
+                ))}
+              </select>
+
+              <select
+                className="feed-filter-select"
+                value={filterSentiment}
+                onChange={(e) => {
+                  setFilterSentiment(e.target.value);
+                  setPage(1);
+                }}
+                title="Lọc theo Sentiment"
+              >
+                <option value="ALL">Mọi sentiment</option>
+                <option value="POSITIVE">🟢 Positive</option>
+                <option value="NEUTRAL">⚪ Neutral</option>
+                <option value="NEGATIVE">🔴 Negative</option>
+              </select>
+
+              {isAnyFilterActive && (
+                <button
+                  type="button"
+                  className="btn-reset-filters"
+                  onClick={handleResetFilters}
+                  title="Xoá tất cả bộ lọc hiện tại"
+                >
+                  ✕ Xoá lọc
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* News List Items */}
           <div className="news-list-container">
             {query.isLoading ? (
               <p className="news-feed-loading">Đang tải tin tức từ backend...</p>
-            ) : filteredItems.length === 0 ? (
+            ) : allItems.length === 0 ? (
               <div className="empty-news-state">
                 <p>Chưa có dữ liệu tin tức trong cơ sở dữ liệu.</p>
-                <small className="muted">Bấm "Bắt đầu crawl" để cào dữ liệu từ các nguồn đã cấu hình.</small>
+                <small className="muted">Bấm "▷ Bắt đầu crawl" để thu thập tin tức từ các nguồn đã cấu hình.</small>
+                <button type="button" className="btn-quick-crawl" onClick={() => collect.mutate()}>
+                  Bắt đầu crawl ngay
+                </button>
+              </div>
+            ) : filteredItems.length === 0 ? (
+              <div className="empty-news-state">
+                <p>Không tìm thấy bài viết nào khớp với bộ lọc hiện tại.</p>
+                <button type="button" className="btn-quick-crawl" onClick={handleResetFilters}>
+                  Xoá bộ lọc
+                </button>
               </div>
             ) : (
               currentItems.map((item) => {
@@ -598,7 +813,7 @@ export function News() {
           <section className="analysis-output-panel">
             <div className="panel-title-bar">
               <h2>Đầu ra phân tích</h2>
-              <span className="last-update-tag">↻ Cập nhật: {new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+              <span className="last-update-tag">↻ Cập nhật: {lastUpdatedTime}</span>
             </div>
 
             {/* Sentiment 24h Summary Bar */}
@@ -702,7 +917,7 @@ export function News() {
                     required
                   />
                 </div>
-                <div className="form-group">
+                <div className="form-group type-group">
                   <label>Loại nguồn</label>
                   <select
                     value={newSourceType}

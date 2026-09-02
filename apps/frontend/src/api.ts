@@ -159,8 +159,7 @@ export const api = {
   cancelSearch: (id: string) => api.controlSearch(id, "cancel"),
   leaderboard: (scopeId: string) => request<LeaderboardEntry[]>(`/leaderboard${query({ scopeId })}`, {}, (value) => arrayDto<unknown>(value, "leaderboard").map(normalizeLeaderboardEntry)),
   news: () => request<NewsItem[]>("/news", {}, (value) => arrayDto<NewsItem>(value, "news")),
-  sentiment: (newsId: string) => request<unknown>(`/sentiment/news/${encodeURIComponent(newsId)}`),
-  collectNews: () => request<void>("/news/collect", { method: "POST" }),
+  collectNews: (payload?: { sourceType?: string; sources?: Array<{ name: string; url: string; type: string }>; html?: string; coin?: string }) => request<void>("/news/collect", payload ? json(payload) : { method: "POST" }),
 };
 
 export type NewsItem = { id: string; title: string; content: string; source: string; publishedAt: string; crawledAt: string; relatedCoins: string[]; url: string; sentiment?: { newsId: string; label: "POSITIVE" | "NEUTRAL" | "NEGATIVE"; score: number; modelName: string; modelVersion: string; analyzedAt: string } };

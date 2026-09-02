@@ -122,7 +122,7 @@ const observeInvalidEntry = (observability: CoinDeskRssProviderOptions["observab
   }
 };
 
-const normalizeEntry = (block: string, crawledAt: string): NewsItem | undefined => {
+const normalizeEntry = (block: string, crawledAt: string, sourceName: string = SOURCE_NAME): NewsItem | undefined => {
   const title = firstText(block, ["title"]);
   const url = normalizeUrl(linkValues(block)[0] ?? firstText(block, ["guid", "id"]));
   const content = firstText(block, ["content:encoded", "description", "summary", "content"]);
@@ -135,7 +135,7 @@ const normalizeEntry = (block: string, crawledAt: string): NewsItem | undefined 
       id: createHash("sha256").update(url, "utf8").digest("hex").slice(0, 24),
       title,
       content,
-      source: SOURCE_NAME,
+      source: sourceName,
       publishedAt,
       crawledAt,
       relatedCoins,
@@ -146,32 +146,52 @@ const normalizeEntry = (block: string, crawledAt: string): NewsItem | undefined 
   }
 };
 
-const parseFeed = (xml: string, crawledAt: string, observability: CoinDeskRssProviderOptions["observability"]): NewsItem[] => {
+const parseFeed = (xml: string, crawledAt: string, observability: CoinDeskRssProviderOptions["observability"], sourceName: string = SOURCE_NAME): NewsItem[] => {
   const items: NewsItem[] = [];
   for (const match of xml.matchAll(ENTRY)) {
-    const item = normalizeEntry(match[0]!, crawledAt);
+    const item = normalizeEntry(match[0]!, crawledAt, sourceName);
     if (item) items.push(item);
     else observeInvalidEntry(observability);
   }
   return items;
 };
 
-export function createCoinDeskRssProvider(options: CoinDeskRssProviderOptions = {}): NewsProvider {
+export interface RssFeedProviderOptions {
+  name?: string;
+  sourceName?: string;
+  url: string;
+  clock?: { now(): string };
+  fetch?: typeof globalThis.fetch;
+  observability?: Pick<NewsObservability, "recordProviderFailure">;
+}
+
+export function createRssFeedProvider(options: RssFeedProviderOptions): NewsProvider {
   const clock = options.clock ?? { now: () => new Date().toISOString() };
   const client = options.fetch ?? globalThis.fetch;
+  const sourceName = (options.sourceName ?? "RSS").toUpperCase();
+  const providerName = options.name ?? `${sourceName}_RSS_V1`;
   return {
-    name: PROVIDER_NAME,
+    name: providerName,
     async fetch(): Promise<NewsItem[]> {
       const crawledAt = normalizeTimestamp(clock.now());
-      if (!crawledAt) throw new Error("COINDESK_RSS_INVALID_CRAWL_TIME");
-      const response = await client(COINDESK_RSS_FEED_URL, {
+      if (!crawledAt) throw new Error(`${providerName}_INVALID_CRAWL_TIME`);
+      const response = await client(options.url, {
         headers: { accept: "application/rss+xml, application/xml, text/xml;q=0.9" },
       });
-      if (!response.ok) throw new Error(`COINDESK_RSS_HTTP_${response.status}`);
+      if (!response.ok) throw new Error(`${providerName}_HTTP_${response.status}`);
       const xml = await response.text();
-      return parseFeed(xml, crawledAt, options.observability);
+      return parseFeed(xml, crawledAt, options.observability, sourceName);
     },
   };
+}
+
+export function createCoinDeskRssProvider(options: CoinDeskRssProviderOptions = {}): NewsProvider {
+  return createRssFeedProvider({
+    ...options,
+    name: PROVIDER_NAME,
+    sourceName: SOURCE_NAME,
+    url: COINDESK_RSS_FEED_URL,
+  });
 }
 
 export function createConfiguredNewsProviders(input: {

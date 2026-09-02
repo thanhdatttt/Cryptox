@@ -48,8 +48,19 @@ const observeSentimentFailure = (observability: NewsObservability | undefined, i
   try { observability?.recordSentimentFailure?.(input); } catch { /* Observability must not affect collection. */ }
 };
 
+import { createHash } from "node:crypto";
+import { createRssFeedProvider } from "../infrastructure/coindesk-rss-provider";
+import { createCrawlerNewsProvider } from "../infrastructure/crawler-provider";
+
+export interface NewsCollectOptions {
+  sourceType?: string;
+  sources?: Array<{ name: string; url: string; type: string }>;
+  html?: string;
+  coin?: string;
+}
+
 export interface NewsModuleRuntime {
-  collect(): Promise<void>;
+  collect(options?: NewsCollectOptions): Promise<void>;
   readNews(): Promise<NewsReadItem[]>;
 }
 
@@ -63,6 +74,8 @@ export function createNewsModule(dependencies: InternalDependencies = createInMe
   const newsRepository = dependencies.newsRepository ?? defaults.newsRepository;
   const sentiment = dependencies.sentiment ?? defaults.sentiment;
   const observability = dependencies.observability ?? defaultObservability();
+  const interpreter = dependencies.interpreter;
+  const crawlerLimits = dependencies.crawlerLimits;
 
   const persistAndAnalyze = async (rawItem: NewsItem): Promise<void> => {
     const item = validateNewsItem(rawItem);
@@ -80,8 +93,127 @@ export function createNewsModule(dependencies: InternalDependencies = createInMe
     }
   };
 
+  const parseHtmlContent = (html: string, targetCoin?: string): NewsItem[] => {
+    const titleMatch = /<h1\b[^>]*>([\s\S]*?)<\/h1>/i.exec(html) ?? /<title\b[^>]*>([\s\S]*?)<\/title>/i.exec(html);
+    const rawTitle = titleMatch ? titleMatch[1].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim() : "Uploaded HTML News Document";
+    const bodyMatch = /<body\b[^>]*>([\s\S]*?)<\/body>/i.exec(html) ?? /<article\b[^>]*>([\s\S]*?)<\/article>/i.exec(html);
+    const rawContent = (bodyMatch ? bodyMatch[1] : html).replace(/<(script|style|noscript)\b[^>]*>[\s\S]*?<\/\1>/gi, " ").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    if (!rawTitle || !rawContent) return [];
+
+    const textToScan = `${rawTitle} ${rawContent}`.toUpperCase();
+    const coins: string[] = [];
+    if (targetCoin && targetCoin !== "ALL" && !coins.includes(targetCoin.toUpperCase())) {
+      coins.push(targetCoin.toUpperCase());
+    }
+    for (const c of ["BTC", "ETH", "SOL", "BNB", "XRP", "ADA", "DOGE"]) {
+      if (textToScan.includes(c) && !coins.includes(c)) coins.push(c);
+    }
+    if (coins.length === 0) coins.push("BTC");
+
+    const hash = createHash("sha256").update(rawTitle + rawContent.slice(0, 100), "utf8").digest("hex");
+    const canonicalUrl = `https://local.html-upload.test/articles/${hash.slice(0, 16)}`;
+    const now = new Date().toISOString();
+
+    try {
+      return [validateNewsItem({
+        id: hash.slice(0, 24),
+        title: rawTitle.slice(0, 500),
+        content: rawContent.slice(0, 5000),
+        source: "HTML_UPLOAD",
+        publishedAt: now,
+        crawledAt: now,
+        relatedCoins: coins,
+        url: canonicalUrl,
+      })];
+    } catch {
+      return [];
+    }
+  };
+
   return {
-    async collect() {
+    async collect(options?: NewsCollectOptions) {
+      // 1. If HTML is directly supplied
+      if (options?.html && options.html.trim().length > 0) {
+        const items = parseHtmlContent(options.html, options.coin);
+        for (const item of items) {
+          try {
+            await persistAndAnalyze(item);
+          } catch (error) {
+            const stage = error instanceof NewsException && error.code === "INVALID_NEWS_ITEM" ? "VALIDATION" : "PERSISTENCE";
+            observeProviderFailure(observability, { providerName: "HTML_UPLOAD", stage, reason: "ERROR" });
+          }
+        }
+        return;
+      }
+
+      // 2. If specific sources are passed from the frontend
+      if (options?.sources && options.sources.length > 0) {
+        for (const src of options.sources) {
+          if (!src.url || !src.url.startsWith("http")) continue;
+          const sourceName = src.name.replace(/\s+RSS$/i, "").replace(/\s+News$/i, "").trim().toUpperCase();
+
+          if (src.type === "WEBSITE") {
+            // WEBSITE type — use the LLM-based crawler to extract news from HTML pages
+            if (!interpreter) {
+              console.warn(`[news] Skipping WEBSITE source "${sourceName}": no LLM interpreter configured. Set CRAWLER_MODEL_ENDPOINT, CRAWLER_MODEL_NAME, and CRAWLER_LLM_API_KEY in .env.`);
+              observeProviderFailure(observability, { providerName: sourceName, stage: "FETCH", reason: "ERROR" });
+              continue;
+            }
+            try {
+              const crawlerProvider = createCrawlerNewsProvider({
+                sourceUrls: [src.url],
+                interpreter,
+                name: sourceName,
+                limits: crawlerLimits,
+                observability,
+              });
+              const items = await crawlerProvider.fetch();
+              for (const rawItem of items) {
+                const item = { ...rawItem };
+                if (options.coin && options.coin !== "ALL" && !item.relatedCoins.includes(options.coin.toUpperCase())) {
+                  item.relatedCoins = [...item.relatedCoins, options.coin.toUpperCase()];
+                }
+                try {
+                  await persistAndAnalyze(item);
+                } catch {
+                  // ignore invalid or duplicated
+                }
+              }
+            } catch (error) {
+              observeProviderFailure(observability, { providerName: sourceName, stage: "FETCH", reason: providerFailureReason(error) });
+            }
+            continue;
+          }
+
+          // RSS type — use the generic RSS/Atom XML parser
+          try {
+            const provider = createRssFeedProvider({
+              url: src.url,
+              sourceName,
+              observability,
+            });
+            const items = await provider.fetch();
+            if (Array.isArray(items)) {
+              for (const rawItem of items) {
+                const item = { ...rawItem };
+                if (options.coin && options.coin !== "ALL" && !item.relatedCoins.includes(options.coin.toUpperCase())) {
+                  item.relatedCoins = [...item.relatedCoins, options.coin.toUpperCase()];
+                }
+                try {
+                  await persistAndAnalyze(item);
+                } catch {
+                  // ignore invalid or duplicated
+                }
+              }
+            }
+          } catch (error) {
+            observeProviderFailure(observability, { providerName: sourceName, stage: "FETCH", reason: providerFailureReason(error) });
+          }
+        }
+        return;
+      }
+
+      // 3. Default fallback providers
       for (const provider of providers) {
         let items: unknown;
         try {
