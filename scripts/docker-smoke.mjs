@@ -117,9 +117,9 @@ async function verifyApplication(backendUrl, frontendUrl) {
 
 function verifyMigrations(project, environment) {
   const migrationCount = compose(project, environment, ["exec", "-T", "postgres", "psql", "-U", "cryptox", "-d", "cryptox", "-tAc", "SELECT count(*) FROM pgmigrations;"], true).trim();
-  if (migrationCount !== "19") throw new Error(`Expected 19 applied migrations, received: ${migrationCount || "empty output"}`);
-  const latestMigration = compose(project, environment, ["exec", "-T", "postgres", "psql", "-U", "cryptox", "-d", "cryptox", "-tAc", "SELECT name FROM pgmigrations WHERE name = '019_add_search_candidate_provenance';"], true).trim();
-  if (latestMigration !== "019_add_search_candidate_provenance") throw new Error("Migration 019_add_search_candidate_provenance was not applied.");
+  if (migrationCount !== "20") throw new Error(`Expected 20 applied migrations, received: ${migrationCount || "empty output"}`);
+  const latestMigration = compose(project, environment, ["exec", "-T", "postgres", "psql", "-U", "cryptox", "-d", "cryptox", "-tAc", "SELECT name FROM pgmigrations WHERE name = '020_create_news_extraction_templates';"], true).trim();
+  if (latestMigration !== "020_create_news_extraction_templates") throw new Error("Migration 020_create_news_extraction_templates was not applied.");
 }
 
 export async function runDockerSmoke(inputEnvironment = process.env) {
