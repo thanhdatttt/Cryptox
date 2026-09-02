@@ -6,6 +6,7 @@ import { BacktestScreen, ExperimentDetail, PersistentLeaderboardTable, RankingTa
 import { MarketScreen } from "./market";
 import { appRoutePath, parseAppRoute, persistMarketLayout, readMarketLayout, type AppScreen, type MarketLayoutState } from "./state";
 import { StrategyScreen } from "./strategy";
+import { News } from "./news";
 import { queryClient, clearAuthenticatedClientState, logout } from "./query";
 import { sentimentDistribution } from "./visuals";
 import "./style.css";
@@ -39,10 +40,8 @@ function Auth({ onAuthenticated, initialRegister = false }: { onAuthenticated: (
     onError: setError,
   });
   const chooseMode = (nextRegister: boolean) => {
-    setRegister(nextRegister);
     setError(undefined);
-    setShowPassword(false);
-    mutation.reset();
+    setRegister(nextRegister);
     if (typeof window !== "undefined") {
       window.history.replaceState({}, "", nextRegister ? "/register" : "/");
     }
@@ -55,16 +54,34 @@ function Auth({ onAuthenticated, initialRegister = false }: { onAuthenticated: (
       <div className="auth-heading">
         <span className="auth-kicker">CRYPTO STRATEGY LAB</span>
         <h1 id="auth-title">{register ? "Create your account" : "Welcome back"}</h1>
-        <p>{register ? "Start building and testing strategies in one secure workspace." : "Sign in to continue to your strategy workspace."}</p>
+        <p>{register ? "Start building, backtesting, and discovering robust trading strategies in seconds." : "Sign in to access your saved strategies, active search runs, and real-time market data."}</p>
       </div>
       <div className="auth-modes" role="tablist" aria-label="Authentication mode">
         <button type="button" role="tab" aria-selected={!register} className={!register ? "active" : ""} onClick={() => chooseMode(false)}>Sign in</button>
         <button type="button" role="tab" aria-selected={register} className={register ? "active" : ""} onClick={() => chooseMode(true)}>Register</button>
       </div>
-      <form className="auth-form" onSubmit={(event) => { event.preventDefault(); setError(undefined); mutation.mutate(); }}>
+      <form
+        className="auth-form"
+        onSubmit={(event) => {
+          event.preventDefault();
+          setError(undefined);
+          mutation.mutate();
+        }}
+      >
         <label>
-          <span>Email address</span>
-          <div className="auth-field"><MailIcon /><input type="email" autoComplete="email" autoFocus required placeholder="you@example.com" value={email} onChange={(event) => setEmail(event.target.value)} /></div>
+          <span>Email Address</span>
+          <div className="auth-field">
+            <MailIcon />
+            <input
+              type="email"
+              autoComplete="email"
+              autoFocus
+              required
+              placeholder="trader@example.com"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+            />
+          </div>
         </label>
         <label>
           <span>Password</span>
@@ -75,7 +92,7 @@ function Auth({ onAuthenticated, initialRegister = false }: { onAuthenticated: (
               autoComplete={register ? "new-password" : "current-password"}
               minLength={8}
               required
-              placeholder="At least 8 characters"
+              placeholder="••••••••"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
             />
@@ -104,11 +121,6 @@ function Auth({ onAuthenticated, initialRegister = false }: { onAuthenticated: (
 }
 
 function Heading({ title, text }: { title: string; text: string }) { return <div className="heading"><div><h1>{title}</h1><p>{text}</p></div><span className="status"><i />Live backend</span></div>; }
-
-function News() {
-  const [autoRefresh, setAutoRefresh] = useState(false); const [asset, setAsset] = useState("ALL"); const [source, setSource] = useState("ALL"); const query = useQuery({ queryKey: ["news"], queryFn: api.news, refetchInterval: autoRefresh ? 60_000 : false }); const client = useQueryClient(); const collect = useMutation({ mutationFn: api.collectNews, onSuccess: () => { void client.invalidateQueries({ queryKey: ["news"] }); } }); const items = (query.data ?? []).filter((item) => (source === "ALL" || item.source === source) && (asset === "ALL" || item.relatedCoins.includes(asset))); const distribution = sentimentDistribution(items); const sources = [...new Set((query.data ?? []).map((item) => item.source))]; const assets = [...new Set((query.data ?? []).flatMap((item) => item.relatedCoins))];
-  return <><Heading title="News Crawler & Market Sentiment" text="Collect normalized news through the backend pipeline and inspect persisted sentiment provenance." /><Panel className="news-toolbar"><label className="field">Source<select value={source} onChange={(event) => setSource(event.target.value)}><option value="ALL">All backend sources</option>{sources.map((item) => <option key={item}>{item}</option>)}</select></label><label className="field">Pair / Asset<select value={asset} onChange={(event) => setAsset(event.target.value)}><option value="ALL">All assets</option>{assets.map((item) => <option key={item}>{item}</option>)}</select></label><label className="check-inline"><input type="checkbox" checked={autoRefresh} onChange={(event) => setAutoRefresh(event.target.checked)} /> Auto refresh (60s)</label><Btn primary disabled={collect.isPending} onClick={() => collect.mutate()}>{collect.isPending ? "Collecting..." : "Start backend crawl"}</Btn></Panel><div className="news-layout"><Panel title="Input news" className="news-input">{query.isLoading ? <Loading /> : query.error ? <><ErrorBox error={query.error} /><Btn onClick={() => void query.refetch()}>Retry news</Btn></> : items.length ? items.map((item: NewsItem) => <article className="news-item" key={item.id}><span className="news-dot">●</span><div><a href={item.url} target="_blank" rel="noreferrer"><b>{item.title}</b></a><small>{item.source} · {item.publishedAt}</small><p>{item.content}</p><div className="tags">{item.relatedCoins.join(" · ")}</div><p className="muted">Sentiment: {item.sentiment ? `${item.sentiment.label} · ${item.sentiment.score.toFixed(2)} · ${item.sentiment.modelName} v${item.sentiment.modelVersion}` : "Unavailable (analysis failed or was not returned)"}</p></div><time>{new Date(item.publishedAt).toLocaleTimeString()}</time></article>) : <Empty>No backend news records yet.</Empty>}{collect.isSuccess && <p className="success">Backend news collection completed.</p>}{collect.error && <><ErrorBox error={collect.error} /><Btn onClick={() => collect.reset()}>Dismiss collection error</Btn></>}</Panel><Panel title="Pipeline status" className="news-pipeline"><div className="flow"><span><b>1</b>Collect</span><i>→</i><span><b>2</b>Normalize</span><i>→</i><span><b>3</b>Persist</span><i>→</i><span><b>4</b>Analyze sentiment</span></div><div className="extract"><div><b>Source records</b><strong>{items.length}</strong><p>Returned by GET /news.</p></div><div><b>Sentiment fields</b><strong>{distribution.total}</strong><p>Persisted model outputs.</p></div><div><b>Backend model</b><strong>{items.find((item) => item.sentiment)?.sentiment?.modelName ?? "Unavailable"}</strong><p>No frontend inference is performed.</p></div></div><h3>Self-healing state</h3><div className="heal"><span>Validation</span><i>{query.error ? "Error" : "Ready"}</i><span>Sentiment failure</span><strong>{items.some((item) => !item.sentiment) ? "Unavailable per item" : "None returned"}</strong></div></Panel><Panel title="Sentiment output" className="sentiment-panel">{distribution.total ? <><div className="sentiment"><i style={{ width: `${distribution.positive}%` }}>{distribution.positive}%</i><i style={{ width: `${distribution.neutral}%` }}>{distribution.neutral}%</i><i style={{ width: `${distribution.negative}%` }}>{distribution.negative}%</i></div><p className="sent-label">Positive {distribution.positive}% · Neutral {distribution.neutral}% · Negative {distribution.negative}%</p>{items.filter((item) => item.sentiment).map((item) => <p className="sentiment-row" key={item.id}><b>{item.sentiment?.label}</b><span>{item.sentiment?.score.toFixed(2)} · {item.sentiment?.modelName} v{item.sentiment?.modelVersion}</span></p>)}</> : <Empty>No persisted sentiment results yet.</Empty>}<h3>Strategy integration</h3><p className="muted">News sentiment remains an authenticated backend field available to future Strategy Engine composites.</p></Panel></div></>;
-}
 
 function Leaderboard() { const scopes = useQuery({ queryKey: ["scopes"], queryFn: api.scopes }); const [scopeId, setScopeId] = useState(""); const ranking = useQuery({ queryKey: ["leaderboard", scopeId], queryFn: () => api.leaderboard(scopeId), enabled: Boolean(scopeId) }); return <><Heading title="Leaderboard - Top strategies" text="Owner-scoped persistent admissions enriched with experiment metrics." /><Panel><label className="field scope-select">Benchmark scope<select value={scopeId} onChange={(event) => setScopeId(event.target.value)}><option value="">Select scope</option>{scopes.data?.map((scope: Scope) => <option key={scope.id} value={scope.id}>{scope.name}</option>)}</select></label>{scopes.isLoading ? <Loading /> : scopes.error ? <ErrorBox error={scopes.error} /> : null}{scopeId && ranking.isLoading ? <Loading /> : ranking.error ? <ErrorBox error={ranking.error} /> : ranking.data?.length ? <PersistentLeaderboardTable rows={ranking.data} /> : <p className="muted">{scopeId ? "No admitted experiments for this scope." : "Select a real backend scope to view rankings."}</p>}</Panel></>; }
 
