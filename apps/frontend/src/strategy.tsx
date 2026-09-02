@@ -23,14 +23,14 @@ function iconFor(descriptor: Pick<StrategyDescriptor, "category"> | Pick<Strateg
 function displayDate(value: string): string { const date = new Date(value); return Number.isNaN(date.valueOf()) ? value : date.toLocaleString(); }
 function parameterSummary(definition?: StrategyDefinition): string { if (!definition) return "No backend definition yet"; const entries = Object.entries(definition.parameters); return entries.length ? entries.map(([key, value]) => `${key}: ${value}`).join(" · ") : "No parameters returned"; }
 
-type CreationMode = "AI_GENERATOR" | "MANUAL_BUILDER";
+type CreationMode = "AI_GENERATOR" | "MANUAL_BUILDER" | "COMPOSITE_BUILDER";
 
 function StrategyHeader({ creationMode, setCreationMode }: { creationMode: CreationMode; setCreationMode: (mode: CreationMode) => void }) {
   return (
     <div className="strategy-header">
       <div>
         <h1>Strategy Creation Studio</h1>
-        <p>Design, compile, validate, and save executable trading strategies via AI Generation or Manual Quantitative Templates.</p>
+        <p>Design, compile, validate, and save executable trading strategies via AI Generation, Indicator Templates, or Multi-Strategy Ensembles.</p>
       </div>
       <div className="strategy-header-actions">
         <div className="strategy-mode-switch-bar">
@@ -50,6 +50,14 @@ function StrategyHeader({ creationMode, setCreationMode }: { creationMode: Creat
             <span className="mode-icon">🛠️</span>
             <span className="mode-text">Manual Indicator Builder</span>
           </button>
+          <button
+            type="button"
+            className={`mode-switch-btn ${creationMode === "COMPOSITE_BUILDER" ? "active" : ""}`}
+            onClick={() => setCreationMode("COMPOSITE_BUILDER")}
+          >
+            <span className="mode-icon">🔀</span>
+            <span className="mode-text">Composite Ensemble Builder</span>
+          </button>
         </div>
       </div>
     </div>
@@ -59,8 +67,25 @@ function StrategyHeader({ creationMode, setCreationMode }: { creationMode: Creat
 function GenerationError({ error }: { error: unknown }) {
   if (!error) return null;
   const mapped = mapGenerationError(error);
-  const label = mapped.kind === "SOURCE" ? "Source loading" : mapped.kind === "MODEL" ? "Model unavailable" : mapped.kind === "SCHEMA" ? "Invalid model output" : mapped.kind === "VALIDATION" ? "Strategy validation" : "Generation error";
-  return <div className="strategy-error" role="alert"><b>{label}</b><span>{mapped.message}</span></div>;
+  const label =
+    mapped.kind === "SOURCE"
+      ? "Source Loading Error"
+      : mapped.kind === "MODEL"
+      ? "Model Unavailable"
+      : mapped.kind === "SCHEMA"
+      ? "Invalid Model Output"
+      : mapped.kind === "VALIDATION"
+      ? "Strategy Validation Failed"
+      : "Generation Error";
+  return (
+    <div className="strategy-error-banner" role="alert">
+      <div className="strategy-error-badge">⚠️</div>
+      <div className="strategy-error-text">
+        <b className="strategy-error-title">{label}</b>
+        <span className="strategy-error-detail">{mapped.message}</span>
+      </div>
+    </div>
+  );
 }
 
 function PromptInput({ source, setSource, sourceType, setSourceType, busy, onSubmit, onClear, error }: { source: string; setSource: (value: string) => void; sourceType: SourceType; setSourceType: (value: SourceType) => void; busy: boolean; onSubmit: (event: React.FormEvent) => void; onClear: () => void; error?: unknown }) {
@@ -68,9 +93,168 @@ function PromptInput({ source, setSource, sourceType, setSourceType, busy, onSub
 }
 
 function ParsedSummary({ definition, composite, result, sourceType }: { definition?: StrategyDefinition; composite?: Composite; result?: StrategyGenerationResult; sourceType: SourceType }) {
-  if (!definition && !composite) return <Panel title="Strategy analyzed" className="strategy-summary-panel"><Empty><span className="strategy-empty-icon">⌁</span><b>No generated strategy yet</b><small>Submit a prompt or URL to review the persisted backend result here.</small></Empty></Panel>;
-  if (composite) return <Panel title="Strategy analyzed" className="strategy-summary-panel"><div className="strategy-summary-identity"><span className="plugin-icon">✦</span><div><b>Composite strategy</b><small>{composite.method} · version {composite.version}</small></div><span className="strategy-check">✓</span></div><div className="strategy-summary-card green"><b>Backend composite</b><strong>{composite.method}</strong><span>{composite.components.length} persisted components</span></div><div className="strategy-summary-card purple"><b>Combination configuration</b><span>{composite.components.map((component) => `${component.strategyDefinitionId} (${component.weight})`).join(" · ")}</span>{composite.thresholds && <small>Buy ≥ {composite.thresholds.buy} · Sell ≤ {composite.thresholds.sell}</small>}</div><div className="strategy-summary-card blue"><b>Generation source</b><span>{sourceType === "TEXT" ? "Natural language prompt" : "Website URL input"}</span><small>{result?.generationId ?? "Persisted library composite"}</small></div></Panel>;
-  return <Panel title="Strategy analyzed" className="strategy-summary-panel"><div className="strategy-summary-identity"><span className="plugin-icon">{iconFor(definition!)}</span><div><b>{definition!.familyName ?? definition!.strategyName}</b><small>{definition!.strategyName} · version {definition!.version}</small></div><span className="strategy-check">✓</span></div><div className="strategy-summary-card green"><b>Backend definition</b><strong>{definition!.strategyName}</strong><span>{definition!.familyName ?? "Registered strategy plugin"}</span></div><div className="strategy-summary-card purple"><b>Parameters returned</b><span>{parameterSummary(definition)}</span></div><div className="strategy-summary-card blue"><b>Generation source</b><span>{sourceType === "TEXT" ? "Natural language prompt" : "Website URL input"}</span><small>{result?.generationId ?? "Persisted library definition"}</small></div></Panel>;
+  if (!definition && !composite) {
+    return (
+      <Panel title="Strategy analyzed" className="strategy-summary-panel">
+        <Empty>
+          <span className="strategy-empty-icon">⌁</span>
+          <b>No generated strategy yet</b>
+          <small>Submit a prompt or URL to review the persisted backend result here.</small>
+        </Empty>
+      </Panel>
+    );
+  }
+
+  if (composite) {
+    return (
+      <Panel title="Strategy analyzed" className="strategy-summary-panel">
+        {/* Header Hero Card */}
+        <div className="summary-hero-card">
+          <div className="summary-hero-top">
+            <span className="summary-hero-icon">🔀</span>
+            <div className="summary-hero-meta">
+              <span className="summary-type-tag">COMPOSITE ENSEMBLE</span>
+              <h3 className="summary-hero-name">{composite.method}</h3>
+            </div>
+            <div className="summary-verified-badge">✓ Validated</div>
+          </div>
+          <p className="summary-hero-desc">
+            Multi-strategy ensemble combining {composite.components.length} quantitative components.
+          </p>
+        </div>
+
+        {/* Member Components */}
+        <div className="summary-section-card">
+          <div className="summary-section-title">
+            <span>🧩 Member Strategy Components</span>
+            <span className="summary-count-badge">{composite.components.length} components</span>
+          </div>
+          <div className="summary-components-grid">
+            {composite.components.map((c, i) => (
+              <div className="summary-component-row" key={i}>
+                <span className="comp-bullet">●</span>
+                <span className="comp-id">{c.strategyDefinitionId}</span>
+                <span className="comp-weight">Weight: <b>{(c.weight * 100).toFixed(0)}%</b></span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Decision Logic & Thresholds */}
+        <div className="summary-section-card">
+          <div className="summary-section-title">
+            <span>⚖️ Decision Logic &amp; Thresholds</span>
+          </div>
+          <div className="summary-params-grid">
+            <div className="summary-param-tile">
+              <span className="param-k">Consensus Method</span>
+              <span className="param-v">{composite.method}</span>
+            </div>
+            <div className="summary-param-tile">
+              <span className="param-k">Buy Signal</span>
+              <span className="param-v">{composite.thresholds ? `≥ ${composite.thresholds.buy}` : "Majority (>50%)"}</span>
+            </div>
+            <div className="summary-param-tile">
+              <span className="param-k">Sell Signal</span>
+              <span className="param-v">{composite.thresholds ? `≤ ${composite.thresholds.sell}` : "Majority (>50%)"}</span>
+            </div>
+            <div className="summary-param-tile">
+              <span className="param-k">Engine Version</span>
+              <span className="param-v">v{composite.version}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Provenance Card */}
+        <div className="summary-provenance-card">
+          <div className="provenance-item">
+            <span className="prov-k">Generation Source</span>
+            <span className="prov-v">{sourceType === "TEXT" ? "User Prompt" : "Website URL"}</span>
+          </div>
+          <div className="provenance-item">
+            <span className="prov-k">Composite UUID</span>
+            <code className="prov-v-code">{composite.id.slice(0, 18)}...</code>
+          </div>
+        </div>
+      </Panel>
+    );
+  }
+
+  // Single Strategy Definition
+  const paramEntries = Object.entries(definition!.parameters);
+  const strategyName = definition!.familyName ?? definition!.strategyName;
+
+  return (
+    <Panel title="Strategy analyzed" className="strategy-summary-panel">
+      {/* Header Hero Card */}
+      <div className="summary-hero-card">
+        <div className="summary-hero-top">
+          <span className="summary-hero-icon">{iconFor(definition!)}</span>
+          <div className="summary-hero-meta">
+            <span className="summary-type-tag">SINGLE QUANT INDICATOR</span>
+            <h3 className="summary-hero-name">{strategyName}</h3>
+          </div>
+          <div className="summary-verified-badge">✓ Schema Valid</div>
+        </div>
+        <p className="summary-hero-desc">
+          Automated algorithmic trading strategy compiled and validated against the execution engine.
+        </p>
+      </div>
+
+      {/* Structured Parameters Breakdown */}
+      <div className="summary-section-card">
+        <div className="summary-section-title">
+          <span>⚙️ Extracted Mathematical Parameters</span>
+          <span className="summary-count-badge">{paramEntries.length} parameters</span>
+        </div>
+        <div className="summary-params-grid">
+          {paramEntries.map(([key, val]) => (
+            <div className="summary-param-tile" key={key}>
+              <span className="param-k">{key}</span>
+              <span className="param-v">{String(val)}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Execution Profile & Risk */}
+      <div className="summary-section-card">
+        <div className="summary-section-title">
+          <span>📈 Execution &amp; Risk Profile</span>
+        </div>
+        <div className="summary-params-grid">
+          <div className="summary-param-tile">
+            <span className="param-k">Algorithm Plugin</span>
+            <span className="param-v">{definition!.strategyName}</span>
+          </div>
+          <div className="summary-param-tile">
+            <span className="param-k">Strategy Version</span>
+            <span className="param-v">v{definition!.version}</span>
+          </div>
+          <div className="summary-param-tile">
+            <span className="param-k">Execution Mode</span>
+            <span className="param-v">Signal Vector Execution</span>
+          </div>
+          <div className="summary-param-tile">
+            <span className="param-k">Deterministic SHA</span>
+            <span className="param-v">Active ✓</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Provenance & Backend Persistence */}
+      <div className="summary-provenance-card">
+        <div className="provenance-item">
+          <span className="prov-k">Generation Source</span>
+          <span className="prov-v">{sourceType === "TEXT" ? "Natural Language Prompt" : "Website URL Import"}</span>
+        </div>
+        <div className="provenance-item">
+          <span className="prov-k">Strategy Definition ID</span>
+          <code className="prov-v-code">{definition!.id ? `${definition!.id.slice(0, 18)}...` : "Persisted in DB"}</code>
+        </div>
+      </div>
+    </Panel>
+  );
 }
 
 function JsonPreview({ payload }: { payload?: unknown }) { const [message, setMessage] = useState(""); const value = payload === undefined ? "" : strategyDefinitionJson(payload); const copy = async () => { if (!value) return; try { await navigator.clipboard?.writeText(value); setMessage("Copied"); } catch { setMessage("Copy unavailable in this browser"); } }; return <Panel title="Strategy definition (JSON)" className="strategy-json-panel"><div className="strategy-json-toolbar"><span>Actual backend response</span><button type="button" onClick={() => void copy()} disabled={!value}>▣ Copy</button></div>{value ? <pre>{value}</pre> : <Empty><span className="strategy-empty-icon">⌁</span><b>Waiting for backend output</b><small>Generated or selected library data will appear as readable JSON.</small></Empty>}{message && <span className="strategy-copy-message">{message}</span>}</Panel>; }
@@ -343,10 +527,263 @@ function PluginEditor({ descriptors, onSaved, error, setError }: { descriptors: 
 }
 
 function CompositeLibrary({ definitions, composites, refresh, error, setError }: { definitions: Resource<StrategyDefinition[]>; composites: Resource<Composite[]>; refresh: () => void; error?: unknown; setError: (error?: unknown) => void }) {
-  const [selectedIds, setSelectedIds] = useState<string[]>([]); const [weights, setWeights] = useState<Record<string, number>>({}); const [method, setMethod] = useState<CombinationMethod>("MAJORITY_VOTE"); const [buy, setBuy] = useState("0.5"); const [sell, setSell] = useState("-0.5"); const save = useMutation({ mutationFn: () => api.defineComposite(method, method === "WEIGHTED_SCORE" ? weightedComponents(selectedIds, weights) : selectedIds.map((strategyDefinitionId) => ({ strategyDefinitionId, weight: 1 })), method === "WEIGHTED_SCORE" ? { buy: Number(buy), sell: Number(sell) } : undefined), onSuccess: refresh, onError: setError });
-  const toggle = (id: string) => { const next = selectedIds.includes(id) ? selectedIds.filter((item) => item !== id) : [...selectedIds, id]; setSelectedIds(next); setWeights(equalWeights(next)); setError(undefined); };
-  const weightSum = Object.values(weightedComponents(selectedIds, weights)).reduce((sum, item) => sum + item.weight, 0); const thresholdsValid = Number.isFinite(Number(buy)) && Number.isFinite(Number(sell)) && Number(buy) > Number(sell); const weightedValid = method === "MAJORITY_VOTE" || (Math.abs(weightSum - 1) < 0.0001 && thresholdsValid);
-  return <Panel title="Saved library & composites" className="strategy-composite-panel"><div className="strategy-composite-layout"><div><div className="strategy-composite-intro"><b>Build from saved definitions</b><span>Choose the canonical combination method; the backend remains authoritative for normalization.</span></div><label className="strategy-label">Combination method<select value={method} onChange={(event) => setMethod(event.target.value as CombinationMethod)}><option value="MAJORITY_VOTE">MAJORITY_VOTE</option><option value="WEIGHTED_SCORE">WEIGHTED_SCORE</option></select></label>{method === "WEIGHTED_SCORE" && <div className="toolbar"><label className="field">Buy threshold<input type="number" step="0.01" value={buy} onChange={(event) => setBuy(event.target.value)} /></label><label className="field">Sell threshold<input type="number" step="0.01" value={sell} onChange={(event) => setSell(event.target.value)} /></label></div>}{definitions.isLoading || composites.isLoading ? <Loading /> : definitions.error ? <ErrorBox error={definitions.error} /> : definitions.data?.length ? definitions.data.map((definition) => <label className="strategy-weight-row" key={definition.id}><input type="checkbox" checked={selectedIds.includes(definition.id)} onChange={() => toggle(definition.id)} /><span className="plugin-icon small">{iconFor(definition)}</span><span><b>{definition.strategyName} · v{definition.version}</b><small>{definition.id}</small></span>{method === "WEIGHTED_SCORE" && <input aria-label={`Weight ${definition.id}`} type="number" min="0" max="1" step="0.05" value={weights[definition.id] ?? ""} onChange={(event) => setWeights({ ...weights, [definition.id]: Number(event.target.value) })} />}</label>) : <Empty>No saved definitions to combine yet.</Empty>}<p className="muted">{method === "MAJORITY_VOTE" ? "Weights and thresholds are normalized by the backend for majority voting." : `Weight total: ${weightSum.toFixed(2)} · buy > sell: ${thresholdsValid ? "valid" : "required"}`}</p><Btn primary disabled={save.isPending || !selectedIds.length || !weightedValid} onClick={() => save.mutate()}>{save.isPending ? "Saving..." : `Save ${method} composite`}</Btn></div><div className="strategy-composites-list"><b>Persisted composites</b>{composites.isLoading ? <Loading /> : composites.error ? <ErrorBox error={composites.error} /> : composites.data?.length ? composites.data.map((composite) => <article key={composite.id}><div><strong>{composite.method}</strong><small>{composite.components.length} backend components</small></div><span>{composite.components.map((component) => definitions.data?.find((item) => item.id === component.strategyDefinitionId)?.strategyName ?? component.strategyDefinitionId).join(" + ")}</span><code>{composite.id}</code></article>) : <Empty>No saved composites yet.</Empty>}</div></div>{save.isSuccess && <p className="success">Composite saved by the backend.</p>}<ErrorBox error={error ?? save.error} /></Panel>;
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [weights, setWeights] = useState<Record<string, number>>({});
+  const [method, setMethod] = useState<CombinationMethod>("MAJORITY_VOTE");
+  const [buy, setBuy] = useState("0.5");
+  const [sell, setSell] = useState("-0.5");
+
+  const save = useMutation({
+    mutationFn: () =>
+      api.defineComposite(
+        method,
+        method === "WEIGHTED_SCORE"
+          ? weightedComponents(selectedIds, weights)
+          : selectedIds.map((strategyDefinitionId) => ({ strategyDefinitionId, weight: 1 })),
+        method === "WEIGHTED_SCORE" ? { buy: Number(buy), sell: Number(sell) } : undefined
+      ),
+    onSuccess: refresh,
+    onError: setError,
+  });
+
+  const toggle = (id: string) => {
+    const next = selectedIds.includes(id) ? selectedIds.filter((item) => item !== id) : [...selectedIds, id];
+    setSelectedIds(next);
+    setWeights(equalWeights(next));
+    setError(undefined);
+  };
+
+  const weightSum = Object.values(weightedComponents(selectedIds, weights)).reduce((sum, item) => sum + item.weight, 0);
+  const thresholdsValid = Number.isFinite(Number(buy)) && Number.isFinite(Number(sell)) && Number(buy) > Number(sell);
+  const weightedValid = method === "MAJORITY_VOTE" || (Math.abs(weightSum - 1) < 0.0001 && thresholdsValid);
+  const canSave = selectedIds.length >= 2 && weightedValid && !save.isPending;
+
+  return (
+    <Panel title="🔀 Composite Strategy Builder (Multi-Indicator Ensemble)" className="strategy-composite-panel">
+      <div className="composite-builder-header">
+        <p className="composite-builder-sub">
+          Combine 2 or more saved strategies into a single decision engine. Ensemble strategies filter out false signals by requiring consensus across multiple indicators.
+        </p>
+      </div>
+
+      <div className="composite-two-column-layout">
+        {/* Left Column: Assembling the Composite */}
+        <div className="composite-assemble-col">
+          {/* Step 1: Selection Mode Cards */}
+          <div className="composite-step-card">
+            <div className="composite-step-header">
+              <span className="step-badge">1</span>
+              <h4>Choose Consensus Decision Method</h4>
+            </div>
+            <div className="composite-method-selector-grid">
+              <button
+                type="button"
+                className={`composite-method-btn ${method === "MAJORITY_VOTE" ? "active" : ""}`}
+                onClick={() => setMethod("MAJORITY_VOTE")}
+              >
+                <div className="method-btn-top">
+                  <span className="method-icon">🗳️</span>
+                  <b>Majority Vote</b>
+                </div>
+                <p className="method-desc">
+                  Democratic consensus. Executes a trade only when &gt;50% of selected strategies agree on a signal.
+                </p>
+              </button>
+
+              <button
+                type="button"
+                className={`composite-method-btn ${method === "WEIGHTED_SCORE" ? "active" : ""}`}
+                onClick={() => setMethod("WEIGHTED_SCORE")}
+              >
+                <div className="method-btn-top">
+                  <span className="method-icon">⚖️</span>
+                  <b>Weighted Scoring</b>
+                </div>
+                <p className="method-desc">
+                  Custom confidence weighting. Each strategy contributes a percentage score with trigger thresholds.
+                </p>
+              </button>
+            </div>
+          </div>
+
+          {/* Step 2: Component Strategies Checklist */}
+          <div className="composite-step-card">
+            <div className="composite-step-header">
+              <span className="step-badge">2</span>
+              <div>
+                <h4>Select 2 or More Saved Strategies to Combine</h4>
+                <small className="step-sub-hint">({selectedIds.length} strategies selected)</small>
+              </div>
+            </div>
+
+            <div className="composite-strategies-selection-list">
+              {definitions.isLoading ? (
+                <Loading />
+              ) : definitions.error ? (
+                <ErrorBox error={definitions.error} />
+              ) : definitions.data?.length ? (
+                definitions.data.map((definition) => {
+                  const isChecked = selectedIds.includes(definition.id);
+                  return (
+                    <div className={`composite-strategy-item-card ${isChecked ? "checked" : ""}`} key={definition.id}>
+                      <label className="composite-item-label">
+                        <input
+                          type="checkbox"
+                          className="composite-checkbox"
+                          checked={isChecked}
+                          onChange={() => toggle(definition.id)}
+                        />
+                        <span className="plugin-icon small">{iconFor(definition)}</span>
+                        <div className="composite-item-text">
+                          <b className="composite-item-name">{definition.familyName ?? definition.strategyName}</b>
+                          <span className="composite-item-params">{parameterSummary(definition)}</span>
+                        </div>
+                      </label>
+
+                      {method === "WEIGHTED_SCORE" && isChecked && (
+                        <div className="composite-weight-control">
+                          <span className="weight-label">Weight:</span>
+                          <input
+                            type="number"
+                            className="weight-input"
+                            aria-label={`Weight ${definition.id}`}
+                            min="0"
+                            max="1"
+                            step="0.05"
+                            value={weights[definition.id] ?? ""}
+                            onChange={(event) =>
+                              setWeights({ ...weights, [definition.id]: Number(event.target.value) })
+                            }
+                          />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="composite-empty-library-hint">
+                  <p><b>No saved strategies in library yet.</b></p>
+                  <small>Use the AI Generator or Manual Builder above to create at least 2 strategies first.</small>
+                </div>
+              )}
+            </div>
+
+            {/* Threshold controls for weighted mode */}
+            {method === "WEIGHTED_SCORE" && selectedIds.length > 0 && (
+              <div className="composite-thresholds-box">
+                <div className="thresholds-row">
+                  <label className="threshold-field">
+                    <span>🟢 Buy Trigger Score (e.g. &ge; 0.50):</span>
+                    <input
+                      type="number"
+                      step="0.05"
+                      value={buy}
+                      onChange={(event) => setBuy(event.target.value)}
+                    />
+                  </label>
+                  <label className="threshold-field">
+                    <span>🔴 Sell Trigger Score (e.g. &le; -0.50):</span>
+                    <input
+                      type="number"
+                      step="0.05"
+                      value={sell}
+                      onChange={(event) => setSell(event.target.value)}
+                    />
+                  </label>
+                </div>
+                <div className="weight-validation-indicator">
+                  <span>
+                    Total Weight: <b>{weightSum.toFixed(2)}</b> (Must equal 1.00) · Buy &gt; Sell: <b>{thresholdsValid ? "Valid ✓" : "Invalid ✕"}</b>
+                  </span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Action Button */}
+          <div className="composite-action-box">
+            <button
+              type="button"
+              className="btn-create-composite"
+              disabled={!canSave}
+              onClick={() => save.mutate()}
+            >
+              {save.isPending
+                ? "Saving Ensemble to Database..."
+                : selectedIds.length < 2
+                ? "Select at least 2 strategies to combine"
+                : `💾 Save ${method === "MAJORITY_VOTE" ? "Majority Vote" : "Weighted Score"} Composite`}
+            </button>
+          </div>
+          {save.isSuccess && (
+            <p className="success" style={{ marginTop: "8px", fontSize: "12px" }}>
+              ✓ Composite strategy successfully created and saved to PostgreSQL!
+            </p>
+          )}
+          <ErrorBox error={error ?? save.error} />
+        </div>
+
+        {/* Right Column: Active Persisted Composites */}
+        <div className="composite-persisted-col">
+          <div className="persisted-composites-header">
+            <h4>Saved Composite Library (PostgreSQL)</h4>
+            <span className="composites-count-pill">{composites.data?.length ?? 0} composites</span>
+          </div>
+
+          <div className="persisted-composites-list">
+            {composites.isLoading ? (
+              <Loading />
+            ) : composites.error ? (
+              <ErrorBox error={composites.error} />
+            ) : composites.data?.length ? (
+              composites.data.map((composite) => (
+                <div className="persisted-composite-card" key={composite.id}>
+                  <div className="composite-card-header">
+                    <span className={`composite-method-tag method-${composite.method.toLowerCase()}`}>
+                      {composite.method === "MAJORITY_VOTE" ? "🗳️ Majority Vote" : "⚖️ Weighted Score"}
+                    </span>
+                    <span className="composite-version-tag">v{composite.version}</span>
+                  </div>
+
+                  <div className="composite-components-formula">
+                    <div className="formula-label">Ensemble Components:</div>
+                    <div className="formula-chips-row">
+                      {composite.components.map((component, idx) => {
+                        const name = definitions.data?.find((d) => d.id === component.strategyDefinitionId)?.strategyName ?? "Strategy";
+                        return (
+                          <span className="formula-chip" key={idx}>
+                            {name} {composite.method === "WEIGHTED_SCORE" ? `(${(component.weight * 100).toFixed(0)}%)` : ""}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {composite.thresholds && (
+                    <div className="composite-thresholds-summary">
+                      <span>Buy &ge; {composite.thresholds.buy}</span>
+                      <span>Sell &le; {composite.thresholds.sell}</span>
+                    </div>
+                  )}
+
+                  <div className="composite-card-footer">
+                    <span className="composite-ready-badge">● Ready for Backtest Lab</span>
+                    <code className="composite-uuid">{composite.id.slice(0, 16)}...</code>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="persisted-composites-empty">
+                <span className="empty-icon">🔀</span>
+                <b>No composite strategies saved yet</b>
+                <small>Combine single strategies on the left to build your first ensemble bot.</small>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </Panel>
+  );
 }
 
 export function StrategyScreen() {
@@ -363,7 +800,8 @@ export function StrategyScreen() {
   const [source, setSource] = useState("");
   const [result, setResult] = useState<StrategyGenerationResult>();
   const [selected, setSelected] = useState<StrategyDefinition>();
-  const [screenError, setScreenError] = useState<unknown>();
+  const [pluginError, setPluginError] = useState<unknown>();
+  const [compositeError, setCompositeError] = useState<unknown>();
   const [message, setMessage] = useState("");
 
   const generation = useMutation({
@@ -374,7 +812,6 @@ export function StrategyScreen() {
       setMessage("Backend persisted the generated result.");
       void queryClient.invalidateQueries({ queryKey: ["strategies"] });
     },
-    onError: setScreenError,
   });
 
   const definition = generatedDefinition(result, selected);
@@ -388,7 +825,7 @@ export function StrategyScreen() {
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
-    setScreenError(undefined);
+    generation.reset();
     setMessage("");
     generation.mutate(sourceType === "TEXT" ? { sourceType, text: source.trim() } : { sourceType, url: source.trim() });
   };
@@ -397,7 +834,7 @@ export function StrategyScreen() {
     setSource("");
     setResult(undefined);
     setSelected(undefined);
-    setScreenError(undefined);
+    generation.reset();
     setMessage("");
   };
 
@@ -405,7 +842,7 @@ export function StrategyScreen() {
     <div className="strategy-screen">
       <StrategyHeader creationMode={creationMode} setCreationMode={setCreationMode} />
 
-      {/* Mode Switchable Workspace: AI Generator vs Manual Builder */}
+      {/* Mode Switchable Workspace: AI Generator vs Manual Builder vs Composite Builder */}
       {creationMode === "AI_GENERATOR" ? (
         <div className="strategy-workspace">
           <PromptInput
@@ -416,7 +853,7 @@ export function StrategyScreen() {
             busy={generation.isPending}
             onSubmit={submit}
             onClear={clear}
-            error={generation.error ?? screenError}
+            error={generation.error}
           />
           <ParsedSummary definition={definition} composite={composite} result={result} sourceType={sourceType} />
           <JsonPreview payload={preview} />
@@ -426,20 +863,27 @@ export function StrategyScreen() {
             sourceType={sourceType}
             descriptors={descriptors}
             onRefresh={refreshLibrary}
-            error={screenError}
             message={message}
           />
         </div>
-      ) : (
+      ) : creationMode === "MANUAL_BUILDER" ? (
         <PluginEditor
           descriptors={descriptors}
           onSaved={refreshLibrary}
-          error={screenError}
-          setError={setScreenError}
+          error={pluginError}
+          setError={setPluginError}
+        />
+      ) : (
+        <CompositeLibrary
+          definitions={definitions}
+          composites={composites}
+          refresh={refreshLibrary}
+          error={compositeError}
+          setError={setCompositeError}
         />
       )}
 
-      {/* Shared Saved Library & Composites */}
+      {/* Shared Saved Strategy Library */}
       <LibraryTable
         definitions={definitions}
         selected={selected}
@@ -449,14 +893,6 @@ export function StrategyScreen() {
           setMessage("");
         }}
         generationId={result?.strategyDefinition?.id}
-      />
-
-      <CompositeLibrary
-        definitions={definitions}
-        composites={composites}
-        refresh={refreshLibrary}
-        error={screenError}
-        setError={setScreenError}
       />
     </div>
   );
