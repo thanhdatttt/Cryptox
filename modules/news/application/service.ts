@@ -51,21 +51,35 @@ const observeSentimentFailure = (observability: NewsObservability | undefined, i
 import { createHash } from "node:crypto";
 import { createRssFeedProvider } from "../infrastructure/coindesk-rss-provider";
 import { createCrawlerNewsProvider } from "../infrastructure/crawler-provider";
+import type { ExtractionTemplate } from "../domain/template-contracts";
+import { InMemoryNewsTemplateRepository, type NewsTemplateRepository } from "../infrastructure/template-repository";
+import { createLlmTemplateGenerator, type NewsTemplateGenerator } from "../infrastructure/llm-template-generator";
+import { extractWithTemplate, validateExtractedItems } from "../infrastructure/template-engine";
 
 export interface NewsCollectOptions {
   sourceType?: string;
   sources?: Array<{ name: string; url: string; type: string }>;
   html?: string;
   coin?: string;
+  autoHealing?: boolean;
 }
 
 export interface NewsModuleRuntime {
   collect(options?: NewsCollectOptions): Promise<void>;
   readNews(): Promise<NewsReadItem[]>;
+  getTemplates(): Promise<ExtractionTemplate[]>;
+  applyTemplate(domain: string, version: string): Promise<ExtractionTemplate>;
+  healTemplate(domain: string, html?: string, autoApply?: boolean): Promise<ExtractionTemplate>;
 }
 
 export function createInMemoryNewsDependencies(): NewsModuleDependencies {
-  return { providers: [], newsRepository: new MemoryNewsRepository(), sentiment: unavailableSentiment };
+  return {
+    providers: [],
+    newsRepository: new MemoryNewsRepository(),
+    sentiment: unavailableSentiment,
+    templateRepository: new InMemoryNewsTemplateRepository(),
+    templateGenerator: createLlmTemplateGenerator(),
+  };
 }
 
 export function createNewsModule(dependencies: InternalDependencies = createInMemoryNewsDependencies()): NewsModuleRuntime {
@@ -194,6 +208,9 @@ export function createNewsModule(dependencies: InternalDependencies = createInMe
     }
   };
 
+  const templateRepo = dependencies.templateRepository ?? defaults.templateRepository;
+  const templateGen = dependencies.templateGenerator ?? defaults.templateGenerator;
+
   return {
     async collect(options?: NewsCollectOptions) {
       // 1. If HTML is directly supplied
@@ -218,42 +235,78 @@ export function createNewsModule(dependencies: InternalDependencies = createInMe
 
           if (src.type === "WEBSITE") {
             let websiteItems: NewsItem[] = [];
+            let domain = "";
+            try {
+              domain = new URL(src.url).hostname.replace(/^www\./i, "");
+            } catch {
+              domain = src.name.toLowerCase().replace(/\s+/g, "");
+            }
 
-            // 1. Try LLM crawler if interpreter is configured
-            if (interpreter) {
-              try {
-                const crawlerProvider = createCrawlerNewsProvider({
-                  sourceUrls: [src.url],
-                  interpreter,
-                  name: sourceName,
-                  limits: crawlerLimits,
-                  observability,
-                });
-                const fetched = await crawlerProvider.fetch();
-                if (Array.isArray(fetched) && fetched.length > 0) {
-                  websiteItems = fetched;
+            // 1. Fetch raw webpage HTML
+            let html = "";
+            try {
+              const res = await globalThis.fetch(src.url, {
+                headers: {
+                  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+                  "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                },
+              });
+              if (res.ok) html = await res.text();
+            } catch (err) {
+              observeProviderFailure(observability, { providerName: sourceName, stage: "FETCH", reason: providerFailureReason(err) });
+            }
+
+            if (html) {
+              // 2. Look up active template for domain in PostgreSQL
+              let activeTemplate = templateRepo ? await templateRepo.findActiveByDomain(domain) : undefined;
+
+              // 3. Cold Start: If no template in DB, invoke LLM to generate v1.0 template and persist
+              if (!activeTemplate && templateGen) {
+                try {
+                  const generated = await templateGen.generateTemplate(domain, html);
+                  if (templateRepo) {
+                    activeTemplate = await templateRepo.save(generated);
+                  } else {
+                    activeTemplate = generated;
+                  }
+                } catch {
+                  // fallback
                 }
-              } catch (error) {
-                observeProviderFailure(observability, { providerName: sourceName, stage: "MODEL", reason: providerFailureReason(error) });
+              }
+
+              // 4. Token-Free Extraction: Extract articles using active template
+              if (activeTemplate) {
+                websiteItems = extractWithTemplate(html, activeTemplate, src.url, sourceName, options?.coin);
+                const stats = validateExtractedItems(websiteItems);
+
+                // 5. Self-Healing Drift Detection: If defect rate > 10%
+                if (stats.isHighError && templateGen) {
+                  try {
+                    const repaired = await templateGen.repairTemplate(domain, activeTemplate, html, stats);
+                    const shouldAutoApply = options?.autoHealing !== false;
+                    repaired.isActive = shouldAutoApply;
+
+                    if (templateRepo) {
+                      await templateRepo.save(repaired);
+                    }
+
+                    if (shouldAutoApply) {
+                      const reExtracted = extractWithTemplate(html, repaired, src.url, sourceName, options?.coin);
+                      if (reExtracted.length > 0) websiteItems = reExtracted;
+                    }
+                  } catch (err) {
+                    observeProviderFailure(observability, { providerName: sourceName, stage: "MODEL", reason: providerFailureReason(err) });
+                  }
+                }
+              } else {
+                websiteItems = await scrapeWebsiteArticles(src.url, sourceName, options?.coin);
               }
             }
 
-            // 2. Fallback to direct HTML scraper if LLM had 0 results or failed/rate-limited
-            if (websiteItems.length === 0) {
-              try {
-                const scraped = await scrapeWebsiteArticles(src.url, sourceName, options.coin);
-                if (scraped.length > 0) {
-                  websiteItems = scraped;
-                }
-              } catch (error) {
-                observeProviderFailure(observability, { providerName: sourceName, stage: "FETCH", reason: providerFailureReason(error) });
-              }
-            }
-
-            // 3. Persist and analyze all discovered items
+            // 6. Persist all discovered items
             for (const rawItem of websiteItems) {
               const item = { ...rawItem };
-              if (options.coin && options.coin !== "ALL" && !item.relatedCoins.includes(options.coin.toUpperCase())) {
+              if (options?.coin && options.coin !== "ALL" && !item.relatedCoins.includes(options.coin.toUpperCase())) {
                 item.relatedCoins = [...item.relatedCoins, options.coin.toUpperCase()];
               }
               try {
@@ -329,6 +382,35 @@ export function createNewsModule(dependencies: InternalDependencies = createInMe
           return item;
         }
       }));
+    },
+
+    async getTemplates(): Promise<ExtractionTemplate[]> {
+      return templateRepo ? templateRepo.findAll() : [];
+    },
+
+    async applyTemplate(domain: string, version: string): Promise<ExtractionTemplate> {
+      if (!templateRepo) throw new Error("TEMPLATE_REPOSITORY_NOT_AVAILABLE");
+      return templateRepo.setActiveVersion(domain, version);
+    },
+
+    async healTemplate(domain: string, html?: string, autoApply: boolean = true): Promise<ExtractionTemplate> {
+      if (!templateRepo || !templateGen) throw new Error("SELF_HEALING_NOT_CONFIGURED");
+      let active = await templateRepo.findActiveByDomain(domain);
+      if (!active) {
+        active = await templateGen.generateTemplate(domain, html || "");
+        await templateRepo.save(active);
+      }
+      const repaired = await templateGen.repairTemplate(domain, active, html || "", {
+        evaluatedCount: 1,
+        emptyFieldsPercent: 100,
+        formatErrorsPercent: 0,
+        totalDefectPercent: 100,
+        integrityPercent: 0,
+        isHighError: true,
+        confidence: 0.5,
+      });
+      repaired.isActive = autoApply;
+      return templateRepo.save(repaired);
     },
   };
 }

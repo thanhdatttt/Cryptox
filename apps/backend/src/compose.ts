@@ -12,7 +12,7 @@ import type { EvaluatorModulePublicApi } from "modules/evaluation/api";
 import type { LeaderboardModulePublicApi } from "modules/leaderboard/api";
 import { createBacktestingExperimentReader, createBacktestingScopeRepository, createInMemoryLeaderboardDependencies, createLeaderboardModule, createPostgresLeaderboardDependencies } from "modules/leaderboard/api/bootstrap";
 import { createBinanceMarketDataAdapter, createMarketDataModule, createRedisLatestValueCache, PostgresCandleRepository, PostgresSnapshotRepository } from "modules/market-data/api/bootstrap";
-import { createConfiguredNewsProviders, createNewsModule, createOpenAiCompatibleHtmlNewsInterpreter, PostgresNewsRepository } from "modules/news/api/bootstrap";
+import { createConfiguredNewsProviders, createLlmTemplateGenerator, createNewsModule, createOpenAiCompatibleHtmlNewsInterpreter, PostgresNewsRepository, PostgresNewsTemplateRepository } from "modules/news/api/bootstrap";
 import type { SearchModulePublicApi, SearchModuleRuntime } from "modules/search/api";
 import { createInMemorySearchDependencies, createPostgresCancellationUnitOfWork, createPostgresSearchDependencies, createSearchModule } from "modules/search/api/bootstrap";
 import { createDeterministicSentimentAdapter, createOpenAiCompatibleSentimentAdapter, createSentimentModule, PostgresSentimentResultRepository, PostgresSentimentSnapshotRepository } from "modules/sentiment/api/bootstrap";
@@ -64,8 +64,14 @@ export function composeAllModules(options: { profile?: RuntimeProfile; env?: Nod
     : createStrategyModule();
   const evaluation = createEvaluationModule();
   const sentiment = createSentimentModule({
-    analysis: config.durable
-      ? createOpenAiCompatibleSentimentAdapter({ apiKey: config.strategyLlmApiKey!, model: config.strategyModelName!, modelVersion: config.strategyModelVersion, endpoint: config.strategyModelEndpoint, timeoutMs: config.strategyModelTimeoutMs })
+    analysis: config.durable && config.sentimentLlmApiKey && config.sentimentModelName && config.sentimentModelEndpoint
+      ? createOpenAiCompatibleSentimentAdapter({
+          apiKey: config.sentimentLlmApiKey,
+          model: config.sentimentModelName,
+          modelVersion: config.sentimentModelVersion,
+          endpoint: config.sentimentModelEndpoint,
+          timeoutMs: config.sentimentModelTimeoutMs,
+        })
       : createDeterministicSentimentAdapter(),
     resultRepository: postgres ? new PostgresSentimentResultRepository(postgres) : undefined,
     snapshotRepository: postgres ? new PostgresSentimentSnapshotRepository(postgres) : undefined,
@@ -120,12 +126,20 @@ export function composeAllModules(options: { profile?: RuntimeProfile; env?: Nod
     interpreter: crawlerInterpreter,
     limits: crawlerLimits,
   } : undefined;
+  const templateRepository = postgres ? new PostgresNewsTemplateRepository(postgres) : undefined;
+  const templateGenerator = createLlmTemplateGenerator({
+    apiKey: config.templateLlmApiKey || config.crawlerLlmApiKey || config.strategyLlmApiKey,
+    model: config.templateModelName || config.crawlerModelName || config.strategyModelName,
+    endpoint: config.templateModelEndpoint || config.crawlerModelEndpoint || config.strategyModelEndpoint,
+  });
   const news = createNewsModule({
     providers: createConfiguredNewsProviders({ provider: config.newsProvider, crawler }),
     newsRepository: postgres ? new PostgresNewsRepository(postgres) : undefined,
     sentiment,
     interpreter: crawlerInterpreter,
     crawlerLimits,
+    templateRepository,
+    templateGenerator,
   });
   const completionListener = config.durable ? new BullMqBacktestCompletionListener(config.redisUrl!, backtesting) : undefined;
   let recoveryTimer: NodeJS.Timeout | undefined;

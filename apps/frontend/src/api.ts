@@ -159,10 +159,33 @@ export const api = {
   cancelSearch: (id: string) => api.controlSearch(id, "cancel"),
   leaderboard: (scopeId: string) => request<LeaderboardEntry[]>(`/leaderboard${query({ scopeId })}`, {}, (value) => arrayDto<unknown>(value, "leaderboard").map(normalizeLeaderboardEntry)),
   news: () => request<NewsItem[]>("/news", {}, (value) => arrayDto<NewsItem>(value, "news")),
-  collectNews: (payload?: { sourceType?: string; sources?: Array<{ name: string; url: string; type: string }>; html?: string; coin?: string }) => request<void>("/news/collect", payload ? json(payload) : { method: "POST" }),
+  newsTemplates: () => request<ExtractionTemplate[]>("/news/templates", {}, (value) => arrayDto<ExtractionTemplate>(value, "news extraction templates")),
+  applyNewsTemplate: (domain: string, version: string) => request<ExtractionTemplate>("/news/templates/apply", json({ domain, version })),
+  healNewsTemplate: (domain: string, html?: string, autoApply?: boolean) => request<ExtractionTemplate>("/news/templates/heal", json({ domain, html, autoApply })),
+  collectNews: (payload?: { sourceType?: string; sources?: Array<{ name: string; url: string; type: string }>; html?: string; coin?: string; autoHealing?: boolean }) => request<void>("/news/collect", payload ? json(payload) : { method: "POST" }),
 };
 
 export type NewsItem = { id: string; title: string; content: string; source: string; publishedAt: string; crawledAt: string; relatedCoins: string[]; url: string; sentiment?: { newsId: string; label: "POSITIVE" | "NEUTRAL" | "NEGATIVE"; score: number; modelName: string; modelVersion: string; analyzedAt: string } };
+
+export type ExtractionTemplate = {
+  id: string;
+  domain: string;
+  version: string;
+  selectors: {
+    container: string;
+    title: string;
+    summary: string;
+    link: string;
+    time: string;
+    tags?: string;
+  };
+  sampleHtmlSnippet?: string;
+  confidence: number;
+  defectRate: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
 
 export function mapGenerationError(error: unknown): { kind: GenerationErrorKind; message: string } {
   const apiError = error instanceof ApiError ? error : undefined;

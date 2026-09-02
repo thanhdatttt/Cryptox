@@ -401,6 +401,26 @@ export class NewsController extends ProtectedController {
     const options = typeof body === "object" && body !== null ? body as import("modules/news/api").NewsCollectOptions : undefined;
     try { await this.modules.news.collect(options); } catch (error) { return auxiliaryHttpError(error); }
   }
+
+  @Get("templates")
+  async listTemplates(@Headers("authorization") authorization?: string) {
+    await this.authenticate(authorization);
+    try { return await this.modules.news.getTemplates(); } catch (error) { return auxiliaryHttpError(error); }
+  }
+
+  @Post("templates/apply")
+  async applyTemplate(@Headers("authorization") authorization?: string, @Body() body?: { domain?: string; version?: string }) {
+    await this.authenticate(authorization);
+    if (!body?.domain || !body?.version) throw new BadRequestException("domain and version are required.");
+    try { return await this.modules.news.applyTemplate(body.domain, body.version); } catch (error) { return auxiliaryHttpError(error); }
+  }
+
+  @Post("templates/heal")
+  async healTemplate(@Headers("authorization") authorization?: string, @Body() body?: { domain?: string; html?: string; autoApply?: boolean }) {
+    await this.authenticate(authorization);
+    if (!body?.domain) throw new BadRequestException("domain is required.");
+    try { return await this.modules.news.healTemplate(body.domain, body.html, body.autoApply ?? true); } catch (error) { return auxiliaryHttpError(error); }
+  }
 }
 
 @Controller("sentiment")

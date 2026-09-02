@@ -14,6 +14,14 @@ export interface BackendRuntimeConfig {
   strategyPromptVersion: string;
   strategyModelVersion?: string;
   strategyModelTimeoutMs: number;
+  sentimentModelEndpoint?: string;
+  sentimentModelName?: string;
+  sentimentLlmApiKey?: string;
+  sentimentModelVersion?: string;
+  sentimentModelTimeoutMs: number;
+  templateModelEndpoint?: string;
+  templateModelName?: string;
+  templateLlmApiKey?: string;
   crawlerSourceUrls: readonly string[];
   crawlerModelEndpoint?: string;
   crawlerModelName?: string;
@@ -132,6 +140,20 @@ export function loadBackendRuntimeConfig(env: NodeJS.ProcessEnv = process.env, r
     strategyPromptVersion: value(env, "STRATEGY_PROMPT_VERSION") ?? "1",
     ...(strategyModelName ? { strategyModelVersion: value(env, "STRATEGY_MODEL_VERSION") ?? strategyModelName } : {}),
     strategyModelTimeoutMs: positiveInteger(env, "STRATEGY_MODEL_TIMEOUT_MS", 15_000, 100, 120_000),
+    ...(validateEndpoint(env, "SENTIMENT_MODEL_ENDPOINT", value(env, "SENTIMENT_MODEL_ENDPOINT")) ?? strategyModelEndpoint
+      ? { sentimentModelEndpoint: validateEndpoint(env, "SENTIMENT_MODEL_ENDPOINT", value(env, "SENTIMENT_MODEL_ENDPOINT")) ?? strategyModelEndpoint } : {}),
+    ...(value(env, "SENTIMENT_MODEL_NAME") ?? strategyModelName
+      ? { sentimentModelName: value(env, "SENTIMENT_MODEL_NAME") ?? strategyModelName } : {}),
+    ...(value(env, "SENTIMENT_LLM_API_KEY") ?? strategyLlmApiKey
+      ? { sentimentLlmApiKey: value(env, "SENTIMENT_LLM_API_KEY") ?? strategyLlmApiKey } : {}),
+    sentimentModelVersion: value(env, "SENTIMENT_MODEL_VERSION") ?? value(env, "SENTIMENT_MODEL_NAME") ?? strategyModelName,
+    sentimentModelTimeoutMs: positiveInteger(env, "SENTIMENT_MODEL_TIMEOUT_MS", 15_000, 100, 120_000),
+    ...(validateEndpoint(env, "TEMPLATE_MODEL_ENDPOINT", value(env, "TEMPLATE_MODEL_ENDPOINT")) ?? crawlerModelEndpoint ?? strategyModelEndpoint
+      ? { templateModelEndpoint: validateEndpoint(env, "TEMPLATE_MODEL_ENDPOINT", value(env, "TEMPLATE_MODEL_ENDPOINT")) ?? crawlerModelEndpoint ?? strategyModelEndpoint } : {}),
+    ...(value(env, "TEMPLATE_MODEL_NAME") ?? crawlerModelName ?? strategyModelName
+      ? { templateModelName: value(env, "TEMPLATE_MODEL_NAME") ?? crawlerModelName ?? strategyModelName } : {}),
+    ...(value(env, "TEMPLATE_LLM_API_KEY") ?? crawlerLlmApiKey ?? strategyLlmApiKey
+      ? { templateLlmApiKey: value(env, "TEMPLATE_LLM_API_KEY") ?? crawlerLlmApiKey ?? strategyLlmApiKey } : {}),
     crawlerSourceUrls,
     ...(crawlerModelEndpoint ? { crawlerModelEndpoint } : {}),
     ...(crawlerModelName ? { crawlerModelName } : {}),
