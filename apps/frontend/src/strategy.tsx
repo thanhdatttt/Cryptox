@@ -143,6 +143,28 @@ function persistActiveDraft(draft?: StrategyDraft) {
   }
 }
 
+const DELETED_STRATEGIES_KEY = "cryptox_deleted_strategies_v1";
+
+function loadDeletedStrategyIds(): string[] {
+  try {
+    const raw = localStorage.getItem(DELETED_STRATEGIES_KEY);
+    return raw ? (JSON.parse(raw) as string[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function persistDeletedStrategyId(id: string) {
+  try {
+    const current = loadDeletedStrategyIds();
+    if (!current.includes(id)) {
+      localStorage.setItem(DELETED_STRATEGIES_KEY, JSON.stringify([...current, id]));
+    }
+  } catch {
+    // local storage unavailable
+  }
+}
+
 const PROVENANCE_STORAGE_KEY = "cryptox_strategy_provenance_v1";
 
 function loadProvenanceMap(): Record<string, StrategySourceType> {
@@ -591,6 +613,84 @@ function ValidationSave({
   );
 }
 
+interface DeleteTarget {
+  id: string;
+  name: string;
+  type: "DRAFT" | "DEFINITION" | "COMPOSITE";
+  details?: string;
+}
+
+function DeleteConfirmationModal({
+  target,
+  onClose,
+  onConfirm,
+}: {
+  target: DeleteTarget;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  const typeBadge =
+    target.type === "DRAFT"
+      ? { label: "Unsaved Draft", className: "badge-draft" }
+      : target.type === "COMPOSITE"
+      ? { label: "Composite Ensemble", className: "badge-composite" }
+      : { label: "Saved Strategy", className: "badge-saved" };
+
+  return (
+    <div className="cryptox-modal-overlay" onClick={onClose}>
+      <div className="cryptox-delete-modal-card" onClick={(e) => e.stopPropagation()}>
+        <div className="delete-modal-header">
+          <div className="delete-modal-icon-badge">
+            <span>🗑️</span>
+          </div>
+          <div className="delete-modal-title-group">
+            <h3>Delete Strategy</h3>
+            <span className={`delete-type-pill ${typeBadge.className}`}>{typeBadge.label}</span>
+          </div>
+          <button type="button" className="btn-modal-close" onClick={onClose} aria-label="Close modal">
+            ✕
+          </button>
+        </div>
+
+        <div className="delete-modal-body">
+          <p className="delete-warning-text">
+            Are you sure you want to delete <b className="delete-target-highlight">"{target.name}"</b>?
+          </p>
+          {target.details && <p className="delete-meta-info">{target.details}</p>}
+          <div className="delete-notice-box">
+            <span className="notice-icon">⚠️</span>
+            <span>This action will remove the strategy from your workspace and saved lists.</span>
+          </div>
+        </div>
+
+        <div className="delete-modal-footer">
+          <button type="button" className="btn-modal-cancel" onClick={onClose}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="btn-modal-confirm-delete"
+            onClick={() => {
+              onConfirm();
+              onClose();
+            }}
+          >
+            🗑️ Yes, Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SavedStrategiesTable({
   definitions,
   composites,
@@ -600,6 +700,8 @@ function SavedStrategiesTable({
   onSelectComposite,
   onSelectDraft,
   onSaveDraft,
+  onDeleteDraft,
+  onDeleteSavedStrategy,
 }: {
   definitions: Resource<StrategyDefinition[]>;
   composites: Resource<Composite[]>;
@@ -609,8 +711,11 @@ function SavedStrategiesTable({
   onSelectComposite: (composite: Composite) => void;
   onSelectDraft: (draft: StrategyDraft) => void;
   onSaveDraft: (draft: StrategyDraft) => Promise<void>;
+  onDeleteDraft: (draftId: string) => void;
+  onDeleteSavedStrategy: (id: string) => void;
 }) {
   const [filter, setFilter] = useState<"ALL" | "USER_PROMPT" | "WEB_IMPORT" | "MANUAL_BUILDER" | "COMPOSITE_BUILDER" | "DRAFTS">("ALL");
+  const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const provenanceMap = useMemo(() => loadProvenanceMap(), [definitions.data, drafts]);
 
   const unsavedDrafts = drafts.filter((d) => !d.isSaved);
@@ -689,8 +794,8 @@ function SavedStrategiesTable({
                 <th style={{ width: "14%" }}>Created</th>
                 <th style={{ width: "8%" }}>Version</th>
                 <th style={{ width: "22%" }}>Parameters / Logic</th>
-                <th style={{ width: "10%" }}>Status</th>
-                <th style={{ width: "8%", textAlign: "right" }}>Actions</th>
+                <th style={{ width: "8%" }}>Status</th>
+                <th style={{ width: "10%", textAlign: "right" }}>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -754,6 +859,21 @@ function SavedStrategiesTable({
                             >
                               💾 Save
                             </button>
+                            <button
+                              type="button"
+                              className="btn-table-delete"
+                              title="Delete draft"
+                              onClick={() =>
+                                setDeleteTarget({
+                                  id: draft.id,
+                                  name: draft.name || draft.strategyName,
+                                  type: "DRAFT",
+                                  details: paramSummary,
+                                })
+                              }
+                            >
+                              🗑️
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -783,12 +903,13 @@ function SavedStrategiesTable({
                         : source === "MANUAL_BUILDER"
                         ? "badge-manual-builder"
                         : "badge-user-prompt";
+                    const stratName = item.familyName ?? item.strategyName;
 
                     return (
                       <tr key={item.id} className={isSelected ? "selected" : ""}>
                         <td>
                           <div className="table-strat-cell">
-                            <span className="table-strat-name">{item.familyName ?? item.strategyName}</span>
+                            <span className="table-strat-name">{stratName}</span>
                             <span className="table-strat-sub">{item.strategyName}</span>
                           </div>
                         </td>
@@ -815,6 +936,21 @@ function SavedStrategiesTable({
                             <a href="#/backtest" className="btn-table-backtest">
                               Backtest →
                             </a>
+                            <button
+                              type="button"
+                              className="btn-table-delete"
+                              title="Delete strategy"
+                              onClick={() =>
+                                setDeleteTarget({
+                                  id: item.id,
+                                  name: `${stratName} (v${item.version})`,
+                                  type: "DEFINITION",
+                                  details: parameterSummary(item),
+                                })
+                              }
+                            >
+                              🗑️
+                            </button>
                           </div>
                         </td>
                       </tr>
@@ -867,6 +1003,21 @@ function SavedStrategiesTable({
                           <a href="#/backtest" className="btn-table-backtest">
                             Backtest →
                           </a>
+                          <button
+                            type="button"
+                            className="btn-table-delete"
+                            title="Delete composite"
+                            onClick={() =>
+                              setDeleteTarget({
+                                id: comp.id,
+                                name: methodLabel,
+                                type: "COMPOSITE",
+                                details: logicSummary,
+                              })
+                            }
+                          >
+                            🗑️
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -880,6 +1031,21 @@ function SavedStrategiesTable({
           <b>No strategies found in this category.</b>
           <small>Generate a strategy with AI, import from URL, or use the builders above.</small>
         </Empty>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteTarget && (
+        <DeleteConfirmationModal
+          target={deleteTarget}
+          onClose={() => setDeleteTarget(null)}
+          onConfirm={() => {
+            if (deleteTarget.type === "DRAFT") {
+              onDeleteDraft(deleteTarget.id);
+            } else {
+              onDeleteSavedStrategy(deleteTarget.id);
+            }
+          }}
+        />
       )}
     </Panel>
   );
@@ -1149,10 +1315,14 @@ function CompositeLibrary({ definitions, composites, refresh, error, setError }:
                             className="item-checkbox"
                             checked={checked}
                             onChange={() => toggle(item.id)}
+                            onClick={(e) => e.stopPropagation()}
                           />
                           <div className="item-details">
-                            <b className="item-name">{item.familyName ?? item.strategyName}</b>
-                            <span className="item-meta">v{item.version} · {parameterSummary(item)}</span>
+                            <div className="item-name-row">
+                              <b className="item-name">{item.familyName ?? item.strategyName}</b>
+                              <span className="version-pill">v{item.version}</span>
+                            </div>
+                            <span className="item-meta">{parameterSummary(item)}</span>
                           </div>
                         </div>
                         {checked && method === "WEIGHTED_SCORE" && (
@@ -1315,10 +1485,29 @@ export function StrategyScreen() {
   const [selected, setSelected] = useState<StrategyDefinition | StrategyDraft | Composite>();
   const [drafts, setDrafts] = useState<StrategyDraft[]>(() => loadSavedDrafts());
   const [activeDraft, setActiveDraft] = useState<StrategyDraft | undefined>(() => loadActiveDraft());
+  const [deletedIds, setDeletedIds] = useState<string[]>(() => loadDeletedStrategyIds());
   const [isSaving, setIsSaving] = useState(false);
   const [pluginError, setPluginError] = useState<unknown>();
   const [compositeError, setCompositeError] = useState<unknown>();
   const [message, setMessage] = useState("");
+
+  const visibleDefinitions = useMemo(() => {
+    return (definitions.data ?? []).filter((d) => !deletedIds.includes(d.id));
+  }, [definitions.data, deletedIds]);
+
+  const visibleComposites = useMemo(() => {
+    return (composites.data ?? []).filter((c) => !deletedIds.includes(c.id));
+  }, [composites.data, deletedIds]);
+
+  const filteredDefinitions: Resource<StrategyDefinition[]> = {
+    ...definitions,
+    data: visibleDefinitions,
+  };
+
+  const filteredComposites: Resource<Composite[]> = {
+    ...composites,
+    data: visibleComposites,
+  };
 
   const generation = useMutation({
     mutationFn: (input: { sourceType: "TEXT"; text: string } | { sourceType: "URL"; url: string }) => api.generateStrategy(input),
@@ -1351,6 +1540,8 @@ export function StrategyScreen() {
       setSelected(newDraft);
       setMessage("AI strategy draft generated! Review parameters and click 'Save Strategy' below.");
       void queryClient.invalidateQueries({ queryKey: ["strategies"] });
+      void definitions.refetch();
+      void composites.refetch();
     },
   });
 
@@ -1364,6 +1555,36 @@ export function StrategyScreen() {
 
   const refreshSavedStrategies = () => {
     setMessage("Database strategies refreshed.");
+    void queryClient.invalidateQueries({ queryKey: ["strategies"] });
+    void definitions.refetch();
+    void composites.refetch();
+  };
+
+  const handleDeleteDraft = (draftId: string) => {
+    const nextDrafts = drafts.filter((d) => d.id !== draftId);
+    setDrafts(nextDrafts);
+    persistDrafts(nextDrafts);
+    if (activeDraft?.id === draftId) {
+      setActiveDraft(undefined);
+      persistActiveDraft(undefined);
+    }
+    if (selected?.id === draftId) {
+      setSelected(undefined);
+    }
+    setMessage("Draft removed.");
+  };
+
+  const handleDeleteSavedStrategy = (id: string) => {
+    persistDeletedStrategyId(id);
+    setDeletedIds((prev) => [...prev, id]);
+    const nextDrafts = drafts.filter((d) => d.savedDefinitionId !== id && d.id !== id);
+    setDrafts(nextDrafts);
+    persistDrafts(nextDrafts);
+    if (selected?.id === id) {
+      setSelected(undefined);
+      setActiveDraft(undefined);
+    }
+    setMessage("Strategy removed from saved list.");
     void queryClient.invalidateQueries({ queryKey: ["strategies"] });
   };
 
@@ -1390,7 +1611,9 @@ export function StrategyScreen() {
       });
       setSelected(saved);
       setMessage(`✓ Strategy "${customName || targetDraft.name}" successfully saved to PostgreSQL!`);
-      void queryClient.invalidateQueries({ queryKey: ["strategies"] });
+      await queryClient.invalidateQueries({ queryKey: ["strategies"] });
+      void definitions.refetch();
+      void composites.refetch();
     } catch (err) {
       setMessage(`Failed to save: ${err instanceof Error ? err.message : "Database error"}`);
     } finally {
@@ -1418,7 +1641,9 @@ export function StrategyScreen() {
         return nextDrafts;
       });
       setMessage(`✓ Strategy "${draft.name}" saved to PostgreSQL!`);
-      void queryClient.invalidateQueries({ queryKey: ["strategies"] });
+      await queryClient.invalidateQueries({ queryKey: ["strategies"] });
+      void definitions.refetch();
+      void composites.refetch();
     } catch (err) {
       setMessage(`Failed to save: ${err instanceof Error ? err.message : "Database error"}`);
     } finally {
@@ -1488,8 +1713,8 @@ export function StrategyScreen() {
         />
       ) : (
         <CompositeLibrary
-          definitions={definitions}
-          composites={composites}
+          definitions={filteredDefinitions}
+          composites={filteredComposites}
           refresh={refreshSavedStrategies}
           error={compositeError}
           setError={setCompositeError}
@@ -1498,8 +1723,8 @@ export function StrategyScreen() {
 
       {/* Saved Strategies & Drafts Table */}
       <SavedStrategiesTable
-        definitions={definitions}
-        composites={composites}
+        definitions={filteredDefinitions}
+        composites={filteredComposites}
         drafts={drafts}
         selected={selected}
         onSelectDefinition={(item) => {
@@ -1524,6 +1749,8 @@ export function StrategyScreen() {
           setMessage("");
         }}
         onSaveDraft={handleQuickSaveDraft}
+        onDeleteDraft={handleDeleteDraft}
+        onDeleteSavedStrategy={handleDeleteSavedStrategy}
       />
     </div>
   );
