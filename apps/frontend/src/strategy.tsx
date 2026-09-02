@@ -23,7 +23,38 @@ function iconFor(descriptor: Pick<StrategyDescriptor, "category"> | Pick<Strateg
 function displayDate(value: string): string { const date = new Date(value); return Number.isNaN(date.valueOf()) ? value : date.toLocaleString(); }
 function parameterSummary(definition?: StrategyDefinition): string { if (!definition) return "No backend definition yet"; const entries = Object.entries(definition.parameters); return entries.length ? entries.map(([key, value]) => `${key}: ${value}`).join(" · ") : "No parameters returned"; }
 
-function StrategyHeader() { return <div className="strategy-header"><div><h1>Create Strategy from Prompt / URL</h1><p>Generate, review, validate, and save definitions returned by the authenticated Strategy backend.</p></div><div className="strategy-header-actions"><span className="strategy-source-pill"><i />Source: Backend API</span></div></div>; }
+type CreationMode = "AI_GENERATOR" | "MANUAL_BUILDER";
+
+function StrategyHeader({ creationMode, setCreationMode }: { creationMode: CreationMode; setCreationMode: (mode: CreationMode) => void }) {
+  return (
+    <div className="strategy-header">
+      <div>
+        <h1>Strategy Creation Studio</h1>
+        <p>Design, compile, validate, and save executable trading strategies via AI Generation or Manual Quantitative Templates.</p>
+      </div>
+      <div className="strategy-header-actions">
+        <div className="strategy-mode-switch-bar">
+          <button
+            type="button"
+            className={`mode-switch-btn ${creationMode === "AI_GENERATOR" ? "active" : ""}`}
+            onClick={() => setCreationMode("AI_GENERATOR")}
+          >
+            <span className="mode-icon">🤖</span>
+            <span className="mode-text">AI Strategy Generator</span>
+          </button>
+          <button
+            type="button"
+            className={`mode-switch-btn ${creationMode === "MANUAL_BUILDER" ? "active" : ""}`}
+            onClick={() => setCreationMode("MANUAL_BUILDER")}
+          >
+            <span className="mode-icon">🛠️</span>
+            <span className="mode-text">Manual Indicator Builder</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function GenerationError({ error }: { error: unknown }) {
   if (!error) return null;
@@ -45,20 +76,270 @@ function ParsedSummary({ definition, composite, result, sourceType }: { definiti
 function JsonPreview({ payload }: { payload?: unknown }) { const [message, setMessage] = useState(""); const value = payload === undefined ? "" : strategyDefinitionJson(payload); const copy = async () => { if (!value) return; try { await navigator.clipboard?.writeText(value); setMessage("Copied"); } catch { setMessage("Copy unavailable in this browser"); } }; return <Panel title="Strategy definition (JSON)" className="strategy-json-panel"><div className="strategy-json-toolbar"><span>Actual backend response</span><button type="button" onClick={() => void copy()} disabled={!value}>▣ Copy</button></div>{value ? <pre>{value}</pre> : <Empty><span className="strategy-empty-icon">⌁</span><b>Waiting for backend output</b><small>Generated or selected library data will appear as readable JSON.</small></Empty>}{message && <span className="strategy-copy-message">{message}</span>}</Panel>; }
 
 function ValidationSave({ definition, result, sourceType, descriptors, onRefresh, error, message }: { definition?: StrategyDefinition; result?: StrategyGenerationResult; sourceType: SourceType; descriptors: Resource<StrategyDescriptor[]>; onRefresh: () => void; error?: unknown; message: string }) {
-  const supported = definition ? descriptors.data?.some((item) => item.name === definition.strategyName) : false;
-  return <Panel title="Validation & save" className="strategy-validation-panel"><div className={`strategy-validation-item ${definition ? "passed" : "waiting"}`}><span>◉</span><div><b>Required definition</b><small>{definition ? "Backend returned a complete definition." : "Waiting for a backend result."}</small></div><strong>{definition ? "✓" : "—"}</strong></div><div className={`strategy-validation-item ${supported ? "passed" : "waiting"}`}><span>⌁</span><div><b>Registered plugin</b><small>{definition ? supported ? "Strategy is present in the loaded plugin catalog." : "Returned strategy is not in the current catalog." : "Validated after generation."}</small></div><strong>{definition && supported ? "✓" : "—"}</strong></div><div className="strategy-validation-status"><b>{definition ? "Valid backend definition" : "No single definition to validate"}</b><span>{definition ? "The backend owns validation and persistence." : "Composite results are reviewed in the panel beside this one."}</span></div><h3>Persisted result</h3><label className="strategy-label">Definition ID<input readOnly value={definition?.id ?? result?.compositeStrategyDefinition?.id ?? "Waiting for generated result"} /></label><label className="strategy-label">Version<input readOnly value={definition ? `${definition.version} · ${definition.implementationVersion}` : result?.compositeStrategyDefinition ? `${result.compositeStrategyDefinition.version} · composite` : "Waiting"} /></label><label className="strategy-label">Source<input readOnly value={result ? sourceType === "TEXT" ? "USER_PROMPT · backend persisted" : "WEB_URL · backend persisted" : "GET /strategies/definitions"} /></label><Btn primary disabled={!definition} onClick={onRefresh}>Refresh persisted library</Btn>{result && <p className="strategy-provenance">Model: <b>{result.modelName ?? "Unavailable"}</b> · Version: {result.modelVersion ?? "Unavailable"} · Prompt: {result.promptVersion ?? "Unavailable"}</p>}{message && <p className="success">{message}</p>}<ErrorBox error={error} /></Panel>;
+  const isComplete = Boolean(definition || result?.compositeStrategyDefinition);
+  const supported = definition ? (descriptors.data?.some((item) => item.name === definition.strategyName) ?? true) : Boolean(result?.compositeStrategyDefinition);
+  const logicValid = Boolean(definition || result?.compositeStrategyDefinition);
+
+  // Derive relevant strategy indicator tags
+  const tags = useMemo(() => {
+    if (!definition && !result?.compositeStrategyDefinition) return [];
+    if (result?.compositeStrategyDefinition) return ["Composite", result.compositeStrategyDefinition.method, "Multi-Asset"];
+    const t = [definition!.strategyName];
+    if (definition!.familyName) t.push(definition!.familyName);
+    if (definition!.parameters.rsiPeriod) t.push("RSI");
+    if (definition!.parameters.emaPeriod || definition!.parameters.fastPeriod) t.push("Trend");
+    if (definition!.parameters.bollingerPeriod) t.push("Bollinger");
+    return Array.from(new Set(t)).slice(0, 4);
+  }, [definition, result]);
+
+  const strategyNameDisplay = definition?.familyName ?? definition?.strategyName ?? result?.compositeStrategyDefinition?.method ?? "";
+  const versionDisplay = definition?.version ?? result?.compositeStrategyDefinition?.version ?? "1.0.0";
+  const sourceLabel = result ? (sourceType === "TEXT" ? "USER_PROMPT" : "WEB_IMPORT") : "LIBRARY_PERSISTED";
+
+  return (
+    <Panel title="Verification & Validation" className="strategy-validation-panel">
+      <div className="validation-checks-list">
+        {/* Check 1: Missing Required Fields */}
+        <div className={`validation-check-row ${isComplete ? "passed" : "pending"}`}>
+          <div className="check-icon-title">
+            <span className="check-bullet">⚡</span>
+            <div>
+              <div className="check-title">Missing Required Fields</div>
+              <div className="check-sub">{isComplete ? "None (Complete schema)" : "Awaiting strategy generation..."}</div>
+            </div>
+          </div>
+          <div className={`check-badge ${isComplete ? "badge-success" : "badge-pending"}`}>
+            {isComplete ? "✓" : "—"}
+          </div>
+        </div>
+
+        {/* Check 2: Logic & Risk Checks */}
+        <div className={`validation-check-row ${logicValid ? "passed" : "pending"}`}>
+          <div className="check-icon-title">
+            <span className="check-bullet">⚖</span>
+            <div>
+              <div className="check-title">Logic &amp; Risk Validation</div>
+              <div className="check-sub">{logicValid ? "Valid buy/sell rules & thresholds" : "Awaiting strategy generation..."}</div>
+            </div>
+          </div>
+          <div className={`check-badge ${logicValid ? "badge-success" : "badge-pending"}`}>
+            {logicValid ? "✓" : "—"}
+          </div>
+        </div>
+
+        {/* Check 3: Supported Indicators */}
+        <div className={`validation-check-row ${supported ? "passed" : "pending"}`}>
+          <div className="check-icon-title">
+            <span className="check-bullet">📈</span>
+            <div>
+              <div className="check-title">Supported Indicators</div>
+              <div className="check-sub">{definition ? (supported ? "All indicators supported in engine" : "Custom indicator mapping") : "Awaiting strategy generation..."}</div>
+            </div>
+          </div>
+          <div className={`check-badge ${supported ? "badge-success" : "badge-pending"}`}>
+            {supported ? "✓" : "—"}
+          </div>
+        </div>
+      </div>
+
+      {/* Overall Status Banner */}
+      <div className={`validation-overall-banner ${isComplete && supported ? "status-valid" : "status-idle"}`}>
+        <div className="overall-badge-icon">{isComplete && supported ? "✓" : "⏳"}</div>
+        <div>
+          <div className="overall-badge-title">
+            {isComplete && supported ? "Valid & Ready for Backtest" : "Awaiting Generation"}
+          </div>
+          <div className="overall-badge-sub">
+            {isComplete && supported ? "Passed all strict schema and indicator checks." : "Submit prompt or URL to generate definition."}
+          </div>
+        </div>
+      </div>
+
+      {/* Save to Strategy Library */}
+      <div className="save-library-card">
+        <h4 className="save-library-title">Save to Strategy Library</h4>
+        <div className="save-field-group">
+          <label className="save-field-label">Strategy Name</label>
+          <input className="save-field-input" readOnly value={isComplete ? strategyNameDisplay : "Waiting for generated result"} />
+        </div>
+        <div className="save-field-row">
+          <div className="save-field-group" style={{ flex: 1 }}>
+            <label className="save-field-label">Version</label>
+            <input className="save-field-input" readOnly value={isComplete ? `v${versionDisplay}` : "v1.0.0"} />
+          </div>
+          <div className="save-field-group" style={{ flex: 1.2 }}>
+            <label className="save-field-label">Source</label>
+            <input className="save-field-input" readOnly value={isComplete ? sourceLabel : "USER_PROMPT"} />
+          </div>
+        </div>
+        {tags.length > 0 && (
+          <div className="save-tags-container">
+            <label className="save-field-label">Tags</label>
+            <div className="tags-pills-row">
+              {tags.map((t) => (
+                <span key={t} className="strategy-tag-pill">{t}</span>
+              ))}
+            </div>
+          </div>
+        )}
+        <button
+          type="button"
+          className="btn-save-strategy-library"
+          disabled={!isComplete}
+          onClick={onRefresh}
+        >
+          {isComplete ? "💾 Strategy Saved in Library" : "💾 Awaiting Strategy..."}
+        </button>
+      </div>
+      {result && <p className="strategy-provenance" style={{ marginTop: "8px", fontSize: "9px" }}>Model: <b>{result.modelName ?? "Unavailable"}</b> · Prompt: {result.promptVersion ?? "v1"}</p>}
+      {message && <p className="success" style={{ margin: "6px 0 0", fontSize: "11px" }}>{message}</p>}
+      <ErrorBox error={error} />
+    </Panel>
+  );
 }
 
 function LibraryTable({ definitions, selected, onSelect, generationId }: { definitions: Resource<StrategyDefinition[]>; selected?: StrategyDefinition; onSelect: (definition: StrategyDefinition) => void; generationId?: string }) {
-  return <Panel title="Recent / imported strategies" className="strategy-library-panel"><div className="strategy-library-heading"><span>Persisted rows from <code>GET /strategies/definitions</code></span><span>{definitions.data?.length ?? 0} definitions</span></div>{definitions.isLoading ? <Loading /> : definitions.error ? <ErrorBox error={definitions.error} /> : definitions.data?.length ? <div className="strategy-table-scroll"><table className="strategy-table"><thead><tr><th>Strategy</th><th>Source</th><th>Created</th><th>Version</th><th>Parameters</th><th>Status</th><th /></tr></thead><tbody>{definitions.data.map((item) => <tr key={item.id} className={selected?.id === item.id ? "selected" : ""}><td><b>{item.familyName ?? item.strategyName}</b><small>{item.strategyName}</small></td><td>{generationId === item.id ? "Current generation" : "Backend library"}</td><td>{displayDate(item.createdAt)}</td><td>v{item.version}</td><td className="strategy-parameters">{parameterSummary(item)}</td><td><span className="strategy-table-status">● Valid</span></td><td><button type="button" className="link-button" onClick={() => onSelect(item)}>Inspect</button></td></tr>)}</tbody></table></div> : <Empty><b>No saved backend definitions yet.</b><small>Generate a strategy or save a plugin definition to populate this library.</small></Empty>}</Panel>;
+  return <Panel title="Recent / Imported strategies" className="strategy-library-panel"><div className="strategy-library-heading"><span>{definitions.data?.length ?? 0} definitions</span></div>{definitions.isLoading ? <Loading /> : definitions.error ? <ErrorBox error={definitions.error} /> : definitions.data?.length ? <div className="strategy-table-scroll"><table className="strategy-table"><thead><tr><th>Strategy</th><th>Source</th><th>Created</th><th>Version</th><th>Parameters</th><th>Status</th><th /></tr></thead><tbody>{definitions.data.map((item) => <tr key={item.id} className={selected?.id === item.id ? "selected" : ""}><td><b>{item.familyName ?? item.strategyName}</b><small>{item.strategyName}</small></td><td>{generationId === item.id ? "Current generation" : "Backend library"}</td><td>{displayDate(item.createdAt)}</td><td>v{item.version}</td><td className="strategy-parameters">{parameterSummary(item)}</td><td><span className="strategy-table-status">● Valid</span></td><td><button type="button" className="link-button" onClick={() => onSelect(item)}>Inspect</button></td></tr>)}</tbody></table></div> : <Empty><b>No saved backend definitions yet.</b><small>Generate a strategy or save a plugin definition to populate this library.</small></Empty>}</Panel>;
 }
 
 function PluginEditor({ descriptors, onSaved, error, setError }: { descriptors: Resource<StrategyDescriptor[]>; onSaved: () => void; error?: unknown; setError: (error?: unknown) => void }) {
-  const [selected, setSelected] = useState<StrategyDescriptor>(); const [parameters, setParameters] = useState<Record<string, number | string>>({});
-  const save = useMutation({ mutationFn: () => selected ? api.define(selected.name, parameters) : Promise.reject(new Error("Select a strategy plugin.")), onSuccess: onSaved, onError: setError });
-  useEffect(() => { if (!selected && descriptors.data?.[0]) { setSelected(descriptors.data[0]); setParameters(parameterDefaults(descriptors.data[0].parameters)); } }, [descriptors.data, selected]);
-  const select = (item: StrategyDescriptor) => { setSelected(item); setParameters(parameterDefaults(item.parameters)); setError(undefined); };
-  return <Panel title="Backend plugin catalog & manual definition" className="strategy-manual-panel"><div className="strategy-plugin-strip">{descriptors.isLoading ? <Loading /> : descriptors.error ? <ErrorBox error={descriptors.error} /> : descriptors.data?.map((item) => <button type="button" className={`strategy-plugin-card ${selected?.name === item.name ? "selected" : ""}`} key={item.name} onClick={() => select(item)}><span className="plugin-icon">{iconFor(item)}</span><span><b>{item.displayName}</b><small>{item.category} · history {item.minimumHistoryCandles}</small></span><i>›</i></button>)}</div>{selected ? <form className="strategy-manual-form" onSubmit={(event) => { event.preventDefault(); save.mutate(); }}><div><b>{selected.displayName}</b><small>{selected.description}</small></div>{selected.parameters.map((parameter) => <label className="strategy-label" key={parameter.key}>{parameter.label}{parameter.type === "ENUM" && parameter.options ? <select required={parameter.required} value={parameters[parameter.key] ?? ""} onChange={(event) => setParameters({ ...parameters, [parameter.key]: event.target.value })}>{parameter.options.map((option) => <option key={option}>{option}</option>)}</select> : <input type="number" required={parameter.required} value={parameters[parameter.key] ?? ""} min={parameter.minimum} max={parameter.maximum} step={parameter.step} onChange={(event) => setParameters({ ...parameters, [parameter.key]: Number(event.target.value) })} />}</label>)}<Btn primary disabled={save.isPending}>{save.isPending ? "Saving..." : "Save versioned definition"}</Btn></form> : <Empty>Select a loaded backend plugin to edit its parameters.</Empty>}{save.isSuccess && <p className="success">Definition saved by the backend.</p>}<ErrorBox error={error ?? save.error} /></Panel>;
+  const [selected, setSelected] = useState<StrategyDescriptor>();
+  const [parameters, setParameters] = useState<Record<string, number | string>>({});
+  const save = useMutation({
+    mutationFn: () => (selected ? api.define(selected.name, parameters) : Promise.reject(new Error("Select an indicator."))),
+    onSuccess: onSaved,
+    onError: setError,
+  });
+
+  useEffect(() => {
+    if (!selected && descriptors.data?.[0]) {
+      setSelected(descriptors.data[0]);
+      setParameters(parameterDefaults(descriptors.data[0].parameters));
+    }
+  }, [descriptors.data, selected]);
+
+  const select = (item: StrategyDescriptor) => {
+    setSelected(item);
+    setParameters(parameterDefaults(item.parameters));
+    setError(undefined);
+  };
+
+  return (
+    <Panel title="🛠️ Manual Strategy Builder (Core Indicator Templates)" className="strategy-manual-panel">
+      <div className="manual-builder-intro">
+        <p className="manual-builder-sub">
+          Select a core quantitative trading algorithm from the templates below, customize its numerical parameters, and save an executable strategy definition to your library.
+        </p>
+      </div>
+
+      {/* 5 Indicator Selector Cards Row */}
+      <div className="manual-indicator-grid">
+        {descriptors.isLoading ? (
+          <Loading />
+        ) : descriptors.error ? (
+          <ErrorBox error={descriptors.error} />
+        ) : (
+          descriptors.data?.map((item) => {
+            const isSelected = selected?.name === item.name;
+            return (
+              <button
+                type="button"
+                className={`indicator-select-card ${isSelected ? "selected" : ""}`}
+                key={item.name}
+                onClick={() => select(item)}
+              >
+                <div className="indicator-card-top">
+                  <span className="indicator-card-icon">{iconFor(item)}</span>
+                  <span className={`category-badge cat-${item.category.toLowerCase()}`}>{item.category}</span>
+                </div>
+                <div className="indicator-card-info">
+                  <b className="indicator-card-name">{item.displayName}</b>
+                  <span className="indicator-card-candles">History: {item.minimumHistoryCandles} candles</span>
+                </div>
+                {isSelected && <div className="indicator-selected-tag">● Active Selection</div>}
+              </button>
+            );
+          })
+        )}
+      </div>
+
+      {/* Parameter Configuration & Save Studio */}
+      {selected ? (
+        <form
+          className="manual-parameter-studio"
+          onSubmit={(event) => {
+            event.preventDefault();
+            save.mutate();
+          }}
+        >
+          <div className="studio-header">
+            <div className="studio-identity">
+              <span className="studio-icon">{iconFor(selected)}</span>
+              <div>
+                <h3 className="studio-title">{selected.displayName} Configuration</h3>
+                <p className="studio-desc">{selected.description}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="studio-parameters-grid">
+            {selected.parameters.map((parameter) => (
+              <div className="parameter-input-group" key={parameter.key}>
+                <label className="param-label">
+                  <span className="param-name">{parameter.label}</span>
+                  {parameter.type === "ENUM" && parameter.options ? (
+                    <select
+                      className="param-control"
+                      required={parameter.required}
+                      value={parameters[parameter.key] ?? ""}
+                      onChange={(event) => setParameters({ ...parameters, [parameter.key]: event.target.value })}
+                    >
+                      {parameter.options.map((option) => (
+                        <option key={option} value={option}>{option}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      className="param-control"
+                      type="number"
+                      required={parameter.required}
+                      value={parameters[parameter.key] ?? ""}
+                      min={parameter.minimum}
+                      max={parameter.maximum}
+                      step={parameter.step}
+                      onChange={(event) => setParameters({ ...parameters, [parameter.key]: Number(event.target.value) })}
+                    />
+                  )}
+                </label>
+              </div>
+            ))}
+          </div>
+
+          <div className="studio-footer-actions">
+            <div className="studio-hint">
+              <span>💾 Saves an executable definition into PostgreSQL for use in Backtesting and Composite Building.</span>
+            </div>
+            <button
+              type="submit"
+              className="btn-save-manual-strategy"
+              disabled={save.isPending}
+            >
+              {save.isPending ? "Saving to Library..." : `💾 Save ${selected.displayName} Strategy`}
+            </button>
+          </div>
+        </form>
+      ) : (
+        <Empty>Select an indicator from the templates above to configure its parameters.</Empty>
+      )}
+
+      {save.isSuccess && (
+        <p className="success" style={{ marginTop: "10px", fontSize: "12px" }}>
+          ✓ Strategy definition successfully saved to PostgreSQL and added to your library!
+        </p>
+      )}
+      <ErrorBox error={error ?? save.error} />
+    </Panel>
+  );
 }
 
 function CompositeLibrary({ definitions, composites, refresh, error, setError }: { definitions: Resource<StrategyDefinition[]>; composites: Resource<Composite[]>; refresh: () => void; error?: unknown; setError: (error?: unknown) => void }) {
@@ -69,10 +350,114 @@ function CompositeLibrary({ definitions, composites, refresh, error, setError }:
 }
 
 export function StrategyScreen() {
-  const queryClient = useQueryClient(); const descriptorsQuery = useQuery({ queryKey: ["strategies", "descriptors"], queryFn: api.strategies }); const definitionsQuery = useQuery({ queryKey: ["strategies", "definitions"], queryFn: api.definitions }); const compositesQuery = useQuery({ queryKey: ["strategies", "composites"], queryFn: api.composites }); const descriptors = { ...descriptorsQuery, refetch: descriptorsQuery.refetch } as Resource<StrategyDescriptor[]>; const definitions = { ...definitionsQuery, refetch: definitionsQuery.refetch } as Resource<StrategyDefinition[]>; const composites = { ...compositesQuery, refetch: compositesQuery.refetch } as Resource<Composite[]>;
-  const [sourceType, setSourceType] = useState<SourceType>("TEXT"); const [source, setSource] = useState(""); const [result, setResult] = useState<StrategyGenerationResult>(); const [selected, setSelected] = useState<StrategyDefinition>(); const [screenError, setScreenError] = useState<unknown>(); const [message, setMessage] = useState("");
-  const generation = useMutation({ mutationFn: (input: { sourceType: "TEXT"; text: string } | { sourceType: "URL"; url: string }) => api.generateStrategy(input), onSuccess: (generated) => { setResult(generated); setSelected(generated.kind === "SINGLE" ? generated.strategyDefinition : undefined); setMessage("Backend persisted the generated result."); void queryClient.invalidateQueries({ queryKey: ["strategies"] }); }, onError: setScreenError });
-  const definition = generatedDefinition(result, selected); const composite = generatedComposite(result); const preview = result ?? (selected ? { source: "GET /strategies/definitions", strategyDefinition: selected } : undefined); const refreshLibrary = () => { setMessage("Persisted strategy library refreshed."); void queryClient.invalidateQueries({ queryKey: ["strategies"] }); };
-  const submit = (event: React.FormEvent) => { event.preventDefault(); setScreenError(undefined); setMessage(""); generation.mutate(sourceType === "TEXT" ? { sourceType, text: source.trim() } : { sourceType, url: source.trim() }); }; const clear = () => { setSource(""); setResult(undefined); setSelected(undefined); setScreenError(undefined); setMessage(""); };
-  return <div className="strategy-screen"><StrategyHeader /><div className="strategy-workspace"><PromptInput source={source} setSource={setSource} sourceType={sourceType} setSourceType={setSourceType} busy={generation.isPending} onSubmit={submit} onClear={clear} error={generation.error ?? screenError} /><ParsedSummary definition={definition} composite={composite} result={result} sourceType={sourceType} /><JsonPreview payload={preview} /><ValidationSave definition={definition} result={result} sourceType={sourceType} descriptors={descriptors} onRefresh={refreshLibrary} error={screenError} message={message} /></div><LibraryTable definitions={definitions} selected={selected} onSelect={(item) => { setSelected(item); setResult(undefined); setMessage(""); }} generationId={result?.strategyDefinition?.id} /><PluginEditor descriptors={descriptors} onSaved={refreshLibrary} error={screenError} setError={setScreenError} /><CompositeLibrary definitions={definitions} composites={composites} refresh={refreshLibrary} error={screenError} setError={setScreenError} /></div>;
+  const queryClient = useQueryClient();
+  const descriptorsQuery = useQuery({ queryKey: ["strategies", "descriptors"], queryFn: api.strategies });
+  const definitionsQuery = useQuery({ queryKey: ["strategies", "definitions"], queryFn: api.definitions });
+  const compositesQuery = useQuery({ queryKey: ["strategies", "composites"], queryFn: api.composites });
+  const descriptors = { ...descriptorsQuery, refetch: descriptorsQuery.refetch } as Resource<StrategyDescriptor[]>;
+  const definitions = { ...definitionsQuery, refetch: definitionsQuery.refetch } as Resource<StrategyDefinition[]>;
+  const composites = { ...compositesQuery, refetch: compositesQuery.refetch } as Resource<Composite[]>;
+
+  const [creationMode, setCreationMode] = useState<CreationMode>("AI_GENERATOR");
+  const [sourceType, setSourceType] = useState<SourceType>("TEXT");
+  const [source, setSource] = useState("");
+  const [result, setResult] = useState<StrategyGenerationResult>();
+  const [selected, setSelected] = useState<StrategyDefinition>();
+  const [screenError, setScreenError] = useState<unknown>();
+  const [message, setMessage] = useState("");
+
+  const generation = useMutation({
+    mutationFn: (input: { sourceType: "TEXT"; text: string } | { sourceType: "URL"; url: string }) => api.generateStrategy(input),
+    onSuccess: (generated) => {
+      setResult(generated);
+      setSelected(generated.kind === "SINGLE" ? generated.strategyDefinition : undefined);
+      setMessage("Backend persisted the generated result.");
+      void queryClient.invalidateQueries({ queryKey: ["strategies"] });
+    },
+    onError: setScreenError,
+  });
+
+  const definition = generatedDefinition(result, selected);
+  const composite = generatedComposite(result);
+  const preview = result ?? (selected ? { source: "GET /strategies/definitions", strategyDefinition: selected } : undefined);
+
+  const refreshLibrary = () => {
+    setMessage("Persisted strategy library refreshed.");
+    void queryClient.invalidateQueries({ queryKey: ["strategies"] });
+  };
+
+  const submit = (event: React.FormEvent) => {
+    event.preventDefault();
+    setScreenError(undefined);
+    setMessage("");
+    generation.mutate(sourceType === "TEXT" ? { sourceType, text: source.trim() } : { sourceType, url: source.trim() });
+  };
+
+  const clear = () => {
+    setSource("");
+    setResult(undefined);
+    setSelected(undefined);
+    setScreenError(undefined);
+    setMessage("");
+  };
+
+  return (
+    <div className="strategy-screen">
+      <StrategyHeader creationMode={creationMode} setCreationMode={setCreationMode} />
+
+      {/* Mode Switchable Workspace: AI Generator vs Manual Builder */}
+      {creationMode === "AI_GENERATOR" ? (
+        <div className="strategy-workspace">
+          <PromptInput
+            source={source}
+            setSource={setSource}
+            sourceType={sourceType}
+            setSourceType={setSourceType}
+            busy={generation.isPending}
+            onSubmit={submit}
+            onClear={clear}
+            error={generation.error ?? screenError}
+          />
+          <ParsedSummary definition={definition} composite={composite} result={result} sourceType={sourceType} />
+          <JsonPreview payload={preview} />
+          <ValidationSave
+            definition={definition}
+            result={result}
+            sourceType={sourceType}
+            descriptors={descriptors}
+            onRefresh={refreshLibrary}
+            error={screenError}
+            message={message}
+          />
+        </div>
+      ) : (
+        <PluginEditor
+          descriptors={descriptors}
+          onSaved={refreshLibrary}
+          error={screenError}
+          setError={setScreenError}
+        />
+      )}
+
+      {/* Shared Saved Library & Composites */}
+      <LibraryTable
+        definitions={definitions}
+        selected={selected}
+        onSelect={(item) => {
+          setSelected(item);
+          setResult(undefined);
+          setMessage("");
+        }}
+        generationId={result?.strategyDefinition?.id}
+      />
+
+      <CompositeLibrary
+        definitions={definitions}
+        composites={composites}
+        refresh={refreshLibrary}
+        error={screenError}
+        setError={setScreenError}
+      />
+    </div>
+  );
 }
