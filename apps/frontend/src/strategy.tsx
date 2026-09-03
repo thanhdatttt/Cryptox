@@ -652,7 +652,16 @@ function ValidationSave({
           <input
             className="save-field-input"
             value={customName}
-            onChange={(e) => setCustomName(e.target.value)}
+            onChange={(e) => {
+              const val = e.target.value;
+              setCustomName(val);
+              if (targetId && val.trim()) {
+                onUpdateName?.(targetId, val.trim());
+                if (activeDraft?.savedDefinitionId && activeDraft.savedDefinitionId !== targetId) {
+                  onUpdateName?.(activeDraft.savedDefinitionId, val.trim());
+                }
+              }
+            }}
             placeholder={isComplete ? "e.g. My Aggressive RSI" : "Awaiting generated result..."}
             disabled={!isComplete}
           />
@@ -1353,12 +1362,15 @@ function SavedStrategiesTable({
 function PluginEditor({ descriptors, onSaved, error, setError }: { descriptors: Resource<StrategyDescriptor[]>; onSaved: (unblockedId?: string) => void; error?: unknown; setError: (error?: unknown) => void }) {
   const [selected, setSelected] = useState<StrategyDescriptor>();
   const [parameters, setParameters] = useState<Record<string, number | string>>({});
+  const [customName, setCustomName] = useState("");
   const save = useMutation({
     mutationFn: () => (selected ? api.define(selected.name, parameters) : Promise.reject(new Error("Select an indicator."))),
     onSuccess: (saved) => {
       if (saved?.id) {
         recordProvenance(saved.id, "MANUAL_BUILDER");
         unpersistDeletedStrategyId(saved.id);
+        const finalName = customName.trim() || selected?.displayName || selected?.name || "Strategy";
+        persistCustomName(saved.id, finalName);
       }
       onSaved(saved?.id);
     },
@@ -1369,12 +1381,14 @@ function PluginEditor({ descriptors, onSaved, error, setError }: { descriptors: 
     if (!selected && descriptors.data?.[0]) {
       setSelected(descriptors.data[0]);
       setParameters(parameterDefaults(descriptors.data[0].parameters));
+      setCustomName(descriptors.data[0].displayName);
     }
   }, [descriptors.data, selected]);
 
   const select = (item: StrategyDescriptor) => {
     setSelected(item);
     setParameters(parameterDefaults(item.parameters));
+    setCustomName(item.displayName);
     setError(undefined);
   };
 
@@ -1439,6 +1453,25 @@ function PluginEditor({ descriptors, onSaved, error, setError }: { descriptors: 
             </div>
           </div>
 
+          {/* Strategy Name Input Field */}
+          <div className="studio-name-box">
+            <label className="param-label" style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+              <span className="param-name" style={{ fontWeight: 800, fontSize: "13px", color: "#0f172a" }}>
+                🏷️ Strategy Name
+              </span>
+              <input
+                className="param-control studio-name-input"
+                type="text"
+                value={customName}
+                onChange={(event) => setCustomName(event.target.value)}
+                placeholder={`e.g. My Custom ${selected.displayName}`}
+              />
+              <small className="studio-name-hint">
+                Give this strategy definition a recognizable name for your library, backtest dropdowns, and discovery searches.
+              </small>
+            </label>
+          </div>
+
           <div className="studio-parameters-grid">
             {selected.parameters.map((parameter) => (
               <div className="parameter-input-group" key={parameter.key}>
@@ -1499,12 +1532,26 @@ function PluginEditor({ descriptors, onSaved, error, setError }: { descriptors: 
   );
 }
 
-function CompositeLibrary({ definitions, composites, refresh, error, setError }: { definitions: Resource<StrategyDefinition[]>; composites: Resource<Composite[]>; refresh: () => void; error?: unknown; setError: (error?: unknown) => void }) {
+function getStratCategory(item: StrategyDefinition): "RSI" | "MA" | "BOLLINGER" | "SENTIMENT" | "OTHER" {
+  const text = `${item.strategyName} ${item.familyName ?? ""}`.toUpperCase();
+  if (text.includes("RSI")) return "RSI";
+  if (text.includes("BOLLINGER") || text.includes("BB")) return "BOLLINGER";
+  if (text.includes("SENTIMENT") || text.includes("NEWS")) return "SENTIMENT";
+  if (text.includes("MA") || text.includes("AVERAGE") || text.includes("EMA") || text.includes("SMA")) return "MA";
+  return "OTHER";
+}
+
+function CompositeLibrary({ definitions, composites: _composites, refresh, error, setError }: { definitions: Resource<StrategyDefinition[]>; composites: Resource<Composite[]>; refresh: () => void; error?: unknown; setError: (error?: unknown) => void }) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [weights, setWeights] = useState<Record<string, number>>({});
   const [method, setMethod] = useState<CombinationMethod>("MAJORITY_VOTE");
   const [buy, setBuy] = useState("0.5");
   const [sell, setSell] = useState("-0.5");
+  const [compositeName, setCompositeName] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState<"ALL" | "RSI" | "MA" | "BOLLINGER" | "SENTIMENT" | "SELECTED">("ALL");
+
+  const customNamesMap = useMemo(() => loadCustomNamesMap(), [definitions.data]);
 
   const save = useMutation({
     mutationFn: () =>
@@ -1519,8 +1566,14 @@ function CompositeLibrary({ definitions, composites, refresh, error, setError }:
       if (saved?.id) {
         recordProvenance(saved.id, "COMPOSITE_BUILDER");
         unpersistDeletedStrategyId(saved.id);
+        const defaultName = method === "MAJORITY_VOTE" ? "Majority Vote Ensemble" : "Weighted Scoring Ensemble";
+        const finalName = compositeName.trim() || defaultName;
+        persistCustomName(saved.id, finalName);
       }
       refresh();
+      setSelectedIds([]);
+      setWeights({});
+      setCompositeName("");
     },
     onError: setError,
   });
@@ -1530,6 +1583,57 @@ function CompositeLibrary({ definitions, composites, refresh, error, setError }:
     setSelectedIds(next);
     setWeights(equalWeights(next));
     setError(undefined);
+  };
+
+  const categoryCounts = useMemo(() => {
+    const counts = { ALL: 0, RSI: 0, MA: 0, BOLLINGER: 0, SENTIMENT: 0, SELECTED: 0 };
+    if (!definitions.data) return counts;
+    counts.ALL = definitions.data.length;
+    counts.SELECTED = selectedIds.length;
+    definitions.data.forEach((d) => {
+      const cat = getStratCategory(d);
+      if (cat in counts) {
+        counts[cat as keyof typeof counts]++;
+      }
+    });
+    return counts;
+  }, [definitions.data, selectedIds]);
+
+  const filteredDefinitions = useMemo(() => {
+    if (!definitions.data) return [];
+    return definitions.data.filter((item) => {
+      const isChecked = selectedIds.includes(item.id);
+      if (categoryFilter === "SELECTED" && !isChecked) return false;
+      if (categoryFilter !== "ALL" && categoryFilter !== "SELECTED") {
+        if (getStratCategory(item) !== categoryFilter) return false;
+      }
+      if (!searchQuery.trim()) return true;
+      const q = searchQuery.toLowerCase().trim();
+      const custom = (customNamesMap[item.id] ?? "").toLowerCase();
+      const family = (item.familyName ?? "").toLowerCase();
+      const strat = item.strategyName.toLowerCase();
+      const params = parameterSummary(item).toLowerCase();
+      return custom.includes(q) || family.includes(q) || strat.includes(q) || params.includes(q);
+    });
+  }, [definitions.data, selectedIds, categoryFilter, searchQuery, customNamesMap]);
+
+  const handleSelectAllFiltered = () => {
+    const filteredIds = filteredDefinitions.map((d) => d.id);
+    const combined = Array.from(new Set([...selectedIds, ...filteredIds]));
+    setSelectedIds(combined);
+    setWeights(equalWeights(combined));
+  };
+
+  const handleDeselectAllFiltered = () => {
+    const filteredIdSet = new Set(filteredDefinitions.map((d) => d.id));
+    const next = selectedIds.filter((id) => !filteredIdSet.has(id));
+    setSelectedIds(next);
+    setWeights(equalWeights(next));
+  };
+
+  const handleClearSelection = () => {
+    setSelectedIds([]);
+    setWeights({});
   };
 
   const weightSum = Object.values(weightedComponents(selectedIds, weights)).reduce((sum, item) => sum + item.weight, 0);
@@ -1547,65 +1651,174 @@ function CompositeLibrary({ definitions, composites, refresh, error, setError }:
         </p>
       </div>
 
-      <div className="composite-two-column-layout">
-        {/* Left Column: Assembling the Composite */}
-        <div className="composite-assemble-col">
-          {/* Step 1: Selection Mode Cards */}
-          <div className="composite-step-card">
-            <div className="composite-step-header">
-              <span className="step-badge">1</span>
-              <h4>Choose Consensus Decision Method</h4>
-            </div>
-            <div className="composite-method-selector-grid">
-              <button
-                type="button"
-                className={`composite-method-btn ${method === "MAJORITY_VOTE" ? "active" : ""}`}
-                onClick={() => setMethod("MAJORITY_VOTE")}
-              >
-                <div className="method-btn-top">
-                  <span className="method-icon">🗳️</span>
-                  <b>Majority Vote</b>
-                </div>
-                <p className="method-desc">
-                  Democratic consensus. Executes a trade only when &gt;50% of selected strategies agree on a signal.
-                </p>
-              </button>
-
-              <button
-                type="button"
-                className={`composite-method-btn ${method === "WEIGHTED_SCORE" ? "active" : ""}`}
-                onClick={() => setMethod("WEIGHTED_SCORE")}
-              >
-                <div className="method-btn-top">
-                  <span className="method-icon">⚖️</span>
-                  <b>Weighted Scoring</b>
-                </div>
-                <p className="method-desc">
-                  Custom confidence weighting. Each strategy contributes a percentage score with trigger thresholds.
-                </p>
-              </button>
-            </div>
+      <div className="composite-builder-layout">
+        {/* Step 1: Selection Mode Cards */}
+        <div className="composite-step-card">
+          <div className="composite-step-header">
+            <span className="step-badge">1</span>
+            <h4>Choose Consensus Decision Method</h4>
           </div>
+          <div className="composite-method-selector-grid">
+            <button
+              type="button"
+              className={`composite-method-btn ${method === "MAJORITY_VOTE" ? "active" : ""}`}
+              onClick={() => setMethod("MAJORITY_VOTE")}
+            >
+              <div className="method-btn-top">
+                <span className="method-icon">🗳️</span>
+                <b>Majority Vote</b>
+              </div>
+              <p className="method-desc">
+                Democratic consensus. Executes a trade only when &gt;50% of selected strategies agree on a signal.
+              </p>
+            </button>
 
-          {/* Step 2: Component Strategies Checklist */}
-          <div className="composite-step-card">
-            <div className="composite-step-header">
+            <button
+              type="button"
+              className={`composite-method-btn ${method === "WEIGHTED_SCORE" ? "active" : ""}`}
+              onClick={() => setMethod("WEIGHTED_SCORE")}
+            >
+              <div className="method-btn-top">
+                <span className="method-icon">⚖️</span>
+                <b>Weighted Scoring</b>
+              </div>
+              <p className="method-desc">
+                Custom confidence weighting. Each strategy contributes a percentage score with trigger thresholds.
+              </p>
+            </button>
+          </div>
+        </div>
+
+        {/* Step 2: Component Strategies Checklist with Search & Filters */}
+        <div className="composite-step-card">
+          <div className="composite-step-header" style={{ justifyContent: "space-between" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
               <span className="step-badge">2</span>
               <div>
                 <h4>Select 2 or More Saved Strategies to Combine</h4>
                 <small className="step-sub-hint">({selectedIds.length} strategies selected)</small>
               </div>
             </div>
+            {selectedIds.length > 0 && (
+              <button
+                type="button"
+                className="btn-filter-quick"
+                style={{ color: "#dc2626", border: "1px solid #fca5a5" }}
+                onClick={handleClearSelection}
+              >
+                Clear Selection ({selectedIds.length})
+              </button>
+            )}
+          </div>
 
-            <div className="composite-strategy-picker">
-              {definitions.isLoading ? (
-                <Loading />
-              ) : definitions.error ? (
-                <ErrorBox error={definitions.error} />
-              ) : definitions.data?.length ? (
+          {/* Search & Filter Toolbar */}
+          <div className="composite-filter-toolbar">
+            <div className="composite-search-row">
+              <div className="composite-search-input-wrap">
+                <span className="search-icon">🔍</span>
+                <input
+                  type="text"
+                  className="composite-search-input"
+                  placeholder="Search strategies by name, indicator, or parameters..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    className="composite-search-clear-btn"
+                    onClick={() => setSearchQuery("")}
+                    title="Clear search"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+              <div className="composite-quick-actions">
+                <button
+                  type="button"
+                  className="btn-filter-quick"
+                  onClick={handleSelectAllFiltered}
+                  disabled={filteredDefinitions.length === 0}
+                  title="Select all currently visible strategies"
+                >
+                  ✓ Select All
+                </button>
+                <button
+                  type="button"
+                  className="btn-filter-quick"
+                  onClick={handleDeselectAllFiltered}
+                  disabled={filteredDefinitions.length === 0 || !filteredDefinitions.some((d) => selectedIds.includes(d.id))}
+                  title="Deselect visible strategies"
+                >
+                  ✕ Deselect
+                </button>
+              </div>
+            </div>
+
+            <div className="composite-filter-pills-row">
+              <div className="composite-pills-group">
+                <button
+                  type="button"
+                  className={`composite-filter-pill ${categoryFilter === "ALL" ? "active" : ""}`}
+                  onClick={() => setCategoryFilter("ALL")}
+                >
+                  All <span className="pill-count">{categoryCounts.ALL}</span>
+                </button>
+                <button
+                  type="button"
+                  className={`composite-filter-pill ${categoryFilter === "SELECTED" ? "active" : ""}`}
+                  onClick={() => setCategoryFilter("SELECTED")}
+                >
+                  Selected <span className="pill-count">{categoryCounts.SELECTED}</span>
+                </button>
+                <button
+                  type="button"
+                  className={`composite-filter-pill ${categoryFilter === "RSI" ? "active" : ""}`}
+                  onClick={() => setCategoryFilter("RSI")}
+                >
+                  RSI <span className="pill-count">{categoryCounts.RSI}</span>
+                </button>
+                <button
+                  type="button"
+                  className={`composite-filter-pill ${categoryFilter === "MA" ? "active" : ""}`}
+                  onClick={() => setCategoryFilter("MA")}
+                >
+                  Trend (MA) <span className="pill-count">{categoryCounts.MA}</span>
+                </button>
+                <button
+                  type="button"
+                  className={`composite-filter-pill ${categoryFilter === "BOLLINGER" ? "active" : ""}`}
+                  onClick={() => setCategoryFilter("BOLLINGER")}
+                >
+                  Bollinger <span className="pill-count">{categoryCounts.BOLLINGER}</span>
+                </button>
+                <button
+                  type="button"
+                  className={`composite-filter-pill ${categoryFilter === "SENTIMENT" ? "active" : ""}`}
+                  onClick={() => setCategoryFilter("SENTIMENT")}
+                >
+                  Sentiment <span className="pill-count">{categoryCounts.SENTIMENT}</span>
+                </button>
+              </div>
+              <span className="composite-filter-count">
+                Showing {filteredDefinitions.length} of {definitions.data?.length ?? 0} strategies
+              </span>
+            </div>
+          </div>
+
+          <div className="composite-strategy-picker">
+            {definitions.isLoading ? (
+              <Loading />
+            ) : definitions.error ? (
+              <ErrorBox error={definitions.error} />
+            ) : definitions.data?.length ? (
+              filteredDefinitions.length > 0 ? (
                 <div className="composite-checkbox-list">
-                  {definitions.data.map((item) => {
+                  {filteredDefinitions.map((item) => {
                     const checked = selectedIds.includes(item.id);
+                    const displayName = customNamesMap[item.id] ?? item.familyName ?? item.strategyName;
+                    const cat = getStratCategory(item);
                     return (
                       <div
                         key={item.id}
@@ -1622,7 +1835,8 @@ function CompositeLibrary({ definitions, composites, refresh, error, setError }:
                           />
                           <div className="item-details">
                             <div className="item-name-row">
-                              <b className="item-name">{item.familyName ?? item.strategyName}</b>
+                              <b className="item-name">{displayName}</b>
+                              <span className={`composite-category-tag cat-${cat.toLowerCase()}`}>{cat}</span>
                               <span className="version-pill">v{item.version}</span>
                             </div>
                             <span className="item-meta">{parameterSummary(item)}</span>
@@ -1647,134 +1861,105 @@ function CompositeLibrary({ definitions, composites, refresh, error, setError }:
                   })}
                 </div>
               ) : (
-                <Empty>No saved single strategies available. Generate or build strategies first.</Empty>
-              )}
-            </div>
-          </div>
-
-          {/* Step 3: Thresholds & Trigger for Weighted Score */}
-          {method === "WEIGHTED_SCORE" && (
-            <div className="composite-step-card">
-              <div className="composite-step-header">
-                <span className="step-badge">3</span>
-                <h4>Configure Score Trigger Thresholds</h4>
-              </div>
-              <div className="thresholds-grid">
-                <label className="threshold-field">
-                  <span>Buy Signal Threshold (Score &ge;)</span>
-                  <input
-                    className="threshold-input"
-                    type="number"
-                    min={-1}
-                    max={1}
-                    step="any"
-                    value={buy}
-                    onChange={(event) => setBuy(event.target.value)}
-                  />
-                  <small className="threshold-help">Minimum score to execute BUY (range: -1.0 to 1.0).</small>
-                </label>
-                <label className="threshold-field">
-                  <span>Sell Signal Threshold (Score &le;)</span>
-                  <input
-                    className="threshold-input"
-                    type="number"
-                    min={-1}
-                    max={1}
-                    step="any"
-                    value={sell}
-                    onChange={(event) => setSell(event.target.value)}
-                  />
-                  <small className="threshold-help">Maximum score to execute SELL (range: -1.0 to 1.0).</small>
-                </label>
-              </div>
-            </div>
-          )}
-
-          {/* Action Button */}
-          <div className="composite-action-box">
-            <button
-              type="button"
-              className="btn-create-composite"
-              disabled={!canSave}
-              onClick={() => save.mutate()}
-            >
-              {save.isPending
-                ? "Saving Ensemble to Database..."
-                : selectedIds.length < 2
-                ? "Select at least 2 strategies to combine"
-                : `💾 Save ${method === "MAJORITY_VOTE" ? "Majority Vote" : "Weighted Score"} Composite`}
-            </button>
-          </div>
-          {save.isSuccess && (
-            <p className="success" style={{ marginTop: "8px", fontSize: "12px" }}>
-              ✓ Composite strategy successfully created and saved to PostgreSQL!
-            </p>
-          )}
-          <ErrorBox error={error ?? save.error} />
-        </div>
-
-        {/* Right Column: Active Persisted Composites */}
-        <div className="composite-persisted-col">
-          <div className="persisted-composites-header">
-            <h4>Saved Composite Strategies (PostgreSQL)</h4>
-            <span className="composites-count-pill">{composites.data?.length ?? 0} composites</span>
-          </div>
-
-          <div className="persisted-composites-list">
-            {composites.isLoading ? (
-              <Loading />
-            ) : composites.error ? (
-              <ErrorBox error={composites.error} />
-            ) : composites.data?.length ? (
-              composites.data.map((composite) => (
-                <div className="persisted-composite-card" key={composite.id}>
-                  <div className="composite-card-header">
-                    <span className={`composite-method-tag method-${composite.method.toLowerCase()}`}>
-                      {composite.method === "MAJORITY_VOTE" ? "🗳️ Majority Vote" : "⚖️ Weighted Score"}
-                    </span>
-                    <span className="composite-version-tag">v{composite.version}</span>
-                  </div>
-
-                  <div className="composite-components-formula">
-                    <div className="formula-label">Ensemble Components:</div>
-                    <div className="formula-chips-row">
-                      {composite.components.map((component, idx) => {
-                        const name = definitions.data?.find((d) => d.id === component.strategyDefinitionId)?.strategyName ?? "Strategy";
-                        return (
-                          <span className="formula-chip" key={idx}>
-                            {name} {composite.method === "WEIGHTED_SCORE" ? `(${(component.weight * 100).toFixed(0)}%)` : ""}
-                          </span>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {composite.method === "WEIGHTED_SCORE" && composite.thresholds ? (
-                    <div className="composite-thresholds-summary">
-                      <span>Buy &ge; {composite.thresholds.buy}</span>
-                      <span>Sell &le; {composite.thresholds.sell}</span>
-                    </div>
-                  ) : (
-                    <div className="composite-thresholds-summary majority-summary">
-                      <span>Strict Majority Consensus (&gt;50% agreement)</span>
-                    </div>
-                  )}
-
-                  <div className="composite-card-footer">
-                    <span className="composite-ready-badge">● Ready for Backtest Lab</span>
-                    <code className="composite-uuid">{composite.id.slice(0, 16)}...</code>
-                  </div>
+                <div className="composite-no-match">
+                  <span>🔍 No strategies match your search or filter criteria.</span>
+                  <button
+                    type="button"
+                    className="btn-filter-quick"
+                    onClick={() => {
+                      setSearchQuery("");
+                      setCategoryFilter("ALL");
+                    }}
+                  >
+                    Clear Search &amp; Filters
+                  </button>
                 </div>
-              ))
+              )
             ) : (
-              <div className="persisted-composites-empty">
-                <span className="empty-icon">🔀</span>
-                <b>No composite strategies saved yet</b>
-                <small>Combine single strategies on the left to build your first ensemble bot.</small>
-              </div>
+              <Empty>No saved single strategies available. Generate or build strategies first.</Empty>
             )}
           </div>
         </div>
+
+        {/* Step 3: Thresholds & Trigger for Weighted Score */}
+        {method === "WEIGHTED_SCORE" && (
+          <div className="composite-step-card">
+            <div className="composite-step-header">
+              <span className="step-badge">3</span>
+              <h4>Configure Score Trigger Thresholds</h4>
+            </div>
+            <div className="thresholds-grid">
+              <label className="threshold-field">
+                <span>Buy Signal Threshold (Score &ge;)</span>
+                <input
+                  className="threshold-input"
+                  type="number"
+                  min={-1}
+                  max={1}
+                  step="any"
+                  value={buy}
+                  onChange={(event) => setBuy(event.target.value)}
+                />
+                <small className="threshold-help">Minimum score to execute BUY (range: -1.0 to 1.0).</small>
+              </label>
+              <label className="threshold-field">
+                <span>Sell Signal Threshold (Score &le;)</span>
+                <input
+                  className="threshold-input"
+                  type="number"
+                  min={-1}
+                  max={1}
+                  step="any"
+                  value={sell}
+                  onChange={(event) => setSell(event.target.value)}
+                />
+                <small className="threshold-help">Maximum score to execute SELL (range: -1.0 to 1.0).</small>
+              </label>
+            </div>
+          </div>
+        )}
+
+        {/* Step: Custom Composite Strategy Name */}
+        <div className="composite-step-card">
+          <div className="composite-step-header">
+            <span className="step-badge">{method === "WEIGHTED_SCORE" ? "4" : "3"}</span>
+            <h4>🏷️ Composite Strategy Name</h4>
+          </div>
+          <div className="composite-name-input-group">
+            <input
+              className="param-control composite-name-input"
+              type="text"
+              value={compositeName}
+              onChange={(event) => setCompositeName(event.target.value)}
+              placeholder={method === "MAJORITY_VOTE" ? "e.g. My Consensus Multi-Indicator Strategy" : "e.g. Weighted Trend & Momentum Ensemble"}
+            />
+            <small className="composite-name-hint">
+              Specify a recognizable name for this composite ensemble to display in your library, backtest dropdowns, and discovery searches.
+            </small>
+          </div>
+        </div>
+
+        {/* Action Button */}
+        <div className="composite-action-box">
+          <button
+            type="button"
+            className="btn-create-composite"
+            disabled={!canSave}
+            onClick={() => save.mutate()}
+          >
+            {save.isPending
+              ? "Saving Ensemble to Database..."
+              : selectedIds.length < 2
+              ? "Select at least 2 strategies to combine"
+              : `💾 Save ${method === "MAJORITY_VOTE" ? "Majority Vote" : "Weighted Score"} Composite`}
+          </button>
+        </div>
+        {save.isSuccess && (
+          <p className="success" style={{ marginTop: "8px", fontSize: "12px" }}>
+            ✓ Composite strategy successfully created and saved to PostgreSQL!
+          </p>
+        )}
+        <ErrorBox error={error ?? save.error} />
       </div>
     </Panel>
   );
@@ -2076,9 +2261,14 @@ export function StrategyScreen() {
         }
       }
 
+      const customNames = loadCustomNamesMap();
+      const effectiveName = customNames[draft.id]
+        ?? (draft.savedDefinitionId ? customNames[draft.savedDefinitionId] : undefined)
+        ?? draft.name;
+
       if (savedId) {
         recordProvenance(savedId, draft.sourceType);
-        persistCustomName(savedId, draft.name);
+        persistCustomName(savedId, effectiveName);
         const nextDeleted = unpersistDeletedStrategyId(savedId);
         setDeletedIds(nextDeleted);
         if (draft.composite?.components) {
@@ -2090,6 +2280,7 @@ export function StrategyScreen() {
 
       const updatedDraft: StrategyDraft = {
         ...draft,
+        name: effectiveName,
         isSaved: true,
         savedDefinitionId: savedId,
       };
@@ -2100,13 +2291,13 @@ export function StrategyScreen() {
       setDrafts((prev) => {
         const nextDrafts = prev.map((d) =>
           (d.id === draft.id || (savedId && d.savedDefinitionId === savedId))
-            ? { ...d, isSaved: true, savedDefinitionId: savedId }
+            ? { ...d, name: effectiveName, isSaved: true, savedDefinitionId: savedId }
             : d
         );
         persistDrafts(nextDrafts);
         return nextDrafts;
       });
-      setMessage(`✓ Strategy "${draft.name}" saved to PostgreSQL!`);
+      setMessage(`✓ Strategy "${effectiveName}" saved to PostgreSQL!`);
       await queryClient.invalidateQueries({ queryKey: ["strategies"] });
       void definitions.refetch();
       void composites.refetch();
