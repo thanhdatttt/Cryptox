@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ColorType, createChart, LineStyle, type CandlestickData, type HistogramData, type Time, type SeriesMarker } from "lightweight-charts";
 import { api, type ApiCandle, type Candidate, type Composite, type DatasetSnapshotRef, type ExperimentSummary, type LeaderboardEntry, type SearchRankingEntry, type Scope, type StrategyDefinition, type Trade, type VisualizationMarker, type StrategyVisualizationOverlay, type Timeframe } from "./api";
-import { persistSearchRunId, readSearchRunId } from "./state";
+import { persistSearchRunId, readSearchRunId, launchStrategyBacktest } from "./state";
 import { chartBounds, percent } from "./visuals";
 
 const Panel = ({ title, children, className = "" }: { title?: string; children: React.ReactNode; className?: string }) => <section className={`panel ${className}`}>{title && <h2>{title}</h2>}{children}</section>;
@@ -2011,24 +2011,458 @@ export function BacktestLive({ definitions, composites, scopes }: { definitions:
   );
 }
 
+function getIndicatorEmoji(name: string): string {
+  const n = name.toUpperCase();
+  if (n.includes("RSI")) return "⚡";
+  if (n.includes("BOLLINGER") || n.includes("BB")) return "🌊";
+  if (n.includes("SENTIMENT") || n.includes("NEWS")) return "📰";
+  if (n.includes("SUPPORT") || n.includes("RESISTANCE")) return "🧱";
+  if (n.includes("MA") || n.includes("AVERAGE") || n.includes("EMA") || n.includes("SMA")) return "📈";
+  return "⚙️";
+}
+
+function getParamSnippet(params?: Record<string, unknown>): string {
+  if (!params || Object.keys(params).length === 0) return "Default config";
+  return Object.entries(params)
+    .slice(0, 2)
+    .map(([k, v]) => `${k}: ${v}`)
+    .join(" · ");
+}
+
 export function RankingTable({ rows }: { rows: SearchRankingEntry[] }) {
-  const details = useQueries({ queries: rows.map((row) => ({ queryKey: ["experiments", row.experimentResultId], queryFn: () => api.experiment(row.experimentResultId), enabled: Boolean(row.experimentResultId) })) });
-  return <div className="table-scroll"><table><thead><tr><th>Rank</th><th>Strategy</th><th>Return</th><th>Win rate</th><th>Max drawdown</th><th>Trades</th><th>Score</th><th>Status</th></tr></thead><tbody>{rows.map((row, index) => { const detail = details[index]?.data as ExperimentSummary | undefined; const metrics = detail?.metrics ?? {}; const strategy = detail?.strategyDefinitions?.map((item) => item.strategyName).join(" + ") || row.candidateId || row.experimentResultId; return <tr key={row.id ?? row.candidateId ?? row.experimentResultId}><td>{row.rank ?? "-"}</td><td>{strategy}</td><td>{percent(metrics.totalReturnPercent)}</td><td>{percent(metrics.winRatePercent)}</td><td>{percent(metrics.maxDrawdownPercent)}</td><td>{metrics.numberOfTrades ?? "Unavailable"}</td><td>{Number.isFinite(row.score) ? row.score.toFixed(4) : "Unavailable"}</td><td>{detail?.rankEligible === false ? "Not eligible" : "COMPLETED"}</td></tr>; })}</tbody></table></div>;
+  const details = useQueries({
+    queries: rows.map((row) => ({
+      queryKey: ["experiments", row.experimentResultId],
+      queryFn: () => api.experiment(row.experimentResultId),
+      enabled: Boolean(row.experimentResultId),
+    })),
+  });
+
+  return (
+    <div className="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Rank</th>
+            <th>Discovered Strategy</th>
+            <th>Total Return</th>
+            <th>Win Rate</th>
+            <th>Max Drawdown</th>
+            <th>Trades</th>
+            <th>Score</th>
+            <th>Status</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, index) => {
+            const detail = details[index]?.data as ExperimentSummary | undefined;
+            const metrics = detail?.metrics ?? {};
+            const strategy =
+              detail?.strategyDefinitions?.map((item) => item.strategyName).join(" + ") ||
+              row.candidateId ||
+              row.experimentResultId;
+            const singleDefId = detail?.strategyDefinitions?.[0]?.id;
+
+            return (
+              <tr key={row.id ?? row.candidateId ?? row.experimentResultId}>
+                <td>
+                  <span
+                    style={{
+                      fontWeight: 800,
+                      color:
+                        row.rank === 1 ? "#d97706" : row.rank === 2 ? "#64748b" : row.rank === 3 ? "#b45309" : "#0f172a",
+                    }}
+                  >
+                    {row.rank === 1 ? "🥇 #1" : row.rank === 2 ? "🥈 #2" : row.rank === 3 ? "🥉 #3" : `#${row.rank ?? "-"}`}
+                  </span>
+                </td>
+                <td>
+                  <b>{strategy}</b>
+                </td>
+                <td style={{ color: (metrics.totalReturnPercent ?? 0) >= 0 ? "#10b981" : "#ef4444", fontWeight: 700 }}>
+                  {percent(metrics.totalReturnPercent)}
+                </td>
+                <td>{percent(metrics.winRatePercent)}</td>
+                <td style={{ color: "#f59e0b" }}>{percent(metrics.maxDrawdownPercent)}</td>
+                <td>{metrics.numberOfTrades ?? "—"}</td>
+                <td>
+                  <strong style={{ color: "#2563eb" }}>{Number.isFinite(row.score) ? row.score.toFixed(4) : "—"}</strong>
+                </td>
+                <td>
+                  <span
+                    style={{
+                      padding: "2px 8px",
+                      borderRadius: "4px",
+                      fontSize: "11px",
+                      fontWeight: 700,
+                      background: detail?.rankEligible === false ? "#f1f5f9" : "#ecfdf5",
+                      color: detail?.rankEligible === false ? "#64748b" : "#059669",
+                    }}
+                  >
+                    {detail?.rankEligible === false ? "Not eligible" : "QUALIFIED"}
+                  </span>
+                </td>
+                <td>
+                  {singleDefId ? (
+                    <button
+                      type="button"
+                      className="btn-table-backtest"
+                      style={{ padding: "4px 10px", fontSize: "11.5px" }}
+                      onClick={() => launchStrategyBacktest("single", singleDefId)}
+                      title="Run full interactive backtest with this strategy"
+                    >
+                      🚀 Backtest
+                    </button>
+                  ) : (
+                    <span style={{ color: "#94a3b8", fontSize: "11px" }}>—</span>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
 }
 
 export function PersistentLeaderboardTable({ rows }: { rows: LeaderboardEntry[] }) {
-  const details = useQueries({ queries: rows.map((row) => ({ queryKey: ["experiments", row.experimentResultId], queryFn: () => api.experiment(row.experimentResultId), enabled: Boolean(row.experimentResultId) })) });
-  return <div className="table-scroll"><table><thead><tr><th>Rank</th><th>Strategy</th><th>Experiment</th><th>Scope</th><th>Score</th><th>Added</th><th>Return</th><th>Trades</th></tr></thead><tbody>{rows.map((row, index) => { const detail = details[index]?.data as ExperimentSummary | undefined; const strategy = detail?.strategyDefinitions?.map((item) => item.strategyName).join(" + ") || row.experimentResultId; return <tr key={row.id}><td>{row.rank}</td><td>{strategy}</td><td>{row.experimentResultId}</td><td>{row.leaderboardScopeId}</td><td>{row.score.toFixed(4)}</td><td>{row.addedAt}</td><td>{percent(detail?.metrics.totalReturnPercent)}</td><td>{detail?.metrics.numberOfTrades ?? "Unavailable"}</td></tr>; })}</tbody></table></div>;
+  const details = useQueries({
+    queries: rows.map((row) => ({
+      queryKey: ["experiments", row.experimentResultId],
+      queryFn: () => api.experiment(row.experimentResultId),
+      enabled: Boolean(row.experimentResultId),
+    })),
+  });
+  return (
+    <div className="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Rank</th>
+            <th>Strategy</th>
+            <th>Experiment</th>
+            <th>Scope</th>
+            <th>Score</th>
+            <th>Added</th>
+            <th>Return</th>
+            <th>Trades</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, index) => {
+            const detail = details[index]?.data as ExperimentSummary | undefined;
+            const strategy =
+              detail?.strategyDefinitions?.map((item) => item.strategyName).join(" + ") || row.experimentResultId;
+            return (
+              <tr key={row.id}>
+                <td>{row.rank}</td>
+                <td>{strategy}</td>
+                <td>{row.experimentResultId}</td>
+                <td>{row.leaderboardScopeId}</td>
+                <td>{row.score.toFixed(4)}</td>
+                <td>{row.addedAt}</td>
+                <td>{percent(detail?.metrics.totalReturnPercent)}</td>
+                <td>{detail?.metrics.numberOfTrades ?? "Unavailable"}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
 }
 
-function CandidateTable({ candidates }: { candidates: Candidate[] }) { return <div className="table-scroll"><table><thead><tr><th>Candidate</th><th>Origin</th><th>Selection</th><th>Status</th><th>Attempts</th><th>Reason</th></tr></thead><tbody>{candidates.map((candidate) => <tr key={candidate.candidateId}><td>{candidate.candidateId}</td><td>{candidate.origin ?? "SEARCH"}</td><td>{candidate.selectionMode ?? "Unavailable"}</td><td>{candidate.status}</td><td>{candidate.attempts?.length ?? 0}</td><td>{candidate.lastError || candidate.failureCode || "—"}</td></tr>)}</tbody></table></div>; }
+function CandidateTable({ candidates }: { candidates: Candidate[] }) {
+  return (
+    <div className="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th>Candidate ID</th>
+            <th>Origin</th>
+            <th>Selection Mode</th>
+            <th>Status</th>
+            <th>Attempts</th>
+            <th>Reason / Outcome</th>
+          </tr>
+        </thead>
+        <tbody>
+          {candidates.map((candidate) => (
+            <tr key={candidate.candidateId}>
+              <td>
+                <code style={{ fontSize: "11.5px", color: "#2563eb" }}>{candidate.candidateId}</code>
+              </td>
+              <td>{candidate.origin ?? "SEARCH"}</td>
+              <td>{candidate.selectionMode ?? "COMPOSITE"}</td>
+              <td>
+                <span
+                  style={{
+                    padding: "2px 8px",
+                    borderRadius: "4px",
+                    fontSize: "11px",
+                    fontWeight: 700,
+                    background:
+                      candidate.status === "COMPLETED"
+                        ? "#ecfdf5"
+                        : candidate.status === "FAILED"
+                        ? "#fef2f2"
+                        : "#eff6ff",
+                    color:
+                      candidate.status === "COMPLETED"
+                        ? "#059669"
+                        : candidate.status === "FAILED"
+                        ? "#dc2626"
+                        : "#1d4ed8",
+                  }}
+                >
+                  {candidate.status}
+                </span>
+              </td>
+              <td>{candidate.attempts?.length ?? 0}</td>
+              <td>{candidate.lastError || candidate.failureCode || "—"}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
 
-function SearchSummaryCards({ current }: { current: import("./api").LoopStatus }) { return <div className="search-summary"><div><b>Run state</b><strong>{current.state}</strong></div><div><b>Active candidates</b><strong>{current.activeCandidates.length}</strong></div><div><b>Candidates tested</b><strong>{current.candidatesTested}</strong></div><div><b>Queued / running</b><strong>{current.queuedCount} / {current.runningCount}</strong></div><div><b>Failures</b><strong>{current.failedCandidateCount}</strong></div><div><b>Avg duration</b><strong>{current.averageBacktestDurationMs === null || current.averageBacktestDurationMs === undefined ? "Unavailable" : `${Math.round(current.averageBacktestDurationMs)} ms`}</strong></div><div><b>Current best</b><strong>{current.currentTopEntry ? `#${current.currentTopEntry.rank} · ${current.currentTopEntry.score.toFixed(4)}` : "Unavailable"}</strong></div><div><b>Stop reason</b><strong>{current.stopReason ?? "Active"}</strong></div></div>; }
+function SearchSummaryCards({ current }: { current: import("./api").LoopStatus }) {
+  return (
+    <div className="search-dashboard-grid">
+      <div className="search-stat-card">
+        <div className="search-stat-top">
+          <span>🔄 Run Status</span>
+          <span
+            style={{
+              fontSize: "10px",
+              padding: "1px 6px",
+              borderRadius: "4px",
+              background:
+                current.state === "RUNNING"
+                  ? "#ecfdf5"
+                  : current.state === "PAUSED"
+                  ? "#fef3c7"
+                  : "#f1f5f9",
+              color:
+                current.state === "RUNNING"
+                  ? "#047857"
+                  : current.state === "PAUSED"
+                  ? "#b45309"
+                  : "#475569",
+              fontWeight: 800,
+            }}
+          >
+            {current.state}
+          </span>
+        </div>
+        <div className="search-stat-val highlight">{current.state}</div>
+      </div>
 
-export function SearchLive({ definitions, scopes, strategies = [], initialRunId }: { definitions: StrategyDefinition[]; scopes: Scope[]; strategies?: import("./api").StrategyDescriptor[]; initialRunId?: string }) {
+      <div className="search-stat-card">
+        <div className="search-stat-top">
+          <span>🧪 Candidates Tested</span>
+        </div>
+        <div className="search-stat-val">{current.candidatesTested}</div>
+      </div>
+
+      <div className="search-stat-card">
+        <div className="search-stat-top">
+          <span>⏳ Queued / Active</span>
+        </div>
+        <div className="search-stat-val">
+          {current.queuedCount} <small style={{ fontSize: "12px", color: "#64748b" }}>queued</small> · {current.runningCount} <small style={{ fontSize: "12px", color: "#64748b" }}>running</small>
+        </div>
+      </div>
+
+      <div className="search-stat-card">
+        <div className="search-stat-top">
+          <span>🏆 Top Discovered Score</span>
+        </div>
+        <div className="search-stat-val success">
+          {current.currentTopEntry ? `#${current.currentTopEntry.rank} (${current.currentTopEntry.score.toFixed(4)})` : "Pending..."}
+        </div>
+      </div>
+
+      <div className="search-stat-card">
+        <div className="search-stat-top">
+          <span>⏱️ Avg Test Duration</span>
+        </div>
+        <div className="search-stat-val">
+          {current.averageBacktestDurationMs === null || current.averageBacktestDurationMs === undefined
+            ? "—"
+            : `${Math.round(current.averageBacktestDurationMs)} ms`}
+        </div>
+      </div>
+
+      <div className="search-stat-card">
+        <div className="search-stat-top">
+          <span>⚠️ Failures</span>
+        </div>
+        <div className="search-stat-val" style={{ color: current.failedCandidateCount > 0 ? "#ef4444" : "#64748b" }}>
+          {current.failedCandidateCount}
+        </div>
+      </div>
+
+      <div className="search-stat-card">
+        <div className="search-stat-top">
+          <span>🛑 Stop Trigger</span>
+        </div>
+        <div className="search-stat-val" style={{ fontSize: "13px", fontWeight: 700, color: "#475569" }}>
+          {current.stopReason ?? "Running until limit"}
+        </div>
+      </div>
+
+      <div className="search-stat-card">
+        <div className="search-stat-top">
+          <span>🆔 Run ID</span>
+        </div>
+        <div className="search-stat-val" style={{ fontSize: "11px", fontWeight: 600, color: "#64748b", overflow: "hidden", textOverflow: "ellipsis" }}>
+          {current.searchRunId}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export interface SearchValidationInput {
+  scopeId: string;
+  selectedIds: string[];
+  maxInFlight: string | number;
+  maxComponents: string | number;
+  stopType: "maxCandidates" | "maxDurationSeconds" | "noImprovementAfterIterations";
+  stopValue: string | number;
+  generatorType: import("./api").GeneratorType;
+  requiredCategories?: import("./api").StrategyCategory[];
+  allowedCategories?: import("./api").StrategyCategory[];
+  forbiddenCategories?: import("./api").StrategyCategory[];
+  definitions?: import("./api").StrategyDefinition[];
+  categoryFor?: (definition: import("./api").StrategyDefinition) => import("./api").StrategyCategory | undefined;
+}
+
+export function validateSearchParameters(input: SearchValidationInput): {
+  leaderboardScopeId: string;
+  strategyDefinitionIds: string[];
+  generatorType: import("./api").GeneratorType;
+  maxInFlight: number;
+  maxComponents: number;
+  stopCondition: { maxCandidates?: number; maxDurationSeconds?: number; noImprovementAfterIterations?: number };
+  domainRules?: import("./api").DomainRules;
+} {
+  const {
+    scopeId,
+    selectedIds,
+    maxInFlight,
+    maxComponents,
+    stopType,
+    stopValue,
+    generatorType,
+    requiredCategories = [],
+    allowedCategories = [],
+    forbiddenCategories = [],
+    definitions = [],
+    categoryFor = () => undefined,
+  } = input;
+
+  if (!scopeId || typeof scopeId !== "string" || !scopeId.trim()) {
+    throw new Error("Please select a benchmark dataset scope.");
+  }
+  if (!Array.isArray(selectedIds) || selectedIds.length === 0) {
+    throw new Error("Please select at least one strategy definition for the search pool.");
+  }
+
+  const concurrency = Number(maxInFlight);
+  if (!Number.isInteger(concurrency) || concurrency <= 0) {
+    throw new Error("Max in-flight concurrency must be a positive integer (e.g. 1, 2).");
+  }
+
+  const components = Number(maxComponents);
+  if (!Number.isInteger(components) || components <= 0) {
+    throw new Error("Max components must be a positive integer (e.g. 1 for single, 2+ for combinations).");
+  }
+
+  const value = Number(stopValue);
+  if (!Number.isInteger(value) || value <= 0) {
+    throw new Error("Stop limit must be a positive whole number (e.g. 5 candidates, 60 seconds).");
+  }
+
+  const stopCondition =
+    stopType === "maxCandidates"
+      ? { maxCandidates: value }
+      : stopType === "maxDurationSeconds"
+      ? { maxDurationSeconds: value }
+      : { noImprovementAfterIterations: value };
+
+  let domainRules: import("./api").DomainRules | undefined;
+  if (generatorType === "DOMAIN_GUIDED") {
+    const required = [...new Set(requiredCategories)];
+    const allowed = [...new Set(allowedCategories)];
+    const forbidden = [...new Set(forbiddenCategories)];
+
+    if (required.some((category) => forbidden.includes(category))) {
+      throw new Error("A category cannot be both required and forbidden.");
+    }
+    if (allowed.length > 0 && required.some((category) => !allowed.includes(category))) {
+      throw new Error("Required categories must be allowed.");
+    }
+    if (allowed.length > 0 && forbidden.some((category) => allowed.includes(category))) {
+      throw new Error("Forbidden categories must be excluded from allowed categories.");
+    }
+
+    const selected = definitions.filter((definition) => selectedIds.includes(definition.id));
+    const eligible = selected.filter((definition) => {
+      const category = categoryFor(definition);
+      return (
+        (!allowed.length || (category !== undefined && allowed.includes(category))) &&
+        (category === undefined || !forbidden.includes(category))
+      );
+    });
+
+    if (eligible.length === 0) {
+      throw new Error("The selected domain rules leave no eligible strategy definitions in the pool.");
+    }
+    if (required.length > components) {
+      throw new Error(`Max components (${components}) must be at least the count of required categories (${required.length}).`);
+    }
+    if (required.some((category) => !eligible.some((definition) => categoryFor(definition) === category))) {
+      throw new Error("Every required category needs an eligible selected definition in your pool.");
+    }
+
+    domainRules = {
+      ...(required.length ? { requiredCategories: required } : {}),
+      ...(allowed.length ? { allowedCategories: allowed } : {}),
+      ...(forbidden.length ? { forbiddenCategories: forbidden } : {}),
+    };
+  }
+
+  return {
+    leaderboardScopeId: scopeId,
+    strategyDefinitionIds: selectedIds,
+    generatorType,
+    maxInFlight: concurrency,
+    maxComponents: components,
+    stopCondition,
+    ...(domainRules ? { domainRules } : {}),
+  };
+}
+
+export function SearchLive({
+  definitions,
+  scopes,
+  strategies = [],
+  initialRunId,
+}: {
+  definitions: StrategyDefinition[];
+  scopes: Scope[];
+  strategies?: import("./api").StrategyDescriptor[];
+  initialRunId?: string;
+}) {
   const client = useQueryClient();
   const [scopeId, setScopeId] = useState("");
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>(() => definitions.map((d) => d.id));
   const [generatorType, setGeneratorType] = useState<import("./api").GeneratorType>("RANDOM");
   const [requiredCategories, setRequiredCategories] = useState<import("./api").StrategyCategory[]>([]);
   const [allowedCategories, setAllowedCategories] = useState<import("./api").StrategyCategory[]>([]);
@@ -2036,44 +2470,140 @@ export function SearchLive({ definitions, scopes, strategies = [], initialRunId 
   const [maxComponents, setMaxComponents] = useState("2");
   const [maxInFlight, setMaxInFlight] = useState("1");
   const [stopType, setStopType] = useState<"maxCandidates" | "maxDurationSeconds" | "noImprovementAfterIterations">("maxCandidates");
-  const [stopValue, setStopValue] = useState("3");
+  const [stopValue, setStopValue] = useState("5");
   const [runId, setRunId] = useState<string | undefined>(() => initialRunId ?? readSearchRunId());
   const [candidateCursors, setCandidateCursors] = useState<Array<string | undefined>>([undefined]);
   const [error, setError] = useState<unknown>();
   const candidateCursor = candidateCursors[candidateCursors.length - 1];
-  const categories = Array.from(new Set(strategies.map((strategy) => strategy.category.trim()).filter(Boolean))).sort() as import("./api").StrategyCategory[];
-  const categoryFor = (definition: StrategyDefinition): import("./api").StrategyCategory | undefined => strategies.find((strategy) => strategy.name === definition.strategyName && strategy.implementationSha256 === definition.implementationSha256)?.category as import("./api").StrategyCategory | undefined;
-  const toggleCategory = (setter: React.Dispatch<React.SetStateAction<import("./api").StrategyCategory[]>>, category: import("./api").StrategyCategory) => setter((current) => current.includes(category) ? current.filter((item) => item !== category) : [...current, category]);
-  const status = useQuery({ queryKey: ["search", runId, "status"], queryFn: () => api.searchStatus(runId!), enabled: Boolean(runId), refetchInterval: (query) => { const state = query.state.data?.state; return terminalSearch(state) || state === "PAUSED" ? false : 1500; } });
-  const candidates = useQuery({ queryKey: ["search", runId, "candidates", candidateCursor], queryFn: () => api.searchCandidates(runId!, { limit: 25, cursor: candidateCursor }), enabled: Boolean(runId), refetchInterval: status.data?.state === "RUNNING" ? 1500 : false });
-  const ranking = useQuery({ queryKey: ["search", runId, "leaderboard"], queryFn: () => api.searchLeaderboard(runId!), enabled: Boolean(runId), refetchInterval: status.data?.state === "RUNNING" ? 1500 : false });
-  const start = useMutation({ mutationFn: () => {
-    const concurrency = Number(maxInFlight); const components = Number(maxComponents); const value = Number(stopValue);
-    if (!scopeId || selectedIds.length === 0) return Promise.reject(new Error("Select a benchmark scope and at least one strategy definition."));
-    if (!Number.isInteger(concurrency) || concurrency <= 0) return Promise.reject(new Error("Max in-flight concurrency must be a positive integer."));
-    if (!Number.isInteger(components) || components <= 0) return Promise.reject(new Error("Max components must be a positive integer."));
-    if (!Number.isFinite(value) || value <= 0 || ((stopType === "maxCandidates" || stopType === "noImprovementAfterIterations") && !Number.isInteger(value))) return Promise.reject(new Error("The selected stop condition must be a positive integer."));
-    const stopCondition = stopType === "maxCandidates" ? { maxCandidates: value } : stopType === "maxDurationSeconds" ? { maxDurationSeconds: value } : { noImprovementAfterIterations: value };
-    let domainRules: import("./api").DomainRules | undefined;
-    if (generatorType === "DOMAIN_GUIDED") {
-      const required = [...new Set(requiredCategories)]; const allowed = [...new Set(allowedCategories)]; const forbidden = [...new Set(forbiddenCategories)];
-      if (required.some((category) => forbidden.includes(category))) return Promise.reject(new Error("A category cannot be both required and forbidden."));
-      if (allowed.length > 0 && required.some((category) => !allowed.includes(category))) return Promise.reject(new Error("Required categories must be allowed."));
-      if (allowed.length > 0 && forbidden.some((category) => allowed.includes(category))) return Promise.reject(new Error("Forbidden categories must be excluded from allowed categories."));
-      const selected = definitions.filter((definition) => selectedIds.includes(definition.id));
-      const eligible = selected.filter((definition) => { const category = categoryFor(definition); return (!allowed.length || (category !== undefined && allowed.includes(category))) && (category === undefined || !forbidden.includes(category)); });
-      if (eligible.length === 0) return Promise.reject(new Error("The selected rules leave no eligible strategy definitions."));
-      if (required.length > components) return Promise.reject(new Error("Max components must include every required category."));
-      if (required.some((category) => !eligible.some((definition) => categoryFor(definition) === category))) return Promise.reject(new Error("Every required category needs an eligible selected definition."));
-      domainRules = { ...(required.length ? { requiredCategories: required } : {}), ...(allowed.length ? { allowedCategories: allowed } : {}), ...(forbidden.length ? { forbiddenCategories: forbidden } : {}) };
-    }
-    return api.startSearch({ leaderboardScopeId: scopeId, strategyDefinitionIds: selectedIds, generatorType, maxInFlight: concurrency, maxComponents: components, stopCondition, ...(domainRules ? { domainRules } : {}) });
-  }, onSuccess: (started) => { setRunId(started.searchRunId); setCandidateCursors([undefined]); persistSearchRunId(started.searchRunId); void client.invalidateQueries({ queryKey: ["search", started.searchRunId] }); }, onError: setError });
-  const control = useMutation({ mutationFn: (action: "pause" | "resume" | "cancel") => api.controlSearch(runId!, action), onSuccess: () => { void client.invalidateQueries({ queryKey: ["search", runId] }); }, onError: setError });
+
+  const categories = Array.from(
+    new Set(strategies.map((strategy) => strategy.category.trim()).filter(Boolean))
+  ).sort() as import("./api").StrategyCategory[];
+
+  const categoryFor = (definition: StrategyDefinition): import("./api").StrategyCategory | undefined =>
+    strategies.find(
+      (strategy) =>
+        strategy.name === definition.strategyName && strategy.implementationSha256 === definition.implementationSha256
+    )?.category as import("./api").StrategyCategory | undefined;
+
+  // Auto conflict prevention
+  const handleToggleRequired = (category: import("./api").StrategyCategory) => {
+    setRequiredCategories((prev) => {
+      const next = prev.includes(category) ? prev.filter((c) => c !== category) : [...prev, category];
+      if (next.includes(category)) {
+        setForbiddenCategories((f) => f.filter((c) => c !== category));
+        setAllowedCategories((a) => (a.length > 0 && !a.includes(category) ? [...a, category] : a));
+      }
+      return next;
+    });
+  };
+
+  const handleToggleAllowed = (category: import("./api").StrategyCategory) => {
+    setAllowedCategories((prev) => {
+      const next = prev.includes(category) ? prev.filter((c) => c !== category) : [...prev, category];
+      if (!next.includes(category) && next.length > 0) {
+        setRequiredCategories((r) => r.filter((c) => c !== category));
+      }
+      return next;
+    });
+  };
+
+  const handleToggleForbidden = (category: import("./api").StrategyCategory) => {
+    setForbiddenCategories((prev) => {
+      const next = prev.includes(category) ? prev.filter((c) => c !== category) : [...prev, category];
+      if (next.includes(category)) {
+        setRequiredCategories((r) => r.filter((c) => c !== category));
+        setAllowedCategories((a) => a.filter((c) => c !== category));
+      }
+      return next;
+    });
+  };
+
+  const toggleDefinition = (id: string) =>
+    setSelectedIds((currentIds) =>
+      currentIds.includes(id) ? currentIds.filter((currentId) => currentId !== id) : [...currentIds, id]
+    );
+
+  const handleSelectAll = () => setSelectedIds(definitions.map((d) => d.id));
+  const handleDeselectAll = () => setSelectedIds([]);
+
+  const status = useQuery({
+    queryKey: ["search", runId, "status"],
+    queryFn: () => api.searchStatus(runId!),
+    enabled: Boolean(runId),
+    refetchInterval: (query) => {
+      const state = query.state.data?.state;
+      return terminalSearch(state) || state === "PAUSED" ? false : 1500;
+    },
+  });
+
+  const candidates = useQuery({
+    queryKey: ["search", runId, "candidates", candidateCursor],
+    queryFn: () => api.searchCandidates(runId!, { limit: 25, cursor: candidateCursor }),
+    enabled: Boolean(runId),
+    refetchInterval: status.data?.state === "RUNNING" ? 1500 : false,
+  });
+
+  const ranking = useQuery({
+    queryKey: ["search", runId, "leaderboard"],
+    queryFn: () => api.searchLeaderboard(runId!),
+    enabled: Boolean(runId),
+    refetchInterval: status.data?.state === "RUNNING" ? 1500 : false,
+  });
+
+  const start = useMutation({
+    mutationFn: () => {
+      const payload = validateSearchParameters({
+        scopeId,
+        selectedIds,
+        maxInFlight,
+        maxComponents,
+        stopType,
+        stopValue,
+        generatorType,
+        requiredCategories,
+        allowedCategories,
+        forbiddenCategories,
+        definitions,
+        categoryFor,
+      });
+      return api.startSearch(payload);
+    },
+    onSuccess: (started) => {
+      setRunId(started.searchRunId);
+      setCandidateCursors([undefined]);
+      persistSearchRunId(started.searchRunId);
+      void client.invalidateQueries({ queryKey: ["search", started.searchRunId] });
+    },
+    onError: setError,
+  });
+
+  const control = useMutation({
+    mutationFn: (action: "pause" | "resume" | "cancel") => api.controlSearch(runId!, action),
+    onSuccess: () => {
+      void client.invalidateQueries({ queryKey: ["search", runId] });
+    },
+    onError: setError,
+  });
+
   const current = status.data;
-  useEffect(() => { if (scopes.length && !scopeId) setScopeId(scopes[0]!.id); }, [scopes, scopeId]);
-  useEffect(() => { if (initialRunId) { setRunId(initialRunId); persistSearchRunId(initialRunId); setCandidateCursors([undefined]); } }, [initialRunId]);
-  const toggleDefinition = (id: string) => setSelectedIds((currentIds) => currentIds.includes(id) ? currentIds.filter((currentId) => currentId !== id) : [...currentIds, id]); const clearRun = () => { setRunId(undefined); persistSearchRunId(undefined); };
+  useEffect(() => {
+    if (scopes.length && !scopeId) setScopeId(scopes[0]!.id);
+  }, [scopes, scopeId]);
+
+  useEffect(() => {
+    if (initialRunId) {
+      setRunId(initialRunId);
+      persistSearchRunId(initialRunId);
+      setCandidateCursors([undefined]);
+    }
+  }, [initialRunId]);
+
+  const clearRun = () => {
+    setRunId(undefined);
+    persistSearchRunId(undefined);
+  };
+
   const customNamesMap: Record<string, string> = React.useMemo(() => {
     try {
       const raw = localStorage.getItem("cryptox_strategy_custom_names_v1");
@@ -2082,7 +2612,540 @@ export function SearchLive({ definitions, scopes, strategies = [], initialRunId 
       return {};
     }
   }, [definitions]);
-  return <><div className="heading"><div><h1>Strategy Search & Discovery</h1><p>Configure a bounded Search Run and monitor authoritative backend lifecycle projections.</p></div><span className="status"><i />{generatorType} · backend</span></div><Panel className="search-panel"><div className="search-config-grid"><label className="field">Benchmark scope<select value={scopeId} onChange={(event) => setScopeId(event.target.value)}><option value="">Select scope</option>{scopes.map((scope) => <option key={scope.id} value={scope.id}>{scope.name}</option>)}</select></label><label className="field">Generator<select value={generatorType} onChange={(event) => setGeneratorType(event.target.value as import("./api").GeneratorType)}><option value="RANDOM">RANDOM</option><option value="DOMAIN_GUIDED">DOMAIN_GUIDED</option><option value="GENETIC">GENETIC</option></select></label><label className="field">Max in-flight<input type="number" min="1" step="1" value={maxInFlight} onChange={(event) => setMaxInFlight(event.target.value)} /></label><label className="field">Max components<input type="number" min="1" step="1" value={maxComponents} onChange={(event) => setMaxComponents(event.target.value)} /></label><label className="field">Stop condition<select value={stopType} onChange={(event) => setStopType(event.target.value as typeof stopType)}><option value="maxCandidates">Max candidates</option><option value="maxDurationSeconds">Max duration (seconds)</option><option value="noImprovementAfterIterations">No improvement after iterations</option></select></label><label className="field">Positive limit<input type="number" min="1" step="1" value={stopValue} onChange={(event) => setStopValue(event.target.value)} /></label></div>{generatorType === "DOMAIN_GUIDED" && <div className="domain-rules"><fieldset className="search-space"><legend>Required categories</legend>{categories.map((category) => <label key={`required-${category}`}><input type="checkbox" checked={requiredCategories.includes(category)} onChange={() => toggleCategory(setRequiredCategories, category)} /> {category}</label>)}</fieldset><fieldset className="search-space"><legend>Allowed categories (empty means all)</legend>{categories.map((category) => <label key={`allowed-${category}`}><input type="checkbox" checked={allowedCategories.includes(category)} onChange={() => toggleCategory(setAllowedCategories, category)} /> {category}</label>)}</fieldset><fieldset className="search-space"><legend>Forbidden categories</legend>{categories.map((category) => <label key={`forbidden-${category}`}><input type="checkbox" checked={forbiddenCategories.includes(category)} onChange={() => toggleCategory(setForbiddenCategories, category)} /> {category}</label>)}</fieldset></div>}<fieldset className="search-space"><legend>Search space definitions</legend>{definitions.length ? definitions.map((definition) => <label key={definition.id}><input type="checkbox" checked={selectedIds.includes(definition.id)} onChange={() => toggleDefinition(definition.id)} /> {customNamesMap[definition.id] ?? definition.familyName ?? definition.strategyName} · v{definition.version}</label>) : <Empty>No saved definitions available.</Empty>}</fieldset><div className="toolbar"><Btn primary disabled={start.isPending || !scopeId || selectedIds.length === 0} onClick={() => start.mutate()}>{start.isPending ? "Starting..." : "Start Search"}</Btn>{current?.state === "RUNNING" && <Btn onClick={() => control.mutate("pause")} disabled={control.isPending}>Pause</Btn>}{current?.state === "PAUSED" && <Btn onClick={() => control.mutate("resume")} disabled={control.isPending}>Resume</Btn>}{current && !terminalSearch(current.state) && <Btn onClick={() => control.mutate("cancel")} disabled={control.isPending}>Cancel</Btn>}{runId && <Btn onClick={clearRun}>Clear saved run</Btn>}</div><ErrorBox error={error ?? start.error ?? control.error ?? status.error} />{!runId ? <Empty>No Search Run selected. Configuration is ready for a bounded start.</Empty> : status.isLoading ? <Loading /> : current ? <><SearchSummaryCards current={current} /><p className="muted">Run ID: {current.searchRunId} · stop condition {JSON.stringify(current.stopCondition)} · retry exhausted {current.retryExhaustedCandidateCount ?? 0} · infrastructure failures {current.infrastructureFailureCandidateCount ?? 0}{current.lastError ? ` · last error: ${current.lastError}` : ""}</p><h3>Candidate history</h3>{candidates.isLoading ? <Loading /> : candidates.error ? <ErrorBox error={candidates.error} /> : candidates.data?.items.length ? <><CandidateTable candidates={candidates.data.items} /><div className="toolbar"><Btn onClick={() => setCandidateCursors((cursorStack) => cursorStack.length > 1 ? cursorStack.slice(0, -1) : cursorStack)} disabled={candidateCursors.length <= 1}>Previous candidates</Btn><Btn onClick={() => candidates.data?.nextCursor && setCandidateCursors((cursorStack) => [...cursorStack, candidates.data!.nextCursor])} disabled={!candidates.data?.nextCursor}>Next candidates</Btn></div></> : <Empty>No candidates returned yet.</Empty>}<h3>Search Run ranking</h3>{ranking.isLoading ? <Loading /> : ranking.error ? <ErrorBox error={ranking.error} /> : ranking.data?.length ? <RankingTable rows={ranking.data} /> : <Empty>No completed ranking entries yet.</Empty>}</> : <Empty>Saved Search Run is unavailable.</Empty>}</Panel></>;
+
+  const selectedScope = scopes.find((s) => s.id === scopeId);
+
+  return (
+    <div className="search-studio-container">
+      {/* Hero Header */}
+      <div className="search-header-hero">
+        <div className="search-hero-title">
+          <h1>🔍 Strategy Search & Discovery Studio</h1>
+          <p>
+            Automated Quantitative Exploration — select your base indicators, pick an exploration engine, and discover high-performing trading algorithms.
+          </p>
+        </div>
+        <div className="search-status-badge">
+          <i />
+          <span>Engine: {generatorType}</span>
+        </div>
+      </div>
+
+      {/* Step 1: Benchmark Dataset & Generator Algorithm */}
+      <div className="search-step-card">
+        <div className="search-step-header">
+          <div className="search-step-badge">1</div>
+          <div className="search-step-title">
+            <h3>Choose Exploration Engine & Benchmark Dataset</h3>
+            <p>Select which algorithm explores strategy variations and what historical market data to test against.</p>
+          </div>
+        </div>
+
+        {/* 3 Generator Cards */}
+        <div className="generator-cards-grid">
+          <button
+            type="button"
+            className={`generator-card ${generatorType === "RANDOM" ? "active" : ""}`}
+            onClick={() => setGeneratorType("RANDOM")}
+          >
+            <div className="generator-card-top">
+              <div className="generator-card-meta">
+                <span className="generator-card-icon">🎲</span>
+                <span className="generator-card-name">Random Mutation</span>
+              </div>
+              <div className="generator-card-check">✓</div>
+            </div>
+            <p className="generator-card-desc">
+              Fast parameter search. Randomly shuffles indicators and mutates numerical thresholds to explore nearby parameter variations.
+            </p>
+          </button>
+
+          <button
+            type="button"
+            className={`generator-card ${generatorType === "GENETIC" ? "active" : ""}`}
+            onClick={() => setGeneratorType("GENETIC")}
+          >
+            <div className="generator-card-top">
+              <div className="generator-card-meta">
+                <span className="generator-card-icon">🧬</span>
+                <span className="generator-card-name">Genetic Evolution</span>
+              </div>
+              <div className="generator-card-check">✓</div>
+            </div>
+            <p className="generator-card-desc">
+              Evolutionary optimization. Pairs parent strategies, crosses over indicator components, and applies structural mutations across generations.
+            </p>
+          </button>
+
+          <button
+            type="button"
+            className={`generator-card ${generatorType === "DOMAIN_GUIDED" ? "active" : ""}`}
+            onClick={() => setGeneratorType("DOMAIN_GUIDED")}
+          >
+            <div className="generator-card-top">
+              <div className="generator-card-meta">
+                <span className="generator-card-icon">🎯</span>
+                <span className="generator-card-name">Domain-Guided Rules</span>
+              </div>
+              <div className="generator-card-check">✓</div>
+            </div>
+            <p className="generator-card-desc">
+              Constrained discovery. Enforces strict rules on category combinations (e.g. Trend + Momentum only) while banning unwanted indicator types.
+            </p>
+          </button>
+        </div>
+
+        {/* Dataset Scope Selector */}
+        <div className="search-field-box" style={{ marginTop: "4px" }}>
+          <label className="search-field-label">
+            <span>📊 Benchmark Market Scope (Historical Test Dataset)</span>
+          </label>
+          <select
+            className="search-field-control"
+            value={scopeId}
+            onChange={(event) => setScopeId(event.target.value)}
+          >
+            <option value="">-- Select Benchmark Scope --</option>
+            {scopes.map((scope) => (
+              <option key={scope.id} value={scope.id}>
+                {scope.name} · {scope.pair} ({scope.timeframe})
+              </option>
+            ))}
+          </select>
+          <small className="search-field-hint">
+            All generated strategies will be automatically backtested on this exact market data so their scores can be compared fairly.
+          </small>
+        </div>
+      </div>
+
+      {/* Step 2: Engine Tuning & Limits */}
+      <div className="search-step-card">
+        <div className="search-step-header">
+          <div className="search-step-badge">2</div>
+          <div className="search-step-title">
+            <h3>Configure Exploration Limits & Stop Condition</h3>
+            <p>Control ensemble sizing, concurrency, and how long the automated discovery loop runs.</p>
+          </div>
+        </div>
+
+        <div className="search-config-grid-clean">
+          {/* Max Components */}
+          <div className="search-field-box">
+            <label className="search-field-label">
+              <span>🧩 Ensemble Size (Max Components)</span>
+            </label>
+            <input
+              type="number"
+              className="search-field-control"
+              min="1"
+              max="5"
+              step="1"
+              value={maxComponents}
+              onChange={(event) => setMaxComponents(event.target.value)}
+            />
+            <div className="component-preset-row">
+              <button
+                type="button"
+                className={`btn-component-pill ${maxComponents === "1" ? "active" : ""}`}
+                onClick={() => setMaxComponents("1")}
+                title="1 = single indicator only"
+              >
+                1 (Single Only)
+              </button>
+              <button
+                type="button"
+                className={`btn-component-pill ${maxComponents === "2" ? "active" : ""}`}
+                onClick={() => setMaxComponents("2")}
+                title="2 = allows dual indicator combinations"
+              >
+                2 (Dual)
+              </button>
+              <button
+                type="button"
+                className={`btn-component-pill ${maxComponents === "3" ? "active" : ""}`}
+                onClick={() => setMaxComponents("3")}
+                title="3 = allows up to 3 indicator combinations"
+              >
+                3 (Triple)
+              </button>
+            </div>
+            <small className="search-field-hint">
+              1 = Only tests single indicators. 2+ = Combines indicators into multi-signal voting ensembles.
+            </small>
+          </div>
+
+          {/* Max In-Flight */}
+          <div className="search-field-box">
+            <label className="search-field-label">
+              <span>⚡ Concurrent Backtests (In-Flight)</span>
+            </label>
+            <input
+              type="number"
+              className="search-field-control"
+              min="1"
+              max="4"
+              step="1"
+              value={maxInFlight}
+              onChange={(event) => setMaxInFlight(event.target.value)}
+            />
+            <small className="search-field-hint">
+              How many backtest jobs execute simultaneously on the backend worker queue (1 is recommended).
+            </small>
+          </div>
+
+          {/* Stop Condition Type */}
+          <div className="search-field-box">
+            <label className="search-field-label">
+              <span>🛑 Automatic Stop Trigger</span>
+            </label>
+            <select
+              className="search-field-control"
+              value={stopType}
+              onChange={(event) => setStopType(event.target.value as typeof stopType)}
+            >
+              <option value="maxCandidates">🎯 Max candidates tested</option>
+              <option value="maxDurationSeconds">⏱️ Max duration (seconds)</option>
+              <option value="noImprovementAfterIterations">🛑 Plateau (No improvement)</option>
+            </select>
+            <small className="search-field-hint">
+              Safeguard trigger to automatically conclude the search run when the target is reached.
+            </small>
+          </div>
+
+          {/* Stop Value Limit */}
+          <div className="search-field-box">
+            <label className="search-field-label">
+              <span>
+                {stopType === "maxCandidates"
+                  ? "🎯 Target Candidates Count"
+                  : stopType === "maxDurationSeconds"
+                  ? "⏱️ Target Seconds Limit"
+                  : "🛑 Plateau Iterations Count"}
+              </span>
+            </label>
+            <input
+              type="number"
+              className="search-field-control"
+              min="1"
+              step="1"
+              value={stopValue}
+              onChange={(event) => setStopValue(event.target.value)}
+            />
+            <small className="search-field-hint">
+              {stopType === "maxCandidates"
+                ? `Will stop after testing exactly ${stopValue || 0} strategy candidates.`
+                : stopType === "maxDurationSeconds"
+                ? `Will stop after running for ${stopValue || 0} seconds.`
+                : `Will stop if score does not improve for ${stopValue || 0} iterations.`}
+            </small>
+          </div>
+        </div>
+      </div>
+
+      {/* Step 3 (Conditional): Domain Category Rules */}
+      {generatorType === "DOMAIN_GUIDED" && (
+        <div className="search-step-card">
+          <div className="search-step-header">
+            <div className="search-step-badge">★</div>
+            <div className="search-step-title">
+              <h3>🎯 Domain Category Rules (Rule-Constrained Search)</h3>
+              <p>Configure which indicator types are mandatory, allowed, or strictly prohibited.</p>
+            </div>
+          </div>
+
+          <div className="domain-rules-card">
+            <div className="domain-rules-header">
+              <h4>📋 Indicator Category Governance</h4>
+              <small>Auto-synchronized: selecting a category as Required automatically permits it.</small>
+            </div>
+
+            {/* Required Categories */}
+            <div className="domain-rule-row">
+              <div className="domain-rule-row-title">
+                <b>📌 Required Categories:</b>
+                <span>Every generated strategy MUST contain at least one indicator from these categories</span>
+              </div>
+              <div className="domain-chips-grid">
+                {categories.map((cat) => {
+                  const isChecked = requiredCategories.includes(cat);
+                  return (
+                    <button
+                      type="button"
+                      key={`req-${cat}`}
+                      className={`domain-chip-btn ${isChecked ? "checked-required" : ""}`}
+                      onClick={() => handleToggleRequired(cat)}
+                    >
+                      <span>{isChecked ? "✓" : "+"}</span>
+                      <span>{cat}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Allowed Categories */}
+            <div className="domain-rule-row">
+              <div className="domain-rule-row-title">
+                <b>🟢 Allowed Categories:</b>
+                <span>Permitted pool of indicator types (leave all unselected to allow all available categories)</span>
+              </div>
+              <div className="domain-chips-grid">
+                {categories.map((cat) => {
+                  const isChecked = allowedCategories.includes(cat);
+                  return (
+                    <button
+                      type="button"
+                      key={`allow-${cat}`}
+                      className={`domain-chip-btn ${isChecked ? "checked-allowed" : ""}`}
+                      onClick={() => handleToggleAllowed(cat)}
+                    >
+                      <span>{isChecked ? "✓" : "+"}</span>
+                      <span>{cat}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Forbidden Categories */}
+            <div className="domain-rule-row">
+              <div className="domain-rule-row-title">
+                <b>🚫 Forbidden Categories:</b>
+                <span>Categories that are strictly BANNED and will never appear in any candidate</span>
+              </div>
+              <div className="domain-chips-grid">
+                {categories.map((cat) => {
+                  const isChecked = forbiddenCategories.includes(cat);
+                  return (
+                    <button
+                      type="button"
+                      key={`forb-${cat}`}
+                      className={`domain-chip-btn ${isChecked ? "checked-forbidden" : ""}`}
+                      onClick={() => handleToggleForbidden(cat)}
+                    >
+                      <span>{isChecked ? "✕" : "+"}</span>
+                      <span>{cat}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Step 3: Candidate Pool (Search Space) */}
+      <div className="search-step-card">
+        <div className="search-step-header search-space-header">
+          <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            <div className="search-step-badge">{generatorType === "DOMAIN_GUIDED" ? "3" : "3"}</div>
+            <div className="search-step-title">
+              <h3>📦 Select Candidate Pool (Search Space)</h3>
+              <p>Check the base strategies the algorithm is allowed to mutate and combine.</p>
+            </div>
+          </div>
+          <div className="search-space-actions">
+            <span className="search-selection-badge">
+              ✓ {selectedIds.length} of {definitions.length} selected
+            </span>
+            <button type="button" className="btn-space-quick" onClick={handleSelectAll}>
+              ✓ Select All
+            </button>
+            <button type="button" className="btn-space-quick" onClick={handleDeselectAll}>
+              ✕ Deselect All
+            </button>
+          </div>
+        </div>
+
+        <div className="search-space-cards-grid">
+          {definitions.length ? (
+            definitions.map((def) => {
+              const isSelected = selectedIds.includes(def.id);
+              const customName = customNamesMap[def.id] ?? def.familyName ?? def.strategyName;
+              const cat = categoryFor(def) ?? "TREND";
+              const emoji = getIndicatorEmoji(def.strategyName);
+
+              return (
+                <div
+                  key={def.id}
+                  className={`strategy-pool-card ${isSelected ? "selected" : ""}`}
+                  onClick={() => toggleDefinition(def.id)}
+                >
+                  <input
+                    type="checkbox"
+                    className="strategy-pool-checkbox"
+                    checked={isSelected}
+                    onChange={() => {}}
+                  />
+                  <div className="strategy-pool-info">
+                    <div className="strategy-pool-name-row">
+                      <span className="strategy-pool-name" title={customName}>
+                        {emoji} {customName}
+                      </span>
+                      <span className="strategy-pool-ver">v{def.version}</span>
+                    </div>
+                    <div className="strategy-pool-meta">
+                      <span className={`category-badge cat-${cat.toLowerCase()}`} style={{ fontSize: "10px", padding: "1px 6px" }}>
+                        {cat}
+                      </span>
+                      <span style={{ fontSize: "10.5px", color: "#64748b" }}>
+                        {getParamSnippet(def.parameters)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <Empty>No saved strategy definitions found in your database library.</Empty>
+          )}
+        </div>
+      </div>
+
+      {/* Pre-flight Action Bar */}
+      <div className="search-action-bar">
+        <div className="search-preflight-summary">
+          <span>🚀 Launch Configuration:</span>
+          <span className="search-preflight-chip">
+            <b>{generatorType}</b>
+          </span>
+          <span>on</span>
+          <span className="search-preflight-chip">
+            {selectedScope ? `${selectedScope.name} (${selectedScope.timeframe})` : "No dataset selected"}
+          </span>
+          <span>·</span>
+          <span>
+            Target: <b>{stopValue} {stopType === "maxCandidates" ? "candidates" : stopType === "maxDurationSeconds" ? "seconds" : "iterations"}</b>
+          </span>
+          <span>·</span>
+          <span>
+            Pool: <b>{selectedIds.length} indicators</b>
+          </span>
+        </div>
+
+        <div className="search-action-buttons">
+          <button
+            type="button"
+            className="btn-start-discovery"
+            disabled={start.isPending || !scopeId || selectedIds.length === 0}
+            onClick={() => start.mutate()}
+          >
+            {start.isPending ? "⏳ Starting Discovery..." : "🚀 Start Strategy Discovery"}
+          </button>
+
+          {current?.state === "RUNNING" && (
+            <button
+              type="button"
+              className="btn-search-control"
+              disabled={control.isPending}
+              onClick={() => control.mutate("pause")}
+            >
+              ⏸️ Pause
+            </button>
+          )}
+
+          {current?.state === "PAUSED" && (
+            <button
+              type="button"
+              className="btn-search-control"
+              disabled={control.isPending}
+              onClick={() => control.mutate("resume")}
+            >
+              ▶️ Resume
+            </button>
+          )}
+
+          {current && !terminalSearch(current.state) && (
+            <button
+              type="button"
+              className="btn-search-control danger"
+              disabled={control.isPending}
+              onClick={() => control.mutate("cancel")}
+            >
+              ⏹️ Stop
+            </button>
+          )}
+
+          {runId && (
+            <button type="button" className="btn-search-control" onClick={clearRun}>
+              🗑️ Clear Run
+            </button>
+          )}
+        </div>
+      </div>
+
+      <ErrorBox error={error ?? start.error ?? control.error ?? status.error} />
+
+      {/* Live Monitoring & Results Section */}
+      {!runId ? (
+        <div className="search-empty-prompt">
+          <div className="search-empty-icon">🔭</div>
+          <h3 className="search-empty-title">Ready for Automated Exploration</h3>
+          <p className="search-empty-desc">
+            Configure your dataset and candidate pool above, then click <b>"Start Strategy Discovery"</b>. The algorithm will automatically mutate, backtest, and rank high-performing trading strategies on the leaderboard.
+          </p>
+        </div>
+      ) : status.isLoading ? (
+        <Loading />
+      ) : current ? (
+        <div className="search-studio-container" style={{ gap: "16px" }}>
+          {/* Live Metric Tiles */}
+          <SearchSummaryCards current={current} />
+
+          {/* Candidate History Table */}
+          <Panel title="📋 Discovered Candidate History">
+            {candidates.isLoading ? (
+              <Loading />
+            ) : candidates.error ? (
+              <ErrorBox error={candidates.error} />
+            ) : candidates.data?.items.length ? (
+              <>
+                <CandidateTable candidates={candidates.data.items} />
+                <div className="toolbar" style={{ marginTop: "10px" }}>
+                  <Btn
+                    onClick={() =>
+                      setCandidateCursors((cursorStack) =>
+                        cursorStack.length > 1 ? cursorStack.slice(0, -1) : cursorStack
+                      )
+                    }
+                    disabled={candidateCursors.length <= 1}
+                  >
+                    ← Previous candidates
+                  </Btn>
+                  <Btn
+                    onClick={() =>
+                      candidates.data?.nextCursor &&
+                      setCandidateCursors((cursorStack) => [...cursorStack, candidates.data!.nextCursor])
+                    }
+                    disabled={!candidates.data?.nextCursor}
+                  >
+                    Next candidates →
+                  </Btn>
+                </div>
+              </>
+            ) : (
+              <Empty>No candidates evaluated yet. Starting generation loop...</Empty>
+            )}
+          </Panel>
+
+          {/* Leaderboard Ranking Table */}
+          <Panel title="🏆 Discovery Leaderboard (Top Performing Candidates)">
+            {ranking.isLoading ? (
+              <Loading />
+            ) : ranking.error ? (
+              <ErrorBox error={ranking.error} />
+            ) : ranking.data?.length ? (
+              <RankingTable rows={ranking.data} />
+            ) : (
+              <Empty>No qualified ranking entries yet. Candidates will appear as backtests complete.</Empty>
+            )}
+          </Panel>
+        </div>
+      ) : (
+        <Empty>Saved Search Run is unavailable or has expired.</Empty>
+      )}
+    </div>
+  );
 }
 
 function useResources() {
