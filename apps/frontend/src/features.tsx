@@ -1835,8 +1835,8 @@ export function BacktestLive({ definitions, composites, scopes }: { definitions:
       <div className="backtest-main-section">
         <BacktestCandleChart
           candles={displayedCandles}
-          pair={pair}
-          timeframe={timeframe}
+          pair={activeExperimentId ? (experimentVisual.data?.datasetSnapshot?.pair || pair) : pair}
+          timeframe={activeExperimentId ? (experimentVisual.data?.datasetSnapshot?.timeframe || timeframe) : timeframe}
           trades={allTrades}
           overlays={experimentVisual.data?.overlays}
           highlightTradeId={highlightTradeId}
