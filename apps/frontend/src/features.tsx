@@ -167,7 +167,8 @@ export function BacktestCandleChart({
         secondsVisible: false,
         tickMarkFormatter: (time: Time, tickMarkType: number) => {
           const timestamp = typeof time === "number" ? time * 1000 : new Date(time as string).getTime();
-          const date = new Date(timestamp);
+          // Display in UTC+7 (Vietnam Time)
+          const date = new Date(timestamp + 7 * 3600 * 1000);
           const day = date.getUTCDate();
           const month = date.getUTCMonth() + 1;
           const hours = String(date.getUTCHours()).padStart(2, "0");
@@ -182,7 +183,7 @@ export function BacktestCandleChart({
       },
       localization: {
         timeFormatter: (time: number) => {
-          const d = new Date(time * 1000);
+          const d = new Date(time * 1000 + 7 * 3600 * 1000);
           const day = d.getUTCDate();
           const month = d.getUTCMonth() + 1;
           const hours = String(d.getUTCHours()).padStart(2, "0");
@@ -571,6 +572,10 @@ export function BacktestTradesTableCard({
                 const delta = (trade.exitPrice - trade.entryPrice) * (trade.signal === "LONG" ? 1 : -1);
                 const isDeltaPositive = delta >= 0;
 
+                // Format trade entry time in UTC+7 (Vietnam Time)
+                const tradeLocal = new Date(new Date(trade.entryTime).getTime() + 7 * 3600 * 1000);
+                const tradeTimeStr = `${String(tradeLocal.getUTCMonth() + 1).padStart(2, "0")}-${String(tradeLocal.getUTCDate()).padStart(2, "0")} ${String(tradeLocal.getUTCHours()).padStart(2, "0")}:${String(tradeLocal.getUTCMinutes()).padStart(2, "0")}`;
+
                 return (
                   <tr
                     key={trade.id}
@@ -579,7 +584,7 @@ export function BacktestTradesTableCard({
                     title="Click to highlight trade on chart"
                   >
                     <td><b>{trade.sequence}</b></td>
-                    <td>{trade.entryTime.replace("T", " ").slice(5, 16)}</td>
+                    <td>{tradeTimeStr}</td>
                     <td>
                       <span className={`trade-side-pill ${trade.signal === "LONG" ? "long" : "short"}`}>
                         {trade.signal}
@@ -1041,6 +1046,24 @@ function SaveScopeModal({
   );
 }
 
+function toUtc7InputString(isoString: string): string {
+  const d = new Date(isoString);
+  if (isNaN(d.getTime())) return "";
+  const local = new Date(d.getTime() + 7 * 3600 * 1000);
+  return local.toISOString().slice(0, 16);
+}
+
+function fromUtc7InputDate(value: string): Date {
+  const clean = value.trim();
+  if (!clean) return new Date(NaN);
+  const [d, t] = clean.split("T");
+  if (!d || !t) return new Date(NaN);
+  const [y, m, day] = d.split("-").map(Number);
+  const [hh, mm] = t.split(":").map(Number);
+  const utcMs = Date.UTC(y, m - 1, day, hh - 7, mm);
+  return new Date(utcMs);
+}
+
 export function BacktestLive({ definitions, composites, scopes }: { definitions: StrategyDefinition[]; composites: Composite[]; scopes: Scope[] }) {
   const client = useQueryClient();
   const capabilities = useQuery({ queryKey: ["market", "capabilities"], queryFn: api.marketCapabilities });
@@ -1096,6 +1119,20 @@ export function BacktestLive({ definitions, composites, scopes }: { definitions:
       }
     }
   }, [capabilities.data]);
+
+  useEffect(() => {
+    if (!scopeId && scopes.length > 0 && !from && !to) {
+      const first = scopes[0]!;
+      setScopeId(first.id);
+      setPair(first.pair);
+      setTimeframe(first.timeframe);
+      if (first.datasetRange?.from) setFrom(toUtc7InputString(first.datasetRange.from));
+      if (first.datasetRange?.to) setTo(toUtc7InputString(first.datasetRange.to));
+      setCapital(String(first.initialCapital));
+      setFeeRatePercent(String(first.feeRatePercent));
+      setSlippageBps(String(first.slippageBps));
+    }
+  }, [scopes, scopeId, from, to]);
 
   useEffect(() => {
     if (!definitionId && !compositeId) {
@@ -1295,16 +1332,37 @@ export function BacktestLive({ definitions, composites, scopes }: { definitions:
     setScopeSuccessMessage(null);
     setIsCreatingScope(true);
     try {
-      const fromDate = new Date(from);
-      const toDate = new Date(to);
+      const fromDate = fromUtc7InputDate(from);
+      const toDate = fromUtc7InputDate(to);
       const numCapital = Number(capital);
       const numFee = Number(feeRatePercent);
       const numSlippage = Number(slippageBps);
 
       const market = await api.candles(pair, timeframe as Timeframe);
       if (!market.candles.length) throw new Error(`No market data candles available for ${pair} (${timeframe}).`);
-      const fromIso = fromDate.toISOString();
-      const toIso = toDate.toISOString();
+
+      const TIMEFRAME_MS: Record<string, number> = {
+        "1m": 60 * 1000,
+        "5m": 5 * 60 * 1000,
+        "15m": 15 * 60 * 1000,
+        "1h": 60 * 60 * 1000,
+        "4h": 4 * 60 * 60 * 1000,
+        "1d": 24 * 60 * 60 * 1000,
+      };
+      const intervalMs = TIMEFRAME_MS[timeframe] || 60 * 1000;
+      const alignedFromMs = Math.floor(fromDate.getTime() / intervalMs) * intervalMs;
+      let alignedToMs = Math.floor(toDate.getTime() / intervalMs) * intervalMs;
+      if (toDate.getTime() % intervalMs !== 0) {
+        const ceiledToMs = Math.ceil(toDate.getTime() / intervalMs) * intervalMs;
+        if (ceiledToMs <= Date.now()) {
+          alignedToMs = ceiledToMs;
+        }
+      }
+      if (alignedToMs <= alignedFromMs) {
+        alignedToMs = alignedFromMs + intervalMs;
+      }
+      const fromIso = new Date(alignedFromMs).toISOString();
+      const toIso = new Date(alignedToMs).toISOString();
 
       const created = await api.createScope({
         name: presetName,
@@ -1358,21 +1416,13 @@ export function BacktestLive({ definitions, composites, scopes }: { definitions:
 
       let activeScopeId = scopeId;
 
-function parseUtcInputDate(value: string): Date {
-  const clean = value.trim();
-  if (!clean) return new Date(NaN);
-  if (clean.endsWith("Z")) return new Date(clean);
-  const normalized = clean.length === 16 ? `${clean}:00.000Z` : clean.length === 10 ? `${clean}T00:00:00.000Z` : clean.includes("Z") ? clean : `${clean}Z`;
-  return new Date(normalized);
-}
-
       // If no scope preset is chosen (Auto-Create / Custom), validate fields and create scope
       if (!activeScopeId) {
         if (!pair || !pair.trim()) throw new Error("Please select a trading pair.");
         if (!timeframe || !timeframe.trim()) throw new Error("Please select a timeframe.");
         if (!from || !from.trim() || !to || !to.trim()) throw new Error("Please specify both From and To dates.");
-        const fromDate = parseUtcInputDate(from);
-        const toDate = parseUtcInputDate(to);
+        const fromDate = fromUtc7InputDate(from);
+        const toDate = fromUtc7InputDate(to);
         if (isNaN(fromDate.getTime()) || isNaN(toDate.getTime())) throw new Error("The specified date range is invalid.");
         if (fromDate.getTime() >= toDate.getTime()) throw new Error("The start date (From) must be before the end date (To).");
         if (toDate.getTime() > Date.now()) throw new Error("The 'To date' cannot be in the future. Backtesting requires recorded historical market candles.");
@@ -1664,8 +1714,8 @@ function parseUtcInputDate(value: string): Date {
                 if (found) {
                   setPair(found.pair);
                   setTimeframe(found.timeframe);
-                  if (found.datasetRange?.from) setFrom(found.datasetRange.from.slice(0, 16));
-                  if (found.datasetRange?.to) setTo(found.datasetRange.to.slice(0, 16));
+                  if (found.datasetRange?.from) setFrom(toUtc7InputString(found.datasetRange.from));
+                  if (found.datasetRange?.to) setTo(toUtc7InputString(found.datasetRange.to));
                   setCapital(String(found.initialCapital));
                   setFeeRatePercent(String(found.feeRatePercent));
                   setSlippageBps(String(found.slippageBps));
