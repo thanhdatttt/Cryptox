@@ -345,7 +345,10 @@ function ParsedSummary({
             {currentComposite.components.map((c, i) => {
               const memberDef = definitions?.data?.find((d) => d.id === c.strategyDefinitionId)
                 ?? (result?.strategyDefinition?.id === c.strategyDefinitionId ? result.strategyDefinition : undefined);
-              const displayName = memberDef?.strategyName ?? (
+              const customNames = loadCustomNamesMap();
+              const displayName = memberDef
+                ? (customNames[memberDef.id] ?? memberDef.familyName ?? memberDef.strategyName)
+                : (
                 c.strategyDefinitionId.toLowerCase().includes("rsi") ? "RSI"
                 : c.strategyDefinitionId.toLowerCase().includes("bollinger") ? "Bollinger Bands"
                 : c.strategyDefinitionId.toLowerCase().includes("sentiment") ? "News Sentiment"
@@ -354,16 +357,24 @@ function ParsedSummary({
                 : (c.strategyDefinitionId.startsWith("strategy-definition-") ? `Strategy (${c.strategyDefinitionId.slice(20, 26)})` : c.strategyDefinitionId)
               );
               const version = memberDef?.version ? `v${memberDef.version}` : "v1";
+              const paramText = memberDef ? parameterSummary(memberDef) : "";
 
               return (
-                <div className="summary-component-row" key={i}>
-                  <span className="comp-bullet">●</span>
-                  <div className="comp-name-group">
-                    <b className="comp-name">{displayName}</b>
-                    <span className="comp-version-pill">{version}</span>
+                <div className="summary-component-row" key={i} style={{ flexDirection: "column", alignItems: "flex-start", gap: "6px", padding: "10px 12px" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                      <span className="comp-bullet">●</span>
+                      <b className="comp-name">{displayName}</b>
+                      <span className="comp-version-pill">{version}</span>
+                    </div>
+                    {currentComposite.method === "WEIGHTED_SCORE" && (
+                      <span className="comp-weight">Weight: <b>{(c.weight * 100).toFixed(0)}%</b></span>
+                    )}
                   </div>
-                  {currentComposite.method === "WEIGHTED_SCORE" && (
-                    <span className="comp-weight">Weight: <b>{(c.weight * 100).toFixed(0)}%</b></span>
+                  {paramText && paramText !== "No parameters returned" && (
+                    <div style={{ fontSize: "11px", color: "#334155", background: "#f8fafc", padding: "4px 8px", borderRadius: "5px", border: "1px solid #e2e8f0", width: "100%", boxSizing: "border-box", fontFamily: "monospace" }}>
+                      {paramText}
+                    </div>
                   )}
                 </div>
               );
@@ -739,11 +750,21 @@ function ValidationSave({
   );
 }
 
+interface StrategyMemberDetail {
+  id: string;
+  name: string;
+  version: number;
+  parametersSummary: string;
+  parameters: Record<string, number | string>;
+  weight?: number;
+}
+
 interface DeleteTarget {
   id: string;
   name: string;
   type: "DRAFT" | "DEFINITION" | "COMPOSITE";
   details?: string;
+  memberDetails?: StrategyMemberDetail[];
 }
 
 function DeleteConfirmationModal({
@@ -791,7 +812,29 @@ function DeleteConfirmationModal({
           <p className="delete-warning-text">
             Are you sure you want to delete <b className="delete-target-highlight">"{target.name}"</b>?
           </p>
-          {target.details && <p className="delete-meta-info">{target.details}</p>}
+
+          {target.memberDetails && target.memberDetails.length > 0 ? (
+            <div className="delete-modal-members-box">
+              <span className="members-box-title">Included Member Strategies &amp; Parameters:</span>
+              <div className="delete-modal-members-list">
+                {target.memberDetails.map((m, idx) => (
+                  <div key={idx} className="delete-modal-member-row">
+                    <div className="delete-member-head">
+                      <span className="delete-member-name">⚡ <b>{m.name}</b> (v{m.version})</span>
+                      {m.weight !== undefined && m.weight > 0 && (
+                        <span className="comp-weight" style={{ fontSize: "11px", color: "#64748b" }}>Weight: {(m.weight * 100).toFixed(0)}%</span>
+                      )}
+                    </div>
+                    {m.parametersSummary && (
+                      <span className="delete-member-params">{m.parametersSummary}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            target.details && <p className="delete-meta-info">{target.details}</p>
+          )}
 
           {isDraft ? (
             <div className="delete-notice-box">
@@ -884,15 +927,33 @@ function BatchDeleteModal({
             Are you sure you want to permanently delete <b className="delete-target-highlight">{count} strategies</b>?
           </p>
 
-          <div style={{ maxHeight: "150px", overflowY: "auto", background: "#f8fafc", borderRadius: "6px", padding: "8px 12px", margin: "10px 0", border: "1px solid #e2e8f0" }}>
+          <div style={{ maxHeight: "180px", overflowY: "auto", background: "#f8fafc", borderRadius: "6px", padding: "8px 12px", margin: "10px 0", border: "1px solid #e2e8f0" }}>
             {previewItems.map((item) => (
-              <div key={item.id} style={{ fontSize: "12px", color: "#334155", padding: "3px 0", display: "flex", justifyContent: "space-between" }}>
-                <span><b>{item.name}</b> <small style={{ color: "#64748b" }}>({item.versionLabel})</small></span>
-                <span style={{ fontSize: "10px", color: "#64748b" }}>{item.kind}</span>
+              <div key={item.id} style={{ fontSize: "12px", color: "#334155", padding: "5px 0", borderBottom: "1px dashed #e2e8f0" }}>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span><b>{item.name}</b> <small style={{ color: "#64748b" }}>({item.versionLabel})</small></span>
+                  <span style={{ fontSize: "10px", color: "#64748b" }}>{item.kind}</span>
+                </div>
+                {item.memberDetails && item.memberDetails.length > 0 ? (
+                  <div style={{ fontSize: "11px", color: "#475569", marginTop: "3px", display: "flex", flexDirection: "column", gap: "2px" }}>
+                    {item.memberDetails.map((m, mIdx) => (
+                      <div key={mIdx} style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+                        <span>⚡ <b>{m.name}</b> (v{m.version}):</span>
+                        <span style={{ fontFamily: "monospace", fontSize: "10.5px", background: "#ffffff", padding: "1px 5px", borderRadius: "3px", border: "1px solid #e2e8f0" }}>
+                          {m.parametersSummary}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  item.parametersSummary && (
+                    <div style={{ fontSize: "11px", color: "#475569", marginTop: "2px" }}>{item.parametersSummary}</div>
+                  )
+                )}
               </div>
             ))}
             {remainingCount > 0 && (
-              <div style={{ fontSize: "11.5px", color: "#64748b", fontStyle: "italic", paddingTop: "4px" }}>
+              <div style={{ fontSize: "11.5px", color: "#64748b", fontStyle: "italic", paddingTop: "6px" }}>
                 ...and {remainingCount} more strategies
               </div>
             )}
@@ -960,6 +1021,7 @@ interface UnifiedStrategyItem {
   rawDraft?: StrategyDraft;
   rawDefinition?: StrategyDefinition;
   rawComposite?: Composite;
+  memberDetails?: StrategyMemberDetail[];
 }
 
 function SavedStrategiesTable({
@@ -1027,13 +1089,39 @@ function SavedStrategiesTable({
           : "badge-user-prompt";
       const draftTitle = customNamesMap[draft.id] ?? (draft.name || (isCompDraft ? "Composite Ensemble" : draft.strategyName));
       const draftSub = isCompDraft ? "Multi-Indicator Ensemble · Active Draft" : `${draft.strategyName} · Active Draft`;
-      const logicSummary = isCompDraft && draft.composite
-        ? (draft.composite.thresholds
-            ? `${draft.composite.components.length} components · Buy ≥ ${draft.composite.thresholds.buy}, Sell ≤ ${draft.composite.thresholds.sell}`
-            : `${draft.composite.components.length} components · Strict majority consensus`)
-        : Object.entries(draft.parameters)
-            .map(([k, v]) => `${k}: ${v}`)
-            .join(" · ") || "Standard Parameters";
+      
+      let memberDetails: StrategyMemberDetail[] | undefined;
+      let logicSummary: string;
+
+      if (isCompDraft && draft.composite) {
+        memberDetails = draft.composite.components.map((c) => {
+          const found = definitions.data?.find((d) => d.id === c.strategyDefinitionId);
+          const name = found ? (customNamesMap[found.id] ?? found.familyName ?? found.strategyName) : "Strategy";
+          const version = found?.version ?? 1;
+          const params = found?.parameters ?? {};
+          const pSummary = found ? parameterSummary(found) : "";
+          return {
+            id: c.strategyDefinitionId,
+            name,
+            version,
+            parametersSummary: pSummary,
+            parameters: params,
+            weight: c.weight,
+          };
+        });
+
+        const compSummary = memberDetails
+          .map((m) => `${m.name} (v${m.version}${m.parametersSummary ? `: ${m.parametersSummary}` : ""})`)
+          .join(" + ");
+
+        logicSummary = draft.composite.thresholds
+          ? `${draft.composite.components.length} components (${compSummary}) · Buy ≥ ${draft.composite.thresholds.buy}, Sell ≤ ${draft.composite.thresholds.sell}`
+          : `${draft.composite.components.length} components (${compSummary}) · Strict majority consensus`;
+      } else {
+        logicSummary = Object.entries(draft.parameters)
+          .map(([k, v]) => `${k}: ${v}`)
+          .join(" · ") || "Standard Parameters";
+      }
 
       list.push({
         id: draft.id,
@@ -1048,6 +1136,7 @@ function SavedStrategiesTable({
         parametersSummary: logicSummary,
         status: "DRAFT",
         rawDraft: draft,
+        memberDetails,
       });
     }
 
@@ -1090,15 +1179,30 @@ function SavedStrategiesTable({
     if (composites.data) {
       for (const comp of composites.data) {
         const methodLabel = customNamesMap[comp.id] ?? (comp.method === "MAJORITY_VOTE" ? "Majority Vote Ensemble" : "Weighted Scoring Ensemble");
-        const compNames = comp.components
-          .map((c) => {
-            const found = definitions.data?.find((d) => d.id === c.strategyDefinitionId);
-            return found?.strategyName ?? "Strategy";
-          })
+        
+        const memberDetails: StrategyMemberDetail[] = comp.components.map((c) => {
+          const found = definitions.data?.find((d) => d.id === c.strategyDefinitionId);
+          const name = found ? (customNamesMap[found.id] ?? found.familyName ?? found.strategyName) : "Strategy";
+          const version = found?.version ?? 1;
+          const params = found?.parameters ?? {};
+          const pSummary = found ? parameterSummary(found) : "";
+          return {
+            id: c.strategyDefinitionId,
+            name,
+            version,
+            parametersSummary: pSummary,
+            parameters: params,
+            weight: c.weight,
+          };
+        });
+
+        const compSummary = memberDetails
+          .map((m) => `${m.name} (v${m.version}${m.parametersSummary ? `: ${m.parametersSummary}` : ""})`)
           .join(" + ");
+
         const logicSummary = comp.method === "WEIGHTED_SCORE" && comp.thresholds
-          ? `${comp.components.length} components (${compNames}) · Buy ≥ ${comp.thresholds.buy}, Sell ≤ ${comp.thresholds.sell}`
-          : `${comp.components.length} components (${compNames}) · Strict majority consensus`;
+          ? `${comp.components.length} components (${compSummary}) · Buy ≥ ${comp.thresholds.buy}, Sell ≤ ${comp.thresholds.sell}`
+          : `${comp.components.length} components (${compSummary}) · Strict majority consensus`;
 
         list.push({
           id: comp.id,
@@ -1113,6 +1217,7 @@ function SavedStrategiesTable({
           parametersSummary: logicSummary,
           status: "SAVED",
           rawComposite: comp,
+          memberDetails,
         });
       }
     }
@@ -1149,6 +1254,13 @@ function SavedStrategiesTable({
           return Object.entries(item.rawDraft.parameters).some(
             ([k, v]) => k.toLowerCase().includes(q) || String(v).toLowerCase().includes(q)
           );
+        }
+        if (item.memberDetails?.some((m) =>
+          m.name.toLowerCase().includes(q) ||
+          m.parametersSummary.toLowerCase().includes(q) ||
+          Object.entries(m.parameters).some(([k, v]) => k.toLowerCase().includes(q) || String(v).toLowerCase().includes(q))
+        )) {
+          return true;
         }
         return false;
       });
@@ -1423,7 +1535,33 @@ function SavedStrategiesTable({
                           <span className="version-pill">{item.versionLabel}</span>
                         )}
                       </td>
-                      <td className="strategy-parameters">{item.parametersSummary}</td>
+                      <td className="strategy-parameters">
+                        {item.memberDetails && item.memberDetails.length > 0 ? (
+                          <div className="table-composite-components-cluster">
+                            <div className="table-composite-method-pill">
+                              {item.rawComposite?.method === "WEIGHTED_SCORE"
+                                ? "⚖️ Weighted Consensus"
+                                : "🗳️ Majority Consensus"}
+                            </div>
+                            <div className="table-composite-member-lines">
+                              {item.memberDetails.map((m, idx) => (
+                                <div key={m.id || idx} className="table-composite-member-row">
+                                  <span className="member-indicator-chip">
+                                    ⚡ <b>{m.name}</b> <small>v{m.version}</small>
+                                  </span>
+                                  {m.parametersSummary && (
+                                    <span className="member-params-badge" title={m.parametersSummary}>
+                                      {m.parametersSummary}
+                                    </span>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        ) : (
+                          item.parametersSummary
+                        )}
+                      </td>
                       <td>
                         {isDraft ? (
                           <span className="status-pill status-pill-draft">○ Draft</span>
@@ -1471,6 +1609,7 @@ function SavedStrategiesTable({
                                 name: `${item.name} (${item.versionLabel})`,
                                 type: item.kind,
                                 details: item.parametersSummary,
+                                memberDetails: item.memberDetails,
                               })
                             }
                           >
