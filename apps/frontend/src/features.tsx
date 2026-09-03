@@ -16,6 +16,12 @@ function formatErrorMessage(error: unknown): string {
   if (msg === "BACKTEST_SCOPE_IN_USE") {
     return "Cannot delete scope preset because it is linked to existing backtests or search runs.";
   }
+  if (msg.includes("HISTORY_INCOMPLETE") || msg.includes("missing candles")) {
+    return "Historical Data Incomplete (HISTORY_INCOMPLETE): The requested date range extends into the future or beyond recorded historical candles. Backtesting requires closed historical price candles.";
+  }
+  if (msg.includes("aligned to the timeframe grid")) {
+    return "Timestamp Misaligned: Selected dates must align with candle boundaries for this timeframe (e.g. 15-minute intervals for 15m).";
+  }
   return msg;
 }
 
@@ -1361,6 +1367,7 @@ export function BacktestLive({ definitions, composites, scopes }: { definitions:
         const toDate = new Date(to);
         if (isNaN(fromDate.getTime()) || isNaN(toDate.getTime())) throw new Error("The specified date range is invalid.");
         if (fromDate.getTime() >= toDate.getTime()) throw new Error("The start date (From) must be before the end date (To).");
+        if (toDate.getTime() > Date.now()) throw new Error("The 'To date' cannot be in the future. Backtesting requires recorded historical market candles.");
         const initialCapital = Number(capital);
         if (!capital || isNaN(initialCapital) || initialCapital <= 0) throw new Error("Initial Capital must be a positive number greater than 0.");
         const fee = Number(feeRatePercent);
@@ -1370,8 +1377,24 @@ export function BacktestLive({ definitions, composites, scopes }: { definitions:
 
         const market = await api.candles(pair, timeframe as Timeframe);
         if (!market.candles.length) throw new Error(`No market data candles available for ${pair} (${timeframe}).`);
-        const fromIso = fromDate.toISOString();
-        const toIso = toDate.toISOString();
+        // Automatically snap/align timestamps to the timeframe grid so user never suffers from minute misalignment
+        const TIMEFRAME_MS: Record<string, number> = {
+          "1m": 60 * 1000,
+          "5m": 5 * 60 * 1000,
+          "15m": 15 * 60 * 1000,
+          "1h": 60 * 60 * 1000,
+          "4h": 4 * 60 * 60 * 1000,
+          "1d": 24 * 60 * 60 * 1000,
+        };
+        const intervalMs = TIMEFRAME_MS[timeframe] || 60 * 1000;
+        const alignedFromMs = Math.floor(fromDate.getTime() / intervalMs) * intervalMs;
+        let alignedToMs = Math.floor(toDate.getTime() / intervalMs) * intervalMs;
+        if (alignedToMs <= alignedFromMs) {
+          alignedToMs = alignedFromMs + intervalMs;
+        }
+
+        const fromIso = new Date(alignedFromMs).toISOString();
+        const toIso = new Date(alignedToMs).toISOString();
 
         // Ensure unique name to avoid Postgres unique constraint collision
         const baseName = `${pair} ${timeframe} ${fromIso.slice(0, 10)}`;
@@ -1456,7 +1479,10 @@ export function BacktestLive({ definitions, composites, scopes }: { definitions:
               </span>
               <select
                 value={pair}
-                onChange={(e) => setPair(e.target.value)}
+                onChange={(e) => {
+                  setPair(e.target.value);
+                  if (scopeId) setScopeId("");
+                }}
               >
                 {pairs.map((item) => (
                   <option key={item} value={item}>{item}</option>
@@ -1470,7 +1496,10 @@ export function BacktestLive({ definitions, composites, scopes }: { definitions:
             <label className="backtest-label">Timeframe</label>
             <select
               value={timeframe}
-              onChange={(e) => setTimeframe(e.target.value as Timeframe)}
+              onChange={(e) => {
+                setTimeframe(e.target.value as Timeframe);
+                if (scopeId) setScopeId("");
+              }}
             >
               {timeframes.map((item) => (
                 <option key={item} value={item}>{item}</option>
@@ -1483,8 +1512,12 @@ export function BacktestLive({ definitions, composites, scopes }: { definitions:
             <label className="backtest-label">From date</label>
             <input
               type="datetime-local"
+              max={new Date().toISOString().slice(0, 16)}
               value={from ? (from.length === 10 ? `${from}T00:00` : from.slice(0, 16)) : ""}
-              onChange={(e) => setFrom(e.target.value)}
+              onChange={(e) => {
+                setFrom(e.target.value);
+                if (scopeId) setScopeId("");
+              }}
             />
           </div>
 
@@ -1493,8 +1526,12 @@ export function BacktestLive({ definitions, composites, scopes }: { definitions:
             <label className="backtest-label">To date</label>
             <input
               type="datetime-local"
+              max={new Date().toISOString().slice(0, 16)}
               value={to ? (to.length === 10 ? `${to}T23:59` : to.slice(0, 16)) : ""}
-              onChange={(e) => setTo(e.target.value)}
+              onChange={(e) => {
+                setTo(e.target.value);
+                if (scopeId) setScopeId("");
+              }}
             />
           </div>
 
@@ -1507,7 +1544,10 @@ export function BacktestLive({ definitions, composites, scopes }: { definitions:
                 min="1"
                 step="any"
                 value={capital}
-                onChange={(e) => setCapital(e.target.value)}
+                onChange={(e) => {
+                  setCapital(e.target.value);
+                  if (scopeId) setScopeId("");
+                }}
                 placeholder="10000"
               />
               <span className="input-suffix">USD</span>
@@ -1564,7 +1604,10 @@ export function BacktestLive({ definitions, composites, scopes }: { definitions:
                 min="0"
                 step="any"
                 value={feeRatePercent}
-                onChange={(e) => setFeeRatePercent(e.target.value)}
+                onChange={(e) => {
+                  setFeeRatePercent(e.target.value);
+                  if (scopeId) setScopeId("");
+                }}
                 placeholder="0.1"
               />
               <span className="input-suffix">%</span>
@@ -1580,7 +1623,10 @@ export function BacktestLive({ definitions, composites, scopes }: { definitions:
                 min="0"
                 step="1"
                 value={slippageBps}
-                onChange={(e) => setSlippageBps(e.target.value)}
+                onChange={(e) => {
+                  setSlippageBps(e.target.value);
+                  if (scopeId) setScopeId("");
+                }}
                 placeholder="5"
               />
               <span className="input-suffix">bps</span>

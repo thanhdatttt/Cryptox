@@ -143,8 +143,7 @@ const backtestHttpError = (error: unknown): never => {
   if (error.message === "BACKTEST_ACCESS_DENIED") throw new NotFoundException(error.message);
   if (error.message === "BACKTEST_CANDIDATE_NOT_MANUAL") throw new ConflictException(error.message);
   if (error.message === "BACKTEST_SCOPE_IN_USE") throw new ConflictException("Cannot delete scope preset because it is linked to existing backtests or search runs.");
-  if (error.message === "SNAPSHOT_INCOMPLETE" || error.message.includes("WARMUP") || error.message.startsWith("INVALID_VISUALIZATION") || error.message.startsWith("VISUALIZATION_")) throw new BadRequestException(error.message);
-  if (error.message.startsWith("INVALID_") || error.message.includes("DATASET") || error.message.includes("STRATEGY")) throw new BadRequestException(error.message);
+  if (error.message.startsWith("INVALID_") || error.message.includes("DATASET") || error.message.includes("STRATEGY") || error.name === "MarketDataException" || "code" in error || error.message.includes("grid") || error.message.includes("candles")) throw new BadRequestException(error.message);
   throw error;
 };
 
