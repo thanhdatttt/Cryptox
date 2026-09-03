@@ -2284,6 +2284,8 @@ export function StrategyScreen() {
     }
     setMessage("Strategy permanently deleted from database.");
     void queryClient.invalidateQueries({ queryKey: ["strategies"] });
+    void queryClient.invalidateQueries({ queryKey: ["searchRuns"] });
+    void queryClient.invalidateQueries({ queryKey: ["search"] });
   };
 
   const handleSaveToDatabase = async (customName: string) => {

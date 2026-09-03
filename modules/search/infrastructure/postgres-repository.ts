@@ -36,7 +36,24 @@ export class PostgresSearchRunRepository implements SearchRunRepository {
   async insert(input: SearchRun): Promise<SearchRun> { await this.pool.query("INSERT INTO search_runs (id, owner_user_id, leaderboard_scope_id, generator_type, search_space, stop_condition, max_in_flight, state, next_iteration, active_duration_ms, active_since, best_score, last_improvement_at_candidates, created_at, started_at, updated_at, ended_at, stop_reason, last_error) VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)", [input.searchRunId, input.ownerUserId, input.leaderboardScopeId, input.generatorType, JSON.stringify(input.searchSpace), JSON.stringify(input.stopCondition), input.maxInFlight, input.state, input.nextIteration, input.activeDurationMs, input.activeSince ?? null, input.bestScore ?? null, input.lastImprovementAtCandidates ?? null, input.createdAt, input.startedAt ?? null, input.updatedAt, input.endedAt ?? null, input.stopReason ?? null, input.lastError ?? null]); return input; }
   async save(input: SearchRun, unitOfWork?: CancellationUnitOfWork): Promise<SearchRun> { const client: SearchSqlClient = unitOfWork?.query ? { query: (text, values) => unitOfWork.query!(text, values) } : this.pool; await client.query("UPDATE search_runs SET state = $2, search_space = $3::jsonb, next_iteration = $4, active_duration_ms = $5, active_since = $6, best_score = $7, last_improvement_at_candidates = $8, updated_at = $9, ended_at = $10, stop_reason = $11, last_error = $12 WHERE id = $1", [input.searchRunId, input.state, JSON.stringify(input.searchSpace), input.nextIteration, input.activeDurationMs, input.activeSince ?? null, input.bestScore ?? null, input.lastImprovementAtCandidates ?? null, input.updatedAt, input.endedAt ?? null, input.stopReason ?? null, input.lastError ?? null]); return input; }
   async listRunning(): Promise<SearchRun[]> { const result = await this.pool.query<SearchRunRow>(`SELECT ${this.fields()} FROM search_runs WHERE state = 'RUNNING'`, []); return result.rows.map(run); }
-  async listByOwner(ownerUserId: string, limit = 50): Promise<SearchRun[]> { const result = await this.pool.query<SearchRunRow>(`SELECT ${this.fields()} FROM search_runs WHERE owner_user_id = $1 ORDER BY created_at DESC LIMIT $2`, [ownerUserId, limit]); return result.rows.map(run); }
+  async listByOwner(ownerUserId: string, limit = 50): Promise<SearchRun[]> {
+    const result = await this.pool.query<SearchRunRow>(
+      `SELECT s.id, s.owner_user_id, s.leaderboard_scope_id, s.generator_type, s.search_space, s.stop_condition, s.max_in_flight, s.state, s.next_iteration, s.active_duration_ms, s.active_since,
+        (
+          SELECT MAX(r.overall_score)
+          FROM backtest_experiment_results r
+          JOIN backtest_candidates c ON c.id = r.candidate_id
+          WHERE c.search_run_id = s.id AND r.rank_eligible = true
+        ) AS best_score,
+        s.last_improvement_at_candidates, s.created_at, s.started_at, s.updated_at, s.ended_at, s.stop_reason, s.last_error
+      FROM search_runs s
+      WHERE s.owner_user_id = $1
+      ORDER BY s.created_at DESC
+      LIMIT $2`,
+      [ownerUserId, limit]
+    );
+    return result.rows.map(run);
+  }
   async withRunLock<T>(ownerUserId: string, id: string, operation: (run: SearchRun | undefined, unitOfWork?: CancellationUnitOfWork) => Promise<T>): Promise<T> {
     if (!this.pool.connect) return operation(await this.getByOwner(ownerUserId, id));
     const client = await this.pool.connect();

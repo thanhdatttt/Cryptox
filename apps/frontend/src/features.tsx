@@ -2714,6 +2714,168 @@ export function SearchLive({
   const handleSelectAll = () => setSelectedIds(definitions.map((d) => d.id));
   const handleDeselectAll = () => setSelectedIds([]);
 
+  const [candidateSearchQuery, setCandidateSearchQuery] = useState("");
+  const [candidateCategoryTab, setCandidateCategoryTab] = useState<string>("ALL");
+
+  const categoryCounts = React.useMemo(() => {
+    const counts: Record<string, number> = { ALL: definitions.length };
+    definitions.forEach((d) => {
+      const cat = categoryFor(d) ?? "TREND";
+      counts[cat] = (counts[cat] ?? 0) + 1;
+    });
+    return counts;
+  }, [definitions, strategies]);
+
+  const availableCategories = React.useMemo(() => {
+    const set = new Set<string>();
+    definitions.forEach((d) => {
+      const cat = categoryFor(d);
+      if (cat) set.add(cat);
+    });
+    categories.forEach((c) => set.add(c));
+    return Array.from(set).sort();
+  }, [definitions, categories]);
+
+  const customNamesMap: Record<string, string> = React.useMemo(() => {
+    try {
+      const raw = localStorage.getItem("cryptox_strategy_custom_names_v1");
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  }, [definitions]);
+
+  const filteredDefinitions = React.useMemo(() => {
+    const query = candidateSearchQuery.trim().toLowerCase();
+    return definitions.filter((def) => {
+      const cat = categoryFor(def) ?? "TREND";
+      if (candidateCategoryTab !== "ALL" && cat !== candidateCategoryTab) {
+        return false;
+      }
+      if (query) {
+        const customName = (customNamesMap[def.id] ?? def.familyName ?? def.strategyName).toLowerCase();
+        const stratName = def.strategyName.toLowerCase();
+        const paramStr = JSON.stringify(def.parameters).toLowerCase();
+        const catStr = cat.toLowerCase();
+        return (
+          customName.includes(query) ||
+          stratName.includes(query) ||
+          paramStr.includes(query) ||
+          catStr.includes(query)
+        );
+      }
+      return true;
+    });
+  }, [definitions, candidateSearchQuery, candidateCategoryTab, customNamesMap, strategies]);
+
+  const handleSelectFiltered = () => {
+    const filteredIds = filteredDefinitions.map((d) => d.id);
+    setSelectedIds((prev) => Array.from(new Set([...prev, ...filteredIds])));
+  };
+
+  const handleDeselectFiltered = () => {
+    const filteredIdSet = new Set(filteredDefinitions.map((d) => d.id));
+    setSelectedIds((prev) => prev.filter((id) => !filteredIdSet.has(id)));
+  };
+
+  // Domain Guidance Eligibility
+  const isDefinitionEligible = React.useCallback(
+    (def: StrategyDefinition): boolean => {
+      if (generatorType !== "DOMAIN_GUIDED") return true;
+      const cat = categoryFor(def);
+      if (allowedCategories.length > 0 && (!cat || !allowedCategories.includes(cat))) return false;
+      if (cat && forbiddenCategories.includes(cat)) return false;
+      return true;
+    },
+    [generatorType, categoryFor, allowedCategories, forbiddenCategories]
+  );
+
+  const selectedEligibleIds = React.useMemo(
+    () =>
+      selectedIds.filter((id) => {
+        const def = definitions.find((d) => d.id === id);
+        return def ? isDefinitionEligible(def) : false;
+      }),
+    [selectedIds, definitions, isDefinitionEligible]
+  );
+
+  const selectedExcludedCount = selectedIds.length - selectedEligibleIds.length;
+
+  // Domain rule edge case checks
+  const domainValidationErrors = React.useMemo(() => {
+    if (generatorType !== "DOMAIN_GUIDED") return [];
+    const errors: string[] = [];
+    const numComponents = Math.max(1, parseInt(maxComponents, 10) || 1);
+
+    // Edge Case 4: Required count > max components
+    if (requiredCategories.length > numComponents) {
+      errors.push(
+        `Required categories count (${requiredCategories.length}) exceeds Ensemble Size (${numComponents}). Increase Ensemble Size or remove some required categories.`
+      );
+    }
+
+    // Edge Case 3: Required category has 0 selected eligible strategies
+    const missingRequired = requiredCategories.filter(
+      (cat) =>
+        !selectedEligibleIds.some((id) => {
+          const def = definitions.find((d) => d.id === id);
+          return def && categoryFor(def) === cat;
+        })
+    );
+    if (missingRequired.length > 0) {
+      errors.push(
+        `Required category "${missingRequired.join(
+          ", "
+        )}" has no eligible strategy selected in the Candidate Pool.`
+      );
+    }
+
+    // Edge Case 2: Zero eligible strategies remain in pool
+    if (selectedIds.length > 0 && selectedEligibleIds.length === 0) {
+      errors.push(
+        `All ${selectedIds.length} selected strategies are excluded by your Domain Rules. Please select at least one eligible strategy or adjust your Allowed/Forbidden categories.`
+      );
+    }
+
+    return errors;
+  }, [
+    generatorType,
+    maxComponents,
+    requiredCategories,
+    selectedEligibleIds,
+    definitions,
+    categoryFor,
+    selectedIds,
+  ]);
+
+  const domainValidationWarnings = React.useMemo(() => {
+    if (generatorType !== "DOMAIN_GUIDED") return [];
+    const warnings: string[] = [];
+    const numComponents = Math.max(1, parseInt(maxComponents, 10) || 1);
+
+    // Edge Case 1: Some selected strategies are excluded
+    if (selectedExcludedCount > 0 && selectedEligibleIds.length > 0) {
+      warnings.push(
+        `${selectedExcludedCount} of your ${selectedIds.length} selected strategies are excluded by your Domain Rules and will be ignored during candidate generation.`
+      );
+    }
+
+    // Edge Case 7: Only 1 eligible strategy but maxComponents > 1
+    if (selectedEligibleIds.length === 1 && numComponents > 1) {
+      warnings.push(
+        `Only 1 eligible strategy is selected. The search will generate single-indicator strategies instead of ${numComponents}-component ensembles.`
+      );
+    }
+
+    return warnings;
+  }, [
+    generatorType,
+    maxComponents,
+    selectedExcludedCount,
+    selectedIds.length,
+    selectedEligibleIds.length,
+  ]);
+
   const status = useQuery({
     queryKey: ["search", runId, "status"],
     queryFn: () => api.searchStatus(runId!),
@@ -2726,7 +2888,7 @@ export function SearchLive({
 
   const candidates = useQuery({
     queryKey: ["search", runId, "candidates", candidateCursor],
-    queryFn: () => api.searchCandidates(runId!, { limit: 25, cursor: candidateCursor }),
+    queryFn: () => api.searchCandidates(runId!, { limit: 10, cursor: candidateCursor }),
     enabled: Boolean(runId),
     refetchInterval: status.data?.state === "RUNNING" ? 1500 : false,
   });
@@ -2779,6 +2941,7 @@ export function SearchLive({
     refetchInterval: 4000,
   });
   const searchRuns = runsQuery.data ?? [];
+  const activeRunSummary = searchRuns.find((r) => r.searchRunId === runId);
 
   const current = status.data;
   useEffect(() => {
@@ -2814,16 +2977,7 @@ export function SearchLive({
     }
   };
 
-  const customNamesMap: Record<string, string> = React.useMemo(() => {
-    try {
-      const raw = localStorage.getItem("cryptox_strategy_custom_names_v1");
-      return raw ? JSON.parse(raw) : {};
-    } catch {
-      return {};
-    }
-  }, [definitions]);
-
-  const selectedScope = scopes.find((s) => s.id === scopeId);
+  const selectedScope = scopes.find((s) => s.id === (activeRunSummary?.leaderboardScopeId ?? scopeId));
 
   return (
     <div className="search-studio-container">
@@ -2870,7 +3024,15 @@ export function SearchLive({
                 hour: "2-digit",
                 minute: "2-digit",
               });
-              const scoreStr = r.bestScore !== undefined ? ` · Best: ${r.bestScore.toFixed(3)}` : "";
+              // Live best score: for the active run, sync with live ranking query data
+              const liveBestScore =
+                r.searchRunId === runId && ranking.data !== undefined
+                  ? (ranking.data.length > 0 ? ranking.data[0]?.score : undefined)
+                  : r.bestScore;
+              const scoreStr =
+                liveBestScore !== undefined && Number.isFinite(liveBestScore)
+                  ? ` · Best: ${liveBestScore.toFixed(3)}`
+                  : "";
               const iterStr = r.nextIteration > 1 ? ` · Iter #${r.nextIteration - 1}` : "";
               return (
                 <option key={r.searchRunId} value={r.searchRunId}>
@@ -2899,6 +3061,66 @@ export function SearchLive({
         </div>
       </div>
 
+      {/* Active Run Action & Status Bar (When inspecting a run) */}
+      {runId && current && (
+        <div className="search-active-run-bar">
+          <div className="search-active-run-details">
+            <span className={`search-status-tag ${current.state.toLowerCase()}`}>
+              {current.state === "RUNNING" ? "🟢 RUNNING" : current.state === "PAUSED" ? "⏸️ PAUSED" : current.state === "COMPLETED" ? "✅ COMPLETED" : current.state === "FAILED" ? "❌ FAILED" : "⏹️ CANCELLED"}
+            </span>
+            <span className="search-active-chip">Engine: <b>{activeRunSummary?.generatorType ?? generatorType}</b></span>
+            <span className="search-active-chip">Scope: <b>{selectedScope ? `${selectedScope.name} (${selectedScope.timeframe})` : "Benchmark Dataset"}</b></span>
+            {current.stopReason && (
+              <span className="search-active-chip-subtle">Stop: <b>{current.stopReason}</b></span>
+            )}
+          </div>
+
+          <div className="search-active-run-actions">
+            {current.state === "RUNNING" && (
+              <button
+                type="button"
+                className="btn-search-control"
+                disabled={control.isPending}
+                onClick={() => control.mutate("pause")}
+              >
+                ⏸️ Pause
+              </button>
+            )}
+            {current.state === "PAUSED" && (
+              <button
+                type="button"
+                className="btn-search-control"
+                disabled={control.isPending}
+                onClick={() => control.mutate("resume")}
+              >
+                ▶️ Resume
+              </button>
+            )}
+            {!terminalSearch(current.state) && (
+              <button
+                type="button"
+                className="btn-search-control danger"
+                disabled={control.isPending}
+                onClick={() => control.mutate("cancel")}
+              >
+                ⏹️ Stop
+              </button>
+            )}
+            <button
+              type="button"
+              className="btn-search-control"
+              onClick={clearRun}
+              title="Return to setup mode to launch another search run"
+            >
+              🗑️ Clear Run
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Setup Steps 1, 2, 3: Only shown in Setup Mode (!runId) */}
+      {!runId && (
+        <>
       {/* Step 1: Benchmark Dataset & Generator Algorithm */}
       <div className="search-step-card">
         <div className="search-step-header">
@@ -3215,20 +3437,111 @@ export function SearchLive({
           <div className="search-space-actions">
             <span className="search-selection-badge">
               ✓ {selectedIds.length} of {definitions.length} selected
+              {generatorType === "DOMAIN_GUIDED" && selectedExcludedCount > 0 ? (
+                <span style={{ color: "#b45309", marginLeft: "5px", fontWeight: 600 }}>
+                  ({selectedEligibleIds.length} eligible · {selectedExcludedCount} excluded)
+                </span>
+              ) : (
+                filteredDefinitions.length !== definitions.length && (
+                  <span style={{ opacity: 0.85, marginLeft: "4px" }}>
+                    ({filteredDefinitions.filter((d) => selectedIds.includes(d.id)).length} in view)
+                  </span>
+                )
+              )}
             </span>
-            <button type="button" className="btn-space-quick" onClick={handleSelectAll}>
-              ✓ Select All
+            {filteredDefinitions.length < definitions.length ? (
+              <>
+                <button type="button" className="btn-space-quick" onClick={handleSelectFiltered}>
+                  ✓ Select View ({filteredDefinitions.length})
+                </button>
+                <button type="button" className="btn-space-quick" onClick={handleDeselectFiltered}>
+                  ✕ Deselect View
+                </button>
+                <button type="button" className="btn-space-quick" onClick={handleSelectAll} title="Select all strategies in database">
+                  All ({definitions.length})
+                </button>
+              </>
+            ) : (
+              <>
+                <button type="button" className="btn-space-quick" onClick={handleSelectAll}>
+                  ✓ Select All
+                </button>
+                <button type="button" className="btn-space-quick" onClick={handleDeselectAll}>
+                  ✕ Deselect All
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Candidate Pool Filter Toolbar */}
+        <div className="search-pool-toolbar">
+          {/* Search Input Field */}
+          <div className="search-pool-search-box">
+            <span className="search-pool-search-icon">🔍</span>
+            <input
+              type="text"
+              className="search-pool-search-input"
+              placeholder="Search indicators by name or parameters (e.g. RSI, period, Bollinger, moving average)..."
+              value={candidateSearchQuery}
+              onChange={(e) => setCandidateSearchQuery(e.target.value)}
+            />
+            {candidateSearchQuery && (
+              <button
+                type="button"
+                className="search-pool-clear-btn"
+                onClick={() => setCandidateSearchQuery("")}
+                title="Clear search"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+
+          {/* Category Filter Tabs */}
+          <div className="search-pool-category-tabs">
+            <button
+              type="button"
+              className={`search-pool-tab ${candidateCategoryTab === "ALL" ? "active" : ""}`}
+              onClick={() => setCandidateCategoryTab("ALL")}
+            >
+              <span>🌐 All</span>
+              <span className="tab-count">{definitions.length}</span>
             </button>
-            <button type="button" className="btn-space-quick" onClick={handleDeselectAll}>
-              ✕ Deselect All
-            </button>
+            {availableCategories.map((cat) => {
+              const count = categoryCounts[cat] ?? 0;
+              const emoji =
+                cat === "MOMENTUM"
+                  ? "⚡"
+                  : cat === "TREND"
+                  ? "📈"
+                  : cat === "VOLATILITY"
+                  ? "🌊"
+                  : cat === "STRUCTURE"
+                  ? "🧱"
+                  : cat === "INFORMATION"
+                  ? "📰"
+                  : "🏷️";
+              return (
+                <button
+                  type="button"
+                  key={cat}
+                  className={`search-pool-tab cat-${cat.toLowerCase()} ${candidateCategoryTab === cat ? "active" : ""}`}
+                  onClick={() => setCandidateCategoryTab(cat)}
+                >
+                  <span>{emoji} {cat}</span>
+                  <span className="tab-count">{count}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
         <div className="search-space-cards-grid">
-          {definitions.length ? (
-            definitions.map((def) => {
+          {filteredDefinitions.length ? (
+            filteredDefinitions.map((def) => {
               const isSelected = selectedIds.includes(def.id);
+              const isEligible = isDefinitionEligible(def);
               const customName = customNamesMap[def.id] ?? def.familyName ?? def.strategyName;
               const cat = categoryFor(def) ?? "TREND";
               const emoji = getIndicatorEmoji(def.strategyName);
@@ -3236,8 +3549,9 @@ export function SearchLive({
               return (
                 <div
                   key={def.id}
-                  className={`strategy-pool-card ${isSelected ? "selected" : ""}`}
+                  className={`strategy-pool-card ${isSelected ? "selected" : ""} ${!isEligible ? "domain-excluded" : ""}`}
                   onClick={() => toggleDefinition(def.id)}
+                  title={!isEligible ? `Excluded by rules: Category "${cat}" is not allowed in active Domain Rules.` : undefined}
                 >
                   <input
                     type="checkbox"
@@ -3250,13 +3564,20 @@ export function SearchLive({
                       <span className="strategy-pool-name" title={customName}>
                         {emoji} {customName}
                       </span>
-                      <span className="strategy-pool-ver">v{def.version}</span>
+                      <div className="strategy-pool-badges">
+                        {!isEligible && (
+                          <span className="domain-excluded-badge" title="This strategy will be excluded by your active Domain Rules">
+                            🚫 Excluded
+                          </span>
+                        )}
+                        <span className="strategy-pool-ver">v{def.version}</span>
+                      </div>
                     </div>
                     <div className="strategy-pool-meta">
                       <span className={`category-badge cat-${cat.toLowerCase()}`} style={{ fontSize: "10px", padding: "1px 6px" }}>
                         {cat}
                       </span>
-                      <span style={{ fontSize: "10.5px", color: "#64748b" }}>
+                      <span className="strategy-pool-params" title={getParamSnippet(def.parameters)}>
                         {getParamSnippet(def.parameters)}
                       </span>
                     </div>
@@ -3264,11 +3585,50 @@ export function SearchLive({
                 </div>
               );
             })
+          ) : definitions.length ? (
+            <div className="search-pool-empty">
+              <p>
+                🔍 No strategy indicators found matching "<b>{candidateSearchQuery}</b>"
+                {candidateCategoryTab !== "ALL" && ` in category ${candidateCategoryTab}`}.
+              </p>
+              <button
+                type="button"
+                className="btn-reset-filters"
+                onClick={() => {
+                  setCandidateSearchQuery("");
+                  setCandidateCategoryTab("ALL");
+                }}
+              >
+                Reset Search & Filters
+              </button>
+            </div>
           ) : (
             <Empty>No saved strategy definitions found in your database library.</Empty>
           )}
         </div>
       </div>
+
+      {/* Pre-flight Alerts (Full-width stacked above action bar) */}
+      {(domainValidationErrors.length > 0 || domainValidationWarnings.length > 0) && (
+        <div className="search-preflight-alerts-box">
+          {domainValidationErrors.map((err, idx) => (
+            <div key={`err-${idx}`} className="search-preflight-alert error">
+              <span className="alert-icon">🛑</span>
+              <div className="alert-text">
+                <b>Rule Conflict:</b> {err}
+              </div>
+            </div>
+          ))}
+          {domainValidationWarnings.map((warn, idx) => (
+            <div key={`warn-${idx}`} className="search-preflight-alert warning">
+              <span className="alert-icon">⚠️</span>
+              <div className="alert-text">
+                <b>Domain Rule Notice:</b> {warn}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Pre-flight Action Bar */}
       <div className="search-action-bar">
@@ -3288,6 +3648,11 @@ export function SearchLive({
           <span>·</span>
           <span>
             Pool: <b>{selectedIds.length} indicators</b>
+            {generatorType === "DOMAIN_GUIDED" && selectedExcludedCount > 0 && (
+              <span style={{ color: "#b45309", marginLeft: "4px", fontWeight: 700 }}>
+                ({selectedEligibleIds.length} eligible)
+              </span>
+            )}
           </span>
         </div>
 
@@ -3295,52 +3660,20 @@ export function SearchLive({
           <button
             type="button"
             className="btn-start-discovery"
-            disabled={start.isPending || !scopeId || selectedIds.length === 0}
+            disabled={
+              start.isPending ||
+              !scopeId ||
+              selectedIds.length === 0 ||
+              domainValidationErrors.length > 0
+            }
             onClick={() => start.mutate()}
           >
             {start.isPending ? "⏳ Starting Discovery..." : "🚀 Start Strategy Discovery"}
           </button>
-
-          {current?.state === "RUNNING" && (
-            <button
-              type="button"
-              className="btn-search-control"
-              disabled={control.isPending}
-              onClick={() => control.mutate("pause")}
-            >
-              ⏸️ Pause
-            </button>
-          )}
-
-          {current?.state === "PAUSED" && (
-            <button
-              type="button"
-              className="btn-search-control"
-              disabled={control.isPending}
-              onClick={() => control.mutate("resume")}
-            >
-              ▶️ Resume
-            </button>
-          )}
-
-          {current && !terminalSearch(current.state) && (
-            <button
-              type="button"
-              className="btn-search-control danger"
-              disabled={control.isPending}
-              onClick={() => control.mutate("cancel")}
-            >
-              ⏹️ Stop
-            </button>
-          )}
-
-          {runId && (
-            <button type="button" className="btn-search-control" onClick={clearRun}>
-              🗑️ Clear Run
-            </button>
-          )}
         </div>
       </div>
+    </>
+  )}
 
       <ErrorBox error={error ?? start.error ?? control.error ?? status.error} />
 
@@ -3369,27 +3702,34 @@ export function SearchLive({
             ) : candidates.data?.items.length ? (
               <>
                 <CandidateTable candidates={candidates.data.items} />
-                <div className="toolbar" style={{ marginTop: "10px" }}>
-                  <Btn
-                    onClick={() =>
-                      setCandidateCursors((cursorStack) =>
-                        cursorStack.length > 1 ? cursorStack.slice(0, -1) : cursorStack
-                      )
-                    }
-                    disabled={candidateCursors.length <= 1}
-                  >
-                    ← Previous candidates
-                  </Btn>
-                  <Btn
-                    onClick={() =>
-                      candidates.data?.nextCursor &&
-                      setCandidateCursors((cursorStack) => [...cursorStack, candidates.data!.nextCursor])
-                    }
-                    disabled={!candidates.data?.nextCursor}
-                  >
-                    Next candidates →
-                  </Btn>
-                </div>
+                {(candidateCursors.length > 1 || Boolean(candidates.data?.nextCursor)) && (
+                  <div className="toolbar" style={{ marginTop: "12px", justifyContent: "space-between", alignItems: "center" }}>
+                    <span style={{ fontSize: "12px", color: "#64748b" }}>
+                      Page {candidateCursors.length}
+                    </span>
+                    <div style={{ display: "flex", gap: "8px" }}>
+                      <Btn
+                        onClick={() =>
+                          setCandidateCursors((cursorStack) =>
+                            cursorStack.length > 1 ? cursorStack.slice(0, -1) : cursorStack
+                          )
+                        }
+                        disabled={candidateCursors.length <= 1}
+                      >
+                        ← Previous candidates
+                      </Btn>
+                      <Btn
+                        onClick={() =>
+                          candidates.data?.nextCursor &&
+                          setCandidateCursors((cursorStack) => [...cursorStack, candidates.data!.nextCursor])
+                        }
+                        disabled={!candidates.data?.nextCursor}
+                      >
+                        Next candidates →
+                      </Btn>
+                    </div>
+                  </div>
+                )}
               </>
             ) : (
               <Empty>No candidates evaluated yet. Starting generation loop...</Empty>
