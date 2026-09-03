@@ -914,7 +914,7 @@ function DeleteScopeModal({
           <div className="delete-notice-box">
             <span className="notice-icon">⚠️</span>
             <span>
-              This will permanently delete this benchmark scope preset from your saved list.
+              This will permanently delete this benchmark scope preset along with its linked backtest runs, experiments, and leaderboard entries.
             </span>
           </div>
         </div>
@@ -1396,8 +1396,10 @@ export function BacktestLive({ definitions, composites, scopes }: { definitions:
       setScopeId("");
       const deletedName = scopeToDelete.name || scopeToDelete.id;
       setScopeToDelete(null);
+      handleClearGraph();
       void client.invalidateQueries({ queryKey: ["scopes"] });
-      setScopeSuccessMessage(`Scope preset "${deletedName}" deleted successfully.`);
+      void client.invalidateQueries({ queryKey: ["experiments"] });
+      setScopeSuccessMessage(`Scope preset "${deletedName}" and its linked runs deleted successfully.`);
     } catch (err) {
       setDeleteModalError(err);
     } finally {

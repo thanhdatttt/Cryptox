@@ -111,8 +111,8 @@ export class InMemoryBacktestingRepository implements BacktestingRepository {
   async deleteScope(scopeId: string, ownerUserId: string): Promise<boolean> {
     const scope = this.scopes.get(scopeId);
     if (!scope || scope.ownerUserId !== ownerUserId) return false;
-    for (const candidate of this.candidates.values()) {
-      if (candidate.leaderboardScopeId === scopeId) throw new Error("BACKTEST_SCOPE_IN_USE");
+    for (const [candidateId, candidate] of this.candidates.entries()) {
+      if (candidate.leaderboardScopeId === scopeId) this.candidates.delete(candidateId);
     }
     this.scopes.delete(scopeId);
     for (const [key, id] of this.scopeIdempotency.entries()) {

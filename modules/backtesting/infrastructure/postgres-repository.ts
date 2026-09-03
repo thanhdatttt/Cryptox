@@ -78,10 +78,47 @@ export class PostgresBacktestingRepository implements BacktestingRepository {
   async readScope(scopeId: string, ownerUserId?: string) { const ownerClause = ownerUserId ? " AND s.owner_user_id = $2" : ""; const result = await this.pool.query<ScopeRow>(this.scopeRows(`WHERE s.id = $1${ownerClause}`), ownerUserId ? [scopeId, ownerUserId] : [scopeId]); return result.rows[0] ? scope(result.rows[0]) : undefined; }
   async listScopesByOwner(ownerUserId: string) { const result = await this.pool.query<ScopeRow>(this.scopeRows("WHERE s.owner_user_id = $1 ORDER BY s.created_at ASC, s.id ASC"), [ownerUserId]); return result.rows.map(scope); }
   async deleteScope(scopeId: string, ownerUserId: string): Promise<boolean> {
-    const candidateCount = await this.pool.query<{ count: string | number }>("SELECT COUNT(*)::int AS count FROM backtest_candidates WHERE leaderboard_scope_id = $1", [scopeId]);
-    if (Number(candidateCount.rows[0]?.count ?? 0) > 0) throw new Error("BACKTEST_SCOPE_IN_USE");
-    const result = await this.pool.query<{ id: string }>("DELETE FROM backtest_benchmark_scopes WHERE id = $1 AND owner_user_id = $2 RETURNING id", [scopeId, ownerUserId]);
-    return result.rows.length > 0;
+    return this.transaction(async (client) => {
+      await client.query("DELETE FROM leaderboard_entries WHERE leaderboard_scope_id = $1", [scopeId]);
+      await client.query(
+        `DELETE FROM backtest_replay_verifications 
+         WHERE experiment_result_id IN (
+           SELECT id FROM backtest_experiment_results WHERE leaderboard_scope_id = $1
+         )`,
+        [scopeId]
+      );
+      await client.query(
+        `DELETE FROM backtest_trades 
+         WHERE backtest_attempt_id IN (
+           SELECT a.id FROM backtest_attempts a 
+           JOIN backtest_candidates c ON c.id = a.candidate_id 
+           WHERE c.leaderboard_scope_id = $1
+         )`,
+        [scopeId]
+      );
+      await client.query("DELETE FROM backtest_experiment_results WHERE leaderboard_scope_id = $1", [scopeId]);
+      await client.query(
+        `DELETE FROM backtest_attempts 
+         WHERE candidate_id IN (
+           SELECT id FROM backtest_candidates WHERE leaderboard_scope_id = $1
+         )`,
+        [scopeId]
+      );
+      await client.query(
+        `DELETE FROM backtest_queue_dispatches 
+         WHERE candidate_id IN (
+           SELECT id FROM backtest_candidates WHERE leaderboard_scope_id = $1
+         )`,
+        [scopeId]
+      );
+      await client.query("DELETE FROM backtest_candidates WHERE leaderboard_scope_id = $1", [scopeId]);
+      await client.query("DELETE FROM search_runs WHERE leaderboard_scope_id = $1", [scopeId]);
+      const result = await client.query<{ id: string }>(
+        "DELETE FROM backtest_benchmark_scopes WHERE id = $1 AND owner_user_id = $2 RETURNING id",
+        [scopeId, ownerUserId]
+      );
+      return result.rows.length > 0;
+    });
   }
   private async candidateFrom(row: CandidateRow): Promise<StoredCandidate> { return { candidateId: row.id, ownerUserId: row.owner_user_id, origin: row.origin, selectionMode: row.selection_mode, searchRunId: row.search_run_id ?? undefined, iterationNumber: row.iteration_number ?? undefined, generatedBy: row.generated_by ?? undefined, fingerprint: row.fingerprint ?? undefined, lineage: row.lineage === null || row.lineage === undefined ? undefined : value<NonNullable<StoredCandidate["lineage"]>>(row.lineage), leaderboardScopeId: row.leaderboard_scope_id, status: row.status, attempts: await this.listAttempts(row.id), maxAttempts: row.max_attempts, activeAttemptNumber: row.active_attempt_number ?? undefined, completionAttemptCount: row.completion_attempt_count, completionMaxAttempts: row.completion_max_attempts, completionNextRetryAt: row.completion_next_retry_at === null ? undefined : date(row.completion_next_retry_at), completionGeneration: row.completion_generation, activeCompletionClaimToken: row.active_completion_claim_token ?? undefined, activeCompletionLeaseExpiresAt: row.active_completion_lease_expires_at === null ? undefined : date(row.active_completion_lease_expires_at), experimentResultId: row.experiment_result_id ?? undefined, failureKind: row.failure_kind ?? undefined, failureCode: row.failure_code ?? undefined, lastError: row.last_error ?? undefined, strategyDefinitions: value<StoredCandidate["strategyDefinitions"]>(row.strategy_definitions), compositeDefinition: value<StoredCandidate["compositeDefinition"]>(row.composite_definition), executionPolicy: row.execution_policy === null || row.execution_policy === undefined ? undefined : value<NonNullable<StoredCandidate["executionPolicy"]>>(row.execution_policy), queueJobId: row.queue_job_id, executionGeneration: row.execution_generation, activeFenceToken: row.active_fence_token ?? undefined, activeLeaseExpiresAt: row.active_lease_expires_at === null ? undefined : date(row.active_lease_expires_at), warmupCandles: row.warmup_candles, createdAt: date(row.created_at), updatedAt: date(row.updated_at) }; }
   private candidateSql(where: string): string { return `SELECT id, owner_user_id, leaderboard_scope_id, search_run_id, iteration_number, generated_by, fingerprint, lineage, origin, selection_mode, status, max_attempts, active_attempt_number, completion_attempt_count, completion_max_attempts, completion_next_retry_at, completion_generation, active_completion_claim_token, active_completion_lease_expires_at, experiment_result_id, failure_kind, failure_code, last_error, queue_job_id, execution_generation, active_fence_token, active_lease_expires_at, warmup_candles, execution_policy, strategy_definitions, composite_definition, created_at, updated_at FROM backtest_candidates ${where}`; }
