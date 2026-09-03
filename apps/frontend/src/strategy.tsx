@@ -1376,14 +1376,20 @@ function PluginEditor({ descriptors, onSaved, error, setError }: { descriptors: 
   const [selected, setSelected] = useState<StrategyDescriptor>();
   const [parameters, setParameters] = useState<Record<string, number | string>>({});
   const [customName, setCustomName] = useState("");
+  const [successInfo, setSuccessInfo] = useState<{ id: string; name: string } | null>(null);
+
   const save = useMutation({
-    mutationFn: () => (selected ? api.define(selected.name, parameters) : Promise.reject(new Error("Select an indicator."))),
+    mutationFn: () => {
+      if (!selected) return Promise.reject(new Error("Select an indicator."));
+      return api.define(selected.name, parameters);
+    },
     onSuccess: (saved) => {
+      const finalName = customName.trim() || selected?.displayName || selected?.name || "Strategy";
       if (saved?.id) {
         recordProvenance(saved.id, "MANUAL_BUILDER");
         unpersistDeletedStrategyId(saved.id);
-        const finalName = customName.trim() || selected?.displayName || selected?.name || "Strategy";
         persistCustomName(saved.id, finalName);
+        setSuccessInfo({ id: saved.id, name: finalName });
       }
       onSaved(saved?.id);
     },
@@ -1403,6 +1409,40 @@ function PluginEditor({ descriptors, onSaved, error, setError }: { descriptors: 
     setParameters(parameterDefaults(item.parameters));
     setCustomName(item.displayName);
     setError(undefined);
+    setSuccessInfo(null);
+  };
+
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    setError(undefined);
+    setSuccessInfo(null);
+    if (!selected) {
+      setError(new Error("Please select an indicator template."));
+      return;
+    }
+    if (!customName.trim()) {
+      setError(new Error("Please enter a strategy name."));
+      return;
+    }
+    for (const param of selected.parameters) {
+      const val = parameters[param.key];
+      if (param.required && (val === undefined || val === "" || (typeof val === "number" && Number.isNaN(val)))) {
+        setError(new Error(`Please provide a valid value for "${param.label}".`));
+        return;
+      }
+      if (param.type === "INTEGER" || param.type === "NUMBER") {
+        const num = Number(val);
+        if (param.minimum !== undefined && num < param.minimum) {
+          setError(new Error(`"${param.label}" must be at least ${param.minimum}.`));
+          return;
+        }
+        if (param.maximum !== undefined && num > param.maximum) {
+          setError(new Error(`"${param.label}" cannot exceed ${param.maximum}.`));
+          return;
+        }
+      }
+    }
+    save.mutate();
   };
 
   return (
@@ -1447,11 +1487,9 @@ function PluginEditor({ descriptors, onSaved, error, setError }: { descriptors: 
       {/* Parameter Configuration & Save Studio */}
       {selected ? (
         <form
+          noValidate
           className="manual-studio-card"
-          onSubmit={(event) => {
-            event.preventDefault();
-            save.mutate();
-          }}
+          onSubmit={handleSubmit}
         >
           <div className="studio-card-header">
             <div className="studio-header-meta">
@@ -1469,14 +1507,21 @@ function PluginEditor({ descriptors, onSaved, error, setError }: { descriptors: 
           {/* Strategy Name Input Field */}
           <div className="studio-name-box">
             <label className="param-label" style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-              <span className="param-name" style={{ fontWeight: 800, fontSize: "13px", color: "#0f172a" }}>
-                🏷️ Strategy Name
-              </span>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <span className="param-name" style={{ fontWeight: 800, fontSize: "13px", color: "#0f172a" }}>
+                  🏷️ Strategy Name <span style={{ color: "#ef4444" }}>*</span>
+                </span>
+                <small style={{ color: "#64748b", fontSize: "11px" }}>(Required)</small>
+              </div>
               <input
                 className="param-control studio-name-input"
                 type="text"
+                required
                 value={customName}
-                onChange={(event) => setCustomName(event.target.value)}
+                onChange={(event) => {
+                  setCustomName(event.target.value);
+                  setSuccessInfo(null);
+                }}
                 placeholder={`e.g. My Custom ${selected.displayName}`}
               />
               <small className="studio-name-hint">
@@ -1495,7 +1540,10 @@ function PluginEditor({ descriptors, onSaved, error, setError }: { descriptors: 
                       className="param-control"
                       required={parameter.required}
                       value={parameters[parameter.key] ?? ""}
-                      onChange={(event) => setParameters({ ...parameters, [parameter.key]: event.target.value })}
+                      onChange={(event) => {
+                        setParameters({ ...parameters, [parameter.key]: event.target.value });
+                        setSuccessInfo(null);
+                      }}
                     >
                       {parameter.options.map((option) => (
                         <option key={option} value={option}>{option}</option>
@@ -1510,13 +1558,36 @@ function PluginEditor({ descriptors, onSaved, error, setError }: { descriptors: 
                       min={parameter.minimum}
                       max={parameter.maximum}
                       step={parameter.type === "INTEGER" ? 1 : (parameter.step ?? "any")}
-                      onChange={(event) => setParameters({ ...parameters, [parameter.key]: Number(event.target.value) })}
+                      onChange={(event) => {
+                        setParameters({ ...parameters, [parameter.key]: Number(event.target.value) });
+                        setSuccessInfo(null);
+                      }}
                     />
                   )}
                 </label>
               </div>
             ))}
           </div>
+
+          <ErrorBox error={error ?? save.error} />
+
+          {successInfo && (
+            <div className="manual-save-success-box">
+              <div className="save-success-icon">✓</div>
+              <div className="save-success-details">
+                <b>Strategy "{successInfo.name}" saved to database!</b>
+                <p>The strategy is now live in your Saved Strategies library below and ready for Backtesting or Composite Building.</p>
+              </div>
+              <button
+                type="button"
+                className="btn-backtest-link"
+                style={{ width: "auto", padding: "6px 14px", alignSelf: "center", cursor: "pointer", border: "none" }}
+                onClick={() => launchStrategyBacktest("single", successInfo.id)}
+              >
+                🚀 Backtest Now →
+              </button>
+            </div>
+          )}
 
           <div className="studio-footer-actions">
             <div className="studio-hint">
@@ -1525,22 +1596,21 @@ function PluginEditor({ descriptors, onSaved, error, setError }: { descriptors: 
             <button
               type="submit"
               className="btn-save-manual-strategy"
-              disabled={save.isPending}
+              disabled={save.isPending || !customName.trim()}
             >
-              {save.isPending ? "Saving to Database..." : `💾 Save ${selected.displayName} Strategy`}
+              {save.isPending
+                ? "⏳ Saving to Database..."
+                : successInfo
+                ? `✓ Saved "${successInfo.name}"`
+                : !customName.trim()
+                ? "Please enter a strategy name"
+                : `💾 Save ${selected.displayName} Strategy`}
             </button>
           </div>
         </form>
       ) : (
         <Empty>Select an indicator from the templates above to configure its parameters.</Empty>
       )}
-
-      {save.isSuccess && (
-        <p className="success" style={{ marginTop: "10px", fontSize: "12px" }}>
-          ✓ Strategy definition successfully saved to PostgreSQL!
-        </p>
-      )}
-      <ErrorBox error={error ?? save.error} />
     </Panel>
   );
 }
@@ -1554,17 +1624,29 @@ function getStratCategory(item: StrategyDefinition): "RSI" | "MA" | "BOLLINGER" 
   return "OTHER";
 }
 
+const defaultCompositeName = (m: CombinationMethod) =>
+  m === "MAJORITY_VOTE" ? "Majority Vote Ensemble" : "Weighted Scoring Ensemble";
+
 function CompositeLibrary({ definitions, composites: _composites, refresh, error, setError }: { definitions: Resource<StrategyDefinition[]>; composites: Resource<Composite[]>; refresh: () => void; error?: unknown; setError: (error?: unknown) => void }) {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [weights, setWeights] = useState<Record<string, number>>({});
   const [method, setMethod] = useState<CombinationMethod>("MAJORITY_VOTE");
   const [buy, setBuy] = useState("0.5");
   const [sell, setSell] = useState("-0.5");
-  const [compositeName, setCompositeName] = useState("");
+  const [compositeName, setCompositeName] = useState(() => defaultCompositeName("MAJORITY_VOTE"));
+  const [successInfo, setSuccessInfo] = useState<{ id: string; name: string } | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<"ALL" | "RSI" | "MA" | "BOLLINGER" | "SENTIMENT" | "SELECTED">("ALL");
 
   const customNamesMap = useMemo(() => loadCustomNamesMap(), [definitions.data]);
+
+  const handleMethodChange = (newMethod: CombinationMethod) => {
+    setMethod(newMethod);
+    if (!compositeName.trim() || compositeName === defaultCompositeName(method)) {
+      setCompositeName(defaultCompositeName(newMethod));
+    }
+    setSuccessInfo(null);
+  };
 
   const save = useMutation({
     mutationFn: () =>
@@ -1576,17 +1658,17 @@ function CompositeLibrary({ definitions, composites: _composites, refresh, error
         method === "WEIGHTED_SCORE" ? { buy: Number(buy), sell: Number(sell) } : undefined
       ),
     onSuccess: (saved) => {
+      const finalName = compositeName.trim() || defaultCompositeName(method);
       if (saved?.id) {
         recordProvenance(saved.id, "COMPOSITE_BUILDER");
         unpersistDeletedStrategyId(saved.id);
-        const defaultName = method === "MAJORITY_VOTE" ? "Majority Vote Ensemble" : "Weighted Scoring Ensemble";
-        const finalName = compositeName.trim() || defaultName;
         persistCustomName(saved.id, finalName);
+        setSuccessInfo({ id: saved.id, name: finalName });
       }
       refresh();
       setSelectedIds([]);
       setWeights({});
-      setCompositeName("");
+      setCompositeName(defaultCompositeName(method));
     },
     onError: setError,
   });
@@ -1654,7 +1736,8 @@ function CompositeLibrary({ definitions, composites: _composites, refresh, error
   const sellNum = Number(sell);
   const thresholdsValid = Number.isFinite(buyNum) && Number.isFinite(sellNum) && buyNum > sellNum && buyNum >= -1 && buyNum <= 1 && sellNum >= -1 && sellNum <= 1;
   const weightedValid = method === "MAJORITY_VOTE" || (Math.abs(weightSum - 1) < 0.0001 && thresholdsValid);
-  const canSave = selectedIds.length >= 2 && weightedValid && !save.isPending;
+  const isNameValid = Boolean(compositeName.trim());
+  const canSave = selectedIds.length >= 2 && weightedValid && isNameValid && !save.isPending;
 
   return (
     <Panel title="🔀 Composite Strategy Builder (Multi-Indicator Ensemble)" className="strategy-composite-panel">
@@ -1675,7 +1758,7 @@ function CompositeLibrary({ definitions, composites: _composites, refresh, error
             <button
               type="button"
               className={`composite-method-btn ${method === "MAJORITY_VOTE" ? "active" : ""}`}
-              onClick={() => setMethod("MAJORITY_VOTE")}
+              onClick={() => handleMethodChange("MAJORITY_VOTE")}
             >
               <div className="method-btn-top">
                 <span className="method-icon">🗳️</span>
@@ -1689,7 +1772,7 @@ function CompositeLibrary({ definitions, composites: _composites, refresh, error
             <button
               type="button"
               className={`composite-method-btn ${method === "WEIGHTED_SCORE" ? "active" : ""}`}
-              onClick={() => setMethod("WEIGHTED_SCORE")}
+              onClick={() => handleMethodChange("WEIGHTED_SCORE")}
             >
               <div className="method-btn-top">
                 <span className="method-icon">⚖️</span>
@@ -1936,15 +2019,22 @@ function CompositeLibrary({ definitions, composites: _composites, refresh, error
         <div className="composite-step-card">
           <div className="composite-step-header">
             <span className="step-badge">{method === "WEIGHTED_SCORE" ? "4" : "3"}</span>
-            <h4>🏷️ Composite Strategy Name</h4>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
+              <h4>🏷️ Composite Strategy Name <span style={{ color: "#ef4444" }}>*</span></h4>
+              <small style={{ color: "#64748b", fontSize: "11px" }}>(Required)</small>
+            </div>
           </div>
           <div className="composite-name-input-group">
             <input
               className="param-control composite-name-input"
               type="text"
+              required
               value={compositeName}
-              onChange={(event) => setCompositeName(event.target.value)}
-              placeholder={method === "MAJORITY_VOTE" ? "e.g. My Consensus Multi-Indicator Strategy" : "e.g. Weighted Trend & Momentum Ensemble"}
+              onChange={(event) => {
+                setCompositeName(event.target.value);
+                setSuccessInfo(null);
+              }}
+              placeholder={defaultCompositeName(method)}
             />
             <small className="composite-name-hint">
               Specify a recognizable name for this composite ensemble to display in your library, backtest dropdowns, and discovery searches.
@@ -1958,20 +2048,44 @@ function CompositeLibrary({ definitions, composites: _composites, refresh, error
             type="button"
             className="btn-create-composite"
             disabled={!canSave}
-            onClick={() => save.mutate()}
+            onClick={() => {
+              setError(undefined);
+              setSuccessInfo(null);
+              if (!compositeName.trim()) {
+                setError(new Error("Please enter a composite strategy name before saving."));
+                return;
+              }
+              save.mutate();
+            }}
           >
             {save.isPending
-              ? "Saving Ensemble to Database..."
+              ? "⏳ Saving Ensemble to Database..."
               : selectedIds.length < 2
               ? "Select at least 2 strategies to combine"
-              : `💾 Save ${method === "MAJORITY_VOTE" ? "Majority Vote" : "Weighted Score"} Composite`}
+              : !isNameValid
+              ? "Please enter a composite strategy name"
+              : `💾 Save "${compositeName.trim()}" Composite`}
           </button>
         </div>
-        {save.isSuccess && (
-          <p className="success" style={{ marginTop: "8px", fontSize: "12px" }}>
-            ✓ Composite strategy successfully created and saved to PostgreSQL!
-          </p>
+
+        {successInfo && (
+          <div className="manual-save-success-box">
+            <div className="save-success-icon">✓</div>
+            <div className="save-success-details">
+              <b>Composite Strategy "{successInfo.name}" saved to database!</b>
+              <p>The ensemble is registered in PostgreSQL and ready for Backtest Lab.</p>
+            </div>
+            <button
+              type="button"
+              className="btn-backtest-link"
+              style={{ width: "auto", padding: "6px 14px", alignSelf: "center", cursor: "pointer", border: "none" }}
+              onClick={() => launchStrategyBacktest("composite", successInfo.id)}
+            >
+              🚀 Backtest Ensemble →
+            </button>
+          </div>
         )}
+
         <ErrorBox error={error ?? save.error} />
       </div>
     </Panel>
