@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, mapGenerationError, type CombinationMethod, type Composite, type StrategyDefinition, type StrategyDescriptor, type StrategyGenerationResult } from "./api";
-import { equalWeights, parameterDefaults } from "./state";
+import { equalWeights, parameterDefaults, launchStrategyBacktest } from "./state";
 
 const Panel = ({ title, children, className = "" }: { title?: string; children: React.ReactNode; className?: string }) => <section className={`panel ${className}`}>{title && <h2>{title}</h2>}{children}</section>;
 const Btn = ({ children, primary, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & { primary?: boolean }) => <button {...props} className={`btn ${primary ? "primary" : ""}`}>{children}</button>;
@@ -715,13 +715,19 @@ function ValidationSave({
                   💾 Save New Name
                 </button>
               )}
-              <a
-                href="#/backtest"
+              <button
+                type="button"
                 className="btn-backtest-link"
-                style={{ textDecoration: "none", textAlign: "center" }}
+                onClick={() => {
+                  const savedDbId = activeDraft?.savedDefinitionId ?? definition?.id ?? composite?.id ?? (targetId && !targetId.startsWith("draft-") ? targetId : undefined);
+                  if (savedDbId) {
+                    const isComp = Boolean(composite || result?.compositeStrategyDefinition || activeDraft?.composite || activeDraft?.kind === "COMPOSITE" || savedDbId.startsWith("composite-"));
+                    launchStrategyBacktest(isComp ? "composite" : "single", savedDbId);
+                  }
+                }}
               >
                 🚀 Run Backtest with this Strategy →
-              </a>
+              </button>
             </div>
           )}
         </div>
@@ -1251,9 +1257,16 @@ function SavedStrategiesTable({
                               💾 Save
                             </button>
                           ) : (
-                            <a href="#/backtest" className="btn-table-backtest">
+                            <button
+                              type="button"
+                              className="btn-table-backtest"
+                              onClick={() => {
+                                const stratType = item.kind === "COMPOSITE" ? "composite" : "single";
+                                launchStrategyBacktest(stratType, item.id);
+                              }}
+                            >
                               Backtest →
-                            </a>
+                            </button>
                           )}
                           <button
                             type="button"

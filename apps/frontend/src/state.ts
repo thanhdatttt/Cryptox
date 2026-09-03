@@ -33,6 +33,27 @@ export const parseAppRoute = (pathname: string): AppRoute => {
 };
 
 export const appRoutePath = (route: AppRoute): string => route.register ? "/register" : route.resourceId ? `/${route.screen === "backtest" ? "experiments" : "search-runs"}/${encodeURIComponent(route.resourceId)}` : route.screen === "market" ? "/dashboard" : `/${route.screen}`;
+
+export function navigateTo(screen: AppScreen, resourceId?: string): void {
+  if (typeof window === "undefined") return;
+  const path = appRoutePath({ screen, ...(resourceId ? { resourceId } : {}) });
+  window.history.pushState({}, "", path);
+  window.dispatchEvent(new CustomEvent("cryptox:navigate", { detail: { screen, resourceId } }));
+}
+
+export function launchStrategyBacktest(type: "single" | "composite", id: string): void {
+  if (typeof window !== "undefined") {
+    try {
+      sessionStorage.setItem("cryptox_selected_backtest_strategy", JSON.stringify({ type, id }));
+    } catch {
+      // ignore
+    }
+  }
+  navigateTo("backtest");
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("cryptox:select-backtest-strategy", { detail: { type, id } }));
+  }
+}
 export interface MarketLayoutState {
   version: typeof MARKET_LAYOUT_VERSION;
   panels: ChartPanelState[];

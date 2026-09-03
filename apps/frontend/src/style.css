@@ -3312,6 +3312,9 @@ td {
   text-align: center;
   transition: background 0.15s ease;
   box-sizing: border-box;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
 }
 
 .btn-backtest-link:hover {
@@ -3679,6 +3682,9 @@ td {
   display: inline-block;
   white-space: nowrap;
   transition: background 0.15s ease;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
 }
 
 .btn-table-backtest:hover {

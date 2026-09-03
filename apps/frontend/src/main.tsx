@@ -150,7 +150,23 @@ function App() {
       }
     }
   }, [authenticated]);
-  useEffect(() => { const onPopState = () => setRoute(parseAppRoute(window.location.pathname)); window.addEventListener("popstate", onPopState); return () => window.removeEventListener("popstate", onPopState); }, []);
+  useEffect(() => {
+    const onPopState = () => setRoute(parseAppRoute(window.location.pathname));
+    const onCustomNavigate = (e: Event) => {
+      const detail = (e as CustomEvent<{ screen: AppScreen; resourceId?: string }>).detail;
+      if (detail?.screen) {
+        setRoute({ screen: detail.screen, ...(detail.resourceId ? { resourceId: detail.resourceId } : {}) });
+      } else {
+        setRoute(parseAppRoute(window.location.pathname));
+      }
+    };
+    window.addEventListener("popstate", onPopState);
+    window.addEventListener("cryptox:navigate", onCustomNavigate);
+    return () => {
+      window.removeEventListener("popstate", onPopState);
+      window.removeEventListener("cryptox:navigate", onCustomNavigate);
+    };
+  }, []);
   useEffect(() => session.subscribe((nextToken) => { if (!nextToken) clearAuthenticatedClientState(); setAuthenticated(Boolean(nextToken)); }), []);
   useEffect(() => { if (session.token) void queryClient.fetchQuery({ queryKey: ["auth", "me"], queryFn: api.me }).catch(() => undefined); }, []);
   useEffect(() => { persistMarketLayout(marketLayout); }, [marketLayout]);

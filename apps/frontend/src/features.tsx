@@ -1170,6 +1170,25 @@ export function BacktestLive({ definitions, composites, scopes }: { definitions:
   }, [scopes, scopeId, from, to]);
 
   useEffect(() => {
+    try {
+      const stored = sessionStorage.getItem("cryptox_selected_backtest_strategy");
+      if (stored) {
+        sessionStorage.removeItem("cryptox_selected_backtest_strategy");
+        const parsed = JSON.parse(stored) as { type: "single" | "composite"; id: string };
+        if (parsed.type === "single") {
+          setDefinitionId(parsed.id);
+          setCompositeId("");
+          return;
+        } else if (parsed.type === "composite") {
+          setCompositeId(parsed.id);
+          setDefinitionId("");
+          return;
+        }
+      }
+    } catch {
+      // ignore
+    }
+
     if (!definitionId && !compositeId) {
       if (definitions.length) {
         setDefinitionId(definitions[0]!.id);
@@ -1178,6 +1197,21 @@ export function BacktestLive({ definitions, composites, scopes }: { definitions:
       }
     }
   }, [definitions, composites, definitionId, compositeId]);
+
+  useEffect(() => {
+    const handleSelectStrat = (e: Event) => {
+      const detail = (e as CustomEvent<{ type: "single" | "composite"; id: string }>).detail;
+      if (detail?.type === "single") {
+        setDefinitionId(detail.id);
+        setCompositeId("");
+      } else if (detail?.type === "composite") {
+        setCompositeId(detail.id);
+        setDefinitionId("");
+      }
+    };
+    window.addEventListener("cryptox:select-backtest-strategy", handleSelectStrat);
+    return () => window.removeEventListener("cryptox:select-backtest-strategy", handleSelectStrat);
+  }, []);
 
   const cancel = useMutation({
     mutationFn: () => candidateId ? api.cancelBacktest(candidateId) : Promise.reject(new Error("No manual candidate is active.")),
