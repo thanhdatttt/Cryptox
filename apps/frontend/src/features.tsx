@@ -2570,6 +2570,11 @@ export function validateSearchParameters(input: SearchValidationInput): {
   if (!Number.isInteger(components) || components <= 0) {
     throw new Error("Max components must be a positive integer (e.g. 1 for single, 2+ for combinations).");
   }
+  if (components >= 2 && selectedIds.length < 2) {
+    throw new Error(
+      `Ensemble Size (Max Components) is set to ${components}, but only ${selectedIds.length} strategy is selected. Please select at least 2 strategies to discover multi-indicator ensembles, or set Ensemble Size to 1.`
+    );
+  }
 
   const value = Number(stopValue);
   if (!Number.isInteger(value) || value <= 0) {
@@ -2610,6 +2615,11 @@ export function validateSearchParameters(input: SearchValidationInput): {
 
     if (eligible.length === 0) {
       throw new Error("The selected domain rules leave no eligible strategy definitions in the pool.");
+    }
+    if (components >= 2 && eligible.length < 2) {
+      throw new Error(
+        `Ensemble Size (Max Components) is set to ${components}, but only ${eligible.length} eligible strategy remains after domain filtering. Please select at least 2 eligible strategies or set Ensemble Size to 1.`
+      );
     }
     if (required.length > components) {
       throw new Error(`Max components (${components}) must be at least the count of required categories (${required.length}).`);
@@ -2803,9 +2813,27 @@ export function SearchLive({
 
   // Domain rule edge case checks
   const domainValidationErrors = React.useMemo(() => {
-    if (generatorType !== "DOMAIN_GUIDED") return [];
     const errors: string[] = [];
     const numComponents = Math.max(1, parseInt(maxComponents, 10) || 1);
+
+    // Stop user if max components >= 2 but fewer than 2 strategies are available
+    if (numComponents >= 2) {
+      if (generatorType === "DOMAIN_GUIDED") {
+        if (selectedEligibleIds.length < 2 && selectedIds.length > 0) {
+          errors.push(
+            `Ensemble Size (Max Components) is set to ${numComponents}, but only ${selectedEligibleIds.length} eligible strategy is selected. Please select at least 2 strategies to discover multi-indicator ensembles, or reduce Ensemble Size to 1.`
+          );
+        }
+      } else {
+        if (selectedIds.length === 1) {
+          errors.push(
+            `Ensemble Size (Max Components) is set to ${numComponents}, but only 1 strategy is selected. Please select at least 2 strategies to discover multi-indicator ensembles, or reduce Ensemble Size to 1.`
+          );
+        }
+      }
+    }
+
+    if (generatorType !== "DOMAIN_GUIDED") return errors;
 
     // Edge Case 4: Required count > max components
     if (requiredCategories.length > numComponents) {
@@ -2851,7 +2879,6 @@ export function SearchLive({
   const domainValidationWarnings = React.useMemo(() => {
     if (generatorType !== "DOMAIN_GUIDED") return [];
     const warnings: string[] = [];
-    const numComponents = Math.max(1, parseInt(maxComponents, 10) || 1);
 
     // Edge Case 1: Some selected strategies are excluded
     if (selectedExcludedCount > 0 && selectedEligibleIds.length > 0) {
@@ -2860,17 +2887,9 @@ export function SearchLive({
       );
     }
 
-    // Edge Case 7: Only 1 eligible strategy but maxComponents > 1
-    if (selectedEligibleIds.length === 1 && numComponents > 1) {
-      warnings.push(
-        `Only 1 eligible strategy is selected. The search will generate single-indicator strategies instead of ${numComponents}-component ensembles.`
-      );
-    }
-
     return warnings;
   }, [
     generatorType,
-    maxComponents,
     selectedExcludedCount,
     selectedIds.length,
     selectedEligibleIds.length,

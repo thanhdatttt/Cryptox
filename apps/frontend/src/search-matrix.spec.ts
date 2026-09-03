@@ -142,9 +142,15 @@ describe("Search Configuration & Validation Matrix", () => {
       );
     });
 
-    it("accepts single strategy in pool", () => {
-      const result = validateSearchParameters({ ...baseValidInput, selectedIds: ["def-ma"] });
+    it("accepts single strategy in pool when maxComponents is 1", () => {
+      const result = validateSearchParameters({ ...baseValidInput, maxComponents: "1", selectedIds: ["def-ma"] });
       expect(result.strategyDefinitionIds).toEqual(["def-ma"]);
+    });
+
+    it("rejects single strategy in pool when maxComponents >= 2", () => {
+      expect(() =>
+        validateSearchParameters({ ...baseValidInput, maxComponents: "2", selectedIds: ["def-ma"] })
+      ).toThrow(/Ensemble Size \(Max Components\) is set to 2, but only 1 strategy is selected/);
     });
 
     it("accepts all strategies in pool", () => {

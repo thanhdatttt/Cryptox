@@ -7134,4 +7134,70 @@ td {
   color: #92400e;
 }
 
+/* Table Batch Selection Action Bar */
+.table-batch-actions-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: #f0fdf4;
+  border: 1.5px solid #bbf7d0;
+  border-radius: 8px;
+  padding: 10px 16px;
+  margin-bottom: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.batch-actions-left,
+.batch-actions-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.batch-count-badge {
+  font-size: 13px;
+  color: #166534;
+  font-weight: 600;
+}
+
+.btn-batch-action {
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  border-radius: 6px;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.15s ease;
+}
+
+.btn-batch-action.secondary {
+  background: #ffffff;
+  color: #15803d;
+  border-color: #86efac;
+}
+
+.btn-batch-action.secondary:hover {
+  background: #dcfce7;
+}
+
+.btn-batch-action.danger {
+  background: #dc2626;
+  color: #ffffff;
+}
+
+.btn-batch-action.danger:hover {
+  background: #b91c1c;
+  box-shadow: 0 2px 8px rgba(220, 38, 38, 0.25);
+}
+
+.strategy-table tr.row-checked {
+  background-color: #f0fdf4 !important;
+}
+
+.strategy-table tr.row-checked:hover {
+  background-color: #dcfce7 !important;
+}
+
+
 

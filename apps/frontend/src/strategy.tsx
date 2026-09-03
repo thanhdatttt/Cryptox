@@ -842,6 +842,96 @@ function DeleteConfirmationModal({
   );
 }
 
+function BatchDeleteModal({
+  items,
+  onClose,
+  onConfirm,
+}: {
+  items: UnifiedStrategyItem[];
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
+  const count = items.length;
+  const previewItems = items.slice(0, 5);
+  const remainingCount = count - previewItems.length;
+
+  return (
+    <div className="cryptox-modal-overlay" onClick={onClose}>
+      <div className="cryptox-delete-modal-card" onClick={(e) => e.stopPropagation()}>
+        <div className="delete-modal-header">
+          <div className="delete-modal-icon-badge">
+            <span>🗑️</span>
+          </div>
+          <div className="delete-modal-title-group">
+            <h3>Delete {count} Selected Strategies</h3>
+            <span className="delete-type-pill badge-draft">Batch Action</span>
+          </div>
+          <button type="button" className="btn-modal-close" onClick={onClose} aria-label="Close modal">
+            ✕
+          </button>
+        </div>
+
+        <div className="delete-modal-body">
+          <p className="delete-warning-text">
+            Are you sure you want to permanently delete <b className="delete-target-highlight">{count} strategies</b>?
+          </p>
+
+          <div style={{ maxHeight: "150px", overflowY: "auto", background: "#f8fafc", borderRadius: "6px", padding: "8px 12px", margin: "10px 0", border: "1px solid #e2e8f0" }}>
+            {previewItems.map((item) => (
+              <div key={item.id} style={{ fontSize: "12px", color: "#334155", padding: "3px 0", display: "flex", justifyContent: "space-between" }}>
+                <span><b>{item.name}</b> <small style={{ color: "#64748b" }}>({item.versionLabel})</small></span>
+                <span style={{ fontSize: "10px", color: "#64748b" }}>{item.kind}</span>
+              </div>
+            ))}
+            {remainingCount > 0 && (
+              <div style={{ fontSize: "11.5px", color: "#64748b", fontStyle: "italic", paddingTop: "4px" }}>
+                ...and {remainingCount} more strategies
+              </div>
+            )}
+          </div>
+
+          <div className="delete-cascade-warning-box">
+            <span className="notice-icon">⚠️</span>
+            <div>
+              <b>Permanent Cascade Deletion:</b>
+              <div style={{ marginTop: "2px" }}>
+                Deleting these strategies will permanently erase them from the database, along with all associated candidate records, backtests, trades, and leaderboard rankings.
+              </div>
+              <div style={{ marginTop: "6px", fontWeight: 700, fontSize: "11px", color: "#7f1d1d" }}>
+                ⛔ This action cannot be undone.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="delete-modal-footer">
+          <button type="button" className="btn-modal-cancel" onClick={onClose}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="btn-modal-confirm-delete"
+            onClick={() => {
+              onConfirm();
+              onClose();
+            }}
+          >
+            🗑️ Permanently Delete {count} Strategies
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function getPaginationRange(current: number, total: number): Array<number | "..."> {
   if (total <= 7) {
     return Array.from({ length: total }, (_, i) => i + 1);
@@ -883,6 +973,7 @@ function SavedStrategiesTable({
   onSaveDraft,
   onDeleteDraft,
   onDeleteSavedStrategy,
+  onDeleteMultiple,
 }: {
   definitions: Resource<StrategyDefinition[]>;
   composites: Resource<Composite[]>;
@@ -894,12 +985,15 @@ function SavedStrategiesTable({
   onSaveDraft: (draft: StrategyDraft) => Promise<void>;
   onDeleteDraft: (draftId: string) => void;
   onDeleteSavedStrategy: (id: string) => void;
+  onDeleteMultiple?: (items: UnifiedStrategyItem[]) => Promise<void> | void;
 }) {
   const [filter, setFilter] = useState<"ALL" | "USER_PROMPT" | "WEB_IMPORT" | "MANUAL_BUILDER" | "COMPOSITE_BUILDER" | "DRAFTS">("ALL");
   const [searchQuery, setSearchQuery] = useState("");
   const [pageSize, setPageSize] = useState(10);
   const [pageIndex, setPageIndex] = useState(1);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
+  const [selectedRowIds, setSelectedRowIds] = useState<string[]>([]);
+  const [batchDeleteItems, setBatchDeleteItems] = useState<UnifiedStrategyItem[] | null>(null);
   const provenanceMap = useMemo(() => loadProvenanceMap(), [definitions.data, drafts]);
   const customNamesMap = useMemo(() => loadCustomNamesMap(), [definitions.data, composites.data, drafts]);
 
@@ -1042,12 +1136,22 @@ function SavedStrategiesTable({
     // 2. Search Query Filter
     const q = searchQuery.trim().toLowerCase();
     if (q) {
-      result = result.filter(
-        (item) =>
-          item.name.toLowerCase().includes(q) ||
-          item.subName.toLowerCase().includes(q) ||
-          item.parametersSummary.toLowerCase().includes(q)
-      );
+      result = result.filter((item) => {
+        if (item.name.toLowerCase().includes(q)) return true;
+        if (item.subName.toLowerCase().includes(q)) return true;
+        if (item.parametersSummary.toLowerCase().includes(q)) return true;
+        if (item.rawDefinition?.parameters) {
+          return Object.entries(item.rawDefinition.parameters).some(
+            ([k, v]) => k.toLowerCase().includes(q) || String(v).toLowerCase().includes(q)
+          );
+        }
+        if (item.rawDraft?.parameters) {
+          return Object.entries(item.rawDraft.parameters).some(
+            ([k, v]) => k.toLowerCase().includes(q) || String(v).toLowerCase().includes(q)
+          );
+        }
+        return false;
+      });
     }
 
     return result;
@@ -1060,6 +1164,35 @@ function SavedStrategiesTable({
   const startIdx = totalFiltered > 0 ? (currentPage - 1) * pageSize : 0;
   const endIdx = Math.min(startIdx + pageSize, totalFiltered);
   const displayedItems = filteredItems.slice(startIdx, endIdx);
+
+  // Multi-select helpers
+  const displayedIds = displayedItems.map((item) => item.id);
+  const allDisplayedSelected =
+    displayedItems.length > 0 && displayedItems.every((item) => selectedRowIds.includes(item.id));
+  const someDisplayedSelected =
+    displayedItems.some((item) => selectedRowIds.includes(item.id)) && !allDisplayedSelected;
+
+  const toggleSelectRow = (id: string) => {
+    setSelectedRowIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleToggleSelectAllDisplayed = () => {
+    if (allDisplayedSelected) {
+      setSelectedRowIds((prev) => prev.filter((id) => !displayedIds.includes(id)));
+    } else {
+      setSelectedRowIds((prev) => Array.from(new Set([...prev, ...displayedIds])));
+    }
+  };
+
+  const handleSelectAllFiltered = () => {
+    setSelectedRowIds(filteredItems.map((i) => i.id));
+  };
+
+  const handleClearSelected = () => {
+    setSelectedRowIds([]);
+  };
 
   const handleInspect = (item: UnifiedStrategyItem) => {
     if (item.rawDraft) {
@@ -1148,7 +1281,7 @@ function SavedStrategiesTable({
           <input
             type="text"
             className="table-search-input"
-            placeholder="Search strategy by name..."
+            placeholder="Search by name, indicator, or parameter (e.g. RSI, 179, period)..."
             value={searchQuery}
             onChange={(e) => {
               setSearchQuery(e.target.value);
@@ -1171,6 +1304,45 @@ function SavedStrategiesTable({
         </div>
       </div>
 
+      {/* Batch Selection Action Bar */}
+      {selectedRowIds.length > 0 && (
+        <div className="table-batch-actions-bar">
+          <div className="batch-actions-left">
+            <span className="batch-count-badge">
+              ✓ <b>{selectedRowIds.length}</b> {selectedRowIds.length === 1 ? "strategy" : "strategies"} selected
+            </span>
+            {selectedRowIds.length < filteredItems.length && (
+              <button
+                type="button"
+                className="btn-batch-action secondary"
+                onClick={handleSelectAllFiltered}
+              >
+                Select all {filteredItems.length} filtered
+              </button>
+            )}
+            <button
+              type="button"
+              className="btn-batch-action secondary"
+              onClick={handleClearSelected}
+            >
+              Clear selection
+            </button>
+          </div>
+          <div className="batch-actions-right">
+            <button
+              type="button"
+              className="btn-batch-action danger"
+              onClick={() => {
+                const itemsToDelete = allItems.filter((i) => selectedRowIds.includes(i.id));
+                setBatchDeleteItems(itemsToDelete);
+              }}
+            >
+              🗑️ Delete Selected ({selectedRowIds.length})
+            </button>
+          </div>
+        </div>
+      )}
+
       {definitions.isLoading || composites.isLoading ? (
         <Loading />
       ) : definitions.error || composites.error ? (
@@ -1192,11 +1364,22 @@ function SavedStrategiesTable({
             <table className="strategy-table">
               <thead>
                 <tr>
+                  <th style={{ width: "40px", textAlign: "center" }}>
+                    <input
+                      type="checkbox"
+                      checked={allDisplayedSelected}
+                      ref={(el) => {
+                        if (el) el.indeterminate = someDisplayedSelected;
+                      }}
+                      onChange={handleToggleSelectAllDisplayed}
+                      title="Select or deselect all items on this page"
+                    />
+                  </th>
                   <th style={{ width: "22%" }}>Strategy</th>
                   <th style={{ width: "16%" }}>Source</th>
                   <th style={{ width: "14%" }}>Created</th>
                   <th style={{ width: "8%" }}>Version</th>
-                  <th style={{ width: "22%" }}>Parameters / Logic</th>
+                  <th style={{ width: "20%" }}>Parameters / Logic</th>
                   <th style={{ width: "8%" }}>Status</th>
                   <th style={{ width: "10%", textAlign: "right" }}>Actions</th>
                 </tr>
@@ -1205,12 +1388,22 @@ function SavedStrategiesTable({
                 {displayedItems.map((item) => {
                   const isSelected = selected?.id === item.id;
                   const isDraft = item.status === "DRAFT";
+                  const isChecked = selectedRowIds.includes(item.id);
 
                   return (
                     <tr
                       key={item.id}
-                      className={`${isDraft ? "draft-row" : ""} ${item.kind === "COMPOSITE" ? "composite-row" : ""} ${isSelected ? "selected" : ""}`}
+                      className={`${isDraft ? "draft-row" : ""} ${item.kind === "COMPOSITE" ? "composite-row" : ""} ${isSelected ? "selected" : ""} ${isChecked ? "row-checked" : ""}`}
                     >
+                      <td style={{ width: "40px", textAlign: "center" }}>
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => toggleSelectRow(item.id)}
+                          onClick={(e) => e.stopPropagation()}
+                          title={`Select ${item.name}`}
+                        />
+                      </td>
                       <td>
                         <div className="table-strat-cell">
                           <span className="table-strat-name">{item.name}</span>
@@ -1364,6 +1557,27 @@ function SavedStrategiesTable({
               onDeleteDraft(deleteTarget.id);
             } else {
               onDeleteSavedStrategy(deleteTarget.id);
+            }
+          }}
+        />
+      )}
+
+      {/* Batch Delete Confirmation Modal */}
+      {batchDeleteItems && (
+        <BatchDeleteModal
+          items={batchDeleteItems}
+          onClose={() => setBatchDeleteItems(null)}
+          onConfirm={async () => {
+            const items = batchDeleteItems;
+            setBatchDeleteItems(null);
+            setSelectedRowIds([]);
+            if (onDeleteMultiple) {
+              await onDeleteMultiple(items);
+            } else {
+              for (const it of items) {
+                if (it.status === "DRAFT") onDeleteDraft(it.id);
+                else onDeleteSavedStrategy(it.id);
+              }
             }
           }}
         />
@@ -2288,6 +2502,55 @@ export function StrategyScreen() {
     void queryClient.invalidateQueries({ queryKey: ["search"] });
   };
 
+  const handleBatchDelete = async (items: UnifiedStrategyItem[]) => {
+    setIsSaving(true);
+    try {
+      const saved = items.filter((i) => i.status === "SAVED");
+      const draftsToDelete = items.filter((i) => i.status === "DRAFT");
+      const allTargetIds = items.map((i) => i.id);
+
+      // 1. Delete saved strategies from backend in parallel
+      if (saved.length > 0) {
+        await Promise.allSettled(
+          saved.map((item) =>
+            item.kind === "COMPOSITE" || item.id.startsWith("composite-strategy-")
+              ? api.deleteComposite(item.id)
+              : api.deleteStrategyDefinition(item.id)
+          )
+        );
+        saved.forEach((item) => persistDeletedStrategyId(item.id));
+        setDeletedIds((prev) => [...prev, ...saved.map((i) => i.id)]);
+      }
+
+      // 2. Remove drafts from local state
+      if (draftsToDelete.length > 0 || saved.length > 0) {
+        const idSet = new Set(allTargetIds);
+        const nextDrafts = drafts.filter(
+          (d) => !idSet.has(d.id) && (!d.savedDefinitionId || !idSet.has(d.savedDefinitionId))
+        );
+        setDrafts(nextDrafts);
+        persistDrafts(nextDrafts);
+      }
+
+      // 3. Clear active selection if it was deleted
+      if (selected && allTargetIds.includes(selected.id)) {
+        setSelected(undefined);
+        setActiveDraft(undefined);
+      }
+
+      setMessage(`✓ Successfully deleted ${items.length} strateg${items.length === 1 ? "y" : "ies"} from database.`);
+      void queryClient.invalidateQueries({ queryKey: ["strategies"] });
+      void queryClient.invalidateQueries({ queryKey: ["searchRuns"] });
+      void queryClient.invalidateQueries({ queryKey: ["search"] });
+      void definitions.refetch();
+      void composites.refetch();
+    } catch (err) {
+      setMessage(`Failed to delete: ${err instanceof Error ? err.message : "Error"}`);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleSaveToDatabase = async (customName: string) => {
     const targetDraft = activeDraft ?? (selected && !("implementationSha256" in selected) && !("method" in selected) ? (selected as StrategyDraft) : undefined);
     if (!targetDraft) return;
@@ -2543,6 +2806,7 @@ export function StrategyScreen() {
         onSaveDraft={handleQuickSaveDraft}
         onDeleteDraft={handleDeleteDraft}
         onDeleteSavedStrategy={handleDeleteSavedStrategy}
+        onDeleteMultiple={handleBatchDelete}
       />
     </div>
   );
