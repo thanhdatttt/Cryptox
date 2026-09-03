@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { BadRequestException, Body, ConflictException, Controller, Get, Headers, HttpCode, Inject, Module, NotFoundException, Param, Post, Query, ServiceUnavailableException, UnauthorizedException, UnprocessableEntityException } from "@nestjs/common";
+import { BadRequestException, Body, ConflictException, Controller, Delete, Get, Headers, HttpCode, Inject, Module, NotFoundException, Param, Post, Query, ServiceUnavailableException, UnauthorizedException, UnprocessableEntityException } from "@nestjs/common";
 import { AuthException, type AuthModulePublicApi } from "modules/auth/api";
 import { BACKTEST_RUNTIME_SHA256, BACKTEST_RUNTIME_VERSION } from "modules/backtesting/api/bootstrap";
 import type { BacktestSubmissionAccepted } from "modules/backtesting/api";
@@ -142,6 +142,7 @@ const backtestHttpError = (error: unknown): never => {
   if (error.message.endsWith("_NOT_FOUND")) throw new NotFoundException(error.message);
   if (error.message === "BACKTEST_ACCESS_DENIED") throw new NotFoundException(error.message);
   if (error.message === "BACKTEST_CANDIDATE_NOT_MANUAL") throw new ConflictException(error.message);
+  if (error.message === "BACKTEST_SCOPE_IN_USE") throw new ConflictException("Cannot delete scope preset because it is linked to existing backtests or search runs.");
   if (error.message === "SNAPSHOT_INCOMPLETE" || error.message.includes("WARMUP") || error.message.startsWith("INVALID_VISUALIZATION") || error.message.startsWith("VISUALIZATION_")) throw new BadRequestException(error.message);
   if (error.message.startsWith("INVALID_") || error.message.includes("DATASET") || error.message.includes("STRATEGY")) throw new BadRequestException(error.message);
   throw error;
@@ -480,6 +481,19 @@ export class BacktestScopeController extends ProtectedController {
   async list(@Headers("authorization") authorization: string | undefined) {
     const userId = await this.authenticate(authorization);
     try { return await this.modules.backtesting.listBenchmarkScopes({ userId }); } catch (error) { return backtestHttpError(error); }
+  }
+
+  @Delete(":id")
+  async delete(
+    @Headers("authorization") authorization: string | undefined,
+    @Param("id") id: string,
+  ) {
+    const userId = await this.authenticate(authorization);
+    if (!nonEmptyString(id)) throw new BadRequestException("id is required.");
+    try {
+      await this.modules.backtesting.deleteBenchmarkScope({ userId }, id.trim());
+      return { id: id.trim(), deleted: true };
+    } catch (error) { return backtestHttpError(error); }
   }
 }
 

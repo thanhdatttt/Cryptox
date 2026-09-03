@@ -225,6 +225,9 @@ describe("backend composition", () => {
 
     const searchStarted = await new SearchController(modules).start(`Bearer ${token}`, { leaderboardScopeId: scope.id, strategyDefinitionIds: [definition.id], maxCandidates: 2, maxInFlight: 1 });
     await vi.waitFor(async () => expect(await new SearchController(modules).status(`Bearer ${token}`, searchStarted.searchRunId)).toMatchObject({ state: "RUNNING", candidatesTested: 0, queuedCount: 1 }));
+
+    const temporaryScope = await new BacktestScopeController(modules).create(`Bearer ${token}`, "temp-key", { name: "temp", pair: "BTCUSDT", timeframe: "1h", from: snapshot.range.from, to: snapshot.range.to, initialCapital: 1000, feeRatePercent: 0, slippageBps: 0 });
+    await expect(new BacktestScopeController(modules).delete(`Bearer ${token}`, temporaryScope.id)).resolves.toEqual({ id: temporaryScope.id, deleted: true });
   });
 
   it("accepts a single saved strategy without requiring a persisted composite", async () => {

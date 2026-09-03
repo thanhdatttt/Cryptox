@@ -73,6 +73,7 @@ export interface BacktestingRepository {
   findScopeByIdempotency(ownerUserId: string, idempotencyKey: string): Promise<StoredBenchmarkScope | undefined>;
   readScope(scopeId: string, ownerUserId?: string): Promise<StoredBenchmarkScope | undefined>;
   listScopesByOwner(ownerUserId: string): Promise<StoredBenchmarkScope[]>;
+  deleteScope(scopeId: string, ownerUserId: string): Promise<boolean>;
   createCandidate(candidate: StoredCandidate, submissionIdempotencyKey?: string): Promise<StoredCandidate>;
   createQueuedSubmission(input: { candidate: StoredCandidate; dispatch: BacktestDispatch; submissionIdempotencyKey?: string }): Promise<StoredCandidate>;
   findCandidateBySubmission(ownerUserId: string, submissionIdempotencyKey: string): Promise<StoredCandidate | undefined>;

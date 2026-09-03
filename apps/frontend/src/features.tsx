@@ -35,15 +35,754 @@ export function ExperimentDetail({ id }: { id: string }) {
   return <Panel title={`Experiment ${id}`} className="experiment-panel"><div className="metric-grid"><div><b>Total return</b><strong>{percent(metrics.totalReturnPercent)}</strong></div><div><b>Win rate</b><strong>{percent(metrics.winRatePercent)}</strong></div><div><b>Max drawdown</b><strong>{percent(metrics.maxDrawdownPercent)}</strong></div><div><b>Trades</b><strong>{metrics.numberOfTrades ?? totalCount ?? "Unavailable"}</strong></div><div><b>Profit factor</b><strong>{profitFactor(metrics)}</strong></div><div><b>Sharpe ratio</b><strong>{metrics.sharpeRatio === undefined ? "Unavailable" : metrics.sharpeRatio.toFixed(2)}</strong></div><div><b>Rank eligibility</b><strong>{result.rankEligible ? "Eligible" : `Not eligible${result.rankEligibilityReason ? ` · ${result.rankEligibilityReason}` : ""}`}</strong></div><div><b>Total profit</b><strong>{displayTradeNumber(result.totalProfitAmount)}</strong></div><div><b>Ending equity</b><strong>{displayTradeNumber(result.endingEquity)}</strong></div><div><b>Wins / losses</b><strong>{result.wins ?? "Unavailable"} / {result.losses ?? "Unavailable"}</strong></div><div><b>Breakevens</b><strong>{result.breakevens ?? "Unavailable"}</strong></div><div><b>Drawdown amount</b><strong>{displayTradeNumber(result.maxDrawdownAmount)}</strong></div><div><b>Score</b><strong>{displayTradeNumber(result.overallScore)}</strong></div></div><p className="muted">Strategy: {result.strategyDefinitions?.map((item) => `${item.strategyName} v${item.version}`).join(", ") || "Unavailable"} · Composite: {result.compositeDefinitionId ?? "Unavailable"} · Scope: {result.leaderboardScopeId} · Formula: {result.scoreFormulaId ?? "Unavailable"}</p><div className="provenance-grid"><span><b>Execution policy</b>{result.executionPolicy?.policyId ?? "Unavailable"} · {result.executionPolicy?.sha256 ?? "No retained policy"}</span><span><b>Benchmark</b>{result.benchmark?.pair ?? result.datasetSnapshot?.pair ?? "Unavailable"} · {result.benchmark?.timeframe ?? result.datasetSnapshot?.timeframe ?? "Unavailable"}</span><span><b>Simulator</b>{result.simulatorVersion ?? "Unavailable"} · {result.simulatorSha256 ?? "Unavailable"}</span><span><b>Sentiment input</b>{result.sentimentDatasetSnapshot?.id ?? "None attached"} · {result.sentimentDatasetSnapshot?.sha256 ?? ""}</span></div><div className="toolbar"><Btn onClick={() => replay.mutate()} disabled={replay.isPending}>{replay.isPending ? "Queueing..." : "Verify replay"}</Btn></div>{replayState && <p className={replayState.status === "NON_REPLAYABLE" ? "error" : "success"}>Replay {replayState.status}{"comparedTradeCount" in replayState ? `: ${replayState.comparedTradeCount} trades compared.` : replayJobId ? ` · job ${replayJobId}` : ""}</p>}{visual.isLoading ? <Loading /> : visual.error ? <ErrorBox error={visual.error} /> : visual.data && <div className="visualization"><p className="success">Sealed visualization: {visual.data.candles.length} candles · {visual.data.overlays.length} overlays · {visual.data.markers.length} markers.</p><CandleChart candles={visual.data.candles} overlays={visual.data.overlays} markers={visual.data.markers} highlightTradeId={highlightTradeId} /></div>}<h3>Trade detail</h3>{trades.isLoading ? <Loading /> : trades.error ? <ErrorBox error={trades.error} /> : !page?.items.length ? <Empty>No trades returned by the backend.</Empty> : <><p className="muted">Showing {rangeStart}-{rangeEnd} · total {totalCount ?? "Unavailable from backend"}</p><div className="table-scroll"><table><thead><tr><th>#</th><th>Pair</th><th>Entry</th><th>Exit</th><th>Side</th><th>Market prices</th><th>SL / TP</th><th>Qty / notional</th><th>Equity before / after</th><th>Fees / slippage</th><th>Reason</th><th>Profit</th><th>Result</th><th /></tr></thead><tbody>{page.items.map((trade) => <tr key={trade.id} className={highlightTradeId === trade.id ? "selected" : ""}><td>{trade.sequence}</td><td>{trade.pair}</td><td>{trade.entryTime}<br />{displayTradeNumber(trade.entryPrice)}</td><td>{trade.exitTime}<br />{displayTradeNumber(trade.exitPrice)}</td><td><span className={trade.signal === "LONG" ? "long" : "short"}>{trade.signal}</span></td><td>{displayTradeNumber(trade.marketEntryPrice)} / {displayTradeNumber(trade.marketExitPrice)}</td><td>{trade.stopLoss ?? "Unavailable"} / {trade.takeProfit ?? "Unavailable"}</td><td>{displayTradeNumber(trade.quantity)} / {displayTradeNumber(trade.notionalEntryValue)}</td><td>{displayTradeNumber(trade.equityBeforeTrade)} / {displayTradeNumber(trade.equityAfterTrade)}</td><td>{displayTradeNumber(trade.feeAmount)} / {displayTradeNumber(trade.slippageAmount)}</td><td>{trade.exitReason ?? "Unavailable"}</td><td className={trade.profit === undefined ? "" : trade.profit >= 0 ? "positive" : "negative"}>{displayTradeNumber(trade.profit)}</td><td>{trade.result} · {displayTradeNumber(trade.resultPercent)}%</td><td><button className="link-button" onClick={() => selectTrade(trade)}>Highlight</button></td></tr>)}</tbody></table></div><div className="toolbar trade-pagination"><Btn onClick={previousPage} disabled={tradeCursors.length <= 1}>Previous</Btn><Btn onClick={nextPage} disabled={!canNext}>Next</Btn></div></>}</Panel>;
 }
 
+function DeleteScopeModal({
+  scope,
+  isDeleting,
+  onClose,
+  onConfirm,
+}: {
+  scope: Scope;
+  isDeleting: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !isDeleting) onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose, isDeleting]);
+
+  return (
+    <div className="cryptox-modal-overlay" onClick={() => !isDeleting && onClose()}>
+      <div className="cryptox-delete-modal-card" onClick={(e) => e.stopPropagation()}>
+        <div className="delete-modal-header">
+          <div className="delete-modal-icon-badge">
+            <span>🗑️</span>
+          </div>
+          <div className="delete-modal-title-group">
+            <h3>Delete Scope Preset</h3>
+            <span className="delete-type-pill badge-scope">Scope Preset</span>
+          </div>
+          <button
+            type="button"
+            className="btn-modal-close"
+            disabled={isDeleting}
+            onClick={onClose}
+            aria-label="Close modal"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="delete-modal-body">
+          <p className="delete-warning-text">
+            Are you sure you want to delete <b className="delete-target-highlight">"{scope.name || scope.id}"</b>?
+          </p>
+          <p className="delete-meta-info">
+            {scope.pair} · {scope.timeframe} · Initial Capital: ${Number(scope.initialCapital).toLocaleString()} · Fee: {scope.feeRatePercent}% · Slippage: {scope.slippageBps} bps
+          </p>
+          <div className="delete-notice-box">
+            <span className="notice-icon">⚠️</span>
+            <span>
+              This will permanently delete this benchmark scope preset from your saved list.
+            </span>
+          </div>
+        </div>
+
+        <div className="delete-modal-footer">
+          <button
+            type="button"
+            className="btn-modal-cancel"
+            disabled={isDeleting}
+            onClick={onClose}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            className="btn-modal-confirm-delete"
+            disabled={isDeleting}
+            onClick={onConfirm}
+          >
+            {isDeleting ? "⏳ Deleting..." : "🗑️ Yes, Delete Preset"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SaveScopeModal({
+  defaultName,
+  pair,
+  timeframe,
+  from,
+  to,
+  capital,
+  fee,
+  slippage,
+  isSaving,
+  onClose,
+  onConfirm,
+}: {
+  defaultName: string;
+  pair: string;
+  timeframe: string;
+  from: string;
+  to: string;
+  capital: string;
+  fee: string;
+  slippage: string;
+  isSaving: boolean;
+  onClose: () => void;
+  onConfirm: (name: string) => void;
+}) {
+  const [name, setName] = useState(defaultName);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !isSaving) onClose();
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose, isSaving]);
+
+  return (
+    <div className="cryptox-modal-overlay" onClick={() => !isSaving && onClose()}>
+      <div className="cryptox-delete-modal-card" onClick={(e) => e.stopPropagation()}>
+        <div className="delete-modal-header">
+          <div className="delete-modal-icon-badge" style={{ background: "#dbeafe", borderColor: "#bfdbfe" }}>
+            <span>💾</span>
+          </div>
+          <div className="delete-modal-title-group">
+            <h3>Save Scope Preset</h3>
+            <span className="delete-type-pill badge-scope">New Preset</span>
+          </div>
+          <button
+            type="button"
+            className="btn-modal-close"
+            disabled={isSaving}
+            onClick={onClose}
+            aria-label="Close modal"
+          >
+            ✕
+          </button>
+        </div>
+
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (name.trim()) onConfirm(name.trim());
+          }}
+        >
+          <div className="delete-modal-body">
+            <div className="scope-modal-input-group">
+              <label className="scope-modal-input-label">Preset Name</label>
+              <input
+                type="text"
+                className="scope-modal-text-input"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. BTC 1h 2026 Q3 Benchmark"
+                autoFocus
+                required
+              />
+            </div>
+            <p className="delete-meta-info">
+              {pair} · {timeframe} · From: {from.replace("T", " ")} · To: {to.replace("T", " ")} · Capital: ${Number(capital).toLocaleString()} · Fee: {fee}% · Slippage: {slippage} bps
+            </p>
+          </div>
+
+          <div className="delete-modal-footer">
+            <button
+              type="button"
+              className="btn-modal-cancel"
+              disabled={isSaving}
+              onClick={onClose}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="btn-modal-confirm-save"
+              disabled={isSaving || !name.trim()}
+            >
+              {isSaving ? "⏳ Saving..." : "💾 Save Preset"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 export function BacktestLive({ definitions, composites, scopes }: { definitions: StrategyDefinition[]; composites: Composite[]; scopes: Scope[] }) {
-  const client = useQueryClient(); const capabilities = useQuery({ queryKey: ["market", "capabilities"], queryFn: api.marketCapabilities }); const [pair, setPair] = useState(""); const [timeframe, setTimeframe] = useState<Timeframe | "">(""); const [from, setFrom] = useState(""); const [to, setTo] = useState(""); const [capital, setCapital] = useState(""); const [feeRatePercent, setFeeRatePercent] = useState(""); const [slippageBps, setSlippageBps] = useState(""); const [scopeId, setScopeId] = useState(""); const [definitionId, setDefinitionId] = useState(""); const [compositeId, setCompositeId] = useState(""); const [candidateId, setCandidateId] = useState<string>(); const [error, setError] = useState<unknown>();
-  const createScope = useMutation({ mutationFn: async () => { if (!pair || !timeframe) throw new Error("Select a provider-supported pair and timeframe."); const market = await api.candles(pair, timeframe); if (!market.candles.length) throw new Error("No backend market candles are available for a benchmark scope."); const fromIso = from ? new Date(from).toISOString() : market.range.from; const toIso = to ? new Date(to).toISOString() : market.range.to; if (fromIso >= toIso) throw new Error("The benchmark start must be before its end."); const initialCapital = Number(capital); const fee = Number(feeRatePercent); const slippage = Number(slippageBps); if (!Number.isFinite(initialCapital) || initialCapital <= 0 || !Number.isFinite(fee) || fee < 0 || !Number.isInteger(slippage) || slippage < 0) throw new Error("Capital, transaction cost, and slippage must use valid non-negative values."); return api.createScope({ name: `${pair} ${timeframe} ${fromIso}`, pair, timeframe, from: fromIso, to: toIso, initialCapital, feeRatePercent: fee, slippageBps: slippage }); }, onSuccess: (scope) => { setScopeId(scope.id); void client.invalidateQueries({ queryKey: ["scopes"] }); }, onError: setError });
-  const start = useMutation({ mutationFn: async () => { if (!scopeId) throw new Error("Select a benchmark scope."); const selectedComposite = composites.find((item) => item.id === compositeId); const selectedDefinition = definitions.find((item) => item.id === definitionId); if (!selectedComposite && !selectedDefinition) throw new Error("Select one saved definition or a composite."); if (selectedDefinition) return api.startBacktest({ leaderboardScopeId: scopeId, strategyDefinitionIds: [selectedDefinition.id], selectionMode: "SINGLE", maxAttempts: capabilities.data?.policyDefaults?.maxAttempts }); const ids = selectedComposite!.components.map((component) => component.strategyDefinitionId); return api.startBacktest({ leaderboardScopeId: scopeId, strategyDefinitionIds: ids, selectionMode: "COMPOSITE", compositeDefinitionId: selectedComposite!.id, maxAttempts: capabilities.data?.policyDefaults?.maxAttempts }); }, onSuccess: (candidate) => { setCandidateId(candidate.candidateId); }, onError: setError });
-  const cancel = useMutation({ mutationFn: () => candidateId ? api.cancelBacktest(candidateId) : Promise.reject(new Error("No manual candidate is active.")), onSuccess: () => { if (candidateId) void client.invalidateQueries({ queryKey: ["backtests", candidateId] }); }, onError: setError }); const candidate = useQuery({ queryKey: ["backtests", candidateId], queryFn: () => api.candidate(candidateId!), enabled: Boolean(candidateId), refetchInterval: (query) => terminalCandidate(query.state.data?.status) ? false : 1500 }); const currentCandidate = candidate.data;
-  useEffect(() => { if (capabilities.data) { setPair((current) => capabilities.data!.pairs.includes(current) ? current : capabilities.data!.pairs[0] ?? ""); setTimeframe((current) => capabilities.data!.timeframes.includes(current as Timeframe) ? current : capabilities.data!.timeframes[0] ?? ""); const defaults = capabilities.data.policyDefaults; if (defaults) { setCapital((current) => current || String(defaults.initialCapital ?? "")); setFeeRatePercent((current) => current || String(defaults.feeRatePercent ?? "")); setSlippageBps((current) => current || String(defaults.slippageBps ?? "")); } } }, [capabilities.data]);
-  useEffect(() => { if (scopes.length && !scopeId) setScopeId(scopes[0]!.id); }, [scopes, scopeId]);
-  const pairs = capabilities.data?.pairs ?? []; const timeframes = capabilities.data?.timeframes ?? [];
-  return <><div className="heading"><div><h1>Backtest & Trade Results</h1><p>Choose a backend dataset, queue a worker-backed run, and inspect reproducible evaluation output.</p></div><span className="status"><i />Backend worker</span></div><Panel title="Benchmark scope" className="scope-panel">{capabilities.isLoading ? <Loading /> : capabilities.error ? <ErrorBox error={capabilities.error} /> : null}<div className="backtest-fields"><label className="field">Pair / Coin<select value={pair} onChange={(event) => setPair(event.target.value)}>{pairs.map((item) => <option key={item}>{item}</option>)}</select></label><label className="field">Timeframe<select value={timeframe} onChange={(event) => setTimeframe(event.target.value as Timeframe)}>{timeframes.map((item) => <option key={item}>{item}</option>)}</select></label><label className="field">From date<input type="datetime-local" value={from} onChange={(event) => setFrom(event.target.value)} /></label><label className="field">To date<input type="datetime-local" value={to} onChange={(event) => setTo(event.target.value)} /></label><label className="field">Capital<input type="number" min="0" step="0.01" value={capital} onChange={(event) => setCapital(event.target.value)} /></label><label className="field">Transaction cost %<input type="number" min="0" step="0.001" value={feeRatePercent} onChange={(event) => setFeeRatePercent(event.target.value)} /></label><label className="field">Slippage bps<input type="number" min="0" step="1" value={slippageBps} onChange={(event) => setSlippageBps(event.target.value)} /></label><div><Btn primary onClick={() => createScope.mutate()} disabled={createScope.isPending || !pair || !timeframe || !capabilities.data}>{createScope.isPending ? "Creating..." : "Create snapshot + scope"}</Btn></div></div><label className="field scope-select">Saved backend scopes<select value={scopeId} onChange={(event) => setScopeId(event.target.value)}><option value="">Select scope</option>{scopes.map((scope) => <option key={scope.id} value={scope.id}>{scope.name}</option>)}</select></label>{scopes.length ? <div className="scope-list">{scopes.map((scope) => <span key={scope.id}>{scope.pair} · {scope.timeframe} · {scope.datasetRange.from} to {scope.datasetRange.to} · ${scope.initialCapital}</span>)}</div> : <Empty>No saved scopes for this account yet.</Empty>}</Panel><Panel title="Submit manual run"><div className="toolbar"><label className="field">Strategy definition<select value={definitionId} onChange={(event) => { setDefinitionId(event.target.value); setCompositeId(""); }}><option value="">Single definition (optional)</option>{definitions.map((definition) => <option key={definition.id} value={definition.id}>{definition.strategyName} · v{definition.version}</option>)}</select></label><label className="field">Composite strategy<select value={compositeId} onChange={(event) => { setCompositeId(event.target.value); setDefinitionId(""); }}><option value="">Composite (optional)</option>{composites.map((composite) => <option key={composite.id} value={composite.id}>{composite.method} · {composite.components.length} components</option>)}</select></label><Btn primary disabled={!scopeId || (!definitionId && !compositeId) || start.isPending} onClick={() => start.mutate()}>{start.isPending ? "Queueing..." : "Queue backtest"}</Btn></div><ErrorBox error={error ?? start.error ?? createScope.error} />{candidateId && (candidate.isLoading ? <Loading /> : currentCandidate ? <><div className="lifecycle"><span className={currentCandidate.status === "QUEUED" ? "active" : ""}>Queued</span><span className={currentCandidate.status === "BACKTESTING" ? "active" : ""}>Running</span><span className={currentCandidate.status === "COMPLETED" ? "active success-text" : ""}>Completed</span><span className={currentCandidate.status === "FAILED" ? "active error-text" : ""}>Failed</span><span className={currentCandidate.status === "CANCELLED" ? "active error-text" : ""}>Cancelled</span></div><p><b>{currentCandidate.candidateId}</b> <span className={`badge ${currentCandidate.status}`}>{currentCandidate.status}</span></p>{!terminalCandidate(currentCandidate.status) && <Btn onClick={() => cancel.mutate()} disabled={cancel.isPending}>{cancel.isPending ? "Cancelling..." : "Cancel manual backtest"}</Btn>}{currentCandidate.status === "COMPLETED" && currentCandidate.experimentResultId ? <ExperimentDetail id={currentCandidate.experimentResultId} /> : !terminalCandidate(currentCandidate.status) ? <p className="muted">Backend worker is processing this candidate...</p> : <><p className="error">{currentCandidate.lastError || currentCandidate.failureCode || `Candidate ended ${currentCandidate.status}.`}</p><p className="muted">The backend retained the audit result; no failed run was promoted to an Experiment.</p></>}</> : candidate.error ? <ErrorBox error={candidate.error} /> : null)}</Panel></>;
+  const client = useQueryClient();
+  const capabilities = useQuery({ queryKey: ["market", "capabilities"], queryFn: api.marketCapabilities });
+  const [pair, setPair] = useState("");
+  const [timeframe, setTimeframe] = useState<Timeframe | "">("");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [capital, setCapital] = useState("");
+  const [feeRatePercent, setFeeRatePercent] = useState("");
+  const [slippageBps, setSlippageBps] = useState("");
+  const [scopeId, setScopeId] = useState("");
+  const [definitionId, setDefinitionId] = useState("");
+  const [compositeId, setCompositeId] = useState("");
+  const [candidateId, setCandidateId] = useState<string>();
+  const [error, setError] = useState<unknown>();
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [isCreatingScope, setIsCreatingScope] = useState(false);
+  const [isDeletingScope, setIsDeletingScope] = useState(false);
+  const [scopeSuccessMessage, setScopeSuccessMessage] = useState<string | null>(null);
+  const [scopeToDelete, setScopeToDelete] = useState<Scope | null>(null);
+  const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+
+  const customNamesMap: Record<string, string> = React.useMemo(() => {
+    try {
+      const raw = localStorage.getItem("cryptox_strategy_custom_names_v1");
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  }, [definitions, composites]);
+
+  useEffect(() => {
+    if (capabilities.data) {
+      setPair((current) => capabilities.data!.pairs.includes(current) ? current : capabilities.data!.pairs[0] ?? "");
+      setTimeframe((current) => capabilities.data!.timeframes.includes(current as Timeframe) ? current : capabilities.data!.timeframes[0] ?? "");
+      const defaults = capabilities.data.policyDefaults;
+      if (defaults) {
+        setCapital((current) => current || String(defaults.initialCapital ?? "10000"));
+        setFeeRatePercent((current) => current || String(defaults.feeRatePercent ?? "0.1"));
+        setSlippageBps((current) => current || String(defaults.slippageBps ?? "5"));
+      }
+    }
+  }, [capabilities.data]);
+
+  useEffect(() => {
+    if (!definitionId && !compositeId) {
+      if (definitions.length) {
+        setDefinitionId(definitions[0]!.id);
+      } else if (composites.length) {
+        setCompositeId(composites[0]!.id);
+      }
+    }
+  }, [definitions, composites, definitionId, compositeId]);
+
+  const cancel = useMutation({
+    mutationFn: () => candidateId ? api.cancelBacktest(candidateId) : Promise.reject(new Error("No manual candidate is active.")),
+    onSuccess: () => {
+      if (candidateId) void client.invalidateQueries({ queryKey: ["backtests", candidateId] });
+    },
+    onError: setError,
+  });
+
+  const candidate = useQuery({
+    queryKey: ["backtests", candidateId],
+    queryFn: () => api.candidate(candidateId!),
+    enabled: Boolean(candidateId),
+    refetchInterval: (query) => terminalCandidate(query.state.data?.status) ? false : 1500,
+  });
+  const currentCandidate = candidate.data;
+
+  const pairs = capabilities.data?.pairs ?? [];
+  const timeframes = capabilities.data?.timeframes ?? [];
+
+  const handleOpenSavePresetModal = () => {
+    setError(undefined);
+    setScopeSuccessMessage(null);
+    try {
+      if (!pair || !pair.trim()) throw new Error("Please select a trading pair.");
+      if (!timeframe || !timeframe.trim()) throw new Error("Please select a timeframe.");
+      if (!from || !from.trim()) throw new Error("Please specify a start date and time (From).");
+      if (!to || !to.trim()) throw new Error("Please specify an end date and time (To).");
+      const fromDate = new Date(from);
+      const toDate = new Date(to);
+      if (isNaN(fromDate.getTime())) throw new Error("The specified From date/time is invalid.");
+      if (isNaN(toDate.getTime())) throw new Error("The specified To date/time is invalid.");
+      if (fromDate.getTime() >= toDate.getTime()) throw new Error("The start date (From) must be before the end date (To).");
+      const numCapital = Number(capital);
+      if (!capital || !capital.trim() || isNaN(numCapital) || numCapital <= 0) throw new Error("Initial Capital must be a positive number greater than 0.");
+      const numFee = Number(feeRatePercent);
+      if (feeRatePercent === "" || isNaN(numFee) || numFee < 0) throw new Error("Transaction Cost (%) must be a valid number 0 or greater.");
+      const numSlippage = Number(slippageBps);
+      if (slippageBps === "" || isNaN(numSlippage) || !Number.isInteger(numSlippage) || numSlippage < 0) throw new Error("Slippage must be a non-negative whole number in basis points (e.g. 5 bps).");
+
+      setIsSaveModalOpen(true);
+    } catch (err) {
+      setError(err);
+    }
+  };
+
+  const handleExecuteSaveScope = async (presetName: string) => {
+    setError(undefined);
+    setScopeSuccessMessage(null);
+    setIsCreatingScope(true);
+    try {
+      const fromDate = new Date(from);
+      const toDate = new Date(to);
+      const numCapital = Number(capital);
+      const numFee = Number(feeRatePercent);
+      const numSlippage = Number(slippageBps);
+
+      const market = await api.candles(pair, timeframe as Timeframe);
+      if (!market.candles.length) throw new Error(`No market data candles available for ${pair} (${timeframe}).`);
+      const fromIso = fromDate.toISOString();
+      const toIso = toDate.toISOString();
+
+      const created = await api.createScope({
+        name: presetName,
+        pair,
+        timeframe,
+        from: fromIso,
+        to: toIso,
+        initialCapital: numCapital,
+        feeRatePercent: numFee,
+        slippageBps: numSlippage,
+      });
+      setScopeId(created.id);
+      setIsSaveModalOpen(false);
+      void client.invalidateQueries({ queryKey: ["scopes"] });
+      setScopeSuccessMessage(`Scope preset "${created.name || created.id}" created successfully.`);
+    } catch (err) {
+      setError(err);
+    } finally {
+      setIsCreatingScope(false);
+    }
+  };
+
+  const handleConfirmDeleteScope = async () => {
+    if (!scopeToDelete) return;
+    setError(undefined);
+    setScopeSuccessMessage(null);
+    setIsDeletingScope(true);
+    try {
+      await api.deleteScope(scopeToDelete.id);
+      setScopeId("");
+      const deletedName = scopeToDelete.name || scopeToDelete.id;
+      setScopeToDelete(null);
+      void client.invalidateQueries({ queryKey: ["scopes"] });
+      setScopeSuccessMessage(`Scope preset "${deletedName}" deleted successfully.`);
+    } catch (err) {
+      setError(err);
+    } finally {
+      setIsDeletingScope(false);
+    }
+  };
+
+  const handleRunBacktest = async () => {
+    setError(undefined);
+    setScopeSuccessMessage(null);
+    setIsProcessing(true);
+    try {
+      if (!definitionId && !compositeId) {
+        throw new Error("Please select a strategy or composite ensemble to test.");
+      }
+
+      let activeScopeId = scopeId;
+      const matchedScope = scopes.find((s) => s.id === scopeId);
+      
+      const matchedFromTime = matchedScope?.datasetRange?.from ? new Date(matchedScope.datasetRange.from).getTime() : 0;
+      const matchedToTime = matchedScope?.datasetRange?.to ? new Date(matchedScope.datasetRange.to).getTime() : 0;
+      const currentFromTime = from ? new Date(from).getTime() : 0;
+      const currentToTime = to ? new Date(to).getTime() : 0;
+
+      const isCustomized = !matchedScope ||
+        matchedScope.pair !== pair ||
+        matchedScope.timeframe !== timeframe ||
+        (currentFromTime > 0 && matchedFromTime > 0 && Math.abs(currentFromTime - matchedFromTime) > 60000) ||
+        (currentToTime > 0 && matchedToTime > 0 && Math.abs(currentToTime - matchedToTime) > 60000) ||
+        (capital && matchedScope.initialCapital !== Number(capital)) ||
+        (feeRatePercent && matchedScope.feeRatePercent !== Number(feeRatePercent)) ||
+        (slippageBps && matchedScope.slippageBps !== Number(slippageBps));
+
+      if (!activeScopeId || isCustomized) {
+        if (!pair || !pair.trim()) throw new Error("Please select a trading pair.");
+        if (!timeframe || !timeframe.trim()) throw new Error("Please select a timeframe.");
+        if (!from || !from.trim() || !to || !to.trim()) throw new Error("Please specify both From and To dates.");
+        const fromDate = new Date(from);
+        const toDate = new Date(to);
+        if (isNaN(fromDate.getTime()) || isNaN(toDate.getTime())) throw new Error("The specified date range is invalid.");
+        if (fromDate.getTime() >= toDate.getTime()) throw new Error("The start date (From) must be before the end date (To).");
+        const initialCapital = Number(capital);
+        if (!capital || isNaN(initialCapital) || initialCapital <= 0) throw new Error("Initial Capital must be a positive number greater than 0.");
+        const fee = Number(feeRatePercent);
+        if (feeRatePercent === "" || isNaN(fee) || fee < 0) throw new Error("Transaction cost (%) must be 0 or greater.");
+        const slippage = Number(slippageBps);
+        if (slippageBps === "" || isNaN(slippage) || !Number.isInteger(slippage) || slippage < 0) throw new Error("Slippage must be a non-negative whole number.");
+
+        const market = await api.candles(pair, timeframe as Timeframe);
+        if (!market.candles.length) throw new Error(`No market data candles available for ${pair} (${timeframe}).`);
+        const fromIso = fromDate.toISOString();
+        const toIso = toDate.toISOString();
+
+        const created = await api.createScope({
+          name: `${pair} ${timeframe} ${fromIso.slice(0, 10)}`,
+          pair,
+          timeframe,
+          from: fromIso,
+          to: toIso,
+          initialCapital,
+          feeRatePercent: fee,
+          slippageBps: slippage,
+        });
+        activeScopeId = created.id;
+        setScopeId(created.id);
+        void client.invalidateQueries({ queryKey: ["scopes"] });
+      }
+
+      const selectedComposite = composites.find((item) => item.id === compositeId);
+      const selectedDefinition = definitions.find((item) => item.id === definitionId);
+
+      let candidateResult: Candidate;
+      if (selectedDefinition) {
+        candidateResult = await api.startBacktest({
+          leaderboardScopeId: activeScopeId,
+          strategyDefinitionIds: [selectedDefinition.id],
+          selectionMode: "SINGLE",
+          maxAttempts: capabilities.data?.policyDefaults?.maxAttempts,
+        });
+      } else {
+        const ids = selectedComposite!.components.map((c) => c.strategyDefinitionId);
+        candidateResult = await api.startBacktest({
+          leaderboardScopeId: activeScopeId,
+          strategyDefinitionIds: ids,
+          selectionMode: "COMPOSITE",
+          compositeDefinitionId: selectedComposite!.id,
+          maxAttempts: capabilities.data?.policyDefaults?.maxAttempts,
+        });
+      }
+      setCandidateId(candidateResult.candidateId);
+    } catch (err) {
+      setError(err);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const currentScope = scopes.find((s) => s.id === scopeId);
+
+  return (
+    <>
+      <div className="heading">
+        <div>
+          <h1>Backtest &amp; Trade Results</h1>
+          <p>Select coin, test period, capital, strategy and evaluate performance</p>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+          <span className="status">
+            <i />
+            Data source: Binance API + WebSocket
+          </span>
+        </div>
+      </div>
+
+      {capabilities.isLoading ? <Loading /> : capabilities.error ? <ErrorBox error={capabilities.error} /> : null}
+
+      {/* Top Clean Control Bar (matching reference layout) */}
+      <div className="backtest-top-bar">
+        <div className="backtest-controls-row">
+          {/* 1. Pair / Coin */}
+          <div className="backtest-field-item field-pair">
+            <label className="backtest-label">Pair / Coin</label>
+            <div className="backtest-select-wrapper">
+              <span className="coin-icon">
+                {pair.startsWith("BTC") ? "₿" : pair.startsWith("ETH") ? "Ξ" : pair.startsWith("SOL") ? "◎" : "🪙"}
+              </span>
+              <select
+                value={pair}
+                onChange={(e) => setPair(e.target.value)}
+              >
+                {pairs.map((item) => (
+                  <option key={item} value={item}>{item}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* 2. Timeframe */}
+          <div className="backtest-field-item field-timeframe">
+            <label className="backtest-label">Timeframe</label>
+            <select
+              value={timeframe}
+              onChange={(e) => setTimeframe(e.target.value as Timeframe)}
+            >
+              {timeframes.map((item) => (
+                <option key={item} value={item}>{item}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* 3. From date */}
+          <div className="backtest-field-item field-date">
+            <label className="backtest-label">From date</label>
+            <input
+              type="datetime-local"
+              value={from ? (from.length === 10 ? `${from}T00:00` : from.slice(0, 16)) : ""}
+              onChange={(e) => setFrom(e.target.value)}
+            />
+          </div>
+
+          {/* 4. To date */}
+          <div className="backtest-field-item field-date">
+            <label className="backtest-label">To date</label>
+            <input
+              type="datetime-local"
+              value={to ? (to.length === 10 ? `${to}T23:59` : to.slice(0, 16)) : ""}
+              onChange={(e) => setTo(e.target.value)}
+            />
+          </div>
+
+          {/* 5. Capital (USD) */}
+          <div className="backtest-field-item field-capital">
+            <label className="backtest-label">Capital (USD)</label>
+            <div className="backtest-input-with-suffix">
+              <input
+                type="number"
+                min="1"
+                step="any"
+                value={capital}
+                onChange={(e) => setCapital(e.target.value)}
+                placeholder="10000"
+              />
+              <span className="input-suffix">USD</span>
+            </div>
+          </div>
+
+          {/* 6. Strategy */}
+          <div className="backtest-field-item field-strategy">
+            <label className="backtest-label">Strategy</label>
+            <select
+              value={definitionId ? `single:${definitionId}` : compositeId ? `composite:${compositeId}` : ""}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val.startsWith("single:")) {
+                  setDefinitionId(val.replace("single:", ""));
+                  setCompositeId("");
+                } else if (val.startsWith("composite:")) {
+                  setCompositeId(val.replace("composite:", ""));
+                  setDefinitionId("");
+                } else {
+                  setDefinitionId("");
+                  setCompositeId("");
+                }
+              }}
+            >
+              <option value="">Select strategy...</option>
+              {definitions.length > 0 && (
+                <optgroup label="Single Strategies">
+                  {definitions.map((d) => (
+                    <option key={d.id} value={`single:${d.id}`}>
+                      {customNamesMap[d.id] ?? d.familyName ?? d.strategyName} (v{d.version})
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              {composites.length > 0 && (
+                <optgroup label="Composite Ensembles">
+                  {composites.map((c) => (
+                    <option key={c.id} value={`composite:${c.id}`}>
+                      🔀 {customNamesMap[c.id] ?? (c.method === "MAJORITY_VOTE" ? "Majority Vote Ensemble" : "Weighted Scoring Ensemble")} ({c.components.length} components)
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+            </select>
+          </div>
+
+          {/* 7. Transaction Cost */}
+          <div className="backtest-field-item field-fee">
+            <label className="backtest-label">Transaction Cost</label>
+            <div className="backtest-input-with-suffix">
+              <input
+                type="number"
+                min="0"
+                step="any"
+                value={feeRatePercent}
+                onChange={(e) => setFeeRatePercent(e.target.value)}
+                placeholder="0.1"
+              />
+              <span className="input-suffix">%</span>
+            </div>
+          </div>
+
+          {/* 8. Slippage */}
+          <div className="backtest-field-item field-slippage">
+            <label className="backtest-label">Slippage</label>
+            <div className="backtest-input-with-suffix">
+              <input
+                type="number"
+                min="0"
+                step="1"
+                value={slippageBps}
+                onChange={(e) => setSlippageBps(e.target.value)}
+                placeholder="5"
+              />
+              <span className="input-suffix">bps</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Sub-bar: Scope Preset selector + Run Button */}
+        <div className="backtest-sub-bar">
+          <div className="scope-preset-group">
+            <span className="scope-preset-label">Scope Preset:</span>
+            <select
+              className="scope-preset-select"
+              value={scopeId}
+              onChange={(e) => {
+                const selectedId = e.target.value;
+                setScopeId(selectedId);
+                setScopeSuccessMessage(null);
+                setError(undefined);
+                const found = scopes.find((s) => s.id === selectedId);
+                if (found) {
+                  setPair(found.pair);
+                  setTimeframe(found.timeframe);
+                  if (found.datasetRange?.from) setFrom(found.datasetRange.from.slice(0, 16));
+                  if (found.datasetRange?.to) setTo(found.datasetRange.to.slice(0, 16));
+                  setCapital(String(found.initialCapital));
+                  setFeeRatePercent(String(found.feeRatePercent));
+                  setSlippageBps(String(found.slippageBps));
+                }
+              }}
+            >
+              <option value="">⚙️ Auto-Create / Custom</option>
+              {scopes.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name || `${s.pair} · ${s.timeframe} · $${s.initialCapital}`}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              className="btn-create-scope-preset"
+              disabled={isCreatingScope || isProcessing || isDeletingScope}
+              onClick={handleOpenSavePresetModal}
+              title="Save current top-bar parameters as a new scope preset"
+            >
+              {isCreatingScope ? "⏳ Saving..." : "＋ Save as Preset"}
+            </button>
+            {scopeId && currentScope && (
+              <button
+                type="button"
+                className="btn-delete-scope-preset"
+                disabled={isDeletingScope || isProcessing || isCreatingScope}
+                onClick={() => setScopeToDelete(currentScope)}
+                title="Delete the currently selected preset"
+              >
+                {isDeletingScope ? "⏳ Deleting..." : "🗑️ Delete Preset"}
+              </button>
+            )}
+            {scopeSuccessMessage && (
+              <span className="scope-active-pill" style={{ background: "#dcfce7", borderColor: "#86efac", color: "#15803d" }}>
+                ✓ {scopeSuccessMessage}
+              </span>
+            )}
+            {!scopeSuccessMessage && currentScope && (
+              <span className="scope-active-pill">
+                ✓ Loaded: {currentScope.name || `${currentScope.pair} · ${currentScope.timeframe}`}
+              </span>
+            )}
+          </div>
+
+          <div className="backtest-actions-cluster">
+            <button
+              type="button"
+              className="btn-run-backtest-primary"
+              disabled={isProcessing || (!definitionId && !compositeId)}
+              onClick={() => void handleRunBacktest()}
+            >
+              {isProcessing ? "⏳ Running..." : "🚀 Run Backtest"}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <ErrorBox error={error} />
+
+      {/* Candidate Status & Experiment Detail */}
+      {candidateId && (
+        <div className="backtest-status-card">
+          {candidate.isLoading ? (
+            <Loading />
+          ) : currentCandidate ? (
+            <>
+              <div className="lifecycle-header">
+                <div className="lifecycle-id-group">
+                  <span className="lifecycle-title">Manual Run: <b>{currentCandidate.candidateId}</b></span>
+                  <span className={`status-badge-pill badge-${currentCandidate.status.toLowerCase()}`}>
+                    {currentCandidate.status === "QUEUED" ? "⏳ Queued" : currentCandidate.status === "BACKTESTING" ? "⚡ Running" : currentCandidate.status === "COMPLETED" ? "✓ Completed" : currentCandidate.status}
+                  </span>
+                </div>
+                {!terminalCandidate(currentCandidate.status) && (
+                  <button
+                    type="button"
+                    className="btn-cancel-backtest"
+                    onClick={() => cancel.mutate()}
+                    disabled={cancel.isPending}
+                  >
+                    {cancel.isPending ? "Cancelling..." : "Cancel Run"}
+                  </button>
+                )}
+              </div>
+
+              <div className="lifecycle">
+                <span className={currentCandidate.status === "QUEUED" ? "active" : ""}>Queued in Redis</span>
+                <span className={currentCandidate.status === "BACKTESTING" ? "active" : ""}>Worker Simulating</span>
+                <span className={currentCandidate.status === "COMPLETED" ? "active success-text" : ""}>Completed &amp; Sealed</span>
+                {currentCandidate.status === "FAILED" && <span className="active error-text">Failed</span>}
+                {currentCandidate.status === "CANCELLED" && <span className="active error-text">Cancelled</span>}
+              </div>
+
+              {currentCandidate.status === "COMPLETED" && currentCandidate.experimentResultId ? (
+                <ExperimentDetail id={currentCandidate.experimentResultId} />
+              ) : !terminalCandidate(currentCandidate.status) ? (
+                <p className="muted" style={{ textAlign: "center", margin: "14px 0" }}>
+                  Backend worker is processing this candidate tick-by-tick...
+                </p>
+              ) : (
+                <div style={{ marginTop: "12px" }}>
+                  <p className="error">{currentCandidate.lastError || currentCandidate.failureCode || `Candidate ended ${currentCandidate.status}.`}</p>
+                  <small className="muted">The backend retained the audit result; no failed run was promoted to an Experiment.</small>
+                </div>
+              )}
+            </>
+          ) : candidate.error ? (
+            <ErrorBox error={candidate.error} />
+          ) : null}
+        </div>
+      )}
+
+      {scopeToDelete && (
+        <DeleteScopeModal
+          scope={scopeToDelete}
+          isDeleting={isDeletingScope}
+          onClose={() => setScopeToDelete(null)}
+          onConfirm={() => void handleConfirmDeleteScope()}
+        />
+      )}
+
+      {isSaveModalOpen && (
+        <SaveScopeModal
+          defaultName={`${pair} ${timeframe} ${from ? from.slice(0, 10) : ""}`}
+          pair={pair}
+          timeframe={timeframe}
+          from={from}
+          to={to}
+          capital={capital}
+          fee={feeRatePercent}
+          slippage={slippageBps}
+          isSaving={isCreatingScope}
+          onClose={() => setIsSaveModalOpen(false)}
+          onConfirm={(name) => void handleExecuteSaveScope(name)}
+        />
+      )}
+    </>
+  );
 }
 
 export function RankingTable({ rows }: { rows: SearchRankingEntry[] }) {

@@ -136,6 +136,7 @@ export const api = {
   snapshot: (body: { pair: string; timeframe: Timeframe; from: string; to: string }) => request<{ id: string }>("/market/snapshots", json(body), (value) => dto<{ id: string }>(value, "snapshot")),
   scopes: () => request<Scope[]>("/leaderboard-scopes", {}, (value) => arrayDto<unknown>(value, "benchmark scopes").map(normalizeScope)),
   createScope: (body: unknown) => request<Scope>("/leaderboard-scopes", json(body), normalizeScope),
+  deleteScope: (id: string) => request<{ id: string; deleted: boolean }>(`/leaderboard-scopes/${encodeURIComponent(id)}`, { method: "DELETE" }),
   startBacktest: (body: { leaderboardScopeId: string; strategyDefinitionIds: string[]; selectionMode?: "SINGLE" | "COMPOSITE"; compositeDefinitionId?: string; maxAttempts?: number }) => request<Candidate>("/backtests", json(body, { "idempotency-key": idempotencyKey() }), normalizeCandidate),
   backtest: (body: { leaderboardScopeId: string; strategyDefinitionIds: string[]; selectionMode?: "SINGLE" | "COMPOSITE"; compositeDefinitionId?: string; maxAttempts?: number }) => api.startBacktest(body),
   candidate: (id: string) => request<Candidate>(`/backtests/${encodeURIComponent(id)}`, {}, normalizeCandidate),
