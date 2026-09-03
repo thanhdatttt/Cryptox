@@ -802,6 +802,36 @@ function DeleteConfirmationModal({
   );
 }
 
+function getPaginationRange(current: number, total: number): Array<number | "..."> {
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, i) => i + 1);
+  }
+  if (current <= 4) {
+    return [1, 2, 3, 4, 5, "...", total];
+  }
+  if (current >= total - 3) {
+    return [1, "...", total - 4, total - 3, total - 2, total - 1, total];
+  }
+  return [1, "...", current - 1, current, current + 1, "...", total];
+}
+
+interface UnifiedStrategyItem {
+  id: string;
+  kind: "DRAFT" | "DEFINITION" | "COMPOSITE";
+  name: string;
+  subName: string;
+  sourceType: string;
+  sourceBadge: string;
+  badgeClass: string;
+  createdAt: string;
+  versionLabel: string;
+  parametersSummary: string;
+  status: "DRAFT" | "SAVED";
+  rawDraft?: StrategyDraft;
+  rawDefinition?: StrategyDefinition;
+  rawComposite?: Composite;
+}
+
 function SavedStrategiesTable({
   definitions,
   composites,
@@ -826,6 +856,9 @@ function SavedStrategiesTable({
   onDeleteSavedStrategy: (id: string) => void;
 }) {
   const [filter, setFilter] = useState<"ALL" | "USER_PROMPT" | "WEB_IMPORT" | "MANUAL_BUILDER" | "COMPOSITE_BUILDER" | "DRAFTS">("ALL");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [pageSize, setPageSize] = useState(10);
+  const [pageIndex, setPageIndex] = useState(1);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const provenanceMap = useMemo(() => loadProvenanceMap(), [definitions.data, drafts]);
   const customNamesMap = useMemo(() => loadCustomNamesMap(), [definitions.data, composites.data, drafts]);
@@ -836,47 +869,222 @@ function SavedStrategiesTable({
   const totalDrafts = unsavedDrafts.length;
   const totalCount = totalSingle + totalComposite + totalDrafts;
 
-  const showDrafts = filter === "ALL" || filter === "DRAFTS";
-  const showSingle = filter === "ALL" || filter === "USER_PROMPT" || filter === "WEB_IMPORT" || filter === "MANUAL_BUILDER";
-  const showComposite = filter === "ALL" || filter === "COMPOSITE_BUILDER";
+  const allItems = useMemo<UnifiedStrategyItem[]>(() => {
+    const list: UnifiedStrategyItem[] = [];
+
+    // 1. Unsaved Drafts
+    for (const draft of unsavedDrafts) {
+      const isCompDraft = draft.kind === "COMPOSITE" || Boolean(draft.composite);
+      const sourceBadge =
+        draft.sourceType === "WEB_IMPORT"
+          ? "↗ Web Import"
+          : draft.sourceType === "MANUAL_BUILDER"
+          ? "🛠️ Manual Builder"
+          : draft.sourceType === "COMPOSITE_BUILDER"
+          ? "🔀 Composite Builder"
+          : "✦ User Prompt";
+      const badgeClass =
+        draft.sourceType === "WEB_IMPORT"
+          ? "badge-web-import"
+          : draft.sourceType === "MANUAL_BUILDER"
+          ? "badge-manual-builder"
+          : draft.sourceType === "COMPOSITE_BUILDER"
+          ? "badge-composite-builder"
+          : "badge-user-prompt";
+      const draftTitle = customNamesMap[draft.id] ?? (draft.name || (isCompDraft ? "Composite Ensemble" : draft.strategyName));
+      const draftSub = isCompDraft ? "Multi-Indicator Ensemble · Active Draft" : `${draft.strategyName} · Active Draft`;
+      const logicSummary = isCompDraft && draft.composite
+        ? (draft.composite.thresholds
+            ? `${draft.composite.components.length} components · Buy ≥ ${draft.composite.thresholds.buy}, Sell ≤ ${draft.composite.thresholds.sell}`
+            : `${draft.composite.components.length} components · Strict majority consensus`)
+        : Object.entries(draft.parameters)
+            .map(([k, v]) => `${k}: ${v}`)
+            .join(" · ") || "Standard Parameters";
+
+      list.push({
+        id: draft.id,
+        kind: "DRAFT",
+        name: draftTitle,
+        subName: draftSub,
+        sourceType: draft.sourceType,
+        sourceBadge,
+        badgeClass,
+        createdAt: draft.createdAt,
+        versionLabel: "Draft",
+        parametersSummary: logicSummary,
+        status: "DRAFT",
+        rawDraft: draft,
+      });
+    }
+
+    // 2. Persisted Single Strategies
+    if (definitions.data) {
+      for (const item of definitions.data) {
+        const source = resolveStrategySource(item, provenanceMap);
+        const sourceLabel =
+          source === "WEB_IMPORT"
+            ? "↗ Web Import"
+            : source === "MANUAL_BUILDER"
+            ? "🛠️ Manual Builder"
+            : "✦ User Prompt";
+        const badgeClass =
+          source === "WEB_IMPORT"
+            ? "badge-web-import"
+            : source === "MANUAL_BUILDER"
+            ? "badge-manual-builder"
+            : "badge-user-prompt";
+        const stratName = customNamesMap[item.id] ?? item.familyName ?? item.strategyName;
+
+        list.push({
+          id: item.id,
+          kind: "DEFINITION",
+          name: stratName,
+          subName: item.strategyName,
+          sourceType: source,
+          sourceBadge: sourceLabel,
+          badgeClass,
+          createdAt: item.createdAt,
+          versionLabel: `v${item.version}`,
+          parametersSummary: parameterSummary(item),
+          status: "SAVED",
+          rawDefinition: item,
+        });
+      }
+    }
+
+    // 3. Persisted Composite Strategies
+    if (composites.data) {
+      for (const comp of composites.data) {
+        const methodLabel = customNamesMap[comp.id] ?? (comp.method === "MAJORITY_VOTE" ? "Majority Vote Ensemble" : "Weighted Scoring Ensemble");
+        const compNames = comp.components
+          .map((c) => {
+            const found = definitions.data?.find((d) => d.id === c.strategyDefinitionId);
+            return found?.strategyName ?? "Strategy";
+          })
+          .join(" + ");
+        const logicSummary = comp.method === "WEIGHTED_SCORE" && comp.thresholds
+          ? `${comp.components.length} components (${compNames}) · Buy ≥ ${comp.thresholds.buy}, Sell ≤ ${comp.thresholds.sell}`
+          : `${comp.components.length} components (${compNames}) · Strict majority consensus`;
+
+        list.push({
+          id: comp.id,
+          kind: "COMPOSITE",
+          name: `🔀 ${methodLabel}`,
+          subName: "Multi-Indicator Ensemble",
+          sourceType: "COMPOSITE_BUILDER",
+          sourceBadge: "🔀 Composite Builder",
+          badgeClass: "badge-composite-builder",
+          createdAt: comp.createdAt,
+          versionLabel: `v${comp.version}`,
+          parametersSummary: logicSummary,
+          status: "SAVED",
+          rawComposite: comp,
+        });
+      }
+    }
+
+    // Sort newest first
+    return list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }, [unsavedDrafts, definitions.data, composites.data, provenanceMap, customNamesMap]);
+
+  const filteredItems = useMemo(() => {
+    let result = allItems;
+
+    // 1. Tab Filter
+    if (filter === "DRAFTS") {
+      result = result.filter((item) => item.status === "DRAFT");
+    } else if (filter === "COMPOSITE_BUILDER") {
+      result = result.filter((item) => item.kind === "COMPOSITE" || item.sourceType === "COMPOSITE_BUILDER");
+    } else if (filter !== "ALL") {
+      result = result.filter((item) => item.sourceType === filter && item.status === "SAVED");
+    }
+
+    // 2. Search Query Filter
+    const q = searchQuery.trim().toLowerCase();
+    if (q) {
+      result = result.filter(
+        (item) =>
+          item.name.toLowerCase().includes(q) ||
+          item.subName.toLowerCase().includes(q) ||
+          item.parametersSummary.toLowerCase().includes(q)
+      );
+    }
+
+    return result;
+  }, [allItems, filter, searchQuery]);
+
+  // Pagination
+  const totalFiltered = filteredItems.length;
+  const totalPages = Math.max(1, Math.ceil(totalFiltered / pageSize));
+  const currentPage = Math.min(pageIndex, totalPages);
+  const startIdx = totalFiltered > 0 ? (currentPage - 1) * pageSize : 0;
+  const endIdx = Math.min(startIdx + pageSize, totalFiltered);
+  const displayedItems = filteredItems.slice(startIdx, endIdx);
+
+  const handleInspect = (item: UnifiedStrategyItem) => {
+    if (item.rawDraft) {
+      onSelectDraft(item.rawDraft);
+    } else if (item.rawDefinition) {
+      onSelectDefinition(item.rawDefinition);
+    } else if (item.rawComposite) {
+      onSelectComposite(item.rawComposite);
+    }
+    // Smooth scroll to top of page to view strategy details
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
 
   return (
     <Panel title="Saved Strategies & Drafts" className="strategy-library-panel">
-      {/* Table Filter Tabs */}
+      {/* Table Filter & Search Bar */}
       <div className="table-filter-bar">
         <div className="table-filter-tabs">
           <button
             type="button"
             className={`filter-tab-btn ${filter === "ALL" ? "active" : ""}`}
-            onClick={() => setFilter("ALL")}
+            onClick={() => {
+              setFilter("ALL");
+              setPageIndex(1);
+            }}
           >
             All <span className="tab-count-badge">{totalCount}</span>
           </button>
           <button
             type="button"
             className={`filter-tab-btn ${filter === "USER_PROMPT" ? "active" : ""}`}
-            onClick={() => setFilter("USER_PROMPT")}
+            onClick={() => {
+              setFilter("USER_PROMPT");
+              setPageIndex(1);
+            }}
           >
             ✦ User Prompt
           </button>
           <button
             type="button"
             className={`filter-tab-btn ${filter === "WEB_IMPORT" ? "active" : ""}`}
-            onClick={() => setFilter("WEB_IMPORT")}
+            onClick={() => {
+              setFilter("WEB_IMPORT");
+              setPageIndex(1);
+            }}
           >
             ↗ Web Import
           </button>
           <button
             type="button"
             className={`filter-tab-btn ${filter === "MANUAL_BUILDER" ? "active" : ""}`}
-            onClick={() => setFilter("MANUAL_BUILDER")}
+            onClick={() => {
+              setFilter("MANUAL_BUILDER");
+              setPageIndex(1);
+            }}
           >
             🛠️ Manual Builder
           </button>
           <button
             type="button"
             className={`filter-tab-btn ${filter === "COMPOSITE_BUILDER" ? "active" : ""}`}
-            onClick={() => setFilter("COMPOSITE_BUILDER")}
+            onClick={() => {
+              setFilter("COMPOSITE_BUILDER");
+              setPageIndex(1);
+            }}
           >
             🔀 Composite Builder <span className="tab-count-badge">{totalComposite}</span>
           </button>
@@ -884,9 +1092,40 @@ function SavedStrategiesTable({
             <button
               type="button"
               className={`filter-tab-btn tab-drafts ${filter === "DRAFTS" ? "active" : ""}`}
-              onClick={() => setFilter("DRAFTS")}
+              onClick={() => {
+                setFilter("DRAFTS");
+                setPageIndex(1);
+              }}
             >
               ○ Drafts <span className="tab-count-badge draft">{totalDrafts}</span>
+            </button>
+          )}
+        </div>
+
+        {/* Search Input Box */}
+        <div className="table-search-box">
+          <span className="search-icon">🔍</span>
+          <input
+            type="text"
+            className="table-search-input"
+            placeholder="Search strategy by name..."
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setPageIndex(1);
+            }}
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              className="btn-clear-search"
+              onClick={() => {
+                setSearchQuery("");
+                setPageIndex(1);
+              }}
+              title="Clear search"
+            >
+              ✕
             </button>
           )}
         </div>
@@ -896,247 +1135,102 @@ function SavedStrategiesTable({
         <Loading />
       ) : definitions.error || composites.error ? (
         <ErrorBox error={definitions.error ?? composites.error} />
-      ) : totalCount > 0 ? (
-        <div className="strategy-table-scroll">
-          <table className="strategy-table">
-            <thead>
-              <tr>
-                <th style={{ width: "22%" }}>Strategy</th>
-                <th style={{ width: "16%" }}>Source</th>
-                <th style={{ width: "14%" }}>Created</th>
-                <th style={{ width: "8%" }}>Version</th>
-                <th style={{ width: "22%" }}>Parameters / Logic</th>
-                <th style={{ width: "8%" }}>Status</th>
-                <th style={{ width: "10%", textAlign: "right" }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {/* 1. Unsaved Drafts */}
-              {showDrafts &&
-                unsavedDrafts
-                  .filter((draft) => {
-                    if (filter === "ALL" || filter === "DRAFTS") return true;
-                    if (filter === "COMPOSITE_BUILDER" && (draft.kind === "COMPOSITE" || draft.sourceType === "COMPOSITE_BUILDER")) return true;
-                    return draft.sourceType === filter;
-                  })
-                  .map((draft) => {
-                    const isCompDraft = draft.kind === "COMPOSITE" || Boolean(draft.composite);
-                    const sourceBadge =
-                      draft.sourceType === "WEB_IMPORT"
-                        ? "↗ Web Import"
-                        : draft.sourceType === "MANUAL_BUILDER"
-                        ? "🛠️ Manual Builder"
-                        : draft.sourceType === "COMPOSITE_BUILDER"
-                        ? "🔀 Composite Builder"
-                        : "✦ User Prompt";
-                    const badgeClass =
-                      draft.sourceType === "WEB_IMPORT"
-                        ? "badge-web-import"
-                        : draft.sourceType === "MANUAL_BUILDER"
-                        ? "badge-manual-builder"
-                        : draft.sourceType === "COMPOSITE_BUILDER"
-                        ? "badge-composite-builder"
-                        : "badge-user-prompt";
-                    const isSelected = selected?.id === draft.id;
-                    const draftTitle = draft.name || (isCompDraft ? "Composite Ensemble" : draft.strategyName);
-                    const draftSub = isCompDraft ? "Multi-Indicator Ensemble · Active Draft" : `${draft.strategyName} · Active Draft`;
-                    const logicSummary = isCompDraft && draft.composite
-                      ? (draft.composite.thresholds
-                          ? `${draft.composite.components.length} components · Buy ≥ ${draft.composite.thresholds.buy}, Sell ≤ ${draft.composite.thresholds.sell}`
-                          : `${draft.composite.components.length} components · Strict majority consensus`)
-                      : Object.entries(draft.parameters)
-                          .map(([k, v]) => `${k}: ${v}`)
-                          .join(" · ") || "Standard Parameters";
-
-                    return (
-                      <tr key={draft.id} className={`draft-row ${isSelected ? "selected" : ""}`}>
-                        <td>
-                          <div className="table-strat-cell">
-                            <span className="table-strat-name">{draftTitle}</span>
-                            <span className="table-strat-sub">{draftSub}</span>
-                          </div>
-                        </td>
-                        <td>
-                          <span className={`table-source-badge ${badgeClass}`}>
-                            {sourceBadge}
-                          </span>
-                        </td>
-                        <td className="table-date-cell">{displayDate(draft.createdAt)}</td>
-                        <td><span className="draft-version-badge">Draft</span></td>
-                        <td className="strategy-parameters">{logicSummary}</td>
-                        <td>
-                          <span className="status-pill status-pill-draft">○ Draft</span>
-                        </td>
-                        <td>
-                          <div className="table-actions-cluster">
-                            <button
-                              type="button"
-                              className="btn-table-inspect"
-                              onClick={() => onSelectDraft(draft)}
-                            >
-                              Inspect
-                            </button>
-                            <button
-                              type="button"
-                              className="btn-table-save"
-                              onClick={() => void onSaveDraft(draft)}
-                            >
-                              💾 Save
-                            </button>
-                            <button
-                              type="button"
-                              className="btn-table-delete"
-                              title="Delete draft"
-                              onClick={() =>
-                                setDeleteTarget({
-                                  id: draft.id,
-                                  name: draftTitle,
-                                  type: "DRAFT",
-                                  details: logicSummary,
-                                })
-                              }
-                            >
-                              🗑️
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-
-              {/* 2. Persisted Single Strategies */}
-              {showSingle &&
-                definitions.data
-                  ?.filter((item) => {
-                    if (filter === "ALL") return true;
-                    const source = resolveStrategySource(item, provenanceMap);
-                    return source === filter;
-                  })
-                  .map((item) => {
-                    const isSelected = selected?.id === item.id;
-                    const source = resolveStrategySource(item, provenanceMap);
-                    const sourceLabel =
-                      source === "WEB_IMPORT"
-                        ? "↗ Web Import"
-                        : source === "MANUAL_BUILDER"
-                        ? "🛠️ Manual Builder"
-                        : "✦ User Prompt";
-                    const badgeClass =
-                      source === "WEB_IMPORT"
-                        ? "badge-web-import"
-                        : source === "MANUAL_BUILDER"
-                        ? "badge-manual-builder"
-                        : "badge-user-prompt";
-                    const stratName = customNamesMap[item.id] ?? item.familyName ?? item.strategyName;
-
-                    return (
-                      <tr key={item.id} className={isSelected ? "selected" : ""}>
-                        <td>
-                          <div className="table-strat-cell">
-                            <span className="table-strat-name">{stratName}</span>
-                            <span className="table-strat-sub">{item.strategyName}</span>
-                          </div>
-                        </td>
-                        <td>
-                          <span className={`table-source-badge ${badgeClass}`}>
-                            {sourceLabel}
-                          </span>
-                        </td>
-                        <td className="table-date-cell">{displayDate(item.createdAt)}</td>
-                        <td><span className="version-pill">v{item.version}</span></td>
-                        <td className="strategy-parameters">{parameterSummary(item)}</td>
-                        <td>
-                          <span className="status-pill status-pill-saved">● Saved</span>
-                        </td>
-                        <td>
-                          <div className="table-actions-cluster">
-                            <button
-                              type="button"
-                              className="btn-table-inspect"
-                              onClick={() => onSelectDefinition(item)}
-                            >
-                              Inspect
-                            </button>
-                            <a href="#/backtest" className="btn-table-backtest">
-                              Backtest →
-                            </a>
-                            <button
-                              type="button"
-                              className="btn-table-delete"
-                              title="Delete strategy"
-                              onClick={() =>
-                                setDeleteTarget({
-                                  id: item.id,
-                                  name: `${stratName} (v${item.version})`,
-                                  type: "DEFINITION",
-                                  details: parameterSummary(item),
-                                })
-                              }
-                            >
-                              🗑️
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-
-              {/* 3. Persisted Composite Strategies */}
-              {showComposite &&
-                composites.data?.map((comp) => {
-                  const isSelected = selected?.id === comp.id;
-                  const methodLabel = customNamesMap[comp.id] ?? (comp.method === "MAJORITY_VOTE" ? "Majority Vote Ensemble" : "Weighted Scoring Ensemble");
-                  const compNames = comp.components
-                    .map((c) => {
-                      const found = definitions.data?.find((d) => d.id === c.strategyDefinitionId);
-                      return found?.strategyName ?? "Strategy";
-                    })
-                    .join(" + ");
-                  const logicSummary = comp.method === "WEIGHTED_SCORE" && comp.thresholds
-                    ? `${comp.components.length} components (${compNames}) · Buy ≥ ${comp.thresholds.buy}, Sell ≤ ${comp.thresholds.sell}`
-                    : `${comp.components.length} components (${compNames}) · Strict majority consensus`;
+      ) : totalCount === 0 ? (
+        <Empty>
+          <b>No strategies found in this category.</b>
+          <small>Generate a strategy with AI, import from URL, or use the builders above.</small>
+        </Empty>
+      ) : totalFiltered === 0 ? (
+        <div className="strategy-empty" style={{ minHeight: "140px", padding: "24px" }}>
+          <span className="strategy-empty-icon">🔍</span>
+          <b>No strategies match "{searchQuery}"</b>
+          <small>Try a different search term or clear the search filter.</small>
+        </div>
+      ) : (
+        <>
+          <div className="strategy-table-scroll">
+            <table className="strategy-table">
+              <thead>
+                <tr>
+                  <th style={{ width: "22%" }}>Strategy</th>
+                  <th style={{ width: "16%" }}>Source</th>
+                  <th style={{ width: "14%" }}>Created</th>
+                  <th style={{ width: "8%" }}>Version</th>
+                  <th style={{ width: "22%" }}>Parameters / Logic</th>
+                  <th style={{ width: "8%" }}>Status</th>
+                  <th style={{ width: "10%", textAlign: "right" }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {displayedItems.map((item) => {
+                  const isSelected = selected?.id === item.id;
+                  const isDraft = item.status === "DRAFT";
 
                   return (
-                    <tr key={comp.id} className={`composite-row ${isSelected ? "selected" : ""}`}>
+                    <tr
+                      key={item.id}
+                      className={`${isDraft ? "draft-row" : ""} ${item.kind === "COMPOSITE" ? "composite-row" : ""} ${isSelected ? "selected" : ""}`}
+                    >
                       <td>
                         <div className="table-strat-cell">
-                          <span className="table-strat-name">🔀 {methodLabel}</span>
-                          <span className="table-strat-sub">Multi-Indicator Ensemble</span>
+                          <span className="table-strat-name">{item.name}</span>
+                          <span className="table-strat-sub">{item.subName}</span>
                         </div>
                       </td>
                       <td>
-                        <span className="table-source-badge badge-composite-builder">
-                          🔀 Composite Builder
+                        <span className={`table-source-badge ${item.badgeClass}`}>
+                          {item.sourceBadge}
                         </span>
                       </td>
-                      <td className="table-date-cell">{displayDate(comp.createdAt)}</td>
-                      <td><span className="version-pill">v{comp.version}</span></td>
-                      <td className="strategy-parameters">{logicSummary}</td>
+                      <td className="table-date-cell">{displayDate(item.createdAt)}</td>
                       <td>
-                        <span className="status-pill status-pill-saved">● Saved</span>
+                        {isDraft ? (
+                          <span className="draft-version-badge">Draft</span>
+                        ) : (
+                          <span className="version-pill">{item.versionLabel}</span>
+                        )}
+                      </td>
+                      <td className="strategy-parameters">{item.parametersSummary}</td>
+                      <td>
+                        {isDraft ? (
+                          <span className="status-pill status-pill-draft">○ Draft</span>
+                        ) : (
+                          <span className="status-pill status-pill-saved">● Saved</span>
+                        )}
                       </td>
                       <td>
                         <div className="table-actions-cluster">
                           <button
                             type="button"
                             className="btn-table-inspect"
-                            onClick={() => onSelectComposite(comp)}
+                            onClick={() => handleInspect(item)}
+                            title="Inspect strategy (scroll to top)"
                           >
                             Inspect
                           </button>
-                          <a href="#/backtest" className="btn-table-backtest">
-                            Backtest →
-                          </a>
+                          {isDraft ? (
+                            <button
+                              type="button"
+                              className="btn-table-save"
+                              onClick={() => void onSaveDraft(item.rawDraft!)}
+                            >
+                              💾 Save
+                            </button>
+                          ) : (
+                            <a href="#/backtest" className="btn-table-backtest">
+                              Backtest →
+                            </a>
+                          )}
                           <button
                             type="button"
                             className="btn-table-delete"
-                            title="Delete composite"
+                            title={isDraft ? "Delete draft" : "Delete strategy"}
                             onClick={() =>
                               setDeleteTarget({
-                                id: comp.id,
-                                name: methodLabel,
-                                type: "COMPOSITE",
-                                details: logicSummary,
+                                id: item.id,
+                                name: `${item.name} (${item.versionLabel})`,
+                                type: item.kind,
+                                details: item.parametersSummary,
                               })
                             }
                           >
@@ -1147,14 +1241,70 @@ function SavedStrategiesTable({
                     </tr>
                   );
                 })}
-            </tbody>
-          </table>
-        </div>
-      ) : (
-        <Empty>
-          <b>No strategies found in this category.</b>
-          <small>Generate a strategy with AI, import from URL, or use the builders above.</small>
-        </Empty>
+              </tbody>
+            </table>
+          </div>
+
+          {/* Table Pagination Controls */}
+          <div className="trades-pagination-footer" style={{ marginTop: "12px", borderRadius: "0 0 8px 8px" }}>
+            <div className="pagination-left">
+              <span>Show</span>
+              <select
+                className="pagination-size-select"
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setPageIndex(1);
+                }}
+              >
+                <option value={5}>5</option>
+                <option value={10}>10</option>
+                <option value={20}>20</option>
+                <option value={50}>50</option>
+              </select>
+              <span>
+                {totalFiltered > 0
+                  ? `${startIdx + 1}–${endIdx} of ${totalFiltered} ${totalFiltered === 1 ? "strategy" : "strategies"}`
+                  : "0 strategies"}
+              </span>
+            </div>
+
+            <div className="pagination-right">
+              <button
+                type="button"
+                className="btn-page-nav"
+                disabled={currentPage <= 1}
+                onClick={() => setPageIndex((p) => Math.max(1, p - 1))}
+                title="Previous Page"
+              >
+                ‹
+              </button>
+              {getPaginationRange(currentPage, totalPages).map((item, idx) =>
+                item === "..." ? (
+                  <span key={`ellipsis-${idx}`} className="pagination-ellipsis">…</span>
+                ) : (
+                  <button
+                    key={item}
+                    type="button"
+                    className={`btn-page-number ${item === currentPage ? "active" : ""}`}
+                    onClick={() => setPageIndex(Number(item))}
+                  >
+                    {item}
+                  </button>
+                )
+              )}
+              <button
+                type="button"
+                className="btn-page-nav"
+                disabled={currentPage >= totalPages}
+                onClick={() => setPageIndex((p) => Math.min(totalPages, p + 1))}
+                title="Next Page"
+              >
+                ›
+              </button>
+            </div>
+          </div>
+        </>
       )}
 
       {/* Delete Confirmation Modal */}
