@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ColorType, createChart, LineStyle, type CandlestickData, type HistogramData, type Time, type SeriesMarker } from "lightweight-charts";
-import { api, type ApiCandle, type Candidate, type Composite, type DatasetSnapshotRef, type ExperimentSummary, type LeaderboardEntry, type SearchRankingEntry, type Scope, type StrategyDefinition, type Trade, type VisualizationMarker, type StrategyVisualizationOverlay, type Timeframe } from "./api";
+import { api, type ApiCandle, type Candidate, type Composite, type DatasetSnapshotRef, type ExperimentSummary, type LeaderboardEntry, type SearchRankingEntry, type SearchRunSummary, type Scope, type StrategyDefinition, type Trade, type VisualizationMarker, type StrategyVisualizationOverlay, type Timeframe } from "./api";
 import { persistSearchRunId, readSearchRunId, launchStrategyBacktest } from "./state";
 import { chartBounds, percent } from "./visuals";
 
@@ -2029,6 +2029,24 @@ function getParamSnippet(params?: Record<string, unknown>): string {
     .join(" · ");
 }
 
+function formatCandidateParams(params?: Record<string, unknown>): string {
+  if (!params || Object.keys(params).length === 0) return "Default parameters";
+  return Object.entries(params)
+    .map(([k, v]) => `${k}: ${v}`)
+    .join(" · ");
+}
+
+function formatSimplifiedParams(params?: Record<string, unknown>): string {
+  if (!params || Object.keys(params).length === 0) return "";
+  return Object.entries(params)
+    .map(([k, v]) => {
+      const label = k.replace("Threshold", "").replace("Period", "");
+      const val = typeof v === "number" && !Number.isInteger(v) ? v.toFixed(1) : v;
+      return `${label}: ${val}`;
+    })
+    .join(" · ");
+}
+
 export function RankingTable({ rows }: { rows: SearchRankingEntry[] }) {
   const details = useQueries({
     queries: rows.map((row) => ({
@@ -2040,29 +2058,31 @@ export function RankingTable({ rows }: { rows: SearchRankingEntry[] }) {
 
   return (
     <div className="table-scroll">
-      <table>
+      <table className="candidate-history-table">
         <thead>
           <tr>
-            <th>Rank</th>
-            <th>Discovered Strategy</th>
+            <th style={{ width: "65px" }}>Rank</th>
+            <th className="col-strategy">Discovered Strategy</th>
             <th>Total Return</th>
             <th>Win Rate</th>
             <th>Max Drawdown</th>
             <th>Trades</th>
             <th>Score</th>
             <th>Status</th>
-            <th>Action</th>
+            <th style={{ width: "95px" }}>Action</th>
           </tr>
         </thead>
         <tbody>
           {rows.map((row, index) => {
             const detail = details[index]?.data as ExperimentSummary | undefined;
             const metrics = detail?.metrics ?? {};
+            const defs = detail?.strategyDefinitions ?? [];
             const strategy =
-              detail?.strategyDefinitions?.map((item) => item.strategyName).join(" + ") ||
+              defs.map((item) => item.strategyName).join(" + ") ||
               row.candidateId ||
               row.experimentResultId;
-            const singleDefId = detail?.strategyDefinitions?.[0]?.id;
+            const singleDefId = defs.length === 1 ? defs[0]?.id : undefined;
+            const compositeId = detail?.compositeDefinition?.id ?? detail?.compositeDefinitionId;
 
             return (
               <tr key={row.id ?? row.candidateId ?? row.experimentResultId}>
@@ -2077,8 +2097,40 @@ export function RankingTable({ rows }: { rows: SearchRankingEntry[] }) {
                     {row.rank === 1 ? "🥇 #1" : row.rank === 2 ? "🥈 #2" : row.rank === 3 ? "🥉 #3" : `#${row.rank ?? "-"}`}
                   </span>
                 </td>
-                <td>
-                  <b>{strategy}</b>
+                <td className="col-strategy">
+                  {defs.length > 0 ? (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "3px" }}>
+                      {defs.map((def, idx) => {
+                        const emoji = getIndicatorEmoji(def.strategyName);
+                        const name = def.familyName ?? def.strategyName;
+                        const paramStr = formatSimplifiedParams(def.parameters);
+                        return (
+                          <div key={def.id || idx} style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                            <span style={{ fontWeight: 700, color: "#0f172a", fontSize: "12.5px" }}>
+                              {emoji} {name}
+                            </span>
+                            {paramStr && (
+                              <span
+                                style={{
+                                  fontSize: "11px",
+                                  color: "#334155",
+                                  background: "#f1f5f9",
+                                  padding: "1px 6px",
+                                  borderRadius: "4px",
+                                  border: "1px solid #e2e8f0",
+                                  fontFamily: "monospace",
+                                }}
+                              >
+                                {paramStr}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <b>{strategy}</b>
+                  )}
                 </td>
                 <td style={{ color: (metrics.totalReturnPercent ?? 0) >= 0 ? "#10b981" : "#ef4444", fontWeight: 700 }}>
                   {percent(metrics.totalReturnPercent)}
@@ -2111,6 +2163,16 @@ export function RankingTable({ rows }: { rows: SearchRankingEntry[] }) {
                       style={{ padding: "4px 10px", fontSize: "11.5px" }}
                       onClick={() => launchStrategyBacktest("single", singleDefId)}
                       title="Run full interactive backtest with this strategy"
+                    >
+                      🚀 Backtest
+                    </button>
+                  ) : compositeId ? (
+                    <button
+                      type="button"
+                      className="btn-table-backtest"
+                      style={{ padding: "4px 10px", fontSize: "11.5px" }}
+                      onClick={() => launchStrategyBacktest("composite", compositeId)}
+                      title="Run full interactive backtest with this composite strategy"
                     >
                       🚀 Backtest
                     </button>
@@ -2177,53 +2239,178 @@ export function PersistentLeaderboardTable({ rows }: { rows: LeaderboardEntry[] 
 function CandidateTable({ candidates }: { candidates: Candidate[] }) {
   return (
     <div className="table-scroll">
-      <table>
+      <table className="candidate-history-table">
         <thead>
           <tr>
-            <th>Candidate ID</th>
-            <th>Origin</th>
-            <th>Selection Mode</th>
+            <th style={{ width: "55px" }}>Iter</th>
+            <th className="col-strategy">Strategy Name & Parameters</th>
+            <th>Mode</th>
             <th>Status</th>
             <th>Attempts</th>
             <th>Reason / Outcome</th>
+            <th style={{ width: "95px" }}>Action</th>
           </tr>
         </thead>
         <tbody>
-          {candidates.map((candidate) => (
-            <tr key={candidate.candidateId}>
-              <td>
-                <code style={{ fontSize: "11.5px", color: "#2563eb" }}>{candidate.candidateId}</code>
-              </td>
-              <td>{candidate.origin ?? "SEARCH"}</td>
-              <td>{candidate.selectionMode ?? "COMPOSITE"}</td>
-              <td>
-                <span
-                  style={{
-                    padding: "2px 8px",
-                    borderRadius: "4px",
-                    fontSize: "11px",
-                    fontWeight: 700,
-                    background:
-                      candidate.status === "COMPLETED"
-                        ? "#ecfdf5"
-                        : candidate.status === "FAILED"
-                        ? "#fef2f2"
-                        : "#eff6ff",
-                    color:
-                      candidate.status === "COMPLETED"
-                        ? "#059669"
-                        : candidate.status === "FAILED"
-                        ? "#dc2626"
-                        : "#1d4ed8",
-                  }}
-                >
-                  {candidate.status}
-                </span>
-              </td>
-              <td>{candidate.attempts?.length ?? 0}</td>
-              <td>{candidate.lastError || candidate.failureCode || "—"}</td>
-            </tr>
-          ))}
+          {candidates.map((candidate) => {
+            const defs = candidate.strategyDefinitions ?? [];
+            const singleDefId = defs.length === 1 ? defs[0]?.id : undefined;
+            const compositeId = candidate.compositeDefinition?.id;
+
+            return (
+              <tr key={candidate.candidateId}>
+                <td>
+                  <span style={{ fontWeight: 700, color: "#64748b", fontSize: "12px" }}>
+                    #{candidate.iterationNumber ?? "—"}
+                  </span>
+                </td>
+                <td className="col-strategy">
+                  <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                    {defs.length > 0 ? (
+                      defs.map((def, idx) => {
+                        const emoji = getIndicatorEmoji(def.strategyName);
+                        const name = def.familyName ?? def.strategyName;
+                        const paramStr = formatCandidateParams(def.parameters);
+                        return (
+                          <div
+                            key={def.id || idx}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "8px",
+                              flexWrap: "wrap",
+                            }}
+                          >
+                            <span style={{ fontWeight: 700, color: "#0f172a", fontSize: "13px" }}>
+                              {emoji} {name}
+                            </span>
+                            <span
+                              style={{
+                                fontSize: "11.5px",
+                                color: "#1e293b",
+                                background: "#f8fafc",
+                                padding: "2px 8px",
+                                borderRadius: "4px",
+                                border: "1px solid #cbd5e1",
+                                fontFamily: "monospace",
+                                fontWeight: 500,
+                              }}
+                            >
+                              {paramStr}
+                            </span>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <span style={{ fontWeight: 600, color: "#0f172a" }}>
+                        {candidate.selectionMode === "SINGLE" ? "Single Indicator" : "Composite Strategy"}
+                      </span>
+                    )}
+                    <div style={{ fontSize: "10.5px", color: "#94a3b8", fontFamily: "monospace" }}>
+                      ID: {candidate.candidateId}
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <span
+                    style={{
+                      display: "inline-block",
+                      padding: "3px 8px",
+                      borderRadius: "4px",
+                      fontSize: "11px",
+                      fontWeight: 700,
+                      background: "#f1f5f9",
+                      border: "1px solid #e2e8f0",
+                      color: "#475569",
+                      letterSpacing: "0.02em",
+                    }}
+                  >
+                    {candidate.selectionMode ?? "COMPOSITE"}
+                  </span>
+                </td>
+                <td>
+                  <span
+                    style={{
+                      display: "inline-block",
+                      padding: "3px 10px",
+                      borderRadius: "4px",
+                      fontSize: "11px",
+                      fontWeight: 700,
+                      background:
+                        candidate.status === "COMPLETED"
+                          ? "#ecfdf5"
+                          : candidate.status === "FAILED"
+                          ? "#fef2f2"
+                          : "#eff6ff",
+                      color:
+                        candidate.status === "COMPLETED"
+                          ? "#059669"
+                          : candidate.status === "FAILED"
+                          ? "#dc2626"
+                          : "#1d4ed8",
+                    }}
+                  >
+                    {candidate.status}
+                  </span>
+                </td>
+                <td>
+                  <span style={{ fontWeight: 700, color: "#334155", fontSize: "13px" }}>
+                    {candidate.attempts?.length ?? 1}
+                  </span>
+                </td>
+                <td>
+                  {candidate.lastError || candidate.failureCode ? (
+                    <span
+                      style={{
+                        color: "#dc2626",
+                        fontSize: "11px",
+                        fontWeight: 600,
+                        background: "#fef2f2",
+                        padding: "2px 8px",
+                        borderRadius: "4px",
+                        border: "1px solid #fecaca",
+                        display: "inline-block",
+                        maxWidth: "140px",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        whiteSpace: "nowrap",
+                      }}
+                      title={candidate.lastError || candidate.failureCode}
+                    >
+                      {candidate.lastError || candidate.failureCode}
+                    </span>
+                  ) : (
+                    <span style={{ color: "#94a3b8", fontSize: "14px" }}>—</span>
+                  )}
+                </td>
+                <td>
+                  {singleDefId ? (
+                    <button
+                      type="button"
+                      className="btn-table-backtest"
+                      style={{ padding: "4px 10px", fontSize: "11px" }}
+                      onClick={() => launchStrategyBacktest("single", singleDefId)}
+                      title="Run full interactive backtest with this strategy"
+                    >
+                      🚀 Backtest
+                    </button>
+                  ) : compositeId ? (
+                    <button
+                      type="button"
+                      className="btn-table-backtest"
+                      style={{ padding: "4px 10px", fontSize: "11px" }}
+                      onClick={() => launchStrategyBacktest("composite", compositeId)}
+                      title="Run full interactive backtest with this composite"
+                    >
+                      🚀 Backtest
+                    </button>
+                  ) : (
+                    <span style={{ color: "#94a3b8", fontSize: "11px" }}>—</span>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
@@ -2570,9 +2757,8 @@ export function SearchLive({
       return api.startSearch(payload);
     },
     onSuccess: (started) => {
-      setRunId(started.searchRunId);
-      setCandidateCursors([undefined]);
-      persistSearchRunId(started.searchRunId);
+      handleSelectRun(started.searchRunId);
+      void client.invalidateQueries({ queryKey: ["searchRuns"] });
       void client.invalidateQueries({ queryKey: ["search", started.searchRunId] });
     },
     onError: setError,
@@ -2581,10 +2767,18 @@ export function SearchLive({
   const control = useMutation({
     mutationFn: (action: "pause" | "resume" | "cancel") => api.controlSearch(runId!, action),
     onSuccess: () => {
+      void client.invalidateQueries({ queryKey: ["searchRuns"] });
       void client.invalidateQueries({ queryKey: ["search", runId] });
     },
     onError: setError,
   });
+
+  const runsQuery = useQuery({
+    queryKey: ["searchRuns"],
+    queryFn: () => api.listSearchRuns(50),
+    refetchInterval: 4000,
+  });
+  const searchRuns = runsQuery.data ?? [];
 
   const current = status.data;
   useEffect(() => {
@@ -2602,6 +2796,22 @@ export function SearchLive({
   const clearRun = () => {
     setRunId(undefined);
     persistSearchRunId(undefined);
+    if (typeof window !== "undefined") {
+      window.history.replaceState({}, "", "/search");
+    }
+  };
+
+  const handleSelectRun = (selectedId: string) => {
+    if (!selectedId) {
+      clearRun();
+      return;
+    }
+    setRunId(selectedId);
+    persistSearchRunId(selectedId);
+    setCandidateCursors([undefined]);
+    if (typeof window !== "undefined") {
+      window.history.replaceState({}, "", `/search-runs/${selectedId}`);
+    }
   };
 
   const customNamesMap: Record<string, string> = React.useMemo(() => {
@@ -2628,6 +2838,64 @@ export function SearchLive({
         <div className="search-status-badge">
           <i />
           <span>Engine: {generatorType}</span>
+        </div>
+      </div>
+
+      {/* Active & Past Runs Switcher Card */}
+      <div className="search-run-switcher-card">
+        <div className="search-run-switcher-info">
+          <span className="search-run-switcher-title">
+            🕒 Active & Past Exploration Runs:
+          </span>
+          <select
+            className="search-run-dropdown"
+            value={runId ?? ""}
+            onChange={(e) => handleSelectRun(e.target.value)}
+          >
+            <option value="">➕ New Discovery Run (Configure & Launch)</option>
+            {searchRuns.map((r) => {
+              const statusEmoji =
+                r.state === "RUNNING"
+                  ? "🟢"
+                  : r.state === "PAUSED"
+                  ? "⏸️"
+                  : r.state === "COMPLETED"
+                  ? "✅"
+                  : r.state === "FAILED"
+                  ? "❌"
+                  : "⏹️";
+              const dateStr = new Date(r.createdAt).toLocaleString(undefined, {
+                month: "short",
+                day: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              });
+              const scoreStr = r.bestScore !== undefined ? ` · Best: ${r.bestScore.toFixed(3)}` : "";
+              const iterStr = r.nextIteration > 1 ? ` · Iter #${r.nextIteration - 1}` : "";
+              return (
+                <option key={r.searchRunId} value={r.searchRunId}>
+                  {statusEmoji} [{r.state}] {r.generatorType} · #{r.searchRunId.slice(0, 8)} ({dateStr}){iterStr}{scoreStr}
+                </option>
+              );
+            })}
+          </select>
+        </div>
+
+        <div className="search-run-switcher-actions">
+          {runId ? (
+            <button
+              type="button"
+              className="btn-new-run-toggle"
+              onClick={clearRun}
+              title="Return to setup form to configure and launch another search run"
+            >
+              ➕ Configure New Run
+            </button>
+          ) : (
+            <span className="search-run-setup-badge">
+              ⚙️ Setup Mode Active
+            </span>
+          )}
         </div>
       </div>
 

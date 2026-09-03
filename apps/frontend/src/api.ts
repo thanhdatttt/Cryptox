@@ -28,7 +28,7 @@ export type ExecutionPolicySnapshot = { policyId: string; positionPolicyId: stri
 export type Scope = { id: string; name: string; version?: number; pair: string; timeframe: Timeframe; datasetRange: { from: string; to: string }; datasetSnapshotId: string; datasetSnapshot?: DatasetSnapshotRef; sentimentDatasetSnapshot?: SentimentDatasetSnapshotRef; initialCapital: number; feeRatePercent: number; slippageBps: number; scoreFormulaId: string; createdAt: string; workerRuntimeVersion?: string; workerRuntimeSha256?: string; evaluationRuntimeVersion?: string; evaluationRuntimeSha256?: string; simulatorVersion?: string; simulatorSha256?: string; decimalPolicyId?: string; evaluationPolicyId?: string; riskPolicy?: { stopLossPercent?: number; takeProfitPercent?: number } };
 export type AttemptProgress = { attemptId: string; attemptNumber: number; status: string; startedAt?: string; completedAt?: string; failureCode?: string; errorMessage?: string };
 export type CandidateLineage = { parentFingerprints: string[]; crossoverPoint: number; mutatedParameterKeys: string[]; selectionMutation?: { replacedStrategyId?: string; replacementStrategyId?: string } };
-export type Candidate = { candidateId: string; origin?: "MANUAL" | "SEARCH"; selectionMode?: "SINGLE" | "COMPOSITE"; searchRunId?: string; iterationNumber?: number; generatedBy?: GeneratorType; fingerprint?: string; lineage?: CandidateLineage; leaderboardScopeId?: string; status: string; attempts?: AttemptProgress[]; maxAttempts?: number; experimentResultId?: string; failureKind?: string; failureCode?: string; lastError?: string; updatedAt?: string; createdAt?: string };
+export type Candidate = { candidateId: string; origin?: "MANUAL" | "SEARCH"; selectionMode?: "SINGLE" | "COMPOSITE"; searchRunId?: string; iterationNumber?: number; generatedBy?: GeneratorType; fingerprint?: string; lineage?: CandidateLineage; leaderboardScopeId?: string; status: string; attempts?: AttemptProgress[]; maxAttempts?: number; experimentResultId?: string; failureKind?: string; failureCode?: string; lastError?: string; strategyDefinitions?: StrategyDefinition[]; compositeDefinition?: Composite; updatedAt?: string; createdAt?: string };
 export type Trade = { id: string; sequence: number; pair: string; settlementAsset?: string; backtestAttemptId?: string; signal: "LONG" | "SHORT"; entryTime: string; marketEntryPrice?: number; entryPrice: number; stopLoss?: number | null; takeProfit?: number | null; exitTime: string; marketExitPrice?: number; exitPrice: number; exitReason?: "STOP_LOSS" | "TAKE_PROFIT" | "STRATEGY_CLOSE" | "RANGE_END" | string; quantity?: number; notionalEntryValue?: number; equityBeforeTrade?: number; equityAfterTrade?: number; grossProfit?: number; feeAmount?: number; slippageBps?: number; slippageAmount?: number; profit?: number; resultPercent: number; result: "WIN" | "LOSS" | "BREAKEVEN" };
 export type TradePage = { items: Trade[]; nextCursor?: string; totalCount?: number; total?: number };
 export type ExperimentMetrics = { candidateId?: string; totalReturnPercent?: number; winRatePercent?: number; numberOfTrades?: number; maxDrawdownPercent?: number; profitFactor?: number | null; profitFactorStatus?: "FINITE" | "NO_TRADES" | "NO_LOSSES" | "NO_GROSS_MOVEMENT"; sharpeRatio?: number; sharpeRatioStatus?: string };
@@ -43,6 +43,20 @@ export type LeaderboardEntry = { id: string; rank: number; experimentResultId: s
 export type DomainRules = { requiredCategories?: StrategyCategory[]; allowedCategories?: StrategyCategory[]; forbiddenCategories?: StrategyCategory[] };
 export type StartSearchRequest = { leaderboardScopeId: string; strategyDefinitionIds: string[]; generatorType: GeneratorType; maxInFlight: number; maxComponents?: number; stopCondition: StopCondition; domainRules?: DomainRules };
 export type CandidatePage = { items: Candidate[]; nextCursor?: string; totalCount?: number };
+export type SearchRunSummary = {
+  searchRunId: string;
+  state: "CREATED" | "RUNNING" | "PAUSED" | "COMPLETED" | "CANCELLED" | "FAILED";
+  generatorType: GeneratorType;
+  leaderboardScopeId: string;
+  maxInFlight: number;
+  nextIteration: number;
+  bestScore?: number;
+  stopReason?: "MAX_CANDIDATES" | "MAX_DURATION" | "NO_IMPROVEMENT" | "USER_CANCELLED" | "ERROR";
+  createdAt: string;
+  startedAt?: string;
+  endedAt?: string;
+  updatedAt: string;
+};
 export type VisualizationRequest = { limit?: number; cursor?: string; from?: string; to?: string; highlightTradeId?: string };
 export type ReadCandlesQuery = { pair: string; timeframe: Timeframe; limit?: number; cursor?: string; from?: string; to?: string; includeForming?: boolean; completeness?: "ALLOW_PARTIAL" | "REQUIRE_COMPLETE" };
 export type ReadCandlesResult = { pair: string; timeframe: Timeframe; candles: ApiCandle[]; range: { from: string; to: string }; complete: boolean; missingRanges?: Array<{ from: string; to: string }>; formingIncluded?: boolean; asOf: string; nextCursor?: string };
@@ -101,6 +115,23 @@ const normalizeReplayAccepted = (value: unknown): ReplayVerificationAccepted => 
 const normalizeReplayResult = (value: unknown): ReplayVerificationResult => { const raw = dto<Record<string, unknown>>(value, "replay verification"); const status = raw.status; if (status !== "QUEUED" && status !== "RUNNING" && status !== "MATCH" && status !== "MISMATCH" && status !== "NON_REPLAYABLE") throw new ApiError(502, "Backend returned an invalid replay verification response.", "INVALID_DTO"); return { ...raw, replayJobId: textField(raw.replayJobId, "replay verification"), experimentId: textField(raw.experimentId, "replay verification"), sourceAttemptId: textField(raw.sourceAttemptId, "replay verification"), status } as ReplayVerificationResult; };
 const normalizeSearchRanking = (value: unknown): SearchRankingEntry => { const raw = dto<Record<string, unknown>>(value, "search ranking"); return { ...(raw.id === undefined ? {} : { id: textField(raw.id, "search ranking") }), rank: finiteField(raw.rank, "search ranking"), searchRunId: textField(raw.searchRunId, "search ranking"), leaderboardScopeId: textField(raw.leaderboardScopeId, "search ranking"), candidateId: textField(raw.candidateId, "search ranking"), experimentResultId: textField(raw.experimentResultId, "search ranking"), scoreFormulaId: textField(raw.scoreFormulaId, "search ranking"), score: finiteField(raw.score, "search ranking") }; };
 const normalizeLeaderboardEntry = (value: unknown): LeaderboardEntry => { const raw = dto<Record<string, unknown>>(value, "leaderboard"); return { id: textField(raw.id, "leaderboard"), rank: finiteField(raw.rank, "leaderboard"), experimentResultId: textField(raw.experimentResultId, "leaderboard"), leaderboardScopeId: textField(raw.leaderboardScopeId, "leaderboard"), scoreFormulaId: textField(raw.scoreFormulaId, "leaderboard"), score: finiteField(raw.score, "leaderboard"), addedAt: isoField(raw.addedAt, "leaderboard") }; };
+const normalizeSearchRunSummary = (value: unknown): SearchRunSummary => {
+  const raw = dto<Record<string, unknown>>(value, "search run summary");
+  return {
+    searchRunId: textField(raw.searchRunId, "search run summary"),
+    state: textField(raw.state, "search run summary") as SearchRunSummary["state"],
+    generatorType: textField(raw.generatorType, "search run summary") as SearchRunSummary["generatorType"],
+    leaderboardScopeId: textField(raw.leaderboardScopeId, "search run summary"),
+    maxInFlight: finiteField(raw.maxInFlight, "search run summary"),
+    nextIteration: finiteField(raw.nextIteration, "search run summary"),
+    bestScore: raw.bestScore === undefined || raw.bestScore === null ? undefined : finiteField(raw.bestScore, "search run summary"),
+    stopReason: raw.stopReason === undefined || raw.stopReason === null ? undefined : (textField(raw.stopReason, "search run summary") as SearchRunSummary["stopReason"]),
+    createdAt: isoField(raw.createdAt, "search run summary"),
+    startedAt: raw.startedAt ? isoField(raw.startedAt, "search run summary") : undefined,
+    endedAt: raw.endedAt ? isoField(raw.endedAt, "search run summary") : undefined,
+    updatedAt: isoField(raw.updatedAt, "search run summary"),
+  };
+};
 const query = (values: Record<string, string | number | boolean | undefined>): string => { const params = new URLSearchParams(); Object.entries(values).forEach(([key, value]) => { if (value !== undefined) params.set(key, String(value)); }); const result = params.toString(); return result ? `?${result}` : ""; };
 const json = (body: unknown, extra?: HeadersInit): RequestInit => ({ method: "POST", body: JSON.stringify(body), headers: extra });
 const idempotencyKey = (): string => typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `frontend-${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -154,6 +185,7 @@ export const api = {
   startSearch: (body: StartSearchRequest) => request<{ searchRunId: string }>("/search-runs", json({ leaderboardScopeId: body.leaderboardScopeId, strategyDefinitionIds: body.strategyDefinitionIds, generatorType: body.generatorType, maxInFlight: body.maxInFlight, maxComponents: body.maxComponents, ...(body.domainRules === undefined ? {} : { domainRules: body.domainRules }), ...body.stopCondition }), (value) => dto<{ searchRunId: string }>(value, "search submission")),
   search: (body: StartSearchRequest) => api.startSearch(body),
   searchStatus: (id: string) => request<LoopStatus>(`/search-runs/${encodeURIComponent(id)}`, {}, (value) => dto<LoopStatus>(value, "search status")),
+  listSearchRuns: (limit?: number) => request<SearchRunSummary[]>(`/search-runs${query({ limit })}`, {}, (value) => arrayDto<unknown>(value, "search runs").map(normalizeSearchRunSummary)),
   searchLeaderboard: (id: string) => request<SearchRankingEntry[]>(`/search-runs/${encodeURIComponent(id)}/leaderboard`, {}, (value) => arrayDto<unknown>(value, "search ranking").map(normalizeSearchRanking)),
   searchCandidates: (id: string, page: { limit?: number; cursor?: string } = {}) => request<CandidatePage>(`/search-runs/${encodeURIComponent(id)}/candidates${query({ limit: page.limit ?? 25, cursor: page.cursor })}`, {}, (value) => { const raw = dto<Record<string, unknown>>(value, "search candidates"); if (!Array.isArray(raw.items)) throw new ApiError(502, "Backend returned an invalid search candidates response.", "INVALID_DTO"); return { items: raw.items.map(normalizeCandidate), ...(raw.nextCursor === undefined ? {} : { nextCursor: textField(raw.nextCursor, "search candidates") }), ...(raw.totalCount === undefined ? {} : { totalCount: finiteField(raw.totalCount, "search candidates") }) }; }),
   controlSearch: (id: string, action: "pause" | "resume" | "cancel") => request<void>(`/search-runs/${encodeURIComponent(id)}/${action}`, { method: "POST" }),

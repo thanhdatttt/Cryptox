@@ -8,6 +8,7 @@ export interface SearchRunRepository {
   insert(run: SearchRun): Promise<SearchRun>;
   save(run: SearchRun, unitOfWork?: CancellationUnitOfWork): Promise<SearchRun>;
   listRunning?(): Promise<SearchRun[]>;
+  listByOwner?(ownerUserId: string, limit?: number): Promise<SearchRun[]>;
   withRunLock?<T>(ownerUserId: string, id: string, operation: (run: SearchRun | undefined, unitOfWork?: CancellationUnitOfWork) => Promise<T>): Promise<T>;
 }
 export interface SearchModuleDependencies {

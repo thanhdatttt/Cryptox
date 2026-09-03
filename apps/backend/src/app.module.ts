@@ -723,6 +723,17 @@ export class SearchController extends ProtectedController {
     } catch (error) { return searchHttpError(error); }
   }
 
+  @Get()
+  async list(@Headers("authorization") authorization: string | undefined, @Query("limit") limit?: string) {
+    const userId = await this.authenticate(authorization);
+    const parsed = parsePageLimit(limit, 50, 100, "limit must be an integer from 1 to 100.");
+    try {
+      return await this.modules.search.list({ userId }, parsed);
+    } catch (error) {
+      return searchHttpError(error);
+    }
+  }
+
   @Get(":searchRunId")
   async status(@Headers("authorization") authorization: string | undefined, @Param("searchRunId") searchRunId: string) { const userId = await this.authenticate(authorization); try { return await this.modules.search.status({ userId }, searchRunId); } catch (error) { return searchHttpError(error); } }
   @Post(":searchRunId/pause")

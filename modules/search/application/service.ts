@@ -2,7 +2,7 @@ import type { CancellationUnitOfWork } from "modules/backtesting/api";
 import type { AuthContext } from "modules/auth/api";
 import type { StrategyDefinition } from "modules/strategy/api";
 import type { SearchModuleDependencies } from "./ports";
-import type { GeneratedCandidate, LoopStatus, SearchRun, SearchRunRankingEntry, StopCondition, StrategyCategory } from "../domain/contracts";
+import type { GeneratedCandidate, LoopStatus, SearchRun, SearchRunRankingEntry, SearchRunSummary, StopCondition, StrategyCategory } from "../domain/contracts";
 
 type OwnedStrategyDefinition = StrategyDefinition & { userId: string };
 
@@ -12,6 +12,7 @@ export interface SearchModuleRuntime {
   resume(auth: AuthContext, searchRunId: string): Promise<void>;
   cancel(auth: AuthContext, searchRunId: string): Promise<void>;
   status(auth: AuthContext, searchRunId: string): Promise<LoopStatus>;
+  list(auth: AuthContext, limit?: number): Promise<SearchRunSummary[]>;
   leaderboard(auth: AuthContext, searchRunId: string): Promise<SearchRunRankingEntry[]>;
   onCandidateFinished(searchRunId: string): Promise<void>;
   fillAvailableSlots(searchRunId: string): Promise<void>;
@@ -78,6 +79,7 @@ export function createInMemorySearchDependencies(): SearchModuleDependencies {
       insert: async (run) => { runs.set(run.searchRunId, run); return run; },
       save: async (run, unitOfWork) => { const previous = runs.get(run.searchRunId); runs.set(run.searchRunId, run); unitOfWork?.onRollback(async () => { if (previous) runs.set(run.searchRunId, previous); else runs.delete(run.searchRunId); }); return run; },
       listRunning: async () => [...runs.values()].filter((run) => run.state === "RUNNING"),
+      listByOwner: async (ownerUserId, limit = 50) => [...runs.values()].filter((run) => run.ownerUserId === ownerUserId).sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)).slice(0, limit),
       withRunLock: async <T>(
         ownerUserId: string,
         id: string,
@@ -261,6 +263,26 @@ export function createSearchModule(dependencies: SearchModuleDependencies = crea
       await dependencies.backtestCoordinator.removePendingJobs(candidateIds);
     },
     status: async (auth, id) => { const run = await loadOwned(auth, id); return project(run); },
+    list: async (auth, limit = 50) => {
+      assertAuth(auth);
+      const runs = dependencies.searchRunRepository.listByOwner
+        ? await dependencies.searchRunRepository.listByOwner(auth.userId, limit)
+        : [];
+      return runs.map((run) => ({
+        searchRunId: run.searchRunId,
+        state: run.state,
+        generatorType: run.generatorType,
+        leaderboardScopeId: run.leaderboardScopeId,
+        maxInFlight: run.maxInFlight,
+        nextIteration: run.nextIteration,
+        bestScore: run.bestScore,
+        stopReason: run.stopReason,
+        createdAt: run.createdAt,
+        startedAt: run.startedAt,
+        endedAt: run.endedAt,
+        updatedAt: run.updatedAt,
+      }));
+    },
     leaderboard: async (auth, id) => { const run = await loadOwned(auth, id); return dependencies.leaderboardService.rankSearchRun(run.ownerUserId, id); },
     onCandidateFinished: fill,
     fillAvailableSlots: fill,

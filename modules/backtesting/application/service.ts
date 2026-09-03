@@ -291,7 +291,7 @@ export class BacktestingService implements BacktestLogApi {
   private now(): string { return this.deps.clock.now(); }
   private assertAuth(auth: AuthContext): void { if (!auth?.userId?.trim()) invalid("INVALID_AUTH_CONTEXT"); }
   private progress(candidate: StoredCandidate, attempts: BacktestAttemptAudit[] | import("../domain/contracts").BacktestAttemptProgress[]): CandidateProgress {
-    const { ownerUserId: _ownerUserId, strategyDefinitions: _strategyDefinitions, compositeDefinition: _compositeDefinition, queueJobId: _queueJobId, executionGeneration: _executionGeneration, activeFenceToken: _activeFenceToken, activeLeaseExpiresAt: _activeLeaseExpiresAt, activeCompletionClaimToken: _activeCompletionClaimToken, activeCompletionLeaseExpiresAt: _activeCompletionLeaseExpiresAt, completionGeneration: _completionGeneration, ...projection } = candidate;
+    const { ownerUserId: _ownerUserId, queueJobId: _queueJobId, executionGeneration: _executionGeneration, activeFenceToken: _activeFenceToken, activeLeaseExpiresAt: _activeLeaseExpiresAt, activeCompletionClaimToken: _activeCompletionClaimToken, activeCompletionLeaseExpiresAt: _activeCompletionLeaseExpiresAt, completionGeneration: _completionGeneration, ...projection } = candidate;
     return { ...clone(projection), attempts: clone(attempts) };
   }
   private async scope(scopeId: string): Promise<StoredBenchmarkScope> { const scope = await this.deps.repository.readScope(scopeId); if (!scope) throw new Error("BACKTEST_SCOPE_NOT_FOUND"); return scope; }
