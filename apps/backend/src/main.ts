@@ -16,4 +16,7 @@ async function bootstrap(): Promise<void> {
   console.log("backend ready");
 }
 
-void bootstrap();
+void bootstrap().catch((error) => {
+  console.error("FATAL BOOTSTRAP ERROR:", error);
+  process.exit(1);
+});

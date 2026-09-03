@@ -43,7 +43,7 @@ export class PostgresSearchRunRepository implements SearchRunRepository {
     let closed = false;
     const unitOfWork: CancellationUnitOfWork = { kind: "CANCELLATION", id: `search-fill-${randomUUID()}`, query: <Row>(text: string, values: unknown[]) => client.query<Row>(text, values), run: async <R>(callback: () => Promise<R>) => callback(), onRollback: () => undefined, commit: async () => { if (!closed) { await client.query("COMMIT", []); closed = true; client.release(); } }, rollback: async () => { if (!closed) { try { await client.query("ROLLBACK", []); } finally { closed = true; client.release(); } } } };
     try {
-      const result = await client.query<SearchRunRow>(`SELECT ${this.fields()} FROM search_runs WHERE id = $1 AND owner_user_id = $2 FOR UPDATE`, [id, ownerUserId]);
+      const result = await client.query<SearchRunRow>(`SELECT ${this.fields()} FROM search_runs WHERE id = $1 AND owner_user_id = $2 FOR NO KEY UPDATE`, [id, ownerUserId]);
       const value = await operation(result.rows[0] ? run(result.rows[0]) : undefined, unitOfWork);
       await unitOfWork.commit();
       return value;

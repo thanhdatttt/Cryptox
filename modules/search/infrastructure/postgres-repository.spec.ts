@@ -58,7 +58,7 @@ describe("PostgresSearchRunRepository", () => {
       last_error: null,
     };
     const client = {
-      query: async <Row>(text: string, _values: unknown[]) => { calls.push(text); return { rows: text.includes("FOR UPDATE") ? [row as Row] : [] }; },
+      query: async <Row>(text: string, _values: unknown[]) => { calls.push(text); return { rows: text.includes("FOR NO KEY UPDATE") ? [row as Row] : [] }; },
       release: () => { calls.push("RELEASE"); },
     };
     const repository = new PostgresSearchRunRepository({
@@ -73,7 +73,7 @@ describe("PostgresSearchRunRepository", () => {
     });
 
     expect(calls[0]).toBe("BEGIN");
-    expect(calls.some((text) => text.includes("FOR UPDATE"))).toBe(true);
+    expect(calls.some((text) => text.includes("FOR NO KEY UPDATE"))).toBe(true);
     expect(calls.some((text) => text.startsWith("UPDATE search_runs"))).toBe(true);
     expect(calls).toContain("COMMIT");
     expect(calls.at(-1)).toBe("RELEASE");
