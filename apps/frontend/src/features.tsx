@@ -944,6 +944,7 @@ function DeleteScopeModal({
 
 function SaveScopeModal({
   defaultName,
+  strategyName,
   pair,
   timeframe,
   from,
@@ -956,6 +957,7 @@ function SaveScopeModal({
   onConfirm,
 }: {
   defaultName: string;
+  strategyName?: string;
   pair: string;
   timeframe: string;
   from: string;
@@ -1019,6 +1021,7 @@ function SaveScopeModal({
               />
             </div>
             <p className="delete-meta-info">
+              {strategyName ? <span><b>Strategy:</b> {strategyName} · </span> : null}
               {pair} · {timeframe} · From: {from.replace("T", " ")} · To: {to.replace("T", " ")} · Capital: ${Number(capital).toLocaleString()} · Fee: {fee}% · Slippage: {slippage} bps
             </p>
           </div>
@@ -1110,6 +1113,11 @@ export function BacktestLive({ definitions, composites, scopes }: { definitions:
   const newsQuery = useQuery({ queryKey: ["news"], queryFn: api.news });
   const selectedSingle = definitions.find((d) => d.id === definitionId);
   const selectedComposite = composites.find((c) => c.id === compositeId);
+  const currentSelectedStratName = definitionId
+    ? (customNamesMap[definitionId] ?? selectedSingle?.familyName ?? selectedSingle?.strategyName ?? "Strategy")
+    : compositeId
+    ? (customNamesMap[compositeId] ?? (selectedComposite?.method === "MAJORITY_VOTE" ? "Majority Vote Ensemble" : "Weighted Scoring Ensemble"))
+    : undefined;
   const requiresSentiment = Boolean(
     (selectedSingle && (selectedSingle.strategyName === "SENTIMENT" || selectedSingle.familyName?.toLowerCase().includes("sentiment"))) ||
     (selectedComposite && selectedComposite.components.some((comp) => {
@@ -1385,6 +1393,7 @@ export function BacktestLive({ definitions, composites, scopes }: { definitions:
       if (fromDate.getTime() >= toDate.getTime()) throw new Error("The start date (From) must be before the end date (To).");
       const numCapital = Number(capital);
       if (!capital || !capital.trim() || isNaN(numCapital) || numCapital <= 0) throw new Error("Initial Capital must be a positive number greater than 0.");
+      if (!definitionId && !compositeId) throw new Error("Please select a strategy or composite ensemble before saving a preset.");
       const numFee = Number(feeRatePercent);
       if (feeRatePercent === "" || isNaN(numFee) || numFee < 0) throw new Error("Transaction Cost (%) must be a valid number 0 or greater.");
       const numSlippage = Number(slippageBps);
@@ -1401,6 +1410,7 @@ export function BacktestLive({ definitions, composites, scopes }: { definitions:
     setScopeSuccessMessage(null);
     setIsCreatingScope(true);
     try {
+      if (!definitionId && !compositeId) throw new Error("Please select a strategy or composite ensemble before saving a preset.");
       const fromDate = fromUtc7InputDate(from);
       const toDate = fromUtc7InputDate(to);
       const numCapital = Number(capital);
@@ -1834,9 +1844,9 @@ export function BacktestLive({ definitions, composites, scopes }: { definitions:
             <button
               type="button"
               className="btn-create-scope-preset"
-              disabled={isCreatingScope || isProcessing || isDeletingScope}
+              disabled={isCreatingScope || isProcessing || isDeletingScope || (!definitionId && !compositeId)}
               onClick={handleOpenSavePresetModal}
-              title="Save current top-bar parameters as a new scope preset"
+              title={(!definitionId && !compositeId) ? "Please select a strategy first before saving a preset" : "Save current top-bar parameters as a new scope preset"}
             >
               {isCreatingScope ? "⏳ Saving..." : "＋ Save as Preset"}
             </button>
@@ -1983,7 +1993,8 @@ export function BacktestLive({ definitions, composites, scopes }: { definitions:
 
       {isSaveModalOpen && (
         <SaveScopeModal
-          defaultName={`${pair} ${timeframe} ${from ? from.slice(0, 10) : ""}`}
+          defaultName={`${pair} ${timeframe} ${currentSelectedStratName ? `${currentSelectedStratName} ` : ""}${from ? from.slice(0, 10) : ""}`.trim()}
+          strategyName={currentSelectedStratName}
           pair={pair}
           timeframe={timeframe}
           from={from}
