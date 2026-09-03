@@ -40,6 +40,8 @@ export interface StrategyModuleRuntime {
   defineStrategy(userId: string, strategyName: string, parameters: Record<string, number | string>): Promise<StrategyDefinition>;
   defineComposite(userId: string, command: { method: CombinationMethod; components: Array<{ strategyDefinitionId: string; weight: number }>; thresholds?: { buy: number; sell: number } }): Promise<CompositeStrategyDefinition>;
   generateStrategy(userId: string, source: StrategyGenerationSource): Promise<StrategyGenerationResult>;
+  deleteDefinition(userId: string, id: string): Promise<boolean>;
+  deleteComposite(userId: string, id: string): Promise<boolean>;
 }
 
 const stable = (value: unknown): string => JSON.stringify(value, (_key, item) => item && typeof item === "object" && !Array.isArray(item) ? Object.fromEntries(Object.entries(item).sort(([left], [right]) => left.localeCompare(right))) : item);
@@ -158,12 +160,28 @@ export function createInMemoryStrategyDependencies(): StrategyModuleDependencies
       listByIds: async (ownerUserId, ids) => ids.flatMap((id) => { const definition = definitions.get(id); return definition?.ownerUserId === ownerUserId ? [definition.value] : []; }),
       listByLogicalFamily: async (ownerUserId, logicalFamilyKey) => [...definitions.values()].filter((item) => item.ownerUserId === ownerUserId && item.value.logicalFamilyKey === logicalFamilyKey).map((item) => item.value),
       exists: async (id) => definitions.has(id),
+      delete: async (ownerUserId, id) => {
+        const item = definitions.get(id);
+        if (item && item.ownerUserId === ownerUserId) {
+          definitions.delete(id);
+          return true;
+        }
+        return false;
+      },
     },
     compositeRepository: {
       insert: async (ownerUserId, composite) => { const value = { ...composite, userId: ownerUserId }; composites.set(composite.id, { ownerUserId, value }); return value; },
       list: async (ownerUserId) => [...composites.values()].filter((item) => item.ownerUserId === ownerUserId).map((item) => item.value).sort((left, right) => left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id)),
       get: async (ownerUserId, id) => { const composite = composites.get(id); return composite?.ownerUserId === ownerUserId ? composite.value : undefined; },
       listByLogicalFamily: async (ownerUserId, logicalFamilyKey) => [...composites.values()].filter((item) => item.ownerUserId === ownerUserId && item.value.logicalFamilyKey === logicalFamilyKey).map((item) => item.value),
+      delete: async (ownerUserId, id) => {
+        const item = composites.get(id);
+        if (item && item.ownerUserId === ownerUserId) {
+          composites.delete(id);
+          return true;
+        }
+        return false;
+      },
     },
     generationAdapter: {
       modelName: "LOCAL_DETERMINISTIC",
@@ -366,6 +384,14 @@ export function createStrategyModule(dependencies: StrategyModuleDependencies = 
     },
     defineStrategy,
     defineComposite,
+    deleteDefinition: async (userId: string, id: string): Promise<boolean> => {
+      if (!userId.trim() || !id.trim()) invalid("VALIDATION_ERROR");
+      return (await dependencies.definitionRepository.delete?.(userId, id.trim())) ?? false;
+    },
+    deleteComposite: async (userId: string, id: string): Promise<boolean> => {
+      if (!userId.trim() || !id.trim()) invalid("VALIDATION_ERROR");
+      return (await dependencies.compositeRepository.delete?.(userId, id.trim())) ?? false;
+    },
     generateStrategy: async (userId, source) => {
       if (!userId.trim() || !isPlainRecord(source) || (source.sourceType !== "TEXT" && source.sourceType !== "URL")) invalid("VALIDATION_ERROR");
       const sourceType = source.sourceType;

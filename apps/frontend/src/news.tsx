@@ -144,18 +144,18 @@ export function News() {
     mutationFn: async (payload?: { sourceType?: string; sources?: Array<{ name: string; url: string; type: string }>; html?: string; coin?: string; autoHealing?: boolean }) => {
       const mode = payload?.sourceType ?? crawlSourceType;
       const coin = payload?.coin ?? trackedCoin;
-      setCrawlStatusMessage(`Đang cào từ ${mode} cho ${coin === "ALL" ? "tất cả coin" : coin}...`);
+      setCrawlStatusMessage(`Crawling from ${mode} for ${coin === "ALL" ? "all coins" : coin}...`);
       return api.collectNews({ ...payload, autoHealing: selfHealingEnabled });
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["news"] });
       void queryClient.invalidateQueries({ queryKey: ["news", "templates"] });
-      setCrawlStatusMessage(`Cào dữ liệu hoàn tất lúc ${new Date().toLocaleTimeString()}!`);
+      setCrawlStatusMessage(`Crawl completed at ${new Date().toLocaleTimeString()}!`);
       setTimeout(() => setCrawlStatusMessage(null), 5000);
       setPage(1);
     },
     onError: (err) => {
-      setCrawlStatusMessage(`Lỗi cào dữ liệu: ${err instanceof Error ? err.message : String(err)}`);
+      setCrawlStatusMessage(`Crawl error: ${err instanceof Error ? err.message : String(err)}`);
       setTimeout(() => setCrawlStatusMessage(null), 6000);
     },
   });
@@ -216,7 +216,7 @@ export function News() {
   const handleStartCrawl = () => {
     const activeSources = sources.filter((s) => s.active && s.type === crawlSourceType);
     if (activeSources.length === 0) {
-      setCrawlStatusMessage(`Không có nguồn ${crawlSourceType} nào được bật. Hãy mở "Cấu hình nguồn" để thêm hoặc bật nguồn.`);
+      setCrawlStatusMessage(`No active ${crawlSourceType} sources enabled. Please open "Source Configuration" to add or enable sources.`);
       setTimeout(() => setCrawlStatusMessage(null), 5000);
       return;
     }
@@ -384,18 +384,18 @@ export function News() {
     };
   }, [allItems, selfHealingApplied, realAvgConfidence]);
 
-  const backendModel = analyzedItems[0]?.sentiment?.modelName ?? "Chưa có model";
+  const backendModel = analyzedItems[0]?.sentiment?.modelName ?? "No model";
 
   return (
     <div className="news-screen">
       {/* Header Bar */}
       <div className="news-header">
         <div>
-          <h1>News Crawler & Phân tích thị trường</h1>
-          <p>Thu thập tin tức theo nguồn & coin chỉ định, chuẩn hoá và phân tích sentiment bằng AI</p>
+          <h1>News Crawler & Market Intelligence</h1>
+          <p>Collect news from designated sources & coins, normalize, and analyze market sentiment with AI</p>
         </div>
         <div className="news-header-status">
-          <span className="live-data-pill"><i /> Nguồn dữ liệu: PostgreSQL + REST Crawler</span>
+          <span className="live-data-pill"><i /> Data Pipeline: PostgreSQL + REST Crawler</span>
         </div>
       </div>
 
@@ -403,13 +403,13 @@ export function News() {
       <section className="news-toolbar-card">
         {/* Source Type Selector */}
         <div className="toolbar-group">
-          <label>Nguồn cào (Target Source)</label>
+          <label>Target Source</label>
           <div className="source-pill-tabs">
             <button
               type="button"
               className={`source-pill ${crawlSourceType === "WEBSITE" ? "active" : ""}`}
               onClick={() => setCrawlSourceType("WEBSITE")}
-              title="Cào tin từ các trang Website đã cấu hình"
+              title="Crawl news from configured website scrapers"
             >
               🌐 Website
             </button>
@@ -417,7 +417,7 @@ export function News() {
               type="button"
               className={`source-pill ${crawlSourceType === "RSS" ? "active" : ""}`}
               onClick={() => setCrawlSourceType("RSS")}
-              title="Cào tin từ các luồng RSS feed"
+              title="Crawl news from RSS XML feeds"
             >
               📡 RSS
             </button>
@@ -425,7 +425,7 @@ export function News() {
               type="button"
               className={`source-pill ${crawlSourceType === "HTML" ? "active" : ""}`}
               onClick={() => setCrawlSourceType("HTML")}
-              title="Nhập trực tiếp mã nguồn HTML hoặc upload file"
+              title="Directly paste HTML or upload file"
             >
               &lt;/&gt; HTML
             </button>
@@ -434,14 +434,14 @@ export function News() {
 
         {/* Pair / Asset Selector (What coin to track when crawling) */}
         <div className="toolbar-group">
-          <label>Coin cần theo dõi (Tracked Asset)</label>
+          <label>Tracked Asset</label>
           <select
             className="coin-select"
             value={trackedCoin}
             onChange={(event) => setTrackedCoin(event.target.value)}
-            title="Chọn đồng coin cần thu thập & phân tích"
+            title="Select target cryptocurrency for ingestion and analysis"
           >
-            <option value="ALL">Tất cả tài sản (ALL)</option>
+            <option value="ALL">All Assets (ALL)</option>
             {availableCoins.map((coin) => (
               <option key={coin} value={coin}>{coin}</option>
             ))}
@@ -454,9 +454,9 @@ export function News() {
             type="button"
             className="btn-source-config"
             onClick={() => setShowSourceConfig(true)}
-            title="Quản lý danh sách URL nguồn cào tin tức"
+            title="Manage crawl source URLs"
           >
-            ⚙ Cấu hình nguồn ({sources.length})
+            ⚙ Source Configuration ({sources.length})
           </button>
           <button
             type="button"
@@ -464,7 +464,7 @@ export function News() {
             disabled={collect.isPending}
             onClick={handleStartCrawl}
           >
-            {collect.isPending ? "Đang crawl..." : "▷ Bắt đầu crawl"}
+            {collect.isPending ? "Crawling..." : "▷ Start Crawl"}
           </button>
         </div>
       </section>
@@ -481,30 +481,30 @@ export function News() {
       {crawlSourceType === "HTML" && (
         <section className="html-input-card">
           <div className="html-card-header">
-            <h3>&lt;/&gt; Nhập hoặc Tải lên mã nguồn HTML để phân tích</h3>
-            <span className="html-hint">Hỗ trợ trích xuất cấu trúc tin tức &amp; sinh template tự động từ file HTML offline</span>
+            <h3>&lt;/&gt; Input or Upload HTML Source Code for Extraction</h3>
+            <span className="html-hint">Supports news extraction &amp; auto-template generation from offline HTML documents</span>
           </div>
           <div className="html-input-body">
             <textarea
               className="html-textarea"
-              placeholder="Dán mã nguồn HTML của bài viết vào đây (<html>...<article>...</article></html>)..."
+              placeholder="Paste HTML source code of the news article here (<html>...<article>...</article></html>)..."
               value={htmlInput}
               onChange={(event) => setHtmlInput(event.target.value)}
               rows={4}
             />
             <div className="html-actions-row">
               <label className="btn-upload-file">
-                📁 Tải file .html
+                📁 Upload .html file
                 <input type="file" accept=".html,.htm" onChange={handleFileUpload} style={{ display: "none" }} />
               </label>
-              {htmlFileName && <span className="uploaded-filename">Đã chọn: {htmlFileName}</span>}
+              {htmlFileName && <span className="uploaded-filename">Selected: {htmlFileName}</span>}
               <button
                 type="button"
                 className="btn-analyze-html"
                 disabled={!htmlInput.trim() || collect.isPending}
                 onClick={handleAnalyzeHtml}
               >
-                {collect.isPending ? "Đang phân tích..." : "⚡ Phân tích bằng LLM"}
+                {collect.isPending ? "Analyzing..." : "⚡ Analyze with LLM"}
               </button>
             </div>
           </div>
@@ -513,14 +513,14 @@ export function News() {
 
       {/* 3-Column Main Content Layout */}
       <div className="news-main-grid">
-        {/* Column 1: Tin tức đầu vào (Input News Feed with Dedicated In-Feed Filter Bar) */}
+        {/* Column 1: Input News Feed */}
         <section className="news-col news-feed-col">
           <div className="panel-title-bar">
             <div>
-              <h2>Tin tức đầu vào</h2>
-              <span className="feed-count-badge">Hiển thị {filteredItems.length} / {allItems.length} tin</span>
+              <h2>Input News Feed</h2>
+              <span className="feed-count-badge">Showing {filteredItems.length} / {allItems.length} articles</span>
             </div>
-            <span className="last-update-tag">↻ Cập nhật: {lastUpdatedTime}</span>
+            <span className="last-update-tag">↻ Updated: {lastUpdatedTime}</span>
           </div>
 
           {/* DEDICATED IN-FEED FILTER BAR */}
@@ -530,7 +530,7 @@ export function News() {
               <span className="feed-search-icon">🔍</span>
               <input
                 type="text"
-                placeholder="Tìm tiêu đề, nội dung..."
+                placeholder="Search title, content..."
                 value={filterSearch}
                 onChange={(e) => {
                   setFilterSearch(e.target.value);
@@ -546,7 +546,7 @@ export function News() {
                     setFilterSearch("");
                     setPage(1);
                   }}
-                  title="Xoá từ khoá tìm kiếm"
+                  title="Clear search keyword"
                 >
                   ✕
                 </button>
@@ -562,9 +562,9 @@ export function News() {
                   setFilterSource(e.target.value);
                   setPage(1);
                 }}
-                title="Lọc theo Nguồn tin"
+                title="Filter by Source"
               >
-                <option value="ALL">Mọi nguồn ({distinctSourcesInDb.length})</option>
+                <option value="ALL">All Sources ({distinctSourcesInDb.length})</option>
                 {distinctSourcesInDb.map((src) => (
                   <option key={src} value={src}>{src}</option>
                 ))}
@@ -577,9 +577,9 @@ export function News() {
                   setFilterCoin(e.target.value);
                   setPage(1);
                 }}
-                title="Lọc theo Coin"
+                title="Filter by Coin"
               >
-                <option value="ALL">Mọi coin ({distinctCoinsInDb.length})</option>
+                <option value="ALL">All Coins ({distinctCoinsInDb.length})</option>
                 {distinctCoinsInDb.map((coin) => (
                   <option key={coin} value={coin}>{coin}</option>
                 ))}
@@ -592,9 +592,9 @@ export function News() {
                   setFilterSentiment(e.target.value);
                   setPage(1);
                 }}
-                title="Lọc theo Sentiment"
+                title="Filter by Sentiment"
               >
-                <option value="ALL">Mọi sentiment</option>
+                <option value="ALL">All Sentiment</option>
                 <option value="POSITIVE">🟢 Positive</option>
                 <option value="NEUTRAL">⚪ Neutral</option>
                 <option value="NEGATIVE">🔴 Negative</option>
@@ -605,9 +605,9 @@ export function News() {
                   type="button"
                   className="btn-reset-filters"
                   onClick={handleResetFilters}
-                  title="Xoá tất cả bộ lọc hiện tại"
+                  title="Clear all active filters"
                 >
-                  ✕ Xoá lọc
+                  ✕ Clear Filters
                 </button>
               )}
             </div>
@@ -616,20 +616,20 @@ export function News() {
           {/* News List Items */}
           <div className="news-list-container">
             {query.isLoading ? (
-              <p className="news-feed-loading">Đang tải tin tức từ backend...</p>
+              <p className="news-feed-loading">Loading news from backend...</p>
             ) : allItems.length === 0 ? (
               <div className="empty-news-state">
-                <p>Chưa có dữ liệu tin tức trong cơ sở dữ liệu.</p>
-                <small className="muted">Bấm "▷ Bắt đầu crawl" để thu thập tin tức từ các nguồn đã cấu hình.</small>
+                <p>No news articles found in the database.</p>
+                <small className="muted">Click "▷ Start Crawl" to collect news from configured sources.</small>
                 <button type="button" className="btn-quick-crawl" onClick={() => collect.mutate()}>
-                  Bắt đầu crawl ngay
+                  Start Crawl Now
                 </button>
               </div>
             ) : filteredItems.length === 0 ? (
               <div className="empty-news-state">
-                <p>Không tìm thấy bài viết nào khớp với bộ lọc hiện tại.</p>
+                <p>No articles found matching the current filters.</p>
                 <button type="button" className="btn-quick-crawl" onClick={handleResetFilters}>
-                  Xoá bộ lọc
+                  Clear Filters
                 </button>
               </div>
             ) : (
@@ -660,7 +660,7 @@ export function News() {
                             {item.sentiment.label} ({item.sentiment.score >= 0 ? `+${item.sentiment.score.toFixed(2)}` : item.sentiment.score.toFixed(2)})
                           </span>
                         ) : (
-                          <span className="sentiment-pill neutral">Chưa có sentiment</span>
+                          <span className="sentiment-pill neutral">Pending Analysis</span>
                         )}
                       </div>
                     </div>
@@ -674,7 +674,7 @@ export function News() {
           {filteredItems.length > 0 && (
             <div className="news-pagination-bar">
               <span className="page-indicator">
-                Trang {page} / {totalPages} (Tổng {filteredItems.length} tin)
+                Page {page} of {totalPages} ({filteredItems.length} total articles)
               </span>
               <div className="page-buttons">
                 <button
@@ -682,14 +682,14 @@ export function News() {
                   disabled={page <= 1}
                   onClick={() => setPage((prev) => Math.max(1, prev - 1))}
                 >
-                  ← Trước
+                  ← Prev
                 </button>
                 <button
                   type="button"
                   disabled={page >= totalPages}
                   onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
                 >
-                  Sau →
+                  Next →
                 </button>
               </div>
             </div>

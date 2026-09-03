@@ -63,6 +63,7 @@ export function composeAllModules(options: { profile?: RuntimeProfile; env?: Nod
     })
     : createStrategyModule();
   const evaluation = createEvaluationModule();
+  const deterministicFallback = createDeterministicSentimentAdapter();
   const sentiment = createSentimentModule({
     analysis: config.durable && config.sentimentLlmApiKey && config.sentimentModelName && config.sentimentModelEndpoint
       ? createOpenAiCompatibleSentimentAdapter({
@@ -71,8 +72,9 @@ export function composeAllModules(options: { profile?: RuntimeProfile; env?: Nod
           modelVersion: config.sentimentModelVersion,
           endpoint: config.sentimentModelEndpoint,
           timeoutMs: config.sentimentModelTimeoutMs,
+          fallback: deterministicFallback,
         })
-      : createDeterministicSentimentAdapter(),
+      : deterministicFallback,
     resultRepository: postgres ? new PostgresSentimentResultRepository(postgres) : undefined,
     snapshotRepository: postgres ? new PostgresSentimentSnapshotRepository(postgres) : undefined,
   });

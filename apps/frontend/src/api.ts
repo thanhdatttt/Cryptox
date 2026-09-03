@@ -137,6 +137,8 @@ export const api = {
   scopes: () => request<Scope[]>("/leaderboard-scopes", {}, (value) => arrayDto<unknown>(value, "benchmark scopes").map(normalizeScope)),
   createScope: (body: unknown) => request<Scope>("/leaderboard-scopes", json(body), normalizeScope),
   deleteScope: (id: string) => request<{ id: string; deleted: boolean }>(`/leaderboard-scopes/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  deleteStrategyDefinition: (id: string) => request<{ id: string; deleted: boolean }>(`/strategies/definitions/${encodeURIComponent(id)}`, { method: "DELETE" }),
+  deleteComposite: (id: string) => request<{ id: string; deleted: boolean }>(`/strategies/composites/${encodeURIComponent(id)}`, { method: "DELETE" }),
   startBacktest: (body: { leaderboardScopeId: string; strategyDefinitionIds: string[]; selectionMode?: "SINGLE" | "COMPOSITE"; compositeDefinitionId?: string; maxAttempts?: number }) => request<Candidate>("/backtests", json(body, { "idempotency-key": idempotencyKey() }), normalizeCandidate),
   backtest: (body: { leaderboardScopeId: string; strategyDefinitionIds: string[]; selectionMode?: "SINGLE" | "COMPOSITE"; compositeDefinitionId?: string; maxAttempts?: number }) => api.startBacktest(body),
   candidate: (id: string) => request<Candidate>(`/backtests/${encodeURIComponent(id)}`, {}, normalizeCandidate),

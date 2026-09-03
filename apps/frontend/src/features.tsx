@@ -1107,6 +1107,41 @@ export function BacktestLive({ definitions, composites, scopes }: { definitions:
     }
   }, [definitions, composites]);
 
+  const newsQuery = useQuery({ queryKey: ["news"], queryFn: api.news });
+  const selectedSingle = definitions.find((d) => d.id === definitionId);
+  const selectedComposite = composites.find((c) => c.id === compositeId);
+  const requiresSentiment = Boolean(
+    (selectedSingle && (selectedSingle.strategyName === "SENTIMENT" || selectedSingle.familyName?.toLowerCase().includes("sentiment"))) ||
+    (selectedComposite && selectedComposite.components.some((comp) => {
+      const def = definitions.find((d) => d.id === comp.strategyDefinitionId);
+      return def && (def.strategyName === "SENTIMENT" || def.familyName?.toLowerCase().includes("sentiment"));
+    }))
+  );
+
+  const baseAsset = pair ? pair.replace(/(USDT|BUSD|USDC|USD|EUR)$/i, "").trim().toUpperCase() : "";
+
+  const sentimentCoverage = React.useMemo(() => {
+    if (!newsQuery.data || !baseAsset) return null;
+    const matchingNews = newsQuery.data.filter((item) => {
+      const coins = item.relatedCoins ?? [];
+      const matchesCoin = coins.includes(baseAsset) || item.title.toUpperCase().includes(baseAsset);
+      return matchesCoin && item.sentiment;
+    });
+    if (matchingNews.length === 0) return null;
+    const timestamps = matchingNews
+      .map((item) => new Date(item.publishedAt).getTime())
+      .filter((t) => !isNaN(t))
+      .sort((a, b) => a - b);
+    if (timestamps.length === 0) return null;
+    const minTime = timestamps[0]!;
+    const maxTime = timestamps[timestamps.length - 1]!;
+    return {
+      count: matchingNews.length,
+      fromIso: new Date(minTime).toISOString(),
+      toIso: new Date(maxTime).toISOString(),
+    };
+  }, [newsQuery.data, baseAsset]);
+
   useEffect(() => {
     if (capabilities.data) {
       setPair((current) => capabilities.data!.pairs.includes(current) ? current : capabilities.data!.pairs[0] ?? "");
@@ -1700,6 +1735,37 @@ export function BacktestLive({ definitions, composites, scopes }: { definitions:
           </div>
         </div>
 
+        {/* Sentiment Strategy Range Guidance Banner */}
+        {requiresSentiment && (
+          <div className="sentiment-guidance-banner">
+            <div className="sentiment-guidance-info">
+              <span className="sentiment-guidance-icon">📰</span>
+              <div>
+                <strong>News Sentiment Strategy Active:</strong> Requires recorded news sentiment for <b>{baseAsset || "this asset"}</b>.
+                {sentimentCoverage ? (
+                  <span> Available in database: <b>{toUtc7InputString(sentimentCoverage.fromIso).replace("T", " ")}</b> to <b>{toUtc7InputString(sentimentCoverage.toIso).replace("T", " ")}</b> ({sentimentCoverage.count} evaluated articles).</span>
+                ) : (
+                  <span className="sentiment-coverage-warning"> No evaluated news found for {baseAsset}. Please crawl news for this coin in the News tab first.</span>
+                )}
+              </div>
+            </div>
+            {sentimentCoverage && (
+              <button
+                type="button"
+                className="btn-align-sentiment-range"
+                onClick={() => {
+                  setFrom(toUtc7InputString(sentimentCoverage.fromIso));
+                  setTo(toUtc7InputString(sentimentCoverage.toIso));
+                  if (scopeId) setScopeId("");
+                }}
+                title="Align start and end dates to match the available news window"
+              >
+                📅 Align to Available News
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Sub-bar: Scope Preset selector + Run Button */}
         <div className="backtest-sub-bar">
           <div className="scope-preset-group">
@@ -1966,7 +2032,22 @@ export function SearchLive({ definitions, scopes, strategies = [], initialRunId 
   return <><div className="heading"><div><h1>Strategy Search & Discovery</h1><p>Configure a bounded Search Run and monitor authoritative backend lifecycle projections.</p></div><span className="status"><i />{generatorType} · backend</span></div><Panel className="search-panel"><div className="search-config-grid"><label className="field">Benchmark scope<select value={scopeId} onChange={(event) => setScopeId(event.target.value)}><option value="">Select scope</option>{scopes.map((scope) => <option key={scope.id} value={scope.id}>{scope.name}</option>)}</select></label><label className="field">Generator<select value={generatorType} onChange={(event) => setGeneratorType(event.target.value as import("./api").GeneratorType)}><option value="RANDOM">RANDOM</option><option value="DOMAIN_GUIDED">DOMAIN_GUIDED</option><option value="GENETIC">GENETIC</option></select></label><label className="field">Max in-flight<input type="number" min="1" step="1" value={maxInFlight} onChange={(event) => setMaxInFlight(event.target.value)} /></label><label className="field">Max components<input type="number" min="1" step="1" value={maxComponents} onChange={(event) => setMaxComponents(event.target.value)} /></label><label className="field">Stop condition<select value={stopType} onChange={(event) => setStopType(event.target.value as typeof stopType)}><option value="maxCandidates">Max candidates</option><option value="maxDurationSeconds">Max duration (seconds)</option><option value="noImprovementAfterIterations">No improvement after iterations</option></select></label><label className="field">Positive limit<input type="number" min="1" step="1" value={stopValue} onChange={(event) => setStopValue(event.target.value)} /></label></div>{generatorType === "DOMAIN_GUIDED" && <div className="domain-rules"><fieldset className="search-space"><legend>Required categories</legend>{categories.map((category) => <label key={`required-${category}`}><input type="checkbox" checked={requiredCategories.includes(category)} onChange={() => toggleCategory(setRequiredCategories, category)} /> {category}</label>)}</fieldset><fieldset className="search-space"><legend>Allowed categories (empty means all)</legend>{categories.map((category) => <label key={`allowed-${category}`}><input type="checkbox" checked={allowedCategories.includes(category)} onChange={() => toggleCategory(setAllowedCategories, category)} /> {category}</label>)}</fieldset><fieldset className="search-space"><legend>Forbidden categories</legend>{categories.map((category) => <label key={`forbidden-${category}`}><input type="checkbox" checked={forbiddenCategories.includes(category)} onChange={() => toggleCategory(setForbiddenCategories, category)} /> {category}</label>)}</fieldset></div>}<fieldset className="search-space"><legend>Search space definitions</legend>{definitions.length ? definitions.map((definition) => <label key={definition.id}><input type="checkbox" checked={selectedIds.includes(definition.id)} onChange={() => toggleDefinition(definition.id)} /> {definition.strategyName} · v{definition.version}</label>) : <Empty>No saved definitions available.</Empty>}</fieldset><div className="toolbar"><Btn primary disabled={start.isPending || !scopeId || selectedIds.length === 0} onClick={() => start.mutate()}>{start.isPending ? "Starting..." : "Start Search"}</Btn>{current?.state === "RUNNING" && <Btn onClick={() => control.mutate("pause")} disabled={control.isPending}>Pause</Btn>}{current?.state === "PAUSED" && <Btn onClick={() => control.mutate("resume")} disabled={control.isPending}>Resume</Btn>}{current && !terminalSearch(current.state) && <Btn onClick={() => control.mutate("cancel")} disabled={control.isPending}>Cancel</Btn>}{runId && <Btn onClick={clearRun}>Clear saved run</Btn>}</div><ErrorBox error={error ?? start.error ?? control.error ?? status.error} />{!runId ? <Empty>No Search Run selected. Configuration is ready for a bounded start.</Empty> : status.isLoading ? <Loading /> : current ? <><SearchSummaryCards current={current} /><p className="muted">Run ID: {current.searchRunId} · stop condition {JSON.stringify(current.stopCondition)} · retry exhausted {current.retryExhaustedCandidateCount ?? 0} · infrastructure failures {current.infrastructureFailureCandidateCount ?? 0}{current.lastError ? ` · last error: ${current.lastError}` : ""}</p><h3>Candidate history</h3>{candidates.isLoading ? <Loading /> : candidates.error ? <ErrorBox error={candidates.error} /> : candidates.data?.items.length ? <><CandidateTable candidates={candidates.data.items} /><div className="toolbar"><Btn onClick={() => setCandidateCursors((cursorStack) => cursorStack.length > 1 ? cursorStack.slice(0, -1) : cursorStack)} disabled={candidateCursors.length <= 1}>Previous candidates</Btn><Btn onClick={() => candidates.data?.nextCursor && setCandidateCursors((cursorStack) => [...cursorStack, candidates.data!.nextCursor])} disabled={!candidates.data?.nextCursor}>Next candidates</Btn></div></> : <Empty>No candidates returned yet.</Empty>}<h3>Search Run ranking</h3>{ranking.isLoading ? <Loading /> : ranking.error ? <ErrorBox error={ranking.error} /> : ranking.data?.length ? <RankingTable rows={ranking.data} /> : <Empty>No completed ranking entries yet.</Empty>}</> : <Empty>Saved Search Run is unavailable.</Empty>}</Panel></>;
 }
 
-function useResources() { const definitions = useQuery({ queryKey: ["strategies", "definitions"], queryFn: api.definitions }); const composites = useQuery({ queryKey: ["strategies", "composites"], queryFn: api.composites }); const scopes = useQuery({ queryKey: ["scopes"], queryFn: api.scopes }); return { definitions: definitions.data ?? [], composites: composites.data ?? [], scopes: scopes.data ?? [], loading: definitions.isLoading || composites.isLoading || scopes.isLoading, error: definitions.error ?? composites.error ?? scopes.error }; }
+function useResources() {
+  const definitions = useQuery({ queryKey: ["strategies", "definitions"], queryFn: api.definitions });
+  const composites = useQuery({ queryKey: ["strategies", "composites"], queryFn: api.composites });
+  const scopes = useQuery({ queryKey: ["scopes"], queryFn: api.scopes });
+  const deletedIds = React.useMemo(() => {
+    try {
+      const raw = localStorage.getItem("cryptox_deleted_strategies_v1");
+      return raw ? (JSON.parse(raw) as string[]) : [];
+    } catch {
+      return [];
+    }
+  }, []);
+  const visibleDefinitions = React.useMemo(() => (definitions.data ?? []).filter((d) => !deletedIds.includes(d.id)), [definitions.data, deletedIds]);
+  const visibleComposites = React.useMemo(() => (composites.data ?? []).filter((c) => !deletedIds.includes(c.id)), [composites.data, deletedIds]);
+  return { definitions: visibleDefinitions, composites: visibleComposites, scopes: scopes.data ?? [], loading: definitions.isLoading || composites.isLoading || scopes.isLoading, error: definitions.error ?? composites.error ?? scopes.error };
+}
 export function BacktestScreen() { const resources = useResources(); if (resources.loading) return <Loading />; if (resources.error) return <ErrorBox error={resources.error} />; return <BacktestLive {...resources} />; }
 export function SearchScreen({ initialRunId }: { initialRunId?: string } = {}) { const resources = useResources(); const strategies = useQuery({ queryKey: ["strategies", "catalog"], queryFn: api.strategies }); if (resources.loading || strategies.isLoading) return <Loading />; if (resources.error) return <ErrorBox error={resources.error} />; if (strategies.error) return <ErrorBox error={strategies.error} />; return <SearchLive definitions={resources.definitions} scopes={resources.scopes} strategies={strategies.data ?? []} initialRunId={initialRunId} />; }
 

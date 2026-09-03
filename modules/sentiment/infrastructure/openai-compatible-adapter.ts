@@ -25,6 +25,7 @@ export interface OpenAiCompatibleSentimentOptions {
   timeoutMs?: number;
   maxRetries?: number;
   clock?: { now(): string };
+  fallback?: SentimentAnalysisService;
 }
 
 const labels: readonly SentimentLabel[] = ["POSITIVE", "NEUTRAL", "NEGATIVE"];
@@ -61,7 +62,10 @@ export function createOpenAiCompatibleSentimentAdapter(options: OpenAiCompatible
 
   return {
     async analyze(input: SentimentInput): Promise<SentimentResult> {
-      if (!options.apiKey.trim() || !options.model.trim() || !modelVersion) throw new SentimentModelError("SENTIMENT_MODEL_UNAVAILABLE");
+      if (!options.apiKey.trim() || !options.model.trim() || !modelVersion) {
+        if (options.fallback) return options.fallback.analyze(input);
+        throw new SentimentModelError("SENTIMENT_MODEL_UNAVAILABLE");
+      }
       const body = JSON.stringify({
         model: options.model,
         temperature: 0,
@@ -96,14 +100,22 @@ export function createOpenAiCompatibleSentimentAdapter(options: OpenAiCompatible
           const parsed = parseResult(content);
           return { newsId: input.newsId, label: parsed.label, score: parsed.score, modelName: options.model, modelVersion, analyzedAt: clock.now() };
         } catch (error) {
+          if (options.fallback && error instanceof SentimentModelError && (error.code === "SENTIMENT_MODEL_RATE_LIMITED" || error.code === "SENTIMENT_MODEL_TIMEOUT" || error.code === "SENTIMENT_MODEL_ERROR" || error.code === "SENTIMENT_MODEL_UNAVAILABLE")) {
+            return options.fallback.analyze(input);
+          }
           if (error instanceof SentimentModelError) throw error;
-          if (error instanceof DOMException && error.name === "AbortError") throw new SentimentModelError("SENTIMENT_MODEL_TIMEOUT");
+          if (error instanceof DOMException && error.name === "AbortError") {
+            if (options.fallback) return options.fallback.analyze(input);
+            throw new SentimentModelError("SENTIMENT_MODEL_TIMEOUT");
+          }
           if (attempt < maxRetries) { await sleep(50 * (attempt + 1)); continue; }
+          if (options.fallback) return options.fallback.analyze(input);
           throw new SentimentModelError("SENTIMENT_MODEL_UNAVAILABLE");
         } finally {
           if (timer) clearTimeout(timer);
         }
       }
+      if (options.fallback) return options.fallback.analyze(input);
       throw new SentimentModelError("SENTIMENT_MODEL_UNAVAILABLE");
     },
   };

@@ -5,12 +5,14 @@ export interface StrategyDefinitionRepository {
   listByIds(ownerUserId: string, ids: string[]): Promise<StrategyDefinition[]>;
   listByLogicalFamily(ownerUserId: string, logicalFamilyKey: string): Promise<StrategyDefinition[]>;
   exists?(id: string): Promise<boolean>;
+  delete?(ownerUserId: string, id: string): Promise<boolean>;
 }
 export interface CompositeDefinitionRepository {
   insert(ownerUserId: string, definition: CompositeStrategyDefinition): Promise<CompositeStrategyDefinition>;
   list(ownerUserId: string): Promise<CompositeStrategyDefinition[]>;
   get(ownerUserId: string, id: string): Promise<CompositeStrategyDefinition | undefined>;
   listByLogicalFamily(ownerUserId: string, logicalFamilyKey: string): Promise<CompositeStrategyDefinition[]>;
+  delete?(ownerUserId: string, id: string): Promise<boolean>;
 }
 
 export type StrategyGenerationSource =

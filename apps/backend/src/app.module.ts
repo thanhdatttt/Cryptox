@@ -143,7 +143,8 @@ const backtestHttpError = (error: unknown): never => {
   if (error.message === "BACKTEST_ACCESS_DENIED") throw new NotFoundException(error.message);
   if (error.message === "BACKTEST_CANDIDATE_NOT_MANUAL") throw new ConflictException(error.message);
   if (error.message === "BACKTEST_SCOPE_IN_USE") throw new ConflictException("Cannot delete scope preset because it is linked to existing backtests or search runs.");
-  if (error.message === "SNAPSHOT_INCOMPLETE" || error.message.startsWith("INVALID_") || error.message.includes("DATASET") || error.message.includes("STRATEGY") || error.name === "MarketDataException" || "code" in error || error.message.includes("grid") || error.message.includes("candles")) throw new BadRequestException(error.message);
+  if (error.message === "SNAPSHOT_INCOMPLETE") throw new BadRequestException("News sentiment snapshot is incomplete or missing for this asset and time range. Please select a timeframe within the recorded news window or crawl more news.");
+  if (error.message.startsWith("INVALID_") || error.message.includes("DATASET") || error.message.includes("STRATEGY") || error.name === "MarketDataException" || "code" in error || error.message.includes("grid") || error.message.includes("candles")) throw new BadRequestException(error.message);
   throw error;
 };
 
@@ -274,6 +275,30 @@ export class StrategyController extends ProtectedController {
     const userId = await this.authenticate(authorization);
     try {
       return projectCompositeStrategyDefinition(userId, await this.modules.strategy.readComposite(userId, id));
+    } catch (error) {
+      return strategyHttpError(error);
+    }
+  }
+
+  @Delete("definitions/:id")
+  async deleteDefinition(@Headers("authorization") authorization: string | undefined, @Param("id") id: string) {
+    const userId = await this.authenticate(authorization);
+    if (!id?.trim()) throw new BadRequestException("id is required.");
+    try {
+      const deleted = await this.modules.strategy.deleteDefinition(userId, id.trim());
+      return { id: id.trim(), deleted };
+    } catch (error) {
+      return strategyHttpError(error);
+    }
+  }
+
+  @Delete("composites/:id")
+  async deleteComposite(@Headers("authorization") authorization: string | undefined, @Param("id") id: string) {
+    const userId = await this.authenticate(authorization);
+    if (!id?.trim()) throw new BadRequestException("id is required.");
+    try {
+      const deleted = await this.modules.strategy.deleteComposite(userId, id.trim());
+      return { id: id.trim(), deleted };
     } catch (error) {
       return strategyHttpError(error);
     }
@@ -462,7 +487,7 @@ export class BacktestScopeController extends ProtectedController {
   async create(
     @Headers("authorization") authorization: string | undefined,
     @Headers("idempotency-key") idempotencyKey: string | undefined,
-    @Body() body: { name?: unknown; pair?: unknown; timeframe?: unknown; from?: unknown; to?: unknown; initialCapital?: unknown; feeRatePercent?: unknown; slippageBps?: unknown; stopLossPercent?: unknown; takeProfitPercent?: unknown; scoreFormulaId?: unknown },
+    @Body() body: { name?: unknown; pair?: unknown; timeframe?: unknown; from?: unknown; to?: unknown; initialCapital?: unknown; feeRatePercent?: unknown; slippageBps?: unknown; stopLossPercent?: unknown; takeProfitPercent?: unknown; scoreFormulaId?: unknown; warmupCapacityCandles?: unknown },
   ) {
     const userId = await this.authenticate(authorization);
     if (typeof body?.name !== "string" || typeof body?.pair !== "string" || typeof body?.timeframe !== "string" || typeof body?.from !== "string" || typeof body?.to !== "string") throw new BadRequestException("name, pair, timeframe, from, and to are required.");
@@ -470,9 +495,45 @@ export class BacktestScopeController extends ProtectedController {
     if (initialCapital === undefined || feeRatePercent === undefined || !Number.isInteger(slippageBps)) throw new BadRequestException("initialCapital, feeRatePercent, and integer slippageBps are required.");
     const stopLossPercent = positiveNumber(body.stopLossPercent); const takeProfitPercent = positiveNumber(body.takeProfitPercent);
     if ((body.stopLossPercent !== undefined && stopLossPercent === undefined) || (body.takeProfitPercent !== undefined && takeProfitPercent === undefined)) throw new BadRequestException("risk percentages must be positive numbers.");
+    const warmupCapacityCandles = positiveInteger(body.warmupCapacityCandles) ?? 500;
     try {
       const datasetSnapshot = await this.modules.marketData.createDatasetSnapshot({ pair: body.pair, timeframe: body.timeframe as Timeframe, range: { from: body.from, to: body.to } });
-      return await this.modules.backtesting.createBenchmarkScope({ userId }, { name: body.name, datasetSnapshot, initialCapital, feeRatePercent, slippageBps, riskPolicy: stopLossPercent === undefined && takeProfitPercent === undefined ? undefined : { stopLossPercent, takeProfitPercent }, scoreFormulaId: typeof body.scoreFormulaId === "string" && body.scoreFormulaId.trim() ? body.scoreFormulaId : "MVP_MANUAL_V1", workerRuntimeVersion: BACKTEST_RUNTIME_VERSION, workerRuntimeSha256: BACKTEST_RUNTIME_SHA256, evaluationRuntimeVersion: this.modules.evaluation.runtimeVersion, evaluationRuntimeSha256: this.modules.evaluation.runtimeSha256 }, { scopeIdempotencyKey: idempotencyKey?.trim() || randomUUID() });
+      const baseAsset = datasetSnapshot.pairMetadata.baseAsset;
+      let sentimentDatasetSnapshot: import("modules/sentiment/api").SentimentDatasetSnapshotRef | undefined;
+      if (this.modules.sentiment && baseAsset) {
+        const windowSeconds = ({ "1m": 60, "5m": 300, "15m": 900, "1h": 3600, "4h": 14400, "1d": 86400 } as Record<string, number>)[body.timeframe as string] ?? 900;
+        try {
+          sentimentDatasetSnapshot = await this.modules.sentiment.createSnapshot({
+            relatedCoin: baseAsset,
+            range: { from: body.from, to: body.to },
+            aggregationWindowSeconds: windowSeconds,
+            modelName: "gemini-3.5-flash-lite",
+            modelVersion: "gemini-3.5-flash-lite",
+            modelSha256: "0".repeat(64),
+          });
+        } catch {
+          try {
+            sentimentDatasetSnapshot = await this.modules.sentiment.createSnapshot({
+              relatedCoin: baseAsset,
+              range: { from: body.from, to: body.to },
+              aggregationWindowSeconds: windowSeconds,
+              modelName: "LOCAL_LEXICON",
+              modelVersion: "1.0.0",
+              modelSha256: "0".repeat(64),
+            });
+          } catch {
+            // Sentiment snapshot unavailable for this range
+          }
+        }
+      }
+      try {
+        return await this.modules.backtesting.createBenchmarkScope({ userId }, { name: body.name, datasetSnapshot, sentimentDatasetSnapshot, initialCapital, feeRatePercent, slippageBps, warmupCapacityCandles, riskPolicy: stopLossPercent === undefined && takeProfitPercent === undefined ? undefined : { stopLossPercent, takeProfitPercent }, scoreFormulaId: typeof body.scoreFormulaId === "string" && body.scoreFormulaId.trim() ? body.scoreFormulaId : "MVP_MANUAL_V1", workerRuntimeVersion: BACKTEST_RUNTIME_VERSION, workerRuntimeSha256: BACKTEST_RUNTIME_SHA256, evaluationRuntimeVersion: this.modules.evaluation.runtimeVersion, evaluationRuntimeSha256: this.modules.evaluation.runtimeSha256 }, { scopeIdempotencyKey: idempotencyKey?.trim() || randomUUID() });
+      } catch (scopeError) {
+        if (sentimentDatasetSnapshot && scopeError instanceof Error && scopeError.message === "SNAPSHOT_INCOMPLETE") {
+          return await this.modules.backtesting.createBenchmarkScope({ userId }, { name: body.name, datasetSnapshot, sentimentDatasetSnapshot: undefined, initialCapital, feeRatePercent, slippageBps, warmupCapacityCandles, riskPolicy: stopLossPercent === undefined && takeProfitPercent === undefined ? undefined : { stopLossPercent, takeProfitPercent }, scoreFormulaId: typeof body.scoreFormulaId === "string" && body.scoreFormulaId.trim() ? body.scoreFormulaId : "MVP_MANUAL_V1", workerRuntimeVersion: BACKTEST_RUNTIME_VERSION, workerRuntimeSha256: BACKTEST_RUNTIME_SHA256, evaluationRuntimeVersion: this.modules.evaluation.runtimeVersion, evaluationRuntimeSha256: this.modules.evaluation.runtimeSha256 }, { scopeIdempotencyKey: idempotencyKey?.trim() || randomUUID() });
+        }
+        throw scopeError;
+      }
     } catch (error) { return backtestHttpError(error); }
   }
 
@@ -515,8 +576,9 @@ export class BacktestController extends ProtectedController {
     if (body?.compositeDefinitionId !== undefined && !nonEmptyString(body.compositeDefinitionId)) throw new BadRequestException("compositeDefinitionId must be a non-empty string when supplied.");
     const maxAttempts = body.maxAttempts === undefined ? 1 : typeof body.maxAttempts === "number" ? body.maxAttempts : undefined;
     if (!Number.isInteger(maxAttempts) || maxAttempts === undefined || maxAttempts < 1) throw new BadRequestException("maxAttempts must be a positive integer.");
+    let strategyDefinitions: StrategyDefinition[] | undefined;
     try {
-      const strategyDefinitions = await this.modules.strategy.readDefinitions(userId, strategyDefinitionIds);
+      strategyDefinitions = await this.modules.strategy.readDefinitions(userId, strategyDefinitionIds);
       const compositeDefinition = body.compositeDefinitionId === undefined
         ? await this.normalizeSingleDefinition(userId, strategyDefinitionIds, body.selectionMode, strategyDefinitions)
         : await this.modules.strategy.readComposite(userId, body.compositeDefinitionId.trim());
@@ -525,7 +587,16 @@ export class BacktestController extends ProtectedController {
       const startManual = this.modules.backtesting.startManual;
       if (startManual.length === 1) return await (startManual as unknown as (cmd: typeof command) => Promise<BacktestSubmissionAccepted>).call(this.modules.backtesting, command);
       return await startManual.call(this.modules.backtesting, { userId }, command, { submissionIdempotencyKey: idempotencyKey?.trim() || undefined });
-    } catch (error) { return backtestHttpError(error); }
+    } catch (error) {
+      if (error instanceof Error && error.message === "SNAPSHOT_INCOMPLETE") {
+        const requiresSentiment = strategyDefinitions?.some((d) => d.strategyName === "SENTIMENT" || d.logicalFamilyKey?.toLowerCase().includes("sentiment"));
+        if (requiresSentiment) {
+          throw new BadRequestException("News sentiment snapshot is incomplete or missing for this asset and time range. Please select a timeframe within the recorded news window or crawl more news.");
+        }
+        throw new BadRequestException("Dataset snapshot is incomplete for the selected time range and strategy warmup requirements.");
+      }
+      return backtestHttpError(error);
+    }
   }
 
   private async normalizeSingleDefinition(

@@ -98,6 +98,57 @@ export class PostgresStrategyDefinitionRepository implements StrategyDefinitionR
     const result = await this.pool.query<{ exists: boolean }>("SELECT EXISTS (SELECT 1 FROM strategy_definitions WHERE id = $1) AS exists", [id]);
     return result.rows[0]?.exists === true;
   }
+
+  async delete(ownerUserId: string, id: string): Promise<boolean> {
+    await cascadeDeleteStrategyArtifacts(this.pool, ownerUserId, id);
+    await this.pool.query(
+      "DELETE FROM strategy_generation_requests WHERE user_id = $1 AND strategy_definition_id = $2",
+      [ownerUserId, id],
+    );
+    await this.pool.query(
+      "DELETE FROM composite_strategy_definitions WHERE user_id = $1 AND components::text LIKE $2",
+      [ownerUserId, `%"${id}"%`],
+    );
+    const result = await this.pool.query<{ id: string }>(
+      "DELETE FROM strategy_definitions WHERE user_id = $1 AND id = $2 RETURNING id",
+      [ownerUserId, id],
+    );
+    return result.rows.length > 0;
+  }
+}
+
+async function cascadeDeleteStrategyArtifacts(pool: StrategySqlQueryClient, ownerUserId: string, strategyId: string): Promise<void> {
+  const candidatesResult = await pool.query<{ id: string }>(
+    `SELECT id FROM backtest_candidates
+     WHERE owner_user_id = $1
+       AND (composite_definition::text LIKE $2 OR strategy_definitions::text LIKE $2)`,
+    [ownerUserId, `%"${strategyId}"%`],
+  );
+  const candidateIds = candidatesResult.rows.map((r) => r.id);
+  if (candidateIds.length === 0) return;
+
+  const experimentsResult = await pool.query<{ id: string }>(
+    "SELECT id FROM backtest_experiment_results WHERE candidate_id = ANY($1::text[])",
+    [candidateIds],
+  );
+  const experimentIds = experimentsResult.rows.map((r) => r.id);
+
+  if (experimentIds.length > 0) {
+    await pool.query("DELETE FROM leaderboard_entries WHERE experiment_result_id = ANY($1::text[])", [experimentIds]);
+    await pool.query("DELETE FROM backtest_replay_verifications WHERE experiment_result_id = ANY($1::text[])", [experimentIds]);
+    await pool.query("DELETE FROM backtest_experiment_results WHERE id = ANY($1::text[])", [experimentIds]);
+  }
+
+  await pool.query(
+    `DELETE FROM backtest_trades 
+     WHERE backtest_attempt_id IN (
+       SELECT id FROM backtest_attempts WHERE candidate_id = ANY($1::text[])
+     )`,
+    [candidateIds],
+  );
+  await pool.query("DELETE FROM backtest_attempts WHERE candidate_id = ANY($1::text[])", [candidateIds]);
+  await pool.query("DELETE FROM backtest_queue_dispatches WHERE candidate_id = ANY($1::text[])", [candidateIds]);
+  await pool.query("DELETE FROM backtest_candidates WHERE id = ANY($1::text[])", [candidateIds]);
 }
 
 export class PostgresCompositeDefinitionRepository implements CompositeDefinitionRepository {
@@ -133,6 +184,19 @@ export class PostgresCompositeDefinitionRepository implements CompositeDefinitio
       [ownerUserId, logicalFamilyKey],
     );
     return result.rows.map(composite);
+  }
+
+  async delete(ownerUserId: string, id: string): Promise<boolean> {
+    await cascadeDeleteStrategyArtifacts(this.pool, ownerUserId, id);
+    await this.pool.query(
+      "DELETE FROM strategy_generation_requests WHERE user_id = $1 AND composite_definition_id = $2",
+      [ownerUserId, id],
+    );
+    const result = await this.pool.query<{ id: string }>(
+      "DELETE FROM composite_strategy_definitions WHERE user_id = $1 AND id = $2 RETURNING id",
+      [ownerUserId, id],
+    );
+    return result.rows.length > 0;
   }
 }
 

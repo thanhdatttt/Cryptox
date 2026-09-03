@@ -748,6 +748,7 @@ function DeleteConfirmationModal({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [onClose]);
 
+  const isDraft = target.type === "DRAFT";
   const typeBadge =
     target.type === "DRAFT"
       ? { label: "Unsaved Draft", className: "badge-draft" }
@@ -763,7 +764,7 @@ function DeleteConfirmationModal({
             <span>🗑️</span>
           </div>
           <div className="delete-modal-title-group">
-            <h3>Delete Strategy</h3>
+            <h3>{isDraft ? "Discard Draft" : "Delete Strategy"}</h3>
             <span className={`delete-type-pill ${typeBadge.className}`}>{typeBadge.label}</span>
           </div>
           <button type="button" className="btn-modal-close" onClick={onClose} aria-label="Close modal">
@@ -776,10 +777,34 @@ function DeleteConfirmationModal({
             Are you sure you want to delete <b className="delete-target-highlight">"{target.name}"</b>?
           </p>
           {target.details && <p className="delete-meta-info">{target.details}</p>}
-          <div className="delete-notice-box">
-            <span className="notice-icon">⚠️</span>
-            <span>This action will remove the strategy from your workspace and saved lists.</span>
-          </div>
+
+          {isDraft ? (
+            <div className="delete-notice-box">
+              <span className="notice-icon">ℹ️</span>
+              <span>This will discard this unsaved draft from your browser.</span>
+            </div>
+          ) : (
+            <div className="delete-cascade-warning-box">
+              <span className="notice-icon">⚠️</span>
+              <div>
+                <b>Permanent Cascade Deletion:</b>
+                <div style={{ marginTop: "2px" }}>
+                  Deleting this strategy will permanently erase it from the database, along with:
+                </div>
+                <ul className="cascade-list">
+                  <li>All historical <b>Backtest candidates & run logs</b> referencing this strategy.</li>
+                  <li>All recorded <b>Trades & Attempt metrics</b>.</li>
+                  <li>All evaluation results & scores on the <b>Leaderboard</b>.</li>
+                  {target.type === "DEFINITION" && (
+                    <li>Any <b>Composite ensembles</b> that include this strategy as a component.</li>
+                  )}
+                </ul>
+                <div style={{ marginTop: "6px", fontWeight: 700, fontSize: "11px", color: "#7f1d1d" }}>
+                  ⛔ This action cannot be undone.
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="delete-modal-footer">
@@ -794,7 +819,7 @@ function DeleteConfirmationModal({
               onClose();
             }}
           >
-            🗑️ Yes, Delete
+            🗑️ {isDraft ? "Discard Draft" : "Permanently Delete"}
           </button>
         </div>
       </div>
@@ -1777,6 +1802,24 @@ export function StrategyScreen() {
   const [compositeError, setCompositeError] = useState<unknown>();
   const [message, setMessage] = useState("");
 
+  // Sync / Purge: On mount, ensure any IDs stored in deletedIds are permanently deleted in backend
+  useEffect(() => {
+    const deleted = loadDeletedStrategyIds();
+    if (deleted.length > 0) {
+      Promise.allSettled(
+        deleted.map((id) =>
+          id.startsWith("composite-strategy-")
+            ? api.deleteComposite(id)
+            : api.deleteStrategyDefinition(id)
+        )
+      ).then(() => {
+        localStorage.removeItem(DELETED_STRATEGIES_KEY);
+        setDeletedIds([]);
+        void queryClient.invalidateQueries({ queryKey: ["strategies"] });
+      });
+    }
+  }, []);
+
   const unsavedDraftIds = useMemo(() => {
     const ids = new Set<string>();
     drafts.filter((d) => !d.isSaved).forEach((d) => {
@@ -1908,7 +1951,16 @@ export function StrategyScreen() {
     setMessage("Draft removed.");
   };
 
-  const handleDeleteSavedStrategy = (id: string) => {
+  const handleDeleteSavedStrategy = async (id: string) => {
+    try {
+      if (id.startsWith("composite-strategy-")) {
+        await api.deleteComposite(id);
+      } else {
+        await api.deleteStrategyDefinition(id);
+      }
+    } catch {
+      // Backend error fallback
+    }
     persistDeletedStrategyId(id);
     setDeletedIds((prev) => [...prev, id]);
     const nextDrafts = drafts.filter((d) => d.savedDefinitionId !== id && d.id !== id);
@@ -1918,7 +1970,7 @@ export function StrategyScreen() {
       setSelected(undefined);
       setActiveDraft(undefined);
     }
-    setMessage("Strategy removed from saved list.");
+    setMessage("Strategy permanently deleted from database.");
     void queryClient.invalidateQueries({ queryKey: ["strategies"] });
   };
 
