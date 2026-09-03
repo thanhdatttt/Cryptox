@@ -1358,13 +1358,21 @@ export function BacktestLive({ definitions, composites, scopes }: { definitions:
 
       let activeScopeId = scopeId;
 
+function parseUtcInputDate(value: string): Date {
+  const clean = value.trim();
+  if (!clean) return new Date(NaN);
+  if (clean.endsWith("Z")) return new Date(clean);
+  const normalized = clean.length === 16 ? `${clean}:00.000Z` : clean.length === 10 ? `${clean}T00:00:00.000Z` : clean.includes("Z") ? clean : `${clean}Z`;
+  return new Date(normalized);
+}
+
       // If no scope preset is chosen (Auto-Create / Custom), validate fields and create scope
       if (!activeScopeId) {
         if (!pair || !pair.trim()) throw new Error("Please select a trading pair.");
         if (!timeframe || !timeframe.trim()) throw new Error("Please select a timeframe.");
         if (!from || !from.trim() || !to || !to.trim()) throw new Error("Please specify both From and To dates.");
-        const fromDate = new Date(from);
-        const toDate = new Date(to);
+        const fromDate = parseUtcInputDate(from);
+        const toDate = parseUtcInputDate(to);
         if (isNaN(fromDate.getTime()) || isNaN(toDate.getTime())) throw new Error("The specified date range is invalid.");
         if (fromDate.getTime() >= toDate.getTime()) throw new Error("The start date (From) must be before the end date (To).");
         if (toDate.getTime() > Date.now()) throw new Error("The 'To date' cannot be in the future. Backtesting requires recorded historical market candles.");
@@ -1389,6 +1397,12 @@ export function BacktestLive({ definitions, composites, scopes }: { definitions:
         const intervalMs = TIMEFRAME_MS[timeframe] || 60 * 1000;
         const alignedFromMs = Math.floor(fromDate.getTime() / intervalMs) * intervalMs;
         let alignedToMs = Math.floor(toDate.getTime() / intervalMs) * intervalMs;
+        if (toDate.getTime() % intervalMs !== 0) {
+          const ceiledToMs = Math.ceil(toDate.getTime() / intervalMs) * intervalMs;
+          if (ceiledToMs <= Date.now()) {
+            alignedToMs = ceiledToMs;
+          }
+        }
         if (alignedToMs <= alignedFromMs) {
           alignedToMs = alignedFromMs + intervalMs;
         }
@@ -1509,7 +1523,7 @@ export function BacktestLive({ definitions, composites, scopes }: { definitions:
 
           {/* 3. From date */}
           <div className="backtest-field-item field-date">
-            <label className="backtest-label">From date</label>
+            <label className="backtest-label">From date (UTC)</label>
             <input
               type="datetime-local"
               max={new Date().toISOString().slice(0, 16)}
@@ -1523,7 +1537,7 @@ export function BacktestLive({ definitions, composites, scopes }: { definitions:
 
           {/* 4. To date */}
           <div className="backtest-field-item field-date">
-            <label className="backtest-label">To date</label>
+            <label className="backtest-label">To date (UTC)</label>
             <input
               type="datetime-local"
               max={new Date().toISOString().slice(0, 16)}
