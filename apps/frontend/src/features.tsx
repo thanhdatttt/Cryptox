@@ -1,12 +1,34 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, type ApiCandle, type Candidate, type Composite, type ExperimentSummary, type LeaderboardEntry, type SearchRankingEntry, type Scope, type StrategyDefinition, type Trade, type VisualizationMarker, type StrategyVisualizationOverlay, type Timeframe } from "./api";
+import { ColorType, createChart, LineStyle, type CandlestickData, type HistogramData, type Time, type SeriesMarker } from "lightweight-charts";
+import { api, type ApiCandle, type Candidate, type Composite, type DatasetSnapshotRef, type ExperimentSummary, type LeaderboardEntry, type SearchRankingEntry, type Scope, type StrategyDefinition, type Trade, type VisualizationMarker, type StrategyVisualizationOverlay, type Timeframe } from "./api";
 import { persistSearchRunId, readSearchRunId } from "./state";
 import { chartBounds, percent } from "./visuals";
 
 const Panel = ({ title, children, className = "" }: { title?: string; children: React.ReactNode; className?: string }) => <section className={`panel ${className}`}>{title && <h2>{title}</h2>}{children}</section>;
 const Btn = ({ children, primary, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & { primary?: boolean }) => <button {...props} className={`btn ${primary ? "primary" : ""}`}>{children}</button>;
-const ErrorBox = ({ error }: { error: unknown }) => error ? <p className="error" role="alert">{error instanceof Error ? error.message : String(error)}</p> : null;
+function formatErrorMessage(error: unknown): string {
+  if (!error) return "";
+  const msg = error instanceof Error ? error.message : String(error);
+  if (msg === "SNAPSHOT_INCOMPLETE") {
+    return "Snapshot Incomplete (SNAPSHOT_INCOMPLETE): The selected strategy requires additional data (such as news sentiment or more warmup candles) that is not attached to this benchmark scope preset. Please choose a technical strategy (such as MA, RSI, Bollinger Bands, or Support/Resistance) that runs on price candles.";
+  }
+  if (msg === "BACKTEST_SCOPE_IN_USE") {
+    return "Cannot delete scope preset because it is linked to existing backtests or search runs.";
+  }
+  return msg;
+}
+
+const ErrorBox = ({ error }: { error: unknown }) => {
+  if (!error) return null;
+  return (
+    <div className="error-box-container" style={{ margin: "10px 0" }}>
+      <p className="error" role="alert" style={{ margin: 0, lineHeight: 1.5 }}>
+        {formatErrorMessage(error)}
+      </p>
+    </div>
+  );
+};
 const Loading = () => <p className="muted" aria-live="polite">Loading live backend data...</p>;
 const Empty = ({ children }: { children: React.ReactNode }) => <p className="muted empty-state">{children}</p>;
 const terminalCandidate = (status?: string) => status === "COMPLETED" || status === "FAILED" || status === "CANCELLED";
@@ -35,14 +57,798 @@ export function ExperimentDetail({ id }: { id: string }) {
   return <Panel title={`Experiment ${id}`} className="experiment-panel"><div className="metric-grid"><div><b>Total return</b><strong>{percent(metrics.totalReturnPercent)}</strong></div><div><b>Win rate</b><strong>{percent(metrics.winRatePercent)}</strong></div><div><b>Max drawdown</b><strong>{percent(metrics.maxDrawdownPercent)}</strong></div><div><b>Trades</b><strong>{metrics.numberOfTrades ?? totalCount ?? "Unavailable"}</strong></div><div><b>Profit factor</b><strong>{profitFactor(metrics)}</strong></div><div><b>Sharpe ratio</b><strong>{metrics.sharpeRatio === undefined ? "Unavailable" : metrics.sharpeRatio.toFixed(2)}</strong></div><div><b>Rank eligibility</b><strong>{result.rankEligible ? "Eligible" : `Not eligible${result.rankEligibilityReason ? ` · ${result.rankEligibilityReason}` : ""}`}</strong></div><div><b>Total profit</b><strong>{displayTradeNumber(result.totalProfitAmount)}</strong></div><div><b>Ending equity</b><strong>{displayTradeNumber(result.endingEquity)}</strong></div><div><b>Wins / losses</b><strong>{result.wins ?? "Unavailable"} / {result.losses ?? "Unavailable"}</strong></div><div><b>Breakevens</b><strong>{result.breakevens ?? "Unavailable"}</strong></div><div><b>Drawdown amount</b><strong>{displayTradeNumber(result.maxDrawdownAmount)}</strong></div><div><b>Score</b><strong>{displayTradeNumber(result.overallScore)}</strong></div></div><p className="muted">Strategy: {result.strategyDefinitions?.map((item) => `${item.strategyName} v${item.version}`).join(", ") || "Unavailable"} · Composite: {result.compositeDefinitionId ?? "Unavailable"} · Scope: {result.leaderboardScopeId} · Formula: {result.scoreFormulaId ?? "Unavailable"}</p><div className="provenance-grid"><span><b>Execution policy</b>{result.executionPolicy?.policyId ?? "Unavailable"} · {result.executionPolicy?.sha256 ?? "No retained policy"}</span><span><b>Benchmark</b>{result.benchmark?.pair ?? result.datasetSnapshot?.pair ?? "Unavailable"} · {result.benchmark?.timeframe ?? result.datasetSnapshot?.timeframe ?? "Unavailable"}</span><span><b>Simulator</b>{result.simulatorVersion ?? "Unavailable"} · {result.simulatorSha256 ?? "Unavailable"}</span><span><b>Sentiment input</b>{result.sentimentDatasetSnapshot?.id ?? "None attached"} · {result.sentimentDatasetSnapshot?.sha256 ?? ""}</span></div><div className="toolbar"><Btn onClick={() => replay.mutate()} disabled={replay.isPending}>{replay.isPending ? "Queueing..." : "Verify replay"}</Btn></div>{replayState && <p className={replayState.status === "NON_REPLAYABLE" ? "error" : "success"}>Replay {replayState.status}{"comparedTradeCount" in replayState ? `: ${replayState.comparedTradeCount} trades compared.` : replayJobId ? ` · job ${replayJobId}` : ""}</p>}{visual.isLoading ? <Loading /> : visual.error ? <ErrorBox error={visual.error} /> : visual.data && <div className="visualization"><p className="success">Sealed visualization: {visual.data.candles.length} candles · {visual.data.overlays.length} overlays · {visual.data.markers.length} markers.</p><CandleChart candles={visual.data.candles} overlays={visual.data.overlays} markers={visual.data.markers} highlightTradeId={highlightTradeId} /></div>}<h3>Trade detail</h3>{trades.isLoading ? <Loading /> : trades.error ? <ErrorBox error={trades.error} /> : !page?.items.length ? <Empty>No trades returned by the backend.</Empty> : <><p className="muted">Showing {rangeStart}-{rangeEnd} · total {totalCount ?? "Unavailable from backend"}</p><div className="table-scroll"><table><thead><tr><th>#</th><th>Pair</th><th>Entry</th><th>Exit</th><th>Side</th><th>Market prices</th><th>SL / TP</th><th>Qty / notional</th><th>Equity before / after</th><th>Fees / slippage</th><th>Reason</th><th>Profit</th><th>Result</th><th /></tr></thead><tbody>{page.items.map((trade) => <tr key={trade.id} className={highlightTradeId === trade.id ? "selected" : ""}><td>{trade.sequence}</td><td>{trade.pair}</td><td>{trade.entryTime}<br />{displayTradeNumber(trade.entryPrice)}</td><td>{trade.exitTime}<br />{displayTradeNumber(trade.exitPrice)}</td><td><span className={trade.signal === "LONG" ? "long" : "short"}>{trade.signal}</span></td><td>{displayTradeNumber(trade.marketEntryPrice)} / {displayTradeNumber(trade.marketExitPrice)}</td><td>{trade.stopLoss ?? "Unavailable"} / {trade.takeProfit ?? "Unavailable"}</td><td>{displayTradeNumber(trade.quantity)} / {displayTradeNumber(trade.notionalEntryValue)}</td><td>{displayTradeNumber(trade.equityBeforeTrade)} / {displayTradeNumber(trade.equityAfterTrade)}</td><td>{displayTradeNumber(trade.feeAmount)} / {displayTradeNumber(trade.slippageAmount)}</td><td>{trade.exitReason ?? "Unavailable"}</td><td className={trade.profit === undefined ? "" : trade.profit >= 0 ? "positive" : "negative"}>{displayTradeNumber(trade.profit)}</td><td>{trade.result} · {displayTradeNumber(trade.resultPercent)}%</td><td><button className="link-button" onClick={() => selectTrade(trade)}>Highlight</button></td></tr>)}</tbody></table></div><div className="toolbar trade-pagination"><Btn onClick={previousPage} disabled={tradeCursors.length <= 1}>Previous</Btn><Btn onClick={nextPage} disabled={!canNext}>Next</Btn></div></>}</Panel>;
 }
 
+const chartTime = (timestamp: string): Time => Math.floor(Date.parse(timestamp) / 1_000) as Time;
+
+function computeSMA(candles: ApiCandle[], period: number): Array<{ time: Time; value: number }> {
+  const result: Array<{ time: Time; value: number }> = [];
+  if (candles.length < period) return result;
+  for (let i = period - 1; i < candles.length; i++) {
+    let sum = 0;
+    for (let j = 0; j < period; j++) {
+      sum += candles[i - j]!.close;
+    }
+    result.push({
+      time: chartTime(candles[i]!.timestamp),
+      value: Number((sum / period).toFixed(2)),
+    });
+  }
+  return result;
+}
+
+function findNearestCandleTime(timeStr: string, candles: ApiCandle[]): Time {
+  const targetSec = Math.floor(Date.parse(timeStr) / 1_000);
+  if (!candles.length) return targetSec as Time;
+  let closest = candles[0]!;
+  let minDiff = Math.abs(Math.floor(Date.parse(closest.timestamp) / 1_000) - targetSec);
+  for (let i = 1; i < candles.length; i++) {
+    const cSec = Math.floor(Date.parse(candles[i]!.timestamp) / 1_000);
+    const diff = Math.abs(cSec - targetSec);
+    if (diff < minDiff) {
+      minDiff = diff;
+      closest = candles[i]!;
+    }
+  }
+  return Math.floor(Date.parse(closest.timestamp) / 1_000) as Time;
+}
+
+export function BacktestCandleChart({
+  candles,
+  pair,
+  timeframe,
+  trades = [],
+  overlays = [],
+  highlightTradeId,
+  isBacktestResult,
+  isRunning,
+  onClear,
+}: {
+  candles: ApiCandle[];
+  pair: string;
+  timeframe: string;
+  trades?: Trade[];
+  overlays?: StrategyVisualizationOverlay[];
+  highlightTradeId?: string;
+  isBacktestResult: boolean;
+  isRunning?: boolean;
+  onClear?: () => void;
+}) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<ReturnType<typeof createChart>>();
+  const candleSeriesRef = useRef<ReturnType<ReturnType<typeof createChart>["addCandlestickSeries"]>>();
+  const volumeSeriesRef = useRef<ReturnType<ReturnType<typeof createChart>["addHistogramSeries"]>>();
+  const ma20SeriesRef = useRef<ReturnType<ReturnType<typeof createChart>["addLineSeries"]>>();
+  const ma50SeriesRef = useRef<ReturnType<ReturnType<typeof createChart>["addLineSeries"]>>();
+  const priceLinesRef = useRef<any[]>([]);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Indicators for badges
+  const ma20Data = React.useMemo(() => computeSMA(candles, 20), [candles]);
+  const ma50Data = React.useMemo(() => computeSMA(candles, 50), [candles]);
+  const latestMa20 = ma20Data.length ? ma20Data[ma20Data.length - 1]!.value : null;
+  const latestMa50 = ma50Data.length ? ma50Data[ma50Data.length - 1]!.value : null;
+
+  const { supportPrice, resistancePrice } = React.useMemo(() => {
+    if (!candles.length) return { supportPrice: null, resistancePrice: null };
+    const slice = candles.slice(-80);
+    const minLow = Math.min(...slice.map((c) => c.low));
+    const maxHigh = Math.max(...slice.map((c) => c.high));
+    return { supportPrice: minLow, resistancePrice: maxHigh };
+  }, [candles]);
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const chart = createChart(container, {
+      autoSize: true,
+      height: 330,
+      layout: {
+        background: { type: ColorType.Solid, color: "#ffffff" },
+        textColor: "#64748b",
+        fontSize: 11,
+      },
+      grid: {
+        vertLines: { color: "#f1f5f9" },
+        horzLines: { color: "#f1f5f9" },
+      },
+      rightPriceScale: {
+        borderColor: "#e2e8f0",
+        scaleMargins: { top: 0.08, bottom: 0.22 },
+      },
+      timeScale: {
+        borderColor: "#e2e8f0",
+        timeVisible: true,
+        secondsVisible: false,
+        tickMarkFormatter: (time: Time, tickMarkType: number) => {
+          const timestamp = typeof time === "number" ? time * 1000 : new Date(time as string).getTime();
+          const date = new Date(timestamp);
+          const day = date.getUTCDate();
+          const month = date.getUTCMonth() + 1;
+          const hours = String(date.getUTCHours()).padStart(2, "0");
+          const minutes = String(date.getUTCMinutes()).padStart(2, "0");
+
+          // TickMarkType: 0 = Year, 1 = Month, 2 = DayOfMonth
+          if (tickMarkType <= 2) {
+            return `${day}/${month}`;
+          }
+          return `${hours}:${minutes}`;
+        },
+      },
+      localization: {
+        timeFormatter: (time: number) => {
+          const d = new Date(time * 1000);
+          const day = d.getUTCDate();
+          const month = d.getUTCMonth() + 1;
+          const hours = String(d.getUTCHours()).padStart(2, "0");
+          const minutes = String(d.getUTCMinutes()).padStart(2, "0");
+          return `${day}/${month} ${hours}:${minutes}`;
+        },
+      },
+    });
+
+    const candleSeries = chart.addCandlestickSeries({
+      upColor: "#16a34a",
+      downColor: "#dc2626",
+      borderVisible: false,
+      wickUpColor: "#16a34a",
+      wickDownColor: "#dc2626",
+      priceLineVisible: true,
+      lastValueVisible: true,
+    });
+
+    const volumeSeries = chart.addHistogramSeries({
+      color: "#10b981",
+      priceFormat: { type: "volume" },
+      priceScaleId: "",
+    });
+    volumeSeries.priceScale().applyOptions({
+      scaleMargins: { top: 0.8, bottom: 0 },
+    });
+
+    const ma20Series = chart.addLineSeries({
+      color: "#2563eb",
+      lineWidth: 2,
+      priceLineVisible: false,
+      lastValueVisible: false,
+    });
+
+    const ma50Series = chart.addLineSeries({
+      color: "#f59e0b",
+      lineWidth: 2,
+      priceLineVisible: false,
+      lastValueVisible: false,
+    });
+
+    chartRef.current = chart;
+    candleSeriesRef.current = candleSeries;
+    volumeSeriesRef.current = volumeSeries;
+    ma20SeriesRef.current = ma20Series;
+    ma50SeriesRef.current = ma50Series;
+    priceLinesRef.current = [];
+
+    return () => {
+      chart.remove();
+      chartRef.current = undefined;
+      candleSeriesRef.current = undefined;
+      volumeSeriesRef.current = undefined;
+      ma20SeriesRef.current = undefined;
+      ma50SeriesRef.current = undefined;
+      priceLinesRef.current = [];
+    };
+  }, []);
+
+  useEffect(() => {
+    const candleSeries = candleSeriesRef.current;
+    const volumeSeries = volumeSeriesRef.current;
+    const ma20Series = ma20SeriesRef.current;
+    const ma50Series = ma50SeriesRef.current;
+    const chart = chartRef.current;
+    if (!candleSeries || !volumeSeries || !ma20Series || !ma50Series || !chart) return;
+
+    if (!candles.length) {
+      candleSeries.setData([]);
+      volumeSeries.setData([]);
+      ma20Series.setData([]);
+      ma50Series.setData([]);
+      return;
+    }
+
+    const candleData: CandlestickData<Time>[] = candles.map((c) => ({
+      time: chartTime(c.timestamp),
+      open: c.open,
+      high: c.high,
+      low: c.low,
+      close: c.close,
+    }));
+
+    const volumeData: HistogramData<Time>[] = candles.map((c) => ({
+      time: chartTime(c.timestamp),
+      value: c.volume,
+      color: c.close >= c.open ? "rgba(22, 163, 74, 0.45)" : "rgba(220, 38, 38, 0.45)",
+    }));
+
+    candleSeries.setData(candleData);
+    volumeSeries.setData(volumeData);
+    ma20Series.setData(ma20Data);
+    ma50Series.setData(ma50Data);
+
+    // Clean previous price lines
+    priceLinesRef.current.forEach((line) => {
+      try {
+        candleSeries.removePriceLine(line);
+      } catch {
+        // Line already cleared
+      }
+    });
+    priceLinesRef.current = [];
+
+    // Support and resistance lines
+    if (supportPrice !== null && resistancePrice !== null) {
+      try {
+        const sLine = candleSeries.createPriceLine({
+          price: supportPrice,
+          color: "#16a34a",
+          lineWidth: 1,
+          lineStyle: LineStyle.Dotted,
+          axisLabelVisible: true,
+          title: `Support: ${supportPrice.toLocaleString()}`,
+        });
+        const rLine = candleSeries.createPriceLine({
+          price: resistancePrice,
+          color: "#dc2626",
+          lineWidth: 1,
+          lineStyle: LineStyle.Dotted,
+          axisLabelVisible: true,
+          title: `Resistance: ${resistancePrice.toLocaleString()}`,
+        });
+        priceLinesRef.current.push(sLine, rLine);
+      } catch {
+        // Ignore price line creation error
+      }
+    }
+
+    // Trade markers (LONG entry, SHORT entry, Exit)
+    if (trades.length > 0) {
+      const markers: SeriesMarker<Time>[] = [];
+      trades.forEach((trade) => {
+        if (!trade.entryTime) return;
+        const entryT = findNearestCandleTime(trade.entryTime, candles);
+        const isSelected = highlightTradeId === trade.id;
+
+        if (trade.signal === "LONG") {
+          markers.push({
+            time: entryT,
+            position: "belowBar",
+            color: isSelected ? "#047857" : "#16a34a",
+            shape: "arrowUp",
+            text: isSelected ? `★ LONG #${trade.sequence} ($${trade.entryPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})` : "",
+            size: isSelected ? 2 : 1,
+          });
+          if (trade.exitTime) {
+            const exitT = findNearestCandleTime(trade.exitTime, candles);
+            markers.push({
+              time: exitT,
+              position: "aboveBar",
+              color: isSelected ? "#1d4ed8" : "#3b82f6",
+              shape: "circle",
+              text: isSelected ? `★ Exit #${trade.sequence} (${(trade.profit ?? 0) >= 0 ? "+" : ""}${(trade.profit ?? 0).toFixed(2)})` : "",
+              size: isSelected ? 2 : 1,
+            });
+          }
+        } else {
+          markers.push({
+            time: entryT,
+            position: "aboveBar",
+            color: isSelected ? "#991b1b" : "#dc2626",
+            shape: "arrowDown",
+            text: isSelected ? `★ SHORT #${trade.sequence} ($${trade.entryPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})` : "",
+            size: isSelected ? 2 : 1,
+          });
+          if (trade.exitTime) {
+            const exitT = findNearestCandleTime(trade.exitTime, candles);
+            markers.push({
+              time: exitT,
+              position: "belowBar",
+              color: isSelected ? "#1d4ed8" : "#3b82f6",
+              shape: "circle",
+              text: isSelected ? `★ Exit #${trade.sequence} (${(trade.profit ?? 0) >= 0 ? "+" : ""}${(trade.profit ?? 0).toFixed(2)})` : "",
+              size: isSelected ? 2 : 1,
+            });
+          }
+        }
+      });
+
+      markers.sort((a, b) => Number(a.time) - Number(b.time));
+      candleSeries.setMarkers(markers);
+    } else {
+      candleSeries.setMarkers([]);
+    }
+
+    // Highlight specific trade TP/SL price lines
+    if (highlightTradeId) {
+      const targetTrade = trades.find((t) => t.id === highlightTradeId);
+      if (targetTrade) {
+        if (targetTrade.stopLoss) {
+          const slLine = candleSeries.createPriceLine({
+            price: targetTrade.stopLoss,
+            color: "#dc2626",
+            lineWidth: 1,
+            lineStyle: LineStyle.Dashed,
+            axisLabelVisible: true,
+            title: `SL: ${targetTrade.stopLoss.toLocaleString()}`,
+          });
+          priceLinesRef.current.push(slLine);
+        }
+        if (targetTrade.takeProfit) {
+          const tpLine = candleSeries.createPriceLine({
+            price: targetTrade.takeProfit,
+            color: "#16a34a",
+            lineWidth: 1,
+            lineStyle: LineStyle.Dashed,
+            axisLabelVisible: true,
+            title: `TP: ${targetTrade.takeProfit.toLocaleString()}`,
+          });
+          priceLinesRef.current.push(tpLine);
+        }
+      }
+    }
+
+    chart.timeScale().fitContent();
+  }, [candles, ma20Data, ma50Data, supportPrice, resistancePrice, trades, highlightTradeId]);
+
+  return (
+    <article className={`backtest-chart-card ${isFullscreen ? "is-fullscreen" : ""}`}>
+      <div className="backtest-card-header">
+        <div className="backtest-card-title-group">
+          <h3>Backtest Chart{isBacktestResult ? ` (${pair || "Pair"} · ${timeframe || "Timeframe"})` : ""}</h3>
+        </div>
+        <div className="backtest-chart-badges">
+          {isBacktestResult && latestMa20 !== null && (
+            <span className="chart-badge ma20">MA(20) {latestMa20.toLocaleString()}</span>
+          )}
+          {isBacktestResult && latestMa50 !== null && (
+            <span className="chart-badge ma50">MA(50) {latestMa50.toLocaleString()}</span>
+          )}
+          {isBacktestResult && supportPrice !== null && (
+            <span className="chart-badge support">Support {supportPrice.toLocaleString()}</span>
+          )}
+          {isBacktestResult && resistancePrice !== null && (
+            <span className="chart-badge resistance">Resistance {resistancePrice.toLocaleString()}</span>
+          )}
+          {isBacktestResult && onClear && (
+            <button
+              type="button"
+              className="btn-chart-clear"
+              title="Clear backtest graph and results"
+              onClick={onClear}
+            >
+              ✕ Clear Graph
+            </button>
+          )}
+          <button
+            type="button"
+            className="btn-chart-action"
+            title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
+            onClick={() => setIsFullscreen(!isFullscreen)}
+          >
+            {isFullscreen ? "✕" : "⛶"}
+          </button>
+        </div>
+      </div>
+
+      <div className="backtest-chart-body">
+        <div ref={containerRef} className="backtest-lightweight-container" />
+        {isRunning ? (
+          <div className="chart-empty-overlay">
+            <span style={{ fontSize: "32px" }}>⚡</span>
+            <b style={{ fontSize: "14px", color: "#1e293b", margin: "6px 0 2px" }}>Simulating Backtest Run...</b>
+            <p style={{ margin: 0, fontSize: "12px", color: "#64748b", maxWidth: "320px", lineHeight: "1.4" }}>
+              Backend worker is simulating ticks and strategy orders. Graph will plot automatically on completion.
+            </p>
+          </div>
+        ) : !candles.length ? (
+          <div className="chart-empty-overlay">
+            <span style={{ fontSize: "32px" }}>📊</span>
+            <b style={{ fontSize: "14px", color: "#1e293b", margin: "6px 0 2px" }}>No Backtest Data Loaded</b>
+            <p style={{ margin: 0, fontSize: "12px", color: "#64748b", maxWidth: "320px", lineHeight: "1.4" }}>
+              Configure your strategy above and click <b>🚀 Run Backtest</b> to simulate orders and generate the graph.
+            </p>
+          </div>
+        ) : null}
+      </div>
+
+      <div className="backtest-chart-footer">
+        <span>{isBacktestResult ? `Historical Candles: ${candles.length}` : "No Active Run"}</span>
+        <span>
+          {isBacktestResult
+            ? `✓ Showing Backtest Simulation (${trades.length} Executed Trades)`
+            : isRunning
+            ? "⚡ Worker Simulating..."
+            : "Run a backtest to display simulation graph"}
+        </span>
+      </div>
+    </article>
+  );
+}
+
+function getPaginationRange(current: number, total: number): Array<number | "..."> {
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, i) => i + 1);
+  }
+  if (current <= 4) {
+    return [1, 2, 3, 4, 5, "...", total];
+  }
+  if (current >= total - 3) {
+    return [1, "...", total - 4, total - 3, total - 2, total - 1, total];
+  }
+  return [1, "...", current - 1, current, current + 1, "...", total];
+}
+
+export function BacktestTradesTableCard({
+  trades,
+  totalCount,
+  highlightTradeId,
+  onSelectTrade,
+  pageSize,
+  onPageSizeChange,
+  pageIndex,
+  totalPages,
+  onGoToPage,
+  onNextPage,
+  onPrevPage,
+  isLoading,
+}: {
+  trades: Trade[];
+  totalCount?: number;
+  highlightTradeId?: string;
+  onSelectTrade: (trade: Trade) => void;
+  pageSize: number;
+  onPageSizeChange: (size: number) => void;
+  pageIndex: number;
+  totalPages: number;
+  onGoToPage: (page: number) => void;
+  onNextPage: () => void;
+  onPrevPage: () => void;
+  isLoading?: boolean;
+}) {
+  const displayTotal = totalCount ?? trades.length;
+  const startIdx = displayTotal > 0 ? pageIndex * pageSize + 1 : 0;
+  const endIdx = displayTotal > 0 ? Math.min(startIdx + trades.length - 1, displayTotal) : 0;
+
+  return (
+    <article className="backtest-trades-card">
+      <div className="backtest-card-header">
+        <div className="backtest-card-title-group">
+          <h3>Trade Execution List</h3>
+        </div>
+        <span className="muted" style={{ fontSize: "11.5px" }}>
+          {displayTotal > 0 ? `${displayTotal} Total Trades` : "No trades"}
+        </span>
+      </div>
+
+      <div className="trades-table-wrap">
+        {isLoading ? (
+          <div style={{ padding: "40px 20px", textAlign: "center" }}>
+            <p className="muted">Loading trade executions...</p>
+          </div>
+        ) : !trades.length ? (
+          <div style={{ padding: "60px 20px", textAlign: "center" }}>
+            <span style={{ fontSize: "28px" }}>📋</span>
+            <p style={{ margin: "10px 0 4px", fontWeight: 700, color: "#1e293b", fontSize: "13px" }}>
+              No Trade Executions Yet
+            </p>
+            <p className="muted" style={{ fontSize: "12px", maxWidth: "280px", margin: "0 auto" }}>
+              Run a backtest using the controls above to populate simulated strategy entries, exits, and PnL.
+            </p>
+          </div>
+        ) : (
+          <table className="backtest-trades-table">
+            <thead>
+              <tr>
+                <th style={{ width: "30px" }}>#</th>
+                <th>Time</th>
+                <th>Side</th>
+                <th>Entry Price</th>
+                <th>Stop Loss</th>
+                <th>Take Profit</th>
+                <th>Exit Price</th>
+                <th>Delta</th>
+                <th>Profit (USD)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {trades.map((trade) => {
+                const isSelected = highlightTradeId === trade.id;
+                const profit = trade.profit ?? 0;
+                const isPositive = profit >= 0;
+                // Delta is price difference directional to position
+                const delta = (trade.exitPrice - trade.entryPrice) * (trade.signal === "LONG" ? 1 : -1);
+                const isDeltaPositive = delta >= 0;
+
+                return (
+                  <tr
+                    key={trade.id}
+                    className={isSelected ? "selected" : ""}
+                    onClick={() => onSelectTrade(trade)}
+                    title="Click to highlight trade on chart"
+                  >
+                    <td><b>{trade.sequence}</b></td>
+                    <td>{trade.entryTime.replace("T", " ").slice(5, 16)}</td>
+                    <td>
+                      <span className={`trade-side-pill ${trade.signal === "LONG" ? "long" : "short"}`}>
+                        {trade.signal}
+                      </span>
+                    </td>
+                    <td>{trade.entryPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td>{trade.stopLoss ? trade.stopLoss.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "—"}</td>
+                    <td>{trade.takeProfit ? trade.takeProfit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "—"}</td>
+                    <td>{trade.exitPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td>
+                      <span className={`trade-profit-val ${isDeltaPositive ? "positive" : "negative"}`}>
+                        {isDeltaPositive ? "+" : ""}{delta.toFixed(2)}
+                      </span>
+                    </td>
+                    <td>
+                      <span className={`trade-profit-val ${isPositive ? "positive" : "negative"}`}>
+                        {isPositive ? "+" : ""}{profit.toFixed(2)}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      <div className="trades-pagination-footer">
+        <div className="pagination-left">
+          <span>Show</span>
+          <select
+            className="pagination-size-select"
+            value={pageSize}
+            onChange={(e) => onPageSizeChange(Number(e.target.value))}
+          >
+            <option value={10}>10</option>
+            <option value={25}>25</option>
+            <option value={50}>50</option>
+          </select>
+          <span>{displayTotal > 0 ? `${startIdx}–${endIdx} of ${displayTotal} trades` : "0 trades"}</span>
+        </div>
+
+        <div className="pagination-right">
+          <button
+            type="button"
+            className="btn-page-nav"
+            disabled={pageIndex === 0}
+            onClick={onPrevPage}
+            title="Previous Page"
+          >
+            ‹
+          </button>
+          {getPaginationRange(pageIndex + 1, totalPages).map((item, idx) =>
+            item === "..." ? (
+              <span key={`ellipsis-${idx}`} className="pagination-ellipsis">…</span>
+            ) : (
+              <button
+                key={item}
+                type="button"
+                className={`btn-page-nav ${item === pageIndex + 1 ? "active" : ""}`}
+                onClick={() => onGoToPage(item - 1)}
+              >
+                {item}
+              </button>
+            )
+          )}
+          <button
+            type="button"
+            className="btn-page-nav"
+            disabled={pageIndex >= totalPages - 1}
+            onClick={onNextPage}
+            title="Next Page"
+          >
+            ›
+          </button>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function MiniWinrateGauge({ winrate }: { winrate: number }) {
+  const radius = 8;
+  const circumference = 2 * Math.PI * radius;
+  const clamped = Math.min(100, Math.max(0, winrate));
+  const strokeDashoffset = circumference - (clamped / 100) * circumference;
+
+  return (
+    <svg width={22} height={22} viewBox="0 0 22 22" className="winrate-mini-gauge">
+      <circle
+        cx={11}
+        cy={11}
+        r={radius}
+        fill="none"
+        stroke="#e2e8f0"
+        strokeWidth={3}
+      />
+      {clamped > 0 && (
+        <circle
+          cx={11}
+          cy={11}
+          r={radius}
+          fill="none"
+          stroke="#16a34a"
+          strokeWidth={3}
+          strokeDasharray={circumference}
+          strokeDashoffset={strokeDashoffset}
+          strokeLinecap="round"
+          transform="rotate(-90 11 11)"
+        />
+      )}
+    </svg>
+  );
+}
+
+function MiniEquitySparkline({ trades, isProfit }: { trades?: Trade[]; isProfit: boolean }) {
+  const width = 48;
+  const height = 18;
+
+  if (!trades || trades.length < 2) {
+    const color = isProfit ? "#86efac" : "#fca5a5";
+    return (
+      <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} className="stat-mini-sparkline">
+        <line x1="2" y1={height / 2} x2={width - 2} y2={height / 2} stroke={color} strokeWidth="1.5" strokeDasharray="3 2" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
+  let sum = 0;
+  const pts = [0];
+  for (const t of trades.slice(0, 30)) {
+    sum += t.profit ?? 0;
+    pts.push(sum);
+  }
+
+  const min = Math.min(...pts);
+  const max = Math.max(...pts);
+  const range = max - min || 1;
+
+  const pathD = pts
+    .map((val, idx) => {
+      const x = 2 + (idx / (pts.length - 1)) * (width - 4);
+      const y = height - 2 - ((val - min) / range) * (height - 4);
+      return `${idx === 0 ? "M" : "L"} ${x.toFixed(1)} ${y.toFixed(1)}`;
+    })
+    .join(" ");
+
+  const color = isProfit ? "#16a34a" : "#dc2626";
+
+  return (
+    <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`} className="stat-mini-sparkline">
+      <path d={pathD} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function MiniTradesBarGraphic({ count }: { count: number }) {
+  const heights = [4, 7, 11, 8, 14, 10, 14];
+  return (
+    <div className="stat-mini-bars">
+      {heights.map((h, i) => (
+        <div
+          key={i}
+          className="stat-mini-bar-col"
+          style={{ height: `${h}px`, opacity: count > 0 ? 0.4 + (i / heights.length) * 0.6 : 0.25 }}
+        />
+      ))}
+    </div>
+  );
+}
+
+export function BacktestStatsGrid({
+  summary,
+  trades = [],
+}: {
+  summary?: ExperimentSummary;
+  trades?: Trade[];
+}) {
+  const metrics = summary?.metrics;
+  const winrate = metrics?.winRatePercent ?? 0;
+  const wins = summary?.wins ?? 0;
+  const losses = summary?.losses ?? 0;
+  const totalTrades = metrics?.numberOfTrades ?? (wins + losses + (summary?.breakevens ?? 0));
+  const totalProfit = summary?.totalProfitAmount ?? 0;
+  const totalReturn = metrics?.totalReturnPercent ?? 0;
+  const maxDrawdownAmount = summary?.maxDrawdownAmount ?? 0;
+  const maxDrawdownPercent = metrics?.maxDrawdownPercent ?? 0;
+
+  const isProfitPositive = totalProfit >= 0;
+
+  return (
+    <div className="backtest-stats-grid">
+      {/* 1. Winrate */}
+      <div className="backtest-stat-card">
+        <span className="stat-card-title">Winrate</span>
+        <span className="stat-card-value">
+          {summary ? `${winrate.toFixed(2)}%` : "0.00%"}
+        </span>
+        <div className="stat-card-footer">
+          <span className="stat-card-subtext">{wins} / {totalTrades}</span>
+          <MiniWinrateGauge winrate={winrate} />
+        </div>
+      </div>
+
+      {/* 2. Wins */}
+      <div className="backtest-stat-card">
+        <span className="stat-card-title">Wins</span>
+        <span className="stat-card-value green">{wins}</span>
+        <div className="stat-card-footer">
+          <span className="stat-card-subtext">Total winning trades</span>
+        </div>
+      </div>
+
+      {/* 3. Losses */}
+      <div className="backtest-stat-card">
+        <span className="stat-card-title">Losses</span>
+        <span className="stat-card-value red">{losses}</span>
+        <div className="stat-card-footer">
+          <span className="stat-card-subtext">Total losing trades</span>
+        </div>
+      </div>
+
+      {/* 4. Total Profit */}
+      <div className="backtest-stat-card">
+        <span className="stat-card-title">Total Profit</span>
+        <span className={`stat-card-value ${isProfitPositive ? "green" : "red"}`}>
+          {summary
+            ? `${isProfitPositive ? "+" : ""}${Number(totalProfit.toFixed(2)).toLocaleString()} USD`
+            : "+0.00 USD"}
+        </span>
+        <div className="stat-card-footer">
+          <span className={`stat-card-subtext ${isProfitPositive ? "green" : "red"}`}>
+            {isProfitPositive ? "+" : ""}{totalReturn.toFixed(2)}%
+          </span>
+          <MiniEquitySparkline trades={trades} isProfit={isProfitPositive} />
+        </div>
+      </div>
+
+      {/* 5. Max Drawdown */}
+      <div className="backtest-stat-card">
+        <span className="stat-card-title">Max Drawdown</span>
+        <span className="stat-card-value red">
+          {summary ? `-${Math.abs(maxDrawdownAmount).toFixed(2)} USD` : "-0.00 USD"}
+        </span>
+        <div className="stat-card-footer">
+          <span className="stat-card-subtext red">
+            -{Math.abs(maxDrawdownPercent).toFixed(2)}%
+          </span>
+          <MiniEquitySparkline trades={trades} isProfit={false} />
+        </div>
+      </div>
+
+      {/* 6. Total Trades */}
+      <div className="backtest-stat-card">
+        <span className="stat-card-title">Total Trades</span>
+        <span className="stat-card-value">{totalTrades}</span>
+        <div className="stat-card-footer">
+          <span className="stat-card-subtext">100% Executed</span>
+          <MiniTradesBarGraphic count={totalTrades} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function DeleteScopeModal({
   scope,
   isDeleting,
+  error,
   onClose,
   onConfirm,
 }: {
   scope: Scope;
   isDeleting: boolean;
+  error?: unknown;
   onClose: () => void;
   onConfirm: () => void;
 }) {
@@ -77,6 +883,17 @@ function DeleteScopeModal({
         </div>
 
         <div className="delete-modal-body">
+          {Boolean(error) && (
+            <div className="delete-modal-error-banner">
+              <span className="error-banner-icon">🔒</span>
+              <div className="error-banner-text">
+                <strong>Cannot Delete Preset</strong>
+                <p>
+                  This benchmark scope preset is locked because it is linked to completed backtest runs or leaderboard results. To preserve immutable audit history and leaderboard ranking integrity, presets with existing backtests cannot be deleted.
+                </p>
+              </div>
+            </div>
+          )}
           <p className="delete-warning-text">
             Are you sure you want to delete <b className="delete-target-highlight">"{scope.name || scope.id}"</b>?
           </p>
@@ -238,7 +1055,19 @@ export function BacktestLive({ definitions, composites, scopes }: { definitions:
   const [isDeletingScope, setIsDeletingScope] = useState(false);
   const [scopeSuccessMessage, setScopeSuccessMessage] = useState<string | null>(null);
   const [scopeToDelete, setScopeToDelete] = useState<Scope | null>(null);
+  const [deleteModalError, setDeleteModalError] = useState<unknown>();
   const [isSaveModalOpen, setIsSaveModalOpen] = useState(false);
+  const [activeExperimentId, setActiveExperimentId] = useState<string | undefined>(() => {
+    try {
+      return localStorage.getItem("cryptox_latest_backtest_experiment_id") || undefined;
+    } catch {
+      return undefined;
+    }
+  });
+  const [highlightTradeId, setHighlightTradeId] = useState<string | undefined>();
+  const [pageSize, setPageSize] = useState<number>(10);
+  const [tradePageIndex, setTradePageIndex] = useState<number>(0);
+  const [tradeCursorStack, setTradeCursorStack] = useState<Array<string | undefined>>([undefined]);
 
   const customNamesMap: Record<string, string> = React.useMemo(() => {
     try {
@@ -287,6 +1116,144 @@ export function BacktestLive({ definitions, composites, scopes }: { definitions:
     refetchInterval: (query) => terminalCandidate(query.state.data?.status) ? false : 1500,
   });
   const currentCandidate = candidate.data;
+
+  // Automatically bind experimentResultId when candidate completes
+  useEffect(() => {
+    if (currentCandidate?.status === "COMPLETED" && currentCandidate.experimentResultId) {
+      setActiveExperimentId(currentCandidate.experimentResultId);
+      try {
+        localStorage.setItem("cryptox_latest_backtest_experiment_id", currentCandidate.experimentResultId);
+      } catch {}
+      setTradePageIndex(0);
+      setTradeCursorStack([undefined]);
+      setHighlightTradeId(undefined);
+    }
+  }, [currentCandidate?.status, currentCandidate?.experimentResultId]);
+
+  const handleClearGraph = () => {
+    setActiveExperimentId(undefined);
+    setCandidateId(undefined);
+    setHighlightTradeId(undefined);
+    setTradePageIndex(0);
+    setTradeCursorStack([undefined]);
+    try {
+      localStorage.removeItem("cryptox_latest_backtest_experiment_id");
+    } catch {}
+  };
+
+  // Query experiment summary
+  const experimentSummary = useQuery({
+    queryKey: ["experiments", activeExperimentId],
+    queryFn: () => api.experiment(activeExperimentId!),
+    enabled: Boolean(activeExperimentId),
+  });
+
+  // Query all experiment trades with pagination
+  const experimentTrades = useQuery({
+    queryKey: ["experiments", activeExperimentId, "trades-all"],
+    queryFn: async () => {
+      let items: Trade[] = [];
+      let cursor: string | undefined = undefined;
+      let total = 0;
+      let pageCount = 0;
+      do {
+        pageCount++;
+        const res = await api.experimentTrades(activeExperimentId!, { limit: 100, cursor });
+        if (!res.items || res.items.length === 0) break;
+        items = items.concat(res.items);
+        total = res.totalCount ?? res.total ?? items.length;
+        cursor = res.nextCursor;
+      } while (cursor && items.length < total && pageCount < 20);
+      return { items, totalCount: total };
+    },
+    enabled: Boolean(activeExperimentId),
+    retry: 2,
+  });
+
+  // Query experiment visualization across the full backtest scope range
+  const experimentVisual = useQuery({
+    queryKey: ["experiments", activeExperimentId, "visualization", highlightTradeId],
+    queryFn: async () => {
+      let allCandles: ApiCandle[] = [];
+      let allOverlays: StrategyVisualizationOverlay[] = [];
+      let allMarkers: VisualizationMarker[] = [];
+      let cursor: string | undefined = undefined;
+      let datasetSnapshot: DatasetSnapshotRef | undefined = undefined;
+      let pageCount = 0;
+
+      do {
+        pageCount++;
+        const res = await api.visualization(activeExperimentId!, {
+          limit: 2000,
+          cursor,
+          ...(highlightTradeId ? { highlightTradeId } : {}),
+        });
+        datasetSnapshot = res.datasetSnapshot || datasetSnapshot;
+        if (res.candles && res.candles.length > 0) {
+          allCandles = allCandles.concat(res.candles);
+        }
+        if (pageCount === 1) {
+          allOverlays = res.overlays || [];
+          allMarkers = res.markers || [];
+        }
+        cursor = res.nextCursor;
+      } while (cursor && pageCount < 10);
+
+      // Sort and deduplicate candles by timestamp for lightweight-charts stability
+      allCandles.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+      const seenTimes = new Set<number>();
+      const dedupedCandles: ApiCandle[] = [];
+      for (const c of allCandles) {
+        const sec = Math.floor(new Date(c.timestamp).getTime() / 1000);
+        if (!seenTimes.has(sec)) {
+          seenTimes.add(sec);
+          dedupedCandles.push(c);
+        }
+      }
+
+      return {
+        experimentId: activeExperimentId!,
+        datasetSnapshot,
+        candles: dedupedCandles,
+        overlays: allOverlays,
+        markers: allMarkers,
+      };
+    },
+    enabled: Boolean(activeExperimentId),
+  });
+
+  const displayedCandles = activeExperimentId ? (experimentVisual.data?.candles ?? []) : [];
+
+  const allTrades = experimentTrades.data?.items ?? [];
+  const totalTradesCount = experimentTrades.data?.totalCount ?? allTrades.length;
+  const totalPages = Math.max(1, Math.ceil(totalTradesCount / pageSize));
+  const displayedTrades = allTrades.slice(tradePageIndex * pageSize, (tradePageIndex + 1) * pageSize);
+
+  const handleNextTradePage = () => {
+    if (tradePageIndex < totalPages - 1) {
+      setTradePageIndex((prev) => prev + 1);
+      setHighlightTradeId(undefined);
+    }
+  };
+
+  const handlePrevTradePage = () => {
+    if (tradePageIndex > 0) {
+      setTradePageIndex((prev) => prev - 1);
+      setHighlightTradeId(undefined);
+    }
+  };
+
+  const handleGoToTradePage = (targetPage: number) => {
+    const clamped = Math.max(0, Math.min(targetPage, totalPages - 1));
+    setTradePageIndex(clamped);
+    setHighlightTradeId(undefined);
+  };
+
+  const handlePageSizeChange = (newSize: number) => {
+    setPageSize(newSize);
+    setTradePageIndex(0);
+    setHighlightTradeId(undefined);
+  };
 
   const pairs = capabilities.data?.pairs ?? [];
   const timeframes = capabilities.data?.timeframes ?? [];
@@ -357,6 +1324,7 @@ export function BacktestLive({ definitions, composites, scopes }: { definitions:
   const handleConfirmDeleteScope = async () => {
     if (!scopeToDelete) return;
     setError(undefined);
+    setDeleteModalError(undefined);
     setScopeSuccessMessage(null);
     setIsDeletingScope(true);
     try {
@@ -367,7 +1335,7 @@ export function BacktestLive({ definitions, composites, scopes }: { definitions:
       void client.invalidateQueries({ queryKey: ["scopes"] });
       setScopeSuccessMessage(`Scope preset "${deletedName}" deleted successfully.`);
     } catch (err) {
-      setError(err);
+      setDeleteModalError(err);
     } finally {
       setIsDeletingScope(false);
     }
@@ -383,23 +1351,9 @@ export function BacktestLive({ definitions, composites, scopes }: { definitions:
       }
 
       let activeScopeId = scopeId;
-      const matchedScope = scopes.find((s) => s.id === scopeId);
-      
-      const matchedFromTime = matchedScope?.datasetRange?.from ? new Date(matchedScope.datasetRange.from).getTime() : 0;
-      const matchedToTime = matchedScope?.datasetRange?.to ? new Date(matchedScope.datasetRange.to).getTime() : 0;
-      const currentFromTime = from ? new Date(from).getTime() : 0;
-      const currentToTime = to ? new Date(to).getTime() : 0;
 
-      const isCustomized = !matchedScope ||
-        matchedScope.pair !== pair ||
-        matchedScope.timeframe !== timeframe ||
-        (currentFromTime > 0 && matchedFromTime > 0 && Math.abs(currentFromTime - matchedFromTime) > 60000) ||
-        (currentToTime > 0 && matchedToTime > 0 && Math.abs(currentToTime - matchedToTime) > 60000) ||
-        (capital && matchedScope.initialCapital !== Number(capital)) ||
-        (feeRatePercent && matchedScope.feeRatePercent !== Number(feeRatePercent)) ||
-        (slippageBps && matchedScope.slippageBps !== Number(slippageBps));
-
-      if (!activeScopeId || isCustomized) {
+      // If no scope preset is chosen (Auto-Create / Custom), validate fields and create scope
+      if (!activeScopeId) {
         if (!pair || !pair.trim()) throw new Error("Please select a trading pair.");
         if (!timeframe || !timeframe.trim()) throw new Error("Please select a timeframe.");
         if (!from || !from.trim() || !to || !to.trim()) throw new Error("Please specify both From and To dates.");
@@ -419,8 +1373,16 @@ export function BacktestLive({ definitions, composites, scopes }: { definitions:
         const fromIso = fromDate.toISOString();
         const toIso = toDate.toISOString();
 
+        // Ensure unique name to avoid Postgres unique constraint collision
+        const baseName = `${pair} ${timeframe} ${fromIso.slice(0, 10)}`;
+        let uniqueName = baseName;
+        let suffix = 2;
+        while (scopes.some((s) => s.name === uniqueName)) {
+          uniqueName = `${baseName} (${suffix++})`;
+        }
+
         const created = await api.createScope({
-          name: `${pair} ${timeframe} ${fromIso.slice(0, 10)}`,
+          name: uniqueName,
           pair,
           timeframe,
           from: fromIso,
@@ -739,7 +1701,9 @@ export function BacktestLive({ definitions, composites, scopes }: { definitions:
               </div>
 
               {currentCandidate.status === "COMPLETED" && currentCandidate.experimentResultId ? (
-                <ExperimentDetail id={currentCandidate.experimentResultId} />
+                <p className="success" style={{ margin: "10px 0 0", fontSize: "12.5px" }}>
+                  ✓ Candidate run complete and sealed as Experiment <b>{currentCandidate.experimentResultId}</b>
+                </p>
               ) : !terminalCandidate(currentCandidate.status) ? (
                 <p className="muted" style={{ textAlign: "center", margin: "14px 0" }}>
                   Backend worker is processing this candidate tick-by-tick...
@@ -757,11 +1721,50 @@ export function BacktestLive({ definitions, composites, scopes }: { definitions:
         </div>
       )}
 
+      {/* Middle Section: Chart & Trade Execution List */}
+      <div className="backtest-main-section">
+        <BacktestCandleChart
+          candles={displayedCandles}
+          pair={pair}
+          timeframe={timeframe}
+          trades={allTrades}
+          overlays={experimentVisual.data?.overlays}
+          highlightTradeId={highlightTradeId}
+          isBacktestResult={Boolean(activeExperimentId)}
+          isRunning={Boolean(candidateId && !terminalCandidate(currentCandidate?.status))}
+          onClear={handleClearGraph}
+        />
+        <BacktestTradesTableCard
+          trades={displayedTrades}
+          totalCount={totalTradesCount}
+          highlightTradeId={highlightTradeId}
+          onSelectTrade={(trade) => setHighlightTradeId(trade.id === highlightTradeId ? undefined : trade.id)}
+          pageSize={pageSize}
+          onPageSizeChange={handlePageSizeChange}
+          pageIndex={tradePageIndex}
+          totalPages={totalPages}
+          onGoToPage={handleGoToTradePage}
+          onNextPage={handleNextTradePage}
+          onPrevPage={handlePrevTradePage}
+          isLoading={experimentTrades.isLoading}
+        />
+      </div>
+
+      {/* Bottom Section: 6 Backtest Stats Cards */}
+      <BacktestStatsGrid
+        summary={experimentSummary.data}
+        trades={allTrades}
+      />
+
       {scopeToDelete && (
         <DeleteScopeModal
           scope={scopeToDelete}
           isDeleting={isDeletingScope}
-          onClose={() => setScopeToDelete(null)}
+          error={deleteModalError}
+          onClose={() => {
+            setScopeToDelete(null);
+            setDeleteModalError(undefined);
+          }}
           onConfirm={() => void handleConfirmDeleteScope()}
         />
       )}
