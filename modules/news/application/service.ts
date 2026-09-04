@@ -7,17 +7,20 @@ import type { NewsModuleDependencies, NewsObservability, NewsRepository } from "
 type InternalDependencies = Partial<NewsModuleDependencies>;
 
 class MemoryNewsRepository implements NewsRepository {
-  private readonly rowsByUrl = new Map<string, NewsItem>();
+  private readonly rows = new Map<string, { item: NewsItem; userId?: string }>();
 
-  async insert(item: NewsItem): Promise<NewsItem> {
-    const existing = this.rowsByUrl.get(item.url);
-    if (existing) return { ...existing, relatedCoins: [...existing.relatedCoins] };
-    this.rowsByUrl.set(item.url, { ...item, relatedCoins: [...item.relatedCoins] });
+  async insert(item: NewsItem, userId?: string): Promise<NewsItem> {
+    const key = `${userId ?? ""}|${item.url}`;
+    const existing = this.rows.get(key);
+    if (existing) return { ...existing.item, relatedCoins: [...existing.item.relatedCoins] };
+    this.rows.set(key, { item: { ...item, relatedCoins: [...item.relatedCoins] }, userId });
     return { ...item, relatedCoins: [...item.relatedCoins] };
   }
 
-  async readAll(): Promise<NewsItem[]> {
-    return [...this.rowsByUrl.values()].map((item) => ({ ...item, relatedCoins: [...item.relatedCoins] }));
+  async readAll(userId?: string): Promise<NewsItem[]> {
+    return [...this.rows.values()]
+      .filter((record) => (userId ? record.userId === userId : true))
+      .map((record) => ({ ...record.item, relatedCoins: [...record.item.relatedCoins] }));
   }
 }
 
@@ -65,8 +68,8 @@ export interface NewsCollectOptions {
 }
 
 export interface NewsModuleRuntime {
-  collect(options?: NewsCollectOptions): Promise<void>;
-  readNews(): Promise<NewsReadItem[]>;
+  collect(options?: NewsCollectOptions, userId?: string): Promise<void>;
+  readNews(userId?: string): Promise<NewsReadItem[]>;
   getTemplates(): Promise<ExtractionTemplate[]>;
   applyTemplate(domain: string, version: string): Promise<ExtractionTemplate>;
   healTemplate(domain: string, html?: string, autoApply?: boolean): Promise<ExtractionTemplate>;
@@ -91,11 +94,11 @@ export function createNewsModule(dependencies: InternalDependencies = createInMe
   const interpreter = dependencies.interpreter;
   const crawlerLimits = dependencies.crawlerLimits;
 
-  const persistAndAnalyze = async (rawItem: NewsItem): Promise<void> => {
+  const persistAndAnalyze = async (rawItem: NewsItem, userId?: string): Promise<void> => {
     const item = validateNewsItem(rawItem);
     let persisted: NewsItem;
     try {
-      persisted = await newsRepository.insert(item);
+      persisted = await newsRepository.insert(item, userId);
     } catch (error) {
       if (error instanceof NewsException) throw error;
       throw new NewsException("PERSISTENCE_FAILED", "News item could not be persisted.");
@@ -158,50 +161,138 @@ export function createNewsModule(dependencies: InternalDependencies = createInMe
       const origin = new URL(url).origin;
       const now = new Date().toISOString();
       const results: NewsItem[] = [];
+      const seenUrls = new Set<string>();
 
       const articleBlocks = html.match(/<article\b[^>]*>[\s\S]*?<\/article>/gi) || [];
-      const blocksToScan = articleBlocks.length > 0 ? articleBlocks : (html.match(/<(?:div|section)\b[^>]*(?:card|article|news|post|item)[^>]*>[\s\S]*?<\/(?:div|section)>/gi) || []).slice(0, 20);
+      const divBlocks = html.match(/<(?:div|section)\b[^>]*(?:card|article|news|post|item|feed)[^>]*>[\s\S]*?<\/(?:div|section)>/gi) || [];
+      const allBlocks = [...articleBlocks, ...divBlocks];
 
-      for (const block of blocksToScan.slice(0, 15)) {
-        const titleMatch = block.match(/<h[1-4]\b[^>]*>([\s\S]*?)<\/h[1-4]>/i);
+      for (const block of allBlocks) {
+        const titleMatch = block.match(/<h[1-4]\b[^>]*>([\s\S]*?)<\/h[1-4]>/i)
+          ?? block.match(/<(?:span|div|a)\b[^>]*(?:title|headline)[^>]*>([\s\S]*?)<\/(?:span|div|a)>/i);
         const linkMatch = block.match(/<a\b[^>]*\bhref=["']([^"']+)["'][^>]*>/i);
         const descMatch = block.match(/<p\b[^>]*>([\s\S]*?)<\/p>/i);
+        const dateMatch = block.match(/<time\b[^>]*\bdatetime=["']([^"']+)["'][^>]*>/i)
+          ?? block.match(/<time\b[^>]*>([\s\S]*?)<\/time>/i);
 
-        if (titleMatch && linkMatch) {
-          const rawTitle = titleMatch[1].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-          const rawDesc = descMatch ? descMatch[1].replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim() : rawTitle;
-          let rawHref = linkMatch[1].trim();
+        if (linkMatch) {
+          let rawHref = linkMatch[1]!.trim();
           if (rawHref.startsWith("/")) rawHref = origin + rawHref;
+          if (!rawHref.startsWith("http")) continue;
 
-          if (rawTitle.length >= 10 && rawHref.startsWith("http") && !results.some((r) => r.url === rawHref)) {
-            const textToScan = `${rawTitle} ${rawDesc}`.toUpperCase();
-            const coins: string[] = [];
-            if (targetCoin && targetCoin !== "ALL" && !coins.includes(targetCoin.toUpperCase())) {
-              coins.push(targetCoin.toUpperCase());
+          try {
+            const pathname = new URL(rawHref).pathname;
+            if (/^\/(?:privacy|terms|about|contact|tag|category|author|price|login|register|feed)($|\/)/i.test(pathname) || pathname === "/" || pathname === "/news" || pathname === "/read") {
+              continue;
             }
-            for (const c of ["BTC", "ETH", "SOL", "BNB", "XRP", "ADA", "DOGE"]) {
-              if (textToScan.includes(c) && !coins.includes(c)) coins.push(c);
-            }
-            if (coins.length === 0) coins.push("BTC");
+          } catch {
+            continue;
+          }
 
-            const id = createHash("sha256").update(rawHref, "utf8").digest("hex").slice(0, 24);
-            try {
-              results.push(validateNewsItem({
-                id,
-                title: rawTitle.slice(0, 500),
-                content: rawDesc.slice(0, 5000),
-                source: sourceName,
-                publishedAt: now,
-                crawledAt: now,
-                relatedCoins: coins,
-                url: rawHref,
-              }));
-            } catch {
-              // ignore invalid items
+          let rawTitle = titleMatch ? titleMatch[1]!.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim() : "";
+          if (!rawTitle || rawTitle.length < 10) {
+            const linkTextMatch = block.match(/<a\b[^>]*>([\s\S]*?)<\/a>/i);
+            if (linkTextMatch) {
+              const txt = linkTextMatch[1]!.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+              if (txt.length >= 15) rawTitle = txt;
             }
           }
+
+          if (rawTitle.length < 15 || /^(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|\d)/i.test(rawTitle)) {
+            const anyH = block.match(/<(?:h[1-6]|span|div)\b[^>]*(?:title|headline|text-lg|font-bold|font-semibold)[^>]*>([\s\S]*?)<\/(?:h[1-6]|span|div)>/i);
+            if (anyH) {
+              const candidate = anyH[1]!.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+              if (candidate.length >= 15 && !/^(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|\d)/i.test(candidate)) {
+                rawTitle = candidate;
+              }
+            }
+          }
+
+          if (rawTitle.length < 15 || seenUrls.has(rawHref)) continue;
+
+          const rawDesc = descMatch ? descMatch[1]!.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim() : rawTitle;
+          seenUrls.add(rawHref);
+
+          let publishedAt = now;
+          if (dateMatch) {
+            const parsed = dateMatch[1] ? Date.parse(dateMatch[1]) : Date.parse(dateMatch[0]!.replace(/<[^>]+>/g, "").trim());
+            if (Number.isFinite(parsed)) publishedAt = new Date(parsed).toISOString();
+          }
+
+          const textToScan = `${rawTitle} ${rawDesc}`.toUpperCase();
+          const coins: string[] = [];
+          if (targetCoin && targetCoin !== "ALL" && !coins.includes(targetCoin.toUpperCase())) {
+            coins.push(targetCoin.toUpperCase());
+          }
+          for (const c of ["BTC", "ETH", "SOL", "BNB", "XRP", "ADA", "DOGE"]) {
+            if (textToScan.includes(c) && !coins.includes(c)) coins.push(c);
+          }
+          if (coins.length === 0) coins.push("BTC");
+
+          const id = createHash("sha256").update(rawHref, "utf8").digest("hex").slice(0, 24);
+          try {
+            results.push(validateNewsItem({
+              id,
+              title: rawTitle.slice(0, 500),
+              content: rawDesc.slice(0, 5000),
+              source: sourceName,
+              publishedAt,
+              crawledAt: now,
+              relatedCoins: coins,
+              url: rawHref,
+            }));
+          } catch {
+            // ignore invalid items
+          }
+
+          if (results.length >= 25) break;
         }
       }
+
+      if (results.length === 0) {
+        const linkMatches = html.matchAll(/<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi);
+        for (const m of linkMatches) {
+          let rawHref = m[1]!.trim();
+          if (rawHref.startsWith("/")) rawHref = origin + rawHref;
+          if (!rawHref.startsWith("http")) continue;
+
+          const pathname = new URL(rawHref).pathname;
+          if (!/(?:\/[0-9]{4,}|\/read\/|\/news\/[a-z0-9-]+|\/[0-9]{4}\/[0-9]{2}\/)/i.test(pathname)) continue;
+          if (seenUrls.has(rawHref)) continue;
+
+          const rawTitle = m[2]!.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+          if (rawTitle.length < 15 || /^(?:read more|continue reading|learn more|click here)/i.test(rawTitle)) continue;
+
+          seenUrls.add(rawHref);
+          const textToScan = rawTitle.toUpperCase();
+          const coins: string[] = [];
+          if (targetCoin && targetCoin !== "ALL" && !coins.includes(targetCoin.toUpperCase())) {
+            coins.push(targetCoin.toUpperCase());
+          }
+          for (const c of ["BTC", "ETH", "SOL", "BNB", "XRP", "ADA", "DOGE"]) {
+            if (textToScan.includes(c) && !coins.includes(c)) coins.push(c);
+          }
+          if (coins.length === 0) coins.push("BTC");
+
+          const id = createHash("sha256").update(rawHref, "utf8").digest("hex").slice(0, 24);
+          try {
+            results.push(validateNewsItem({
+              id,
+              title: rawTitle.slice(0, 500),
+              content: rawTitle.slice(0, 5000),
+              source: sourceName,
+              publishedAt: now,
+              crawledAt: now,
+              relatedCoins: coins,
+              url: rawHref,
+            }));
+          } catch {
+            // ignore invalid items
+          }
+          if (results.length >= 25) break;
+        }
+      }
+
       return results;
     } catch {
       return [];
@@ -212,13 +303,13 @@ export function createNewsModule(dependencies: InternalDependencies = createInMe
   const templateGen = dependencies.templateGenerator ?? defaults.templateGenerator;
 
   return {
-    async collect(options?: NewsCollectOptions) {
+    async collect(options?: NewsCollectOptions, userId?: string) {
       // 1. If HTML is directly supplied
       if (options?.html && options.html.trim().length > 0) {
         const items = parseHtmlContent(options.html, options.coin);
         for (const item of items) {
           try {
-            await persistAndAnalyze(item);
+            await persistAndAnalyze(item, userId);
           } catch (error) {
             const stage = error instanceof NewsException && error.code === "INVALID_NEWS_ITEM" ? "VALIDATION" : "PERSISTENCE";
             observeProviderFailure(observability, { providerName: "HTML_UPLOAD", stage, reason: "ERROR" });
@@ -298,8 +389,17 @@ export function createNewsModule(dependencies: InternalDependencies = createInMe
                     observeProviderFailure(observability, { providerName: sourceName, stage: "MODEL", reason: providerFailureReason(err) });
                   }
                 }
-              } else {
-                websiteItems = await scrapeWebsiteArticles(src.url, sourceName, options?.coin);
+              }
+
+              if (websiteItems.length < 5) {
+                const scraped = await scrapeWebsiteArticles(src.url, sourceName, options?.coin);
+                const existingUrls = new Set(websiteItems.map((it) => it.url));
+                for (const it of scraped) {
+                  if (!existingUrls.has(it.url)) {
+                    websiteItems.push(it);
+                    existingUrls.add(it.url);
+                  }
+                }
               }
             }
 
@@ -310,7 +410,7 @@ export function createNewsModule(dependencies: InternalDependencies = createInMe
                 item.relatedCoins = [...item.relatedCoins, options.coin.toUpperCase()];
               }
               try {
-                await persistAndAnalyze(item);
+                await persistAndAnalyze(item, userId);
               } catch {
                 // ignore invalid or duplicated
               }
@@ -333,7 +433,7 @@ export function createNewsModule(dependencies: InternalDependencies = createInMe
                   item.relatedCoins = [...item.relatedCoins, options.coin.toUpperCase()];
                 }
                 try {
-                  await persistAndAnalyze(item);
+                  await persistAndAnalyze(item, userId);
                 } catch {
                   // ignore invalid or duplicated
                 }
@@ -361,7 +461,7 @@ export function createNewsModule(dependencies: InternalDependencies = createInMe
         }
         for (const item of items) {
           try {
-            await persistAndAnalyze(item as NewsItem);
+            await persistAndAnalyze(item as NewsItem, userId);
           } catch (error) {
             const stage = error instanceof NewsException && error.code === "INVALID_NEWS_ITEM" ? "VALIDATION" : "PERSISTENCE";
             observeProviderFailure(observability, { providerName: provider.name, stage, reason: "ERROR" });
@@ -370,8 +470,8 @@ export function createNewsModule(dependencies: InternalDependencies = createInMe
       }
     },
 
-    async readNews() {
-      const items = (await newsRepository.readAll()).map(validateNewsItem)
+    async readNews(userId?: string) {
+      const items = (await newsRepository.readAll(userId)).map(validateNewsItem)
         .sort((left, right) => right.publishedAt.localeCompare(left.publishedAt) || left.id.localeCompare(right.id));
       return Promise.all(items.map(async (item) => {
         try {

@@ -9,10 +9,25 @@ const columns = "id, title, content, source, published_at, crawled_at, related_c
 
 export class PostgresNewsRepository implements NewsRepository {
   constructor(private readonly client: NewsSqlClient) {}
-  async insert(value: NewsItem): Promise<NewsItem> {
-    const result = await this.client.query<NewsRow>(`INSERT INTO news_items (${columns}) VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8) ON CONFLICT (url) DO UPDATE SET url = EXCLUDED.url RETURNING ${columns}`, [value.id, value.title, value.content, value.source, value.publishedAt, value.crawledAt, JSON.stringify(value.relatedCoins), value.url]);
+  async insert(value: NewsItem, userId?: string): Promise<NewsItem> {
+    const trimmedUserId = userId?.trim() || null;
+    const queryText = trimmedUserId
+      ? `INSERT INTO news_items (${columns}, user_id) VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9) ON CONFLICT (user_id, url) DO UPDATE SET url = EXCLUDED.url, title = EXCLUDED.title, content = EXCLUDED.content, crawled_at = EXCLUDED.crawled_at, related_coins = EXCLUDED.related_coins RETURNING ${columns}`
+      : `INSERT INTO news_items (${columns}) VALUES ($1, $2, $3, $4, $5, $6, $7::jsonb, $8) ON CONFLICT (user_id, url) DO UPDATE SET url = EXCLUDED.url, title = EXCLUDED.title, content = EXCLUDED.content, crawled_at = EXCLUDED.crawled_at, related_coins = EXCLUDED.related_coins RETURNING ${columns}`;
+    const params = trimmedUserId
+      ? [value.id, value.title, value.content, value.source, value.publishedAt, value.crawledAt, JSON.stringify(value.relatedCoins), value.url, trimmedUserId]
+      : [value.id, value.title, value.content, value.source, value.publishedAt, value.crawledAt, JSON.stringify(value.relatedCoins), value.url];
+    const result = await this.client.query<NewsRow>(queryText, params);
     if (!result.rows[0]) throw new Error("NEWS_PERSISTENCE_INTEGRITY_ERROR");
     return item(result.rows[0]);
   }
-  async readAll(): Promise<NewsItem[]> { const result = await this.client.query<NewsRow>(`SELECT ${columns} FROM news_items ORDER BY published_at DESC, id ASC`, []); return result.rows.map(item); }
+  async readAll(userId?: string): Promise<NewsItem[]> {
+    const trimmedUserId = userId?.trim();
+    if (trimmedUserId) {
+      const result = await this.client.query<NewsRow>(`SELECT ${columns} FROM news_items WHERE user_id = $1 ORDER BY published_at DESC, id ASC`, [trimmedUserId]);
+      return result.rows.map(item);
+    }
+    const result = await this.client.query<NewsRow>(`SELECT ${columns} FROM news_items ORDER BY published_at DESC, id ASC`, []);
+    return result.rows.map(item);
+  }
 }

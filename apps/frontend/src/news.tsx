@@ -109,7 +109,10 @@ export function News() {
   };
 
   const queryClient = useQueryClient();
-  const query = useQuery({ queryKey: ["news"], queryFn: api.news });
+  const me = useQuery({ queryKey: ["auth", "me"], queryFn: api.me });
+  const userId = me.data?.userId;
+  const crawlTimeKey = userId ? `cryptox.${userId}.news-last-crawl-time` : "cryptox.news-last-crawl-time";
+  const query = useQuery({ queryKey: ["news", userId], queryFn: api.news });
   const templatesQuery = useQuery({ queryKey: ["news", "templates"], queryFn: api.newsTemplates });
   const capabilities = useQuery({ queryKey: ["market", "capabilities"], queryFn: api.marketCapabilities });
 
@@ -149,7 +152,7 @@ export function News() {
     },
     onSuccess: () => {
       try {
-        localStorage.setItem("cryptox.news-last-crawl-time", new Date().toISOString());
+        localStorage.setItem(crawlTimeKey, new Date().toISOString());
       } catch { /* ignore */ }
       void queryClient.invalidateQueries({ queryKey: ["news"] });
       void queryClient.invalidateQueries({ queryKey: ["news", "templates"] });
@@ -253,7 +256,7 @@ export function News() {
       }
     }
     try {
-      const stored = localStorage.getItem("cryptox.news-last-crawl-time");
+      const stored = localStorage.getItem(crawlTimeKey);
       if (stored) {
         const storedTime = Date.parse(stored);
         if (!Number.isNaN(storedTime) && storedTime > maxTime) {
@@ -262,7 +265,7 @@ export function News() {
       }
     } catch { /* ignore */ }
     return maxTime > 0 ? new Date(maxTime) : null;
-  }, [allItems]);
+  }, [allItems, crawlTimeKey]);
 
   const lastCrawledDisplay = useMemo(() => {
     if (!latestCrawlDate) return "Never";

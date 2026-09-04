@@ -351,7 +351,7 @@ export class BacktestingService implements BacktestLogApi {
     const orderedCandles = candles.filter((candle) => candle.isClosed).sort((left, right) => left.timestamp.localeCompare(right.timestamp));
     const firstClose = orderedCandles.length > 0 ? Date.parse(orderedCandles[0]!.timestamp) + TIMEFRAME_MS[scope.timeframe] : NaN;
     const lastClose = orderedCandles.length > 0 ? Date.parse(orderedCandles[orderedCandles.length - 1]!.timestamp) + TIMEFRAME_MS[scope.timeframe] : NaN;
-    if (!Number.isFinite(sentimentFrom) || !Number.isFinite(sentimentTo) || sentimentFrom > firstClose || sentimentTo <= lastClose) invalid("SNAPSHOT_INCOMPLETE");
+    if (!Number.isFinite(sentimentFrom) || !Number.isFinite(sentimentTo) || sentimentFrom > firstClose || sentimentTo < lastClose) invalid("SNAPSHOT_INCOMPLETE");
     const reader = await sentiment!.readSnapshot(actual.id).catch(() => invalid("SNAPSHOT_INCOMPLETE"));
     const readAt = (candleCloseTime: string): NonNullable<StrategyContext["sentiment"]> | undefined => {
       const point = reader.readAt(actual.id, candleCloseTime);
@@ -359,10 +359,12 @@ export class BacktestingService implements BacktestLogApi {
       if (!["POSITIVE", "NEUTRAL", "NEGATIVE"].includes(point.label) || !Number.isFinite(point.averageScore) || point.averageScore < -1 || point.averageScore > 1) invalid("SNAPSHOT_INCOMPLETE");
       return { label: point.label, averageScore: point.averageScore };
     };
+    let pointsFound = 0;
     for (const candle of orderedCandles) {
       const close = new Date(Date.parse(candle.timestamp) + TIMEFRAME_MS[scope.timeframe]).toISOString();
-      if (!readAt(close)) invalid("SNAPSHOT_INCOMPLETE");
+      if (readAt(close)) pointsFound += 1;
     }
+    if (pointsFound < actual.pointCount) invalid("SNAPSHOT_INCOMPLETE");
     return readAt;
   }
   private async captureSnapshot(snapshotId: string) { const first = await this.deps.marketData.readDatasetSnapshot({ snapshotId, limit: 1000 }); const candles = [...first.candles]; let cursor = first.nextCursor; while (cursor) { const page = await this.deps.marketData.readDatasetSnapshot({ snapshotId, cursor, limit: 1000 }); candles.push(...page.candles); cursor = page.nextCursor; } const snapshot = await this.deps.repository.createInputSnapshot(first.snapshot, candles); return { snapshot, candles }; }
@@ -377,7 +379,7 @@ export class BacktestingService implements BacktestLogApi {
     const orderedCandles = candles.filter((candle) => candle.isClosed).sort((left, right) => left.timestamp.localeCompare(right.timestamp));
     const firstClose = orderedCandles.length > 0 ? Date.parse(orderedCandles[0]!.timestamp) + TIMEFRAME_MS[snapshot.timeframe] : NaN;
     const lastClose = orderedCandles.length > 0 ? Date.parse(orderedCandles[orderedCandles.length - 1]!.timestamp) + TIMEFRAME_MS[snapshot.timeframe] : NaN;
-    if (!sameReference || actual.relatedCoin !== snapshot.pairMetadata.baseAsset || !/^[a-f0-9]{64}$/i.test(actual.modelSha256) || !/^[a-f0-9]{64}$/i.test(actual.sha256) || !Number.isInteger(actual.pointCount) || actual.pointCount < 1 || !Number.isInteger(actual.aggregationWindowSeconds) || actual.aggregationWindowSeconds < 1 || !Number.isFinite(from) || !Number.isFinite(to) || from > firstClose || to <= lastClose) invalid("SNAPSHOT_INCOMPLETE");
+    if (!sameReference || actual.relatedCoin !== snapshot.pairMetadata.baseAsset || !/^[a-f0-9]{64}$/i.test(actual.modelSha256) || !/^[a-f0-9]{64}$/i.test(actual.sha256) || !Number.isInteger(actual.pointCount) || actual.pointCount < 1 || !Number.isInteger(actual.aggregationWindowSeconds) || actual.aggregationWindowSeconds < 1 || !Number.isFinite(from) || !Number.isFinite(to) || from > firstClose || to < lastClose) invalid("SNAPSHOT_INCOMPLETE");
     await sentiment.readSnapshot(actual.id).catch(() => invalid("SNAPSHOT_INCOMPLETE"));
     return actual;
   }
@@ -454,7 +456,9 @@ export class BacktestingService implements BacktestLogApi {
       try {
         unitOfWork = await this.deps.beginCompletion?.({ candidateId, completionAttemptCount: candidate.completionAttemptCount, completionClaimToken: claimToken }) ?? { kind: "COMPLETION", id: `completion-${candidateId}-${candidate.completionAttemptCount}`, candidateId, completionAttemptCount: candidate.completionAttemptCount, completionClaimToken: claimToken, enlist: () => undefined, commit: async () => undefined, rollback: async () => undefined };
         const experiment = existing ?? await this.deps.repository.stageCompletionExperiment({ id: this.id(), ownerUserId: candidate.ownerUserId, candidateId, searchRunId: candidate.searchRunId, leaderboardScopeId: scope.id, scoreFormulaId: scored.scoreFormulaId, overallScore: scored.overallScore, rankEligible: scored.rankEligible, backtestAttemptId: attempt.attemptId, compositeDefinitionId: candidate.compositeDefinition.id, compositeDefinition: candidate.compositeDefinition, datasetSnapshot: scope.datasetSnapshot, sentimentDatasetSnapshot: scope.sentimentDatasetSnapshot, strategyDefinitions: candidate.strategyDefinitions, executionPolicy: candidate.executionPolicy, simulatorVersion: scope.simulatorVersion ?? SIMULATOR_VERSION, simulatorSha256: scope.simulatorSha256 ?? SIMULATOR_SHA256, benchmarkTimezone: scope.benchmarkTimezone ?? BENCHMARK_TIMEZONE, fillPolicyId: scope.fillPolicyId ?? FILL_POLICY_ID, oppositeSignalPolicyId: scope.oppositeSignalPolicyId ?? OPPOSITE_SIGNAL_POLICY_ID, sameCandleOrderingPolicyId: scope.sameCandleOrderingPolicyId ?? SAME_CANDLE_ORDERING_POLICY_ID, deterministicGuarantee: scope.deterministicGuarantee ?? DETERMINISTIC_GUARANTEE, workerRuntimeVersion: attempt.workerRuntimeVersion, workerRuntimeSha256: attempt.workerRuntimeSha256, evaluationRuntimeVersion: metrics.evaluationRuntimeVersion, evaluationRuntimeSha256: metrics.evaluationRuntimeSha256, decimalPolicyId: scope.decimalPolicyId, evaluationPolicyId: scope.evaluationPolicyId, feeRatePercent: scope.feeRatePercent, slippageBps: scope.slippageBps, ...projections, metrics, trades: result.trades, createdAt: this.now() }, unitOfWork);
-        await this.deps.completion.submit(experiment, unitOfWork);
+        if (candidate.origin === "SEARCH" && candidate.searchRunId) {
+          await this.deps.completion.submit(experiment, unitOfWork);
+        }
         await this.deps.repository.finalizeCompletion({ candidate, experimentId: experiment.id, claimToken, now: this.now() }, unitOfWork);
         await unitOfWork.commit?.();
       } catch (error) {
