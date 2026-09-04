@@ -40,7 +40,8 @@ export function extractWithTemplate(
     blocks = (html.match(/<(?:div|section)\b[^>]*(?:card|article|news|post|item)[^>]*>[\s\S]*?<\/(?:div|section)>/gi) || []).slice(0, 20);
   }
 
-  for (const block of blocks.slice(0, 20)) {
+  for (const block of blocks) {
+    if (results.length >= 25) break;
     // Title
     const titleMatch = block.match(/<h[1-4]\b[^>]*>([\s\S]*?)<\/h[1-4]>/i)
       ?? block.match(/<(?:span|div|a)\b[^>]*(?:title|headline)[^>]*>([\s\S]*?)<\/(?:span|div|a)>/i);
@@ -54,10 +55,18 @@ export function extractWithTemplate(
       ?? block.match(/<time\b[^>]*>([\s\S]*?)<\/time>/i);
 
     if (titleMatch && linkMatch) {
-      const rawTitle = cleanText(titleMatch[1]);
-      const rawContent = summaryMatch ? cleanText(summaryMatch[1]) : rawTitle;
-      let rawHref = linkMatch[1].trim();
+      const rawTitle = cleanText(titleMatch[1]!);
+      const rawContent = summaryMatch ? cleanText(summaryMatch[1]!) : rawTitle;
+      let rawHref = linkMatch[1]!.trim();
       if (rawHref.startsWith("/")) rawHref = origin + rawHref;
+      try {
+        const pathname = new URL(rawHref).pathname;
+        if (/^\/(?:privacy|terms|about|contact|tag|category|author|price|login|register|feed)($|\/)/i.test(pathname) || pathname === "/" || pathname === "/news" || pathname === "/read") {
+          continue;
+        }
+      } catch {
+        continue;
+      }
 
       let publishedAt = now;
       if (dateMatch) {
