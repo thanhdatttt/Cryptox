@@ -13,7 +13,6 @@ investment returns.
 | Architecture document | [Technical architecture](docs/design/architecture.md) |
 | Detailed flows | [Data-flow appendix](docs/design/data-flow.md) |
 | Architectural decisions | [ADR index](#architectural-decisions) |
-| Criterion 18–20 evidence | [Rubric evidence map](docs/RUBRIC_EVIDENCE.md) |
 
 ## What the system does
 
@@ -121,7 +120,6 @@ packages/contracts/   REST, market-WebSocket, and queue wire contracts
 infra/                Docker Compose and database migrations
 docs/design/          canonical architecture and data-flow documentation
 docs/adr/             accepted architectural decisions
-docs/RUBRIC_EVIDENCE.md  link map for criteria 18–20
 ```
 
 ## Architectural decisions

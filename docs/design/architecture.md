@@ -131,5 +131,3 @@ Candidate state and PostgreSQL records are authoritative. Queue terminal signals
 | Queue wire contract/adapter | [`packages/contracts/queue/backtesting.ts`](../../packages/contracts/queue/backtesting.ts), [`modules/backtesting/infrastructure/queue/adapter.ts`](../../modules/backtesting/infrastructure/queue/adapter.ts) |
 | Detailed flow walkthroughs | [Data-flow appendix](data-flow.md) |
 | Decision rationale and trade-offs | [ADR directory](../adr) |
-
-The evaluator-facing GitHub links for criteria 18–20 are collected in [`docs/RUBRIC_EVIDENCE.md`](../RUBRIC_EVIDENCE.md).
