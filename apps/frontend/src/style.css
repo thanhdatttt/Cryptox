@@ -774,6 +774,10 @@ td {
   font-size: 11px;
   color: #64748b;
   font-weight: 500;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .template-version-badge {

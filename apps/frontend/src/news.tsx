@@ -148,6 +148,9 @@ export function News() {
       return api.collectNews({ ...payload, autoHealing: selfHealingEnabled });
     },
     onSuccess: () => {
+      try {
+        localStorage.setItem("cryptox.news-last-crawl-time", new Date().toISOString());
+      } catch { /* ignore */ }
       void queryClient.invalidateQueries({ queryKey: ["news"] });
       void queryClient.invalidateQueries({ queryKey: ["news", "templates"] });
       setCrawlStatusMessage(`Crawl completed at ${new Date().toLocaleTimeString()}!`);
@@ -238,13 +241,52 @@ export function News() {
     return dbTemplates.find((t) => t.isActive) ?? dbTemplates[0];
   }, [dbTemplates]);
 
-  // Stable timestamp that only changes when crawler / database query completes
-  const lastUpdatedTime = useMemo(() => {
-    if (query.dataUpdatedAt) {
-      return new Date(query.dataUpdatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  // Derive actual latest crawl timestamp from articles and recent crawl runs
+  const latestCrawlDate = useMemo(() => {
+    let maxTime = 0;
+    for (const item of allItems) {
+      if (item.crawledAt) {
+        const time = Date.parse(item.crawledAt);
+        if (!Number.isNaN(time) && time > maxTime) {
+          maxTime = time;
+        }
+      }
     }
-    return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
-  }, [query.dataUpdatedAt]);
+    try {
+      const stored = localStorage.getItem("cryptox.news-last-crawl-time");
+      if (stored) {
+        const storedTime = Date.parse(stored);
+        if (!Number.isNaN(storedTime) && storedTime > maxTime) {
+          maxTime = storedTime;
+        }
+      }
+    } catch { /* ignore */ }
+    return maxTime > 0 ? new Date(maxTime) : null;
+  }, [allItems]);
+
+  const lastCrawledDisplay = useMemo(() => {
+    if (!latestCrawlDate) return "Never";
+    const now = new Date();
+    const isToday =
+      latestCrawlDate.getFullYear() === now.getFullYear() &&
+      latestCrawlDate.getMonth() === now.getMonth() &&
+      latestCrawlDate.getDate() === now.getDate();
+
+    const timeStr = latestCrawlDate.toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+
+    if (isToday) {
+      return `Today, ${timeStr}`;
+    }
+    const dateStr = latestCrawlDate.toLocaleDateString([], {
+      month: "short",
+      day: "numeric",
+    });
+    return `${dateStr}, ${timeStr}`;
+  }, [latestCrawlDate]);
 
   // Dynamically derive supported pure coins from market backend pairs + crawled news items
   const availableCoins = useMemo(() => {
@@ -520,7 +562,12 @@ export function News() {
               <h2>Input News Feed</h2>
               <span className="feed-count-badge">Showing {filteredItems.length} / {allItems.length} articles</span>
             </div>
-            <span className="last-update-tag">↻ Updated: {lastUpdatedTime}</span>
+            <span
+              className="last-update-tag"
+              title={latestCrawlDate ? `Last crawled at ${latestCrawlDate.toLocaleString()}` : "No crawl timestamp recorded"}
+            >
+              ↻ Last Crawled: {lastCrawledDisplay}
+            </span>
           </div>
 
           {/* DEDICATED IN-FEED FILTER BAR */}
@@ -702,7 +749,12 @@ export function News() {
           <section className="analysis-output-panel">
             <div className="panel-title-bar">
               <h2>Analytics &amp; Pipeline Output</h2>
-              <span className="last-update-tag">↻ Updated: {lastUpdatedTime}</span>
+              <span
+                className="last-update-tag"
+                title={latestCrawlDate ? `Last crawled at ${latestCrawlDate.toLocaleString()}` : "No crawl timestamp recorded"}
+              >
+                ↻ Last Crawled: {lastCrawledDisplay}
+              </span>
             </div>
 
             <div className="analysis-output-grid">
