@@ -1,46 +1,37 @@
-# ADR-002: Use Plugin and Registry Architecture for Strategies
+# ADR-002: Use a Plugin and Registry architecture for strategies
 
 ## Status
 
-Accepted — 2026-08-13
-
-Boundary clarification: ADR-005 (2026-08-14) records the stable logical-family allocation and Composite validation invariants; the plugin/registry decision remains unchanged.
+Accepted — implemented.
 
 ## Context
 
-The assignment explicitly tests whether a new strategy such as MACD can be added without changing the Backtester, Evaluator, Leaderboard, frontend core, or a chain of identity-based conditionals. Strategy algorithms and parameter schemas are expected to evolve more frequently than the experiment pipeline.
+Strategy algorithms and parameter schemas evolve more often than the backtest, evaluation, ranking, and UI pipelines. Hard-coding strategy names in these consumers would make each addition cross-cut the codebase and make historical replay ambiguous.
 
 ## Decision
 
-- Every strategy implements the pure `Strategy.analyze(StrategyContext)` contract.
-- A `StrategyFactory` declares its stable name, category, serializable parameter schema, immutable implementation version/hash, and creation behavior.
-- Factories register with `StrategyRegistry` during application/worker bootstrap.
-- Strategy and composite configurations are immutable versioned definitions; an edit creates a new ID/version. Every Strategy Definition copies the exact plugin implementation hash.
-- Each definition carries a stable logical-family key. `modules/strategy` allocates the next version atomically per family; parameter, implementation provenance, component, weight, threshold, or method changes never reuse a version.
-- Composite validation requires at least one component; weighted definitions require finite weights summing to `1` and ordered finite thresholds, while majority-vote definitions normalize unused weights/thresholds.
-- Registry/artifact resolution uses `(strategyName, implementationSha256)` and never silently substitutes the latest build; unavailable retained code yields an explicit replay error.
-- The same registry and pure strategy runtime are composed into the backend and Backtest Worker.
-- Strategies never call PostgreSQL, Redis, Binance, HTTP, or UI code.
-- The Composite Strategy consumes only normalized signals and definition weights; it never branches on a strategy's identity or internals.
+- A strategy factory supplies a descriptor, parameter validation, creation behavior, and implementation provenance.
+- `StrategyRegistry` registers and resolves factories by strategy name and implementation hash.
+- Definitions are versioned; a composite consumes normalized signals and never branches on plugin identity.
+- Plugins remain pure: no database, queue, exchange, HTTP, or UI access.
+- The backend and worker compose the same registry/runtime contract.
 
-## Alternatives Considered
+The current built-in factories are MA, RSI, Bollinger Bands, Support/Resistance, and Sentiment. MACD is a future extension example, not a currently registered plugin.
 
-1. **Hard-coded `if/else` by strategy name** — rejected because every addition changes multiple existing components.
-2. **Store executable strategy logic in the database** — rejected because it complicates validation, security, versioning, testing, and deployment.
-3. **One microservice per strategy** — rejected because the runtime/operational cost is disproportionate and does not itself improve the plugin contract.
+## Alternatives considered
+
+1. `if/else` by strategy name — rejected because additions change unrelated pipelines.
+2. Store executable logic in the database — rejected because validation, security, testing, and replay become harder.
+3. One deployable service per strategy — rejected because deployment boundaries do not improve the plugin contract.
 
 ## Consequences
 
-- Positive: adding MACD is localized to its implementation/factory/bootstrap registration and tests.
-- Positive: Backtester, Evaluator, Ranking, and Search consume stable contracts.
-- Positive: strategy behavior is deterministic and testable without infrastructure.
-- Negative: every plugin must provide accurate parameter validation/metadata.
-- Negative: bootstrap registration and worker/backend plugin sets must be checked for consistency.
-- Negative: exact replay requires retaining or reproducibly rebuilding old plugin artifacts by hash.
+- Adding a plugin is localized to its factory/registration/tests.
+- Plugin metadata and backend/worker registration must remain consistent.
+- Exact replay depends on retaining or reproducibly resolving the recorded artifact.
 
-## Evidence
+## Evidence and verification
 
-- Add a MACD plugin and verify no modifications to Backtester, Evaluator, Leaderboard, or frontend core.
-- Run the same versioned definition in live analysis and backtesting and verify identical signal output for the same context.
-- Attempt replay with a missing historical artifact and verify an explicit error instead of fallback to a newer plugin.
-- Add an architecture test forbidding infrastructure imports from strategy plugins.
+- [`modules/strategy/domain/plugins.ts`](../../modules/strategy/domain/plugins.ts) defines `builtInFactories` and `InMemoryStrategyRegistry`.
+- [`modules/strategy/domain/contracts.ts`](../../modules/strategy/domain/contracts.ts) defines strategy and registry contracts.
+- Verification: add a new test plugin and prove Backtesting, Evaluation, Leaderboard, and frontend core require no identity-specific change.

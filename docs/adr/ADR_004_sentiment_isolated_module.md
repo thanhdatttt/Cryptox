@@ -1,43 +1,36 @@
-# ADR-004: Isolate Sentiment Behind an Internal Module Interface
+# ADR-004: Isolate sentiment behind an internal module interface
 
 ## Status
 
-Accepted — 2026-08-13
-
-Boundary clarification: ADR-005 (2026-08-14) amends the project-structure and ownership context referenced here; the internal News/Sentiment isolation decision remains unchanged.
+Accepted — implemented as an internal module, not a microservice.
 
 ## Context
 
-News collection and sentiment inference change for different reasons. A crawler/provider should not depend on BERT, FinBERT, or another concrete model, and a model failure must not stop market charts, strategy configuration, Search Runs, or backtesting. The current MVP does not demonstrate a need to deploy or scale sentiment as a separate network service.
+News collection and sentiment inference change for different reasons. A provider must not depend on a concrete model, and an inference failure must not prevent market charts, strategy configuration, search, or backtesting. The current project has no measured requirement to operate a separately deployed sentiment service.
 
 ## Decision
 
-- Keep `modules/news` and `modules/sentiment` as separate internal modules in the backend Modular Monolith.
-- News providers return a normalized `NewsItem`; the collector persists/deduplicates it before requesting sentiment.
-- The collector invokes `SentimentAnalysisService` through a typed in-process interface with a neutral `SentimentInput` and a timeout. Timeout/exception is caught at the News workflow boundary, reported to logs/metrics, and represented to readers as missing sentiment rather than a fabricated result row.
-- News owns persistence of the normalized `NewsItem`. Sentiment owns persistence of `SentimentResult`, model provenance, and sealed sentiment snapshots. The News workflow may invoke Sentiment and compose the response, but it does not write Sentiment's tables directly.
-- Any backtest using an `INFORMATION` strategy must pin a sealed, time-aligned sentiment snapshot with content hash and model name/version/hash. Sentiment owns snapshot creation/persistence; live aggregates are never used as reproducible historical input.
-- Snapshot points use half-open dataset ranges, window-end timestamps, canonical base-asset symbols, normalized `[-1, 1]` scores, no future lookup, and no carry-forward over missing windows; a Candidate is rejected when a required candle window has no point.
-- A sentiment failure produces degraded/missing sentiment only. It cannot fail Market Data, Search, Backtesting, or the saved News item.
-- Do not publish `NewsCollected` or `SentimentAnalyzed` events.
-- Extract Sentiment into a separate deployable only if measured inference load, runtime dependencies, or fault-isolation requirements justify it; that change requires a superseding ADR.
+- Keep `modules/news` and `modules/sentiment` as separate modules within the modular monolith.
+- News validates/deduplicates/persists `NewsItem` records before invoking Sentiment through a typed interface.
+- Sentiment owns `SentimentResult`, model provenance, and sealed sentiment snapshots.
+- A failed or timed-out analysis is visible as missing/degraded sentiment; it does not fabricate a neutral result or discard the news item.
+- Extract a network service only when measured model load, runtime dependencies, or fault-isolation needs justify the operational cost.
 
-## Alternatives Considered
+## Alternatives considered
 
-1. **Crawler calls a concrete ML model directly** — rejected because provider and model changes become coupled.
-2. **Separate Sentiment microservice now** — deferred because it adds network deployment, timeout/retry, authentication, and observability costs without a current scaling driver.
-3. **Event Bus between News and Sentiment** — rejected for the MVP; a direct isolated interface meets the requirement with less operational complexity.
+1. Make each crawler call a concrete model — rejected because provider/model change would be coupled.
+2. Deploy a sentiment microservice now — deferred because it adds network, authentication, timeout/retry, and operations cost without a demonstrated driver.
+3. Publish news/sentiment through an event bus — rejected because the direct isolated interface meets the present need with less machinery.
 
 ## Consequences
 
-- Positive: model/provider implementations can change independently behind contracts.
-- Positive: the current deployment remains simple.
-- Positive: failures are explicitly degraded instead of propagated to core trading flows.
-- Negative: CPU/memory-heavy inference shares the backend process unless a later extraction is approved.
-- Negative: timeout and resource limits must be enforced so inference cannot monopolize the backend.
+- News providers and models can change independently behind contracts.
+- Model CPU/memory remains in the backend process until an extraction decision is justified.
+- Callers must distinguish valid `NEUTRAL` sentiment from missing/failed analysis.
 
-## Evidence
+## Evidence and verification
 
-- Replace the model implementation without changing News module or Strategy module contracts.
-- Force inference timeout/failure and verify the News item remains available while charts and backtesting continue.
-- Add a second `NewsProvider` without changing Sentiment.
+- [`modules/news`](../../modules/news) owns news collection/persistence contracts.
+- [`modules/sentiment`](../../modules/sentiment) owns sentiment analysis and snapshots.
+- [`apps/backend/src/compose.ts`](../../apps/backend/src/compose.ts) composes both modules through their public bootstrap APIs.
+- Demo: force/observe an analysis failure and verify the news item remains available with an explicit degraded state.

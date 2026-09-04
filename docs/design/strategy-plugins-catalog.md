@@ -1,5 +1,10 @@
 # Catalog: Built-in Strategy Plugins (`modules/strategy/domain/plugins`)
 
+> **Implementation status — 2026-09-04:** the current registry implements MA,
+> RSI, Bollinger Bands, Support/Resistance, and Sentiment. Section 6 (MACD) is
+> a proposed plugin specification and acceptance-test example; it is not a
+> registered built-in and must not be cited as an implemented feature.
+
 ## 0. Purpose and relationship to `strategy-spec.md`
 
 `strategy-spec.md` defines how the **Strategy Engine, Registry, and Composite**

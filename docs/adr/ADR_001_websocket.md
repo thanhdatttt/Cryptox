@@ -1,39 +1,34 @@
-# ADR-001: Use WebSocket Only for Realtime Market Data
+# ADR-001: Restrict WebSocket to realtime market data
 
 ## Status
 
-Accepted — 2026-08-13
+Accepted — implemented.
 
 ## Context
 
-The dashboard must display live ticks/candles and exchange connection health without repeatedly polling `GET /price`. Other frontend features — strategy configuration, Search Run progress, experiments, Leaderboard, and news — tolerate request/response latency and do not require a permanent push channel.
-
-Using WebSocket for every backend state change would create a second API model, reconnect/resubscribe behavior, and message ordering concerns without a matching MVP driver.
+The dashboard needs live ticks, candles, and upstream connection status. Strategy editing, search status, experiments, leaderboard, news, and sentiment are durable resources that can be read through ordinary request/response APIs. Pushing every domain change would create a second API model, ordering/reconnect concerns, and unnecessary coupling.
 
 ## Decision
 
-- Use one authenticated WebSocket gateway only for normalized `MarketTick`, `Candle`, and `MarketDataConnectionStatus` messages.
-- Load historical chart data through REST before subscribing to realtime updates.
-- Use REST for strategy/search commands and for progress, backtest, Experiment, Leaderboard, and News/Sentiment queries.
-- An asynchronous command returns `202 Accepted` with a resource identifier; the frontend polls that resource while it is active.
-- Do not push `LeaderboardUpdated`, `StrategyEvaluated`, `NewsCollected`, or other domain events to the browser.
+- Expose one authenticated Socket.IO namespace, `/market`, for normalized market subscriptions and server updates only.
+- Load historical candles through REST, then apply normalized realtime updates from the WebSocket.
+- Keep strategy, search, backtest, experiment, leaderboard, news, and sentiment commands/queries on REST.
+- The frontend never receives raw Binance payloads.
 
-## Alternatives Considered
+## Alternatives considered
 
-1. **Poll all market prices through REST** — rejected because it creates unnecessary traffic and poorer realtime behavior.
-2. **Use WebSocket for every frontend feature** — rejected because most features are naturally request/response and do not justify connection-state complexity.
-3. **Use Server-Sent Events for all updates** — viable for one-way streams, but does not simplify the current split enough to replace the selected market WebSocket.
+1. Poll market prices only through REST — rejected because it increases latency and request volume for chart updates.
+2. Push all backend state through WebSocket — rejected because most state has no realtime driver and needs a second delivery/ordering model.
+3. Use Server-Sent Events everywhere — rejected because it does not improve the narrow market-subscription use case enough to justify another transport.
 
 ## Consequences
 
-- Positive: the realtime requirement is met with a narrow, testable channel.
-- Positive: frontend data access remains conventional REST for most features.
-- Positive: WebSocket reconnect logic cannot affect Search Runs or backtest completion.
-- Negative: active Search Run pages generate periodic REST reads.
-- Negative: the UI may display progress or Leaderboard changes one polling interval after they are persisted.
+- Market reconnect logic stays isolated from search and backtesting.
+- Active search/leaderboard pages use periodic REST reads and can be one polling interval behind durable state.
+- A future non-market push channel requires a separate decision and evidence of need.
 
-## Evidence
+## Evidence and verification
 
-- Disconnect/reconnect the market WebSocket and verify automatic recovery plus missing-candle reconciliation.
-- Close the browser during a Search Run, reopen it, and verify progress is reconstructed through REST.
-- Verify that no non-market WebSocket message types exist in the public contract.
+- [`apps/backend/src/market.gateway.ts`](../../apps/backend/src/market.gateway.ts) exposes the `/market` gateway.
+- [`packages/contracts/websocket/market-data.ts`](../../packages/contracts/websocket/market-data.ts) restricts the public message vocabulary to market messages.
+- Demo: subscribe, disconnect/reconnect, and verify normalized status/candle recovery in the dashboard.
