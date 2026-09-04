@@ -1061,7 +1061,7 @@ function SavedStrategiesTable({
 
   const unsavedDrafts = drafts.filter((d) => !d.isSaved);
   const totalSingle = definitions.data?.length ?? 0;
-  const totalComposite = composites.data?.length ?? 0;
+  const totalComposite = (composites.data ?? []).filter((c) => c.components.length >= 2).length;
   const totalDrafts = unsavedDrafts.length;
   const totalCount = totalSingle + totalComposite + totalDrafts;
 
@@ -1178,6 +1178,7 @@ function SavedStrategiesTable({
     // 3. Persisted Composite Strategies
     if (composites.data) {
       for (const comp of composites.data) {
+        if (comp.components.length < 2) continue;
         const methodLabel = customNamesMap[comp.id] ?? (comp.method === "MAJORITY_VOTE" ? "Majority Vote Ensemble" : "Weighted Scoring Ensemble");
         
         const memberDetails: StrategyMemberDetail[] = comp.components.map((c) => {
@@ -2501,7 +2502,7 @@ export function StrategyScreen() {
   }, [definitions.data, deletedIds, unsavedDraftIds]);
 
   const visibleComposites = useMemo(() => {
-    return (composites.data ?? []).filter((c) => !deletedIds.includes(c.id) && !unsavedDraftIds.has(c.id));
+    return (composites.data ?? []).filter((c) => !deletedIds.includes(c.id) && !unsavedDraftIds.has(c.id) && c.components.length >= 2);
   }, [composites.data, deletedIds, unsavedDraftIds]);
 
   const filteredDefinitions: Resource<StrategyDefinition[]> = {

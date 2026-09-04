@@ -10,7 +10,7 @@ const stable = (value: unknown): string => {
   if (value && typeof value === "object") return `{${Object.entries(value as Record<string, unknown>).sort(([left], [right]) => left.localeCompare(right)).map(([key, item]) => `${JSON.stringify(key)}:${stable(item)}`).join(",")}}`;
   return JSON.stringify(value);
 };
-const fingerprintFor = (selected: readonly SearchStrategyDefinition[]): string => createHash("sha256").update(stable({ generatedBy: "GENETIC", ownerUserId: ownerOf(selected[0]!), strategyDefinitions: selected.map((definition) => ({ id: definition.id, strategyName: definition.strategyName, implementationVersion: definition.implementationVersion, implementationSha256: definition.implementationSha256, parameters: definition.parameters })).sort((left, right) => left.id.localeCompare(right.id)), executionPolicy: "TWO_SIDED_ONE_X_V1", method: "MAJORITY_VOTE" }), "utf8").digest("hex");
+const fingerprintFor = (selected: readonly SearchStrategyDefinition[]): string => createHash("sha256").update(stable({ generatedBy: "GENETIC", ownerUserId: ownerOf(selected[0]!), strategyDefinitions: selected.map((definition) => ({ id: definition.id, strategyName: definition.strategyName, implementationVersion: definition.implementationVersion, implementationSha256: definition.implementationSha256, parameters: definition.parameters })).sort((left, right) => left.id.localeCompare(right.id)), executionPolicy: "TWO_SIDED_ONE_X_V1", method: selected.length > 1 ? "MAJORITY_VOTE" : "WEIGHTED_SCORE" }), "utf8").digest("hex");
 const rngFor = (context: GeneratorContext): (() => number) => {
   let state = Number.parseInt(createHash("sha256").update(`${context.searchRunId}:${context.iterationNumber}`, "utf8").digest("hex").slice(0, 8), 16) || 1;
   return () => { state = (Math.imul(state, 1664525) + 1013904223) >>> 0; return state / 0x100000000; };
@@ -123,9 +123,23 @@ const crossover = (first: SearchStrategyDefinition[], second: SearchStrategyDefi
   return { child: child.slice(0, limit), point };
 };
 const candidate = (selected: SearchStrategyDefinition[], lineage: CandidateLineage): GeneratedCandidate => {
-  if (selected.length === 0) throw new Error("INVALID_SEARCH_CONFIG"); const userId = ownerOf(selected[0]);
+  if (selected.length === 0) throw new Error("INVALID_SEARCH_CONFIG");
+  const userId = ownerOf(selected[0]);
   if (!userId || selected.some((definition) => ownerOf(definition) !== userId)) throw new Error("INVALID_SEARCH_CONFIG");
-  const fingerprint = fingerprintFor(selected); const composite: CompositeStrategyDefinition & { userId: string } = { id: `generated-genetic-${fingerprint}`, userId, logicalFamilyKey: "generated:genetic", version: 1, method: "MAJORITY_VOTE", components: selected.map((definition) => ({ strategyDefinitionId: definition.id, weight: 0 })), createdAt: new Date().toISOString() };
+  const fingerprint = fingerprintFor(selected);
+  const isSingle = selected.length === 1;
+  const composite: CompositeStrategyDefinition & { userId: string } = {
+    id: `generated-genetic-${fingerprint}`,
+    userId,
+    logicalFamilyKey: isSingle ? `composite:SINGLE:${selected[0]!.id}` : "generated:genetic",
+    version: 1,
+    method: isSingle ? "WEIGHTED_SCORE" : "MAJORITY_VOTE",
+    components: isSingle
+      ? [{ strategyDefinitionId: selected[0]!.id, weight: 1 }]
+      : selected.map((definition) => ({ strategyDefinitionId: definition.id, weight: 0 })),
+    thresholds: { buy: 0.3, sell: -0.3 },
+    createdAt: new Date().toISOString(),
+  };
   return { generatedBy: "GENETIC", strategyDefinitions: selected, compositeDefinition: composite, executionPolicyIntent: { mode: "TWO_SIDED_ONE_X_V1" }, fingerprint, lineage };
 };
 export const geneticGenerator = (): StrategyGenerator => ({ type: "GENETIC", generate: (space, context) => {

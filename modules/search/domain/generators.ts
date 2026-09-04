@@ -23,16 +23,22 @@ const rngFor = (context: GeneratorContext): (() => number) => {
 };
 const maxComponents = (space: SearchSpaceConfig, count: number): number => Math.max(1, Math.min(space.maxComponents ?? count, count));
 const variant = (definition: StrategyDefinition, random: () => number): StrategyDefinition => mutateSearchStrategyDefinition(definition as import("./contracts").SearchStrategyDefinition, random, true).definition;
-const fingerprintFor = (type: GeneratorType, selected: StrategyDefinition[]): string => hash(stable({ generatedBy: type, ownerUserId: ownerOf(selected[0]!), strategyDefinitions: selected.map((definition) => ({ id: definition.id, strategyName: definition.strategyName, implementationVersion: definition.implementationVersion, implementationSha256: definition.implementationSha256, parameters: definition.parameters })).sort((left, right) => left.id.localeCompare(right.id)), executionPolicy: "TWO_SIDED_ONE_X_V1", method: "MAJORITY_VOTE" }));
-const composite = (type: GeneratorType, selected: StrategyDefinition[], fingerprint: string, userId: string): CompositeStrategyDefinition & { userId: string } => ({
-  id: `generated-${type.toLowerCase()}-${fingerprint}`,
-  userId,
-  logicalFamilyKey: `generated:${type.toLowerCase()}`,
-  version: 1,
-  method: "MAJORITY_VOTE",
-  components: selected.map((definition) => ({ strategyDefinitionId: definition.id, weight: 0 })),
-  createdAt: new Date().toISOString(),
-});
+const fingerprintFor = (type: GeneratorType, selected: StrategyDefinition[]): string => hash(stable({ generatedBy: type, ownerUserId: ownerOf(selected[0]!), strategyDefinitions: selected.map((definition) => ({ id: definition.id, strategyName: definition.strategyName, implementationVersion: definition.implementationVersion, implementationSha256: definition.implementationSha256, parameters: definition.parameters })).sort((left, right) => left.id.localeCompare(right.id)), executionPolicy: "TWO_SIDED_ONE_X_V1", method: selected.length > 1 ? "MAJORITY_VOTE" : "WEIGHTED_SCORE" }));
+const composite = (type: GeneratorType, selected: StrategyDefinition[], fingerprint: string, userId: string): CompositeStrategyDefinition & { userId: string } => {
+  const isSingle = selected.length === 1;
+  return {
+    id: `generated-${type.toLowerCase()}-${fingerprint}`,
+    userId,
+    logicalFamilyKey: isSingle ? `composite:SINGLE:${selected[0]!.id}` : `generated:${type.toLowerCase()}`,
+    version: 1,
+    method: isSingle ? "WEIGHTED_SCORE" : "MAJORITY_VOTE",
+    components: isSingle
+      ? [{ strategyDefinitionId: selected[0]!.id, weight: 1 }]
+      : selected.map((definition) => ({ strategyDefinitionId: definition.id, weight: 0 })),
+    thresholds: { buy: 0.3, sell: -0.3 },
+    createdAt: new Date().toISOString(),
+  };
+};
 const candidate = (type: GeneratorType, selected: StrategyDefinition[]): GeneratedCandidate => {
   const userId = selected.length === 0 ? undefined : ownerOf(selected[0]!);
   if (!userId || selected.some((definition) => ownerOf(definition) !== userId)) throw new Error("INVALID_SEARCH_CONFIG");

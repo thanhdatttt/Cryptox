@@ -4,7 +4,7 @@ import { createRoot } from "react-dom/client";
 import { api, session, type NewsItem, type Scope } from "./api";
 import { BacktestScreen, ExperimentDetail, PersistentLeaderboardTable, RankingTable, SearchScreen } from "./features";
 import { MarketScreen } from "./market";
-import { appRoutePath, parseAppRoute, persistMarketLayout, readMarketLayout, type AppScreen, type MarketLayoutState } from "./state";
+import { appRoutePath, parseAppRoute, persistMarketLayout, readMarketLayout, navigateTo, type AppScreen, type MarketLayoutState } from "./state";
 import { StrategyScreen } from "./strategy";
 import { News } from "./news";
 import { queryClient, clearAuthenticatedClientState, logout } from "./query";
@@ -122,7 +122,118 @@ function Auth({ onAuthenticated, initialRegister = false }: { onAuthenticated: (
 
 function Heading({ title, text }: { title: string; text: string }) { return <div className="heading"><div><h1>{title}</h1><p>{text}</p></div><span className="status"><i />Live backend</span></div>; }
 
-function Leaderboard() { const scopes = useQuery({ queryKey: ["scopes"], queryFn: api.scopes }); const [scopeId, setScopeId] = useState(""); const ranking = useQuery({ queryKey: ["leaderboard", scopeId], queryFn: () => api.leaderboard(scopeId), enabled: Boolean(scopeId) }); return <><Heading title="Leaderboard - Top strategies" text="Owner-scoped persistent admissions enriched with experiment metrics." /><Panel><label className="field scope-select">Benchmark scope<select value={scopeId} onChange={(event) => setScopeId(event.target.value)}><option value="">Select scope</option>{scopes.data?.map((scope: Scope) => <option key={scope.id} value={scope.id}>{scope.name}</option>)}</select></label>{scopes.isLoading ? <Loading /> : scopes.error ? <ErrorBox error={scopes.error} /> : null}{scopeId && ranking.isLoading ? <Loading /> : ranking.error ? <ErrorBox error={ranking.error} /> : ranking.data?.length ? <PersistentLeaderboardTable rows={ranking.data} /> : <p className="muted">{scopeId ? "No admitted experiments for this scope." : "Select a real backend scope to view rankings."}</p>}</Panel></>; }
+function Leaderboard() {
+  const scopes = useQuery({ queryKey: ["scopes"], queryFn: api.scopes });
+  const [scopeId, setScopeId] = useState("");
+
+  useEffect(() => {
+    if (!scopeId && scopes.data && scopes.data.length > 0) {
+      setScopeId(scopes.data[0].id);
+    }
+  }, [scopes.data, scopeId]);
+
+  const ranking = useQuery({
+    queryKey: ["leaderboard", scopeId],
+    queryFn: () => api.leaderboard(scopeId),
+    enabled: Boolean(scopeId),
+  });
+
+  const currentScope = scopes.data?.find((scope: Scope) => scope.id === scopeId);
+
+  return (
+    <div className="leaderboard-screen">
+      <Heading
+        title="Leaderboard - Top strategies"
+        text="Owner-scoped persistent admissions enriched with experiment metrics."
+      />
+
+      <div className="leaderboard-scope-bar">
+        <div className="leaderboard-scope-selector">
+          <label htmlFor="leaderboard-scope-select" className="leaderboard-scope-label">
+            Benchmark Scope:
+          </label>
+          <select
+            id="leaderboard-scope-select"
+            className="leaderboard-scope-dropdown"
+            value={scopeId}
+            onChange={(event) => setScopeId(event.target.value)}
+          >
+            <option value="">Select benchmark scope...</option>
+            {scopes.data?.map((scope: Scope) => (
+              <option key={scope.id} value={scope.id}>
+                {scope.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {currentScope && (
+          <div className="leaderboard-scope-badges">
+            <span className="leaderboard-meta-chip">
+              🪙 {currentScope.pair} · {currentScope.timeframe}
+            </span>
+            <span className="leaderboard-meta-chip">
+              💰 ${Number(currentScope.initialCapital).toLocaleString()}
+            </span>
+            <span className="leaderboard-meta-chip">
+              ⚙️ {currentScope.feeRatePercent}% fee · {currentScope.slippageBps} bps slip
+            </span>
+            <span className="leaderboard-meta-chip chip-enforced" title="Backend immutably restricts admissions to the top 10 highest-scoring strategies">
+              🔒 Top 10 Enforced
+            </span>
+          </div>
+        )}
+      </div>
+
+      <Panel title="🏆 Benchmark Hall of Fame (Top 10 Persistent Admissions)">
+        {scopes.isLoading ? (
+          <Loading />
+        ) : scopes.error ? (
+          <ErrorBox error={scopes.error} />
+        ) : null}
+
+        {scopeId && ranking.isLoading ? (
+          <Loading />
+        ) : ranking.error ? (
+          <ErrorBox error={ranking.error} />
+        ) : ranking.data?.length ? (
+          <>
+            <PersistentLeaderboardTable rows={ranking.data} />
+            <div className="leaderboard-footer-policy">
+              <span style={{ fontSize: "15px" }}>ℹ️</span>
+              <div>
+                <strong>Top 10 Persistent Admissions Policy:</strong> This leaderboard strictly retains the Top 10 highest-scoring strategies evaluated against this benchmark scope. When a newly evaluated strategy scores higher than the current #10 strategy, the lowest-ranking entry is permanently deactivated and displaced.
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="leaderboard-empty-state">
+            <div className="leaderboard-empty-icon">🏆</div>
+            <h3 className="leaderboard-empty-title">
+              {scopeId ? "No Admitted Strategies Yet" : "Select a Benchmark Scope"}
+            </h3>
+            <p className="leaderboard-empty-desc">
+              {scopeId
+                ? "No backtest experiments have qualified for this benchmark scope yet. When you execute Search Runs (or evaluate high-scoring benchmark backtests), the top 10 will automatically be admitted here."
+                : "Select a benchmark scope preset above to view the current top 10 qualified strategies."}
+            </p>
+            {scopeId && (
+              <div style={{ display: "flex", gap: "10px" }}>
+                <button
+                  type="button"
+                  className="btn primary"
+                  onClick={() => navigateTo("search")}
+                >
+                  ⌕ Go to Search Run
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </Panel>
+    </div>
+  );
+}
 
 function Settings({ onLogout }: { onLogout: () => void }) { const me = useQuery({ queryKey: ["auth", "me"], queryFn: api.me }); return <><Heading title="Settings" text="Authenticated session and backend connection." /><Panel title="Session">{me.isLoading ? <Loading /> : me.error ? <ErrorBox error={me.error} /> : <p>Authenticated user: {me.data?.userId}</p>}<Btn onClick={onLogout}>Log out</Btn></Panel></>; }
 

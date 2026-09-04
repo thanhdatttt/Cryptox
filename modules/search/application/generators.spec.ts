@@ -24,7 +24,13 @@ describe("Search strategy generators", () => {
     expect(first.generatedBy).toBe("RANDOM");
     expect(first.strategyDefinitions.length).toBeLessThanOrEqual(2);
     expect(first.compositeDefinition.components.length).toBe(first.strategyDefinitions.length);
-    expect(first.compositeDefinition.components.every((component) => component.weight === 0)).toBe(true);
+    if (first.strategyDefinitions.length === 1) {
+      expect(first.compositeDefinition.method).toBe("WEIGHTED_SCORE");
+      expect(first.compositeDefinition.components[0]?.weight).toBe(1);
+    } else {
+      expect(first.compositeDefinition.method).toBe("MAJORITY_VOTE");
+      expect(first.compositeDefinition.components.every((component) => component.weight === 0)).toBe(true);
+    }
     expect(first.executionPolicyIntent.mode).toBe("TWO_SIDED_ONE_X_V1");
     expect(first.fingerprint).toMatch(/^[0-9a-f]+$/);
     expect(new Date(first.compositeDefinition.createdAt).getTime()).not.toBeNaN();

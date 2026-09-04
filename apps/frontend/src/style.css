@@ -7327,5 +7327,249 @@ td {
   width: fit-content;
 }
 
+/* Search Run Failure Banner */
+.search-run-failure-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  background: #fef2f2;
+  border: 1.5px solid #fecaca;
+  border-radius: 8px;
+  padding: 16px 20px;
+  box-shadow: 0 2px 6px rgba(220, 38, 38, 0.08);
+}
+
+.failure-banner-icon {
+  font-size: 24px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.failure-banner-body {
+  flex: 1;
+}
+
+.failure-banner-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.failure-banner-title {
+  margin: 0;
+  color: #991b1b;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.failure-banner-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.failure-banner-desc {
+  margin: 0 0 8px 0;
+  font-size: 13px;
+  color: #7f1d1d;
+  line-height: 1.5;
+}
+
+.failure-banner-tip {
+  margin-top: 8px;
+  font-size: 12px;
+  color: #92400e;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 6px;
+  padding: 8px 12px;
+  line-height: 1.4;
+}
+
+.failure-banner-raw {
+  margin-top: 8px;
+  font-size: 11px;
+  color: #991b1b;
+  font-family: monospace;
+}
+
+.failure-banner-raw code {
+  background: #fee2e2;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 700;
+}
+
+.search-active-chip-subtle.chip-error {
+  background: #fee2e2;
+  color: #991b1b;
+  border-color: #fca5a5;
+}
+
+/* Leaderboard Screen & Table Full Height */
+.leaderboard-screen {
+  max-width: 1450px;
+  margin: 0 auto;
+  padding: 22px 0 30px;
+}
+
+.leaderboard-scope-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  background: #ffffff;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 12px;
+  padding: 14px 18px;
+  margin-bottom: 16px;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.05);
+  flex-wrap: wrap;
+}
+
+.leaderboard-scope-selector {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+  min-width: 280px;
+}
+
+.leaderboard-scope-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1e293b;
+  white-space: nowrap;
+}
+
+.leaderboard-scope-dropdown {
+  flex: 1;
+  max-width: 480px;
+  padding: 8px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #0f172a;
+  background: #f8fafc;
+  border: 1.5px solid #cbd5e1;
+  border-radius: 8px;
+  outline: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.leaderboard-scope-dropdown:hover {
+  border-color: #3b82f6;
+  background: #ffffff;
+}
+
+.leaderboard-scope-dropdown:focus {
+  border-color: #2563eb;
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.leaderboard-scope-badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.leaderboard-meta-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: #f1f5f9;
+  color: #334155;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.leaderboard-meta-chip.chip-enforced {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+}
+
+.leaderboard-table-container {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: visible;
+  min-height: auto;
+}
+
+.leaderboard-table-container .candidate-history-table {
+  width: 100%;
+  min-width: 960px;
+}
+
+.btn-table-inspect:hover {
+  background: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+.btn-table-search-run:hover {
+  background: #dbeafe !important;
+  border-color: #93c5fd !important;
+  color: #1e40af !important;
+}
+
+.leaderboard-footer-policy {
+  margin-top: 14px;
+  padding: 10px 14px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 12px;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  line-height: 1.45;
+}
+
+.leaderboard-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  text-align: center;
+  background: #f8fafc;
+  border: 1.5px dashed #cbd5e1;
+  border-radius: 12px;
+  margin: 12px 0;
+}
+
+.leaderboard-empty-icon {
+  font-size: 38px;
+  margin-bottom: 12px;
+}
+
+.leaderboard-empty-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1e293b;
+  margin: 0 0 6px;
+}
+
+.leaderboard-empty-desc {
+  font-size: 13px;
+  color: #64748b;
+  max-width: 480px;
+  line-height: 1.5;
+  margin: 0 0 18px;
+}
+
+
+
 
 

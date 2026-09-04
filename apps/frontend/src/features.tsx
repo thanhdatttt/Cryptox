@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ColorType, createChart, LineStyle, type CandlestickData, type HistogramData, type Time, type SeriesMarker } from "lightweight-charts";
 import { api, type ApiCandle, type Candidate, type Composite, type DatasetSnapshotRef, type ExperimentSummary, type LeaderboardEntry, type SearchRankingEntry, type SearchRunSummary, type Scope, type StrategyDefinition, type Trade, type VisualizationMarker, type StrategyVisualizationOverlay, type Timeframe } from "./api";
-import { persistSearchRunId, readSearchRunId, launchStrategyBacktest } from "./state";
+import { persistSearchRunId, readSearchRunId, launchStrategyBacktest, navigateTo } from "./state";
 import { chartBounds, percent } from "./visuals";
 
 const Panel = ({ title, children, className = "" }: { title?: string; children: React.ReactNode; className?: string }) => <section className={`panel ${className}`}>{title && <h2>{title}</h2>}{children}</section>;
@@ -2189,6 +2189,22 @@ export function RankingTable({ rows }: { rows: SearchRankingEntry[] }) {
   );
 }
 
+function formatLeaderboardDate(isoString: string): string {
+  try {
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return isoString;
+    return d.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+  } catch {
+    return isoString;
+  }
+}
+
 export function PersistentLeaderboardTable({ rows }: { rows: LeaderboardEntry[] }) {
   const details = useQueries({
     queries: rows.map((row) => ({
@@ -2197,36 +2213,190 @@ export function PersistentLeaderboardTable({ rows }: { rows: LeaderboardEntry[] 
       enabled: Boolean(row.experimentResultId),
     })),
   });
+
   return (
-    <div className="table-scroll">
-      <table>
+    <div className="leaderboard-table-container">
+      <table className="candidate-history-table">
         <thead>
           <tr>
-            <th>Rank</th>
-            <th>Strategy</th>
-            <th>Experiment</th>
-            <th>Scope</th>
-            <th>Score</th>
-            <th>Added</th>
-            <th>Return</th>
+            <th style={{ width: "70px" }}>Rank</th>
+            <th className="col-strategy">Strategy & Parameters</th>
+            <th>Total Return</th>
+            <th>Win Rate</th>
+            <th>Max Drawdown</th>
             <th>Trades</th>
+            <th>Score</th>
+            <th>Admitted</th>
+            <th>Status</th>
+            <th style={{ width: "160px" }}>Actions</th>
           </tr>
         </thead>
         <tbody>
           {rows.map((row, index) => {
             const detail = details[index]?.data as ExperimentSummary | undefined;
+            const metrics = detail?.metrics ?? {};
+            const defs = detail?.strategyDefinitions ?? [];
             const strategy =
-              detail?.strategyDefinitions?.map((item) => item.strategyName).join(" + ") || row.experimentResultId;
+              defs.map((item) => item.strategyName).join(" + ") || row.experimentResultId;
+            const singleDefId = defs.length === 1 ? defs[0]?.id : undefined;
+            const compositeId = detail?.compositeDefinition?.id ?? detail?.compositeDefinitionId;
+
             return (
               <tr key={row.id}>
-                <td>{row.rank}</td>
-                <td>{strategy}</td>
-                <td>{row.experimentResultId}</td>
-                <td>{row.leaderboardScopeId}</td>
-                <td>{row.score.toFixed(4)}</td>
-                <td>{row.addedAt}</td>
-                <td>{percent(detail?.metrics.totalReturnPercent)}</td>
-                <td>{detail?.metrics.numberOfTrades ?? "Unavailable"}</td>
+                <td>
+                  <span
+                    style={{
+                      fontWeight: 800,
+                      fontSize: "12px",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      padding: "2px 6px",
+                      borderRadius: "6px",
+                      background:
+                        row.rank === 1 ? "#fef3c7" : row.rank === 2 ? "#f1f5f9" : row.rank === 3 ? "#ffedd5" : "transparent",
+                      border:
+                        row.rank === 1 ? "1px solid #fde68a" : row.rank === 2 ? "1px solid #e2e8f0" : row.rank === 3 ? "1px solid #fed7aa" : "none",
+                      color:
+                        row.rank === 1 ? "#d97706" : row.rank === 2 ? "#475569" : row.rank === 3 ? "#b45309" : "#0f172a",
+                    }}
+                  >
+                    {row.rank === 1 ? "🥇 #1" : row.rank === 2 ? "🥈 #2" : row.rank === 3 ? "🥉 #3" : `#${row.rank ?? index + 1}`}
+                  </span>
+                </td>
+                <td className="col-strategy">
+                  {defs.length > 0 ? (
+                    <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+                      {compositeId && defs.length > 1 && (
+                        <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+                          <span
+                            style={{
+                              fontSize: "10.5px",
+                              fontWeight: 700,
+                              color: "#4f46e5",
+                              background: "#eef2ff",
+                              border: "1px solid #c7d2fe",
+                              borderRadius: "4px",
+                              padding: "1px 6px",
+                            }}
+                          >
+                            🔀 Composite · {detail?.compositeDefinition?.method === "MAJORITY_VOTE" ? "Majority Vote" : "Weighted"}
+                          </span>
+                        </div>
+                      )}
+                      {defs.map((def, idx) => {
+                        const emoji = getIndicatorEmoji(def.strategyName);
+                        const name = def.familyName ?? def.strategyName;
+                        const paramStr = formatSimplifiedParams(def.parameters);
+                        return (
+                          <div key={def.id || idx} style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                            <span style={{ fontWeight: 700, color: "#0f172a", fontSize: "12.5px" }}>
+                              {emoji} {name}
+                            </span>
+                            {paramStr && (
+                              <span
+                                style={{
+                                  fontSize: "11px",
+                                  color: "#334155",
+                                  background: "#f1f5f9",
+                                  padding: "1px 6px",
+                                  borderRadius: "4px",
+                                  border: "1px solid #e2e8f0",
+                                  fontFamily: "monospace",
+                                }}
+                              >
+                                {paramStr}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : details[index]?.isLoading ? (
+                    <span style={{ color: "#94a3b8", fontSize: "12px" }}>Loading strategy details...</span>
+                  ) : (
+                    <b style={{ fontSize: "12px", color: "#1e293b" }}>{strategy}</b>
+                  )}
+                </td>
+                <td style={{ color: (metrics.totalReturnPercent ?? 0) >= 0 ? "#10b981" : "#ef4444", fontWeight: 700 }}>
+                  {metrics.totalReturnPercent !== undefined ? percent(metrics.totalReturnPercent) : "—"}
+                </td>
+                <td>{metrics.winRatePercent !== undefined ? percent(metrics.winRatePercent) : "—"}</td>
+                <td style={{ color: "#f59e0b", fontWeight: 600 }}>
+                  {metrics.maxDrawdownPercent !== undefined ? percent(metrics.maxDrawdownPercent) : "—"}
+                </td>
+                <td>{metrics.numberOfTrades ?? "—"}</td>
+                <td>
+                  <strong style={{ color: "#2563eb", fontSize: "13px", fontWeight: 800 }}>
+                    {Number.isFinite(row.score) ? row.score.toFixed(4) : "—"}
+                  </strong>
+                </td>
+                <td title={row.addedAt} style={{ fontSize: "11.5px", color: "#64748b", whiteSpace: "nowrap" }}>
+                  {formatLeaderboardDate(row.addedAt)}
+                </td>
+                <td>
+                  <span
+                    style={{
+                      padding: "2px 8px",
+                      borderRadius: "4px",
+                      fontSize: "11px",
+                      fontWeight: 700,
+                      background: "#ecfdf5",
+                      color: "#059669",
+                      border: "1px solid #a7f3d0",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    QUALIFIED
+                  </span>
+                </td>
+                <td>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "6px" }}>
+                    {singleDefId ? (
+                      <button
+                        type="button"
+                        className="btn-table-backtest"
+                        style={{ padding: "4px 9px", fontSize: "11px", whiteSpace: "nowrap" }}
+                        onClick={() => launchStrategyBacktest("single", singleDefId)}
+                        title="Run full interactive backtest with this strategy"
+                      >
+                        🚀 Backtest
+                      </button>
+                    ) : compositeId ? (
+                      <button
+                        type="button"
+                        className="btn-table-backtest"
+                        style={{ padding: "4px 9px", fontSize: "11px", whiteSpace: "nowrap" }}
+                        onClick={() => launchStrategyBacktest("composite", compositeId)}
+                        title="Run full interactive backtest with this composite strategy"
+                      >
+                        🚀 Backtest
+                      </button>
+                    ) : null}
+                    {detail?.searchRunId && (
+                      <button
+                        type="button"
+                        className="btn-table-search-run"
+                        style={{
+                          padding: "4px 9px",
+                          fontSize: "11px",
+                          whiteSpace: "nowrap",
+                          background: "#eff6ff",
+                          border: "1px solid #bfdbfe",
+                          borderRadius: "5px",
+                          color: "#1d4ed8",
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          transition: "all 0.15s ease",
+                        }}
+                        onClick={() => navigateTo("search", detail.searchRunId)}
+                        title={`View originating Search Run (${detail.searchRunId})`}
+                      >
+                        ⌕ Search Run
+                      </button>
+                    )}
+                  </div>
+                </td>
               </tr>
             );
           })}
@@ -2325,7 +2495,9 @@ function CandidateTable({ candidates }: { candidates: Candidate[] }) {
                       letterSpacing: "0.02em",
                     }}
                   >
-                    {candidate.selectionMode ?? "COMPOSITE"}
+                    {candidate.strategyDefinitions && candidate.strategyDefinitions.length === 1
+                      ? "SINGLE"
+                      : candidate.selectionMode ?? "COMPOSITE"}
                   </span>
                 </td>
                 <td>
@@ -2498,8 +2670,18 @@ function SearchSummaryCards({ current }: { current: import("./api").LoopStatus }
         <div className="search-stat-top">
           <span>🛑 Stop Trigger</span>
         </div>
-        <div className="search-stat-val" style={{ fontSize: "13px", fontWeight: 700, color: "#475569" }}>
-          {current.stopReason ?? "Running until limit"}
+        <div
+          className="search-stat-val"
+          style={{
+            fontSize: "13px",
+            fontWeight: 700,
+            color: current.state === "FAILED" ? "#dc2626" : "#475569",
+          }}
+          title={current.lastError}
+        >
+          {current.state === "FAILED" && current.lastError
+            ? `${current.stopReason ?? "ERROR"}: ${current.lastError}`
+            : (current.stopReason ?? "Running until limit")}
         </div>
       </div>
 
@@ -2683,6 +2865,8 @@ export function SearchLive({
         strategy.name === definition.strategyName && strategy.implementationSha256 === definition.implementationSha256
     )?.category as import("./api").StrategyCategory | undefined;
 
+  const setupScope = scopes.find((s) => s.id === scopeId);
+
   // Auto conflict prevention
   const handleToggleRequired = (category: import("./api").StrategyCategory) => {
     setRequiredCategories((prev) => {
@@ -2833,6 +3017,26 @@ export function SearchLive({
       }
     }
 
+    // Incompatible Sentiment Strategy check: scope has no sentiment dataset snapshot
+    if (setupScope && !setupScope.sentimentDatasetSnapshot) {
+      const selectedSentimentDefs = selectedIds
+        .map((id) => definitions.find((d) => d.id === id))
+        .filter(
+          (d): d is StrategyDefinition =>
+            Boolean(
+              d &&
+                (categoryFor(d) === "INFORMATION" ||
+                  d.strategyName === "SENTIMENT" ||
+                  d.familyName?.toLowerCase().includes("sentiment"))
+            )
+        );
+      if (selectedSentimentDefs.length > 0) {
+        errors.push(
+          `Scope Incompatible: Benchmark scope "${setupScope.name}" contains only price candles and has no news sentiment data attached. The selected News Sentiment strategy ("${selectedSentimentDefs.map((s) => s.familyName ?? s.strategyName).join('", "')}") will fail candidate evaluation with SNAPSHOT_INCOMPLETE. Please deselect it from your Candidate Pool or select a scope that includes news sentiment.`
+        );
+      }
+    }
+
     if (generatorType !== "DOMAIN_GUIDED") return errors;
 
     // Edge Case 4: Required count > max components
@@ -2874,6 +3078,7 @@ export function SearchLive({
     definitions,
     categoryFor,
     selectedIds,
+    setupScope,
   ]);
 
   const domainValidationWarnings = React.useMemo(() => {
@@ -3090,7 +3295,12 @@ export function SearchLive({
             <span className="search-active-chip">Engine: <b>{activeRunSummary?.generatorType ?? generatorType}</b></span>
             <span className="search-active-chip">Scope: <b>{selectedScope ? `${selectedScope.name} (${selectedScope.timeframe})` : "Benchmark Dataset"}</b></span>
             {current.stopReason && (
-              <span className="search-active-chip-subtle">Stop: <b>{current.stopReason}</b></span>
+              <span
+                className={`search-active-chip-subtle ${current.state === "FAILED" ? "chip-error" : ""}`}
+                title={current.lastError}
+              >
+                Stop: <b>{current.stopReason}{current.lastError ? ` (${current.lastError})` : ""}</b>
+              </span>
             )}
           </div>
 
@@ -3564,6 +3774,8 @@ export function SearchLive({
               const customName = customNamesMap[def.id] ?? def.familyName ?? def.strategyName;
               const cat = categoryFor(def) ?? "TREND";
               const emoji = getIndicatorEmoji(def.strategyName);
+              const isSentimentStrat = cat === "INFORMATION" || def.strategyName === "SENTIMENT" || def.familyName?.toLowerCase().includes("sentiment");
+              const isIncompatibleSentiment = setupScope && !Boolean(setupScope.sentimentDatasetSnapshot) && isSentimentStrat;
 
               return (
                 <div
@@ -3584,6 +3796,11 @@ export function SearchLive({
                         {emoji} {customName}
                       </span>
                       <div className="strategy-pool-badges">
+                        {isIncompatibleSentiment && (
+                          <span className="domain-excluded-badge" style={{ background: "#fee2e2", color: "#991b1b", borderColor: "#fca5a5" }} title="The selected benchmark scope has no news sentiment attached. Candidates using this strategy will fail with SNAPSHOT_INCOMPLETE.">
+                            ⚠️ No Sentiment in Scope
+                          </span>
+                        )}
                         {!isEligible && (
                           <span className="domain-excluded-badge" title="This strategy will be excluded by your active Domain Rules">
                             🚫 Excluded
@@ -3709,6 +3926,32 @@ export function SearchLive({
         <Loading />
       ) : current ? (
         <div className="search-studio-container" style={{ gap: "16px" }}>
+          {/* Run Failure Alert Banner */}
+          {current.state === "FAILED" && (
+            <div className="search-run-failure-banner">
+              <div className="failure-banner-icon">🛑</div>
+              <div className="failure-banner-body">
+                <div className="failure-banner-head">
+                  <h4 className="failure-banner-title">Search Run Terminated with Error</h4>
+                  <span className="failure-banner-badge">Stop Trigger: {current.stopReason || "ERROR"}</span>
+                </div>
+                <p className="failure-banner-desc">
+                  {formatErrorMessage(current.lastError || "An unexpected error occurred during candidate evaluation.")}
+                </p>
+                {current.lastError === "SNAPSHOT_INCOMPLETE" && (
+                  <div className="failure-banner-tip">
+                    💡 <b>Why this happened:</b> A candidate generated during this exploration run required news sentiment data or exceeded candle warmup limits. The benchmark scope <b>{selectedScope?.name ? `"${selectedScope.name}"` : ""}</b> only contains price candles without news sentiment. To prevent this, exclude <b>News Sentiment (SENTIMENT)</b> from your Candidate Pool when exploring candle-only datasets.
+                  </div>
+                )}
+                {current.lastError && (
+                  <div className="failure-banner-raw">
+                    Backend Error Code: <code>{current.lastError}</code>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Live Metric Tiles */}
           <SearchSummaryCards current={current} />
 

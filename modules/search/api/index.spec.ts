@@ -40,7 +40,7 @@ describe("search runtime", () => {
     const runtime = createSearchModule(fixture.deps);
     let submitted: { compositeDefinitionId?: string } | undefined;
     const definition = { id: "owned-definition", userId: owner.userId, logicalFamilyKey: "strategy:owned", strategyName: "TEST", implementationVersion: "1", implementationSha256: "a".repeat(64), version: 1, parameters: {}, createdAt: "2025-01-01T00:00:00.000Z" };
-    const persistedComposite = { id: "persisted-composite", userId: owner.userId, logicalFamilyKey: "composite:MAJORITY_VOTE:owned-definition", version: 1, method: "MAJORITY_VOTE" as const, components: [{ strategyDefinitionId: definition.id, weight: 0 }], createdAt: "2025-01-01T00:00:00.000Z" };
+    const persistedComposite = { id: "persisted-composite", userId: owner.userId, logicalFamilyKey: `composite:SINGLE:${definition.id}`, version: 1, method: "WEIGHTED_SCORE" as const, components: [{ strategyDefinitionId: definition.id, weight: 1 }], thresholds: { buy: 0.3, sell: -0.3 }, createdAt: "2025-01-01T00:00:00.000Z" };
     fixture.deps.strategyService = {
       readDefinitions: async (_userId, ids) => ids.map(() => definition),
       defineComposite: async () => persistedComposite,
@@ -100,8 +100,19 @@ describe("search runtime", () => {
       { pair: "BTCUSDT", timeframe: "1h" as const, timestamp: "2025-01-01T02:00:00.000Z", open: 106, high: 111, low: 105, close: 110, volume: 1, isClosed: true },
     ];
     const definition: StrategyDefinition & { userId: string } = { id: "definition-1", userId: owner.userId, logicalFamilyKey: "strategy:test", strategyName: "TEST", implementationVersion: "1", implementationSha256: "b".repeat(64), version: 1, parameters: { period: 14 }, createdAt: snapshot.createdAt };
-    const compositeDefinition: CompositeStrategyDefinition & { userId: string } = { id: "generated", userId: owner.userId, logicalFamilyKey: "generated", version: 1, method: "MAJORITY_VOTE", components: [{ strategyDefinitionId: definition.id, weight: 0 }], createdAt: snapshot.createdAt };
-    const strategy = { readDefinitions: async (_userId: string, ids: string[]) => ids.map((id) => ({ ...definition, id })), defineStrategy: async (_userId: string, strategyName: string, parameters: Record<string, number | string>) => ({ ...definition, strategyName, parameters }), defineComposite: async (_userId: string, command: { method: "MAJORITY_VOTE" | "WEIGHTED_SCORE"; components: Array<{ strategyDefinitionId: string; weight: number }>; thresholds?: { buy: number; sell: number } }) => ({ ...compositeDefinition, id: "persisted-composite", method: command.method, components: command.components, thresholds: command.thresholds }), readComposite: async (_userId: string, id: string) => ({ ...compositeDefinition, id }), resolveStrategy: async () => ({ name: "test", category: "TREND" as const, analyze: (context: import("modules/strategy/api").StrategyContext) => context.candles.length === 1 ? "BUY" as const : "HOLD" as const }), combineSignals: (_composite: CompositeStrategyDefinition, signals: Array<{ strategyDefinitionId: string; signal: "BUY" | "SELL" | "HOLD" }>) => signals[0]?.signal ?? "HOLD" as const, buildVisualization: () => [] };
+    let persistedCompositeRecord: CompositeStrategyDefinition & { userId: string } = { id: "persisted-composite", userId: owner.userId, logicalFamilyKey: `composite:SINGLE:${definition.id}`, version: 1, method: "WEIGHTED_SCORE", components: [{ strategyDefinitionId: definition.id, weight: 1 }], thresholds: { buy: 0.3, sell: -0.3 }, createdAt: snapshot.createdAt };
+    const strategy = {
+      readDefinitions: async (_userId: string, ids: string[]) => ids.map((id) => ({ ...definition, id })),
+      defineStrategy: async (_userId: string, strategyName: string, parameters: Record<string, number | string>) => ({ ...definition, strategyName, parameters }),
+      defineComposite: async (_userId: string, command: { method: "MAJORITY_VOTE" | "WEIGHTED_SCORE"; components: Array<{ strategyDefinitionId: string; weight: number }>; thresholds?: { buy: number; sell: number } }) => {
+        persistedCompositeRecord = { id: "persisted-composite", userId: owner.userId, logicalFamilyKey: "generated", version: 1, method: command.method, components: command.components, thresholds: command.thresholds, createdAt: snapshot.createdAt };
+        return persistedCompositeRecord;
+      },
+      readComposite: async (_userId: string, id: string) => ({ ...persistedCompositeRecord, id }),
+      resolveStrategy: async () => ({ name: "test", category: "TREND" as const, analyze: (context: import("modules/strategy/api").StrategyContext) => context.candles.length === 1 ? "BUY" as const : "HOLD" as const }),
+      combineSignals: (_composite: CompositeStrategyDefinition, signals: Array<{ strategyDefinitionId: string; signal: "BUY" | "SELL" | "HOLD" }>) => signals[0]?.signal ?? "HOLD" as const,
+      buildVisualization: () => []
+    };
     let sequence = 0;
     const queue = new InMemoryBacktestQueue();
     let leaderboard!: ReturnType<typeof createLeaderboardModule>;
