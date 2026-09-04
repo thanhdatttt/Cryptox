@@ -12,6 +12,7 @@ investment returns.
 | Source code and run guide | This README |
 | Architecture document | [Technical architecture](docs/design/architecture.md) |
 | Detailed flows | [Data-flow appendix](docs/design/data-flow.md) |
+| Reliability-demo scenarios | [Criterion 23 scenarios](docs/design/reliability-scenarios.md) |
 | Architectural decisions | [ADR index](#architectural-decisions) |
 
 ## What the system does
@@ -101,6 +102,9 @@ npm run docker:smoke
 ## Demo scenario
 
 Use this sequence during evaluation. Record the result of each step as a screenshot or short screen recording; a source link is not a substitute for a live demo.
+
+For the two reviewable reliability scenarios and their focused automated
+checks, use [Criterion 23 scenarios](docs/design/reliability-scenarios.md).
 
 1. Start the chosen profile and open the dashboard.
 2. Open `BTCUSDT`; configure up to four charts with independent timeframes.
