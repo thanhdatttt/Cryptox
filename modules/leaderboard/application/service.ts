@@ -108,6 +108,7 @@ export function createLeaderboardModule(dependencies: LeaderboardModuleDependenc
     },
     submit: async (experiment, unitOfWork) => {
       unitOfWork.enlist("LEADERBOARD");
+      if (!experiment.searchRunId) return { admitted: false };
       if (!experiment.rankEligible) return { admitted: false };
       if (!Number.isFinite(experiment.overallScore)) throw new Error("INVALID_SCORE");
       if (!experiment.ownerUserId?.trim()) throw new Error("EXPERIMENT_OWNER_REQUIRED");

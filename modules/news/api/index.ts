@@ -7,16 +7,16 @@ export type { ExtractionTemplate, TemplateSelectors, TemplateValidationStats, Se
 export type { NewsCollectOptions };
 
 export interface NewsModulePublicApi {
-  collect(options?: NewsCollectOptions): Promise<void>;
-  readNews(): Promise<NewsReadItem[]>;
+  collect(options?: NewsCollectOptions, userId?: string): Promise<void>;
+  readNews(userId?: string): Promise<NewsReadItem[]>;
   getTemplates(): Promise<ExtractionTemplate[]>;
   applyTemplate(domain: string, version: string): Promise<ExtractionTemplate>;
   healTemplate(domain: string, html?: string, autoApply?: boolean): Promise<ExtractionTemplate>;
 }
 
 const defaultService = createNewsModule(createInMemoryNewsDependencies());
-export const collect: NewsModulePublicApi["collect"] = (options) => defaultService.collect(options);
-export const readNews: NewsModulePublicApi["readNews"] = () => defaultService.readNews();
+export const collect: NewsModulePublicApi["collect"] = (options, userId) => defaultService.collect(options, userId);
+export const readNews: NewsModulePublicApi["readNews"] = (userId) => defaultService.readNews(userId);
 export const getTemplates: NewsModulePublicApi["getTemplates"] = () => defaultService.getTemplates();
 export const applyTemplate: NewsModulePublicApi["applyTemplate"] = (domain, version) => defaultService.applyTemplate(domain, version);
 export const healTemplate: NewsModulePublicApi["healTemplate"] = (domain, html, autoApply) => defaultService.healTemplate(domain, html, autoApply);

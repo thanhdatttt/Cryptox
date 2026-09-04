@@ -415,16 +415,16 @@ export class NewsController extends ProtectedController {
 
   @Get()
   async list(@Headers("authorization") authorization?: string) {
-    await this.authenticate(authorization);
-    return this.modules.news.readNews();
+    const userId = await this.authenticate(authorization);
+    return this.modules.news.readNews(userId);
   }
 
   @Post("collect")
   @HttpCode(202)
   async collect(@Headers("authorization") authorization?: string, @Body() body?: unknown): Promise<void> {
-    await this.authenticate(authorization);
+    const userId = await this.authenticate(authorization);
     const options = typeof body === "object" && body !== null ? body as import("modules/news/api").NewsCollectOptions : undefined;
-    try { await this.modules.news.collect(options); } catch (error) { return auxiliaryHttpError(error); }
+    try { await this.modules.news.collect(options, userId); } catch (error) { return auxiliaryHttpError(error); }
   }
 
   @Get("templates")

@@ -30,10 +30,11 @@ const metrics = (overrides: Partial<EvaluationMetrics> = {}): EvaluationMetrics 
   ...overrides,
 });
 
-const experiment = (id: string, scopeId: string, score: number, ownerUserId = "user-1"): ExperimentResult => ({
+const experiment = (id: string, scopeId: string, score: number, ownerUserId = "user-1", searchRunId?: string): ExperimentResult => ({
   id,
   ownerUserId,
   candidateId: `candidate-${id}`,
+  ...(searchRunId === undefined ? { searchRunId: "run-1" } : searchRunId ? { searchRunId } : {}),
   leaderboardScopeId: scopeId,
   scoreFormulaId: DEFAULT_SCORE_FORMULA.id,
   overallScore: score,
@@ -76,6 +77,7 @@ describe("leaderboard runtime", () => {
     await expect(runtime.submit(experiment("tied", scope.id, 0), unitOfWork)).resolves.toEqual({ admitted: false });
     await expect(runtime.submit(experiment("winner", scope.id, 20), unitOfWork)).resolves.toMatchObject({ admitted: true, evictedExperimentResultId: "experiment-0" });
     await expect(runtime.submit(experiment("winner", scope.id, 20), unitOfWork)).resolves.toMatchObject({ admitted: true });
+    await expect(runtime.submit(experiment("manual", scope.id, 50, "user-1", ""), unitOfWork)).resolves.toEqual({ admitted: false });
 
     const top = await runtime.topK("user-1", scope.id);
     expect(top[0]).toMatchObject({ rank: 1, experimentResultId: "winner", score: 20 });

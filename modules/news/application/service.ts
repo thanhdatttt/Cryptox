@@ -7,17 +7,20 @@ import type { NewsModuleDependencies, NewsObservability, NewsRepository } from "
 type InternalDependencies = Partial<NewsModuleDependencies>;
 
 class MemoryNewsRepository implements NewsRepository {
-  private readonly rowsByUrl = new Map<string, NewsItem>();
+  private readonly rows = new Map<string, { item: NewsItem; userId?: string }>();
 
-  async insert(item: NewsItem): Promise<NewsItem> {
-    const existing = this.rowsByUrl.get(item.url);
-    if (existing) return { ...existing, relatedCoins: [...existing.relatedCoins] };
-    this.rowsByUrl.set(item.url, { ...item, relatedCoins: [...item.relatedCoins] });
+  async insert(item: NewsItem, userId?: string): Promise<NewsItem> {
+    const key = `${userId ?? ""}|${item.url}`;
+    const existing = this.rows.get(key);
+    if (existing) return { ...existing.item, relatedCoins: [...existing.item.relatedCoins] };
+    this.rows.set(key, { item: { ...item, relatedCoins: [...item.relatedCoins] }, userId });
     return { ...item, relatedCoins: [...item.relatedCoins] };
   }
 
-  async readAll(): Promise<NewsItem[]> {
-    return [...this.rowsByUrl.values()].map((item) => ({ ...item, relatedCoins: [...item.relatedCoins] }));
+  async readAll(userId?: string): Promise<NewsItem[]> {
+    return [...this.rows.values()]
+      .filter((record) => (userId ? record.userId === userId : true))
+      .map((record) => ({ ...record.item, relatedCoins: [...record.item.relatedCoins] }));
   }
 }
 
@@ -65,8 +68,8 @@ export interface NewsCollectOptions {
 }
 
 export interface NewsModuleRuntime {
-  collect(options?: NewsCollectOptions): Promise<void>;
-  readNews(): Promise<NewsReadItem[]>;
+  collect(options?: NewsCollectOptions, userId?: string): Promise<void>;
+  readNews(userId?: string): Promise<NewsReadItem[]>;
   getTemplates(): Promise<ExtractionTemplate[]>;
   applyTemplate(domain: string, version: string): Promise<ExtractionTemplate>;
   healTemplate(domain: string, html?: string, autoApply?: boolean): Promise<ExtractionTemplate>;
@@ -91,11 +94,11 @@ export function createNewsModule(dependencies: InternalDependencies = createInMe
   const interpreter = dependencies.interpreter;
   const crawlerLimits = dependencies.crawlerLimits;
 
-  const persistAndAnalyze = async (rawItem: NewsItem): Promise<void> => {
+  const persistAndAnalyze = async (rawItem: NewsItem, userId?: string): Promise<void> => {
     const item = validateNewsItem(rawItem);
     let persisted: NewsItem;
     try {
-      persisted = await newsRepository.insert(item);
+      persisted = await newsRepository.insert(item, userId);
     } catch (error) {
       if (error instanceof NewsException) throw error;
       throw new NewsException("PERSISTENCE_FAILED", "News item could not be persisted.");
@@ -212,13 +215,13 @@ export function createNewsModule(dependencies: InternalDependencies = createInMe
   const templateGen = dependencies.templateGenerator ?? defaults.templateGenerator;
 
   return {
-    async collect(options?: NewsCollectOptions) {
+    async collect(options?: NewsCollectOptions, userId?: string) {
       // 1. If HTML is directly supplied
       if (options?.html && options.html.trim().length > 0) {
         const items = parseHtmlContent(options.html, options.coin);
         for (const item of items) {
           try {
-            await persistAndAnalyze(item);
+            await persistAndAnalyze(item, userId);
           } catch (error) {
             const stage = error instanceof NewsException && error.code === "INVALID_NEWS_ITEM" ? "VALIDATION" : "PERSISTENCE";
             observeProviderFailure(observability, { providerName: "HTML_UPLOAD", stage, reason: "ERROR" });
@@ -333,7 +336,7 @@ export function createNewsModule(dependencies: InternalDependencies = createInMe
                   item.relatedCoins = [...item.relatedCoins, options.coin.toUpperCase()];
                 }
                 try {
-                  await persistAndAnalyze(item);
+                  await persistAndAnalyze(item, userId);
                 } catch {
                   // ignore invalid or duplicated
                 }
@@ -361,7 +364,7 @@ export function createNewsModule(dependencies: InternalDependencies = createInMe
         }
         for (const item of items) {
           try {
-            await persistAndAnalyze(item as NewsItem);
+            await persistAndAnalyze(item as NewsItem, userId);
           } catch (error) {
             const stage = error instanceof NewsException && error.code === "INVALID_NEWS_ITEM" ? "VALIDATION" : "PERSISTENCE";
             observeProviderFailure(observability, { providerName: provider.name, stage, reason: "ERROR" });
@@ -370,8 +373,8 @@ export function createNewsModule(dependencies: InternalDependencies = createInMe
       }
     },
 
-    async readNews() {
-      const items = (await newsRepository.readAll()).map(validateNewsItem)
+    async readNews(userId?: string) {
+      const items = (await newsRepository.readAll(userId)).map(validateNewsItem)
         .sort((left, right) => right.publishedAt.localeCompare(left.publishedAt) || left.id.localeCompare(right.id));
       return Promise.all(items.map(async (item) => {
         try {

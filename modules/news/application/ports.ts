@@ -1,7 +1,7 @@
 import type { NewsItem } from "../domain/contracts";
 
 export interface NewsProvider { readonly name: string; fetch(): Promise<NewsItem[]>; }
-export interface NewsRepository { insert(item: NewsItem): Promise<NewsItem>; readAll(): Promise<NewsItem[]>; }
+export interface NewsRepository { insert(item: NewsItem, userId?: string): Promise<NewsItem>; readAll(userId?: string): Promise<NewsItem[]>; }
 
 /**
  * The crawler's model boundary is deliberately tool-free. Provider SDK types,

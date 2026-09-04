@@ -21,6 +21,11 @@ export function clearAuthenticatedClientState(): void {
   disconnectMarketSocket();
   persistSearchRunId(undefined);
   queryClient.clear();
+  try {
+    if (typeof localStorage !== "undefined") {
+      localStorage.removeItem("cryptox.news-last-crawl-time");
+    }
+  } catch { /* ignore */ }
 }
 
 let observedToken = session.token;
