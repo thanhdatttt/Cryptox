@@ -1089,6 +1089,15 @@ function fromUtc7InputDate(value: string): Date {
   return new Date(utcMs);
 }
 
+function parseOptionalRiskPercent(value: string, label: string): number | undefined {
+  if (!value.trim()) return undefined;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0 || parsed >= 100) {
+    throw new Error(`${label} must be greater than 0% and less than 100%.`);
+  }
+  return parsed;
+}
+
 export function BacktestLive({ definitions, composites, scopes }: { definitions: StrategyDefinition[]; composites: Composite[]; scopes: Scope[] }) {
   const client = useQueryClient();
   const capabilities = useQuery({ queryKey: ["market", "capabilities"], queryFn: api.marketCapabilities });
@@ -1099,6 +1108,8 @@ export function BacktestLive({ definitions, composites, scopes }: { definitions:
   const [capital, setCapital] = useState("");
   const [feeRatePercent, setFeeRatePercent] = useState("");
   const [slippageBps, setSlippageBps] = useState("");
+  const [stopLossPercent, setStopLossPercent] = useState("");
+  const [takeProfitPercent, setTakeProfitPercent] = useState("");
   const [scopeId, setScopeId] = useState("");
   const [definitionId, setDefinitionId] = useState("");
   const [compositeId, setCompositeId] = useState("");
@@ -1196,6 +1207,8 @@ export function BacktestLive({ definitions, composites, scopes }: { definitions:
       setCapital(String(first.initialCapital));
       setFeeRatePercent(String(first.feeRatePercent));
       setSlippageBps(String(first.slippageBps));
+      setStopLossPercent(first.riskPolicy?.stopLossPercent === undefined ? "" : String(first.riskPolicy.stopLossPercent));
+      setTakeProfitPercent(first.riskPolicy?.takeProfitPercent === undefined ? "" : String(first.riskPolicy.takeProfitPercent));
     }
   }, [scopes, scopeId, from, to]);
 
@@ -1420,6 +1433,8 @@ export function BacktestLive({ definitions, composites, scopes }: { definitions:
       if (feeRatePercent === "" || isNaN(numFee) || numFee < 0) throw new Error("Transaction Cost (%) must be a valid number 0 or greater.");
       const numSlippage = Number(slippageBps);
       if (slippageBps === "" || isNaN(numSlippage) || !Number.isInteger(numSlippage) || numSlippage < 0) throw new Error("Slippage must be a non-negative whole number in basis points (e.g. 5 bps).");
+      parseOptionalRiskPercent(stopLossPercent, "Stop Loss");
+      parseOptionalRiskPercent(takeProfitPercent, "Take Profit");
 
       setIsSaveModalOpen(true);
     } catch (err) {
@@ -1438,6 +1453,8 @@ export function BacktestLive({ definitions, composites, scopes }: { definitions:
       const numCapital = Number(capital);
       const numFee = Number(feeRatePercent);
       const numSlippage = Number(slippageBps);
+      const parsedStopLoss = parseOptionalRiskPercent(stopLossPercent, "Stop Loss");
+      const parsedTakeProfit = parseOptionalRiskPercent(takeProfitPercent, "Take Profit");
 
       const market = await api.candles(pair, timeframe as Timeframe);
       if (!market.candles.length) throw new Error(`No market data candles available for ${pair} (${timeframe}).`);
@@ -1474,6 +1491,10 @@ export function BacktestLive({ definitions, composites, scopes }: { definitions:
         initialCapital: numCapital,
         feeRatePercent: numFee,
         slippageBps: numSlippage,
+        ...(parsedStopLoss === undefined && parsedTakeProfit === undefined ? {} : {
+          stopLossPercent: parsedStopLoss,
+          takeProfitPercent: parsedTakeProfit,
+        }),
       });
       setScopeId(created.id);
       setIsSaveModalOpen(false);
@@ -1535,6 +1556,8 @@ export function BacktestLive({ definitions, composites, scopes }: { definitions:
         if (feeRatePercent === "" || isNaN(fee) || fee < 0) throw new Error("Transaction cost (%) must be 0 or greater.");
         const slippage = Number(slippageBps);
         if (slippageBps === "" || isNaN(slippage) || !Number.isInteger(slippage) || slippage < 0) throw new Error("Slippage must be a non-negative whole number.");
+        const parsedStopLoss = parseOptionalRiskPercent(stopLossPercent, "Stop Loss");
+        const parsedTakeProfit = parseOptionalRiskPercent(takeProfitPercent, "Take Profit");
 
         const market = await api.candles(pair, timeframe as Timeframe);
         if (!market.candles.length) throw new Error(`No market data candles available for ${pair} (${timeframe}).`);
@@ -1580,6 +1603,10 @@ export function BacktestLive({ definitions, composites, scopes }: { definitions:
           initialCapital,
           feeRatePercent: fee,
           slippageBps: slippage,
+          ...(parsedStopLoss === undefined && parsedTakeProfit === undefined ? {} : {
+            stopLossPercent: parsedStopLoss,
+            takeProfitPercent: parsedTakeProfit,
+          }),
         });
         activeScopeId = created.id;
         setScopeId(created.id);
@@ -1801,6 +1828,52 @@ export function BacktestLive({ definitions, composites, scopes }: { definitions:
           </div>
         </div>
 
+        {/* Optional protective exits are part of the retained execution policy. */}
+        <div className="backtest-risk-row">
+          <span className="backtest-risk-label">Protective exits <small>(optional)</small></span>
+          <div className="backtest-field-item backtest-risk-field">
+            <label className="backtest-label" htmlFor="backtest-stop-loss">Stop Loss</label>
+            <div className="backtest-input-with-suffix">
+              <input
+                id="backtest-stop-loss"
+                type="number"
+                min="0.01"
+                max="99.99"
+                step="any"
+                value={stopLossPercent}
+                onChange={(e) => {
+                  setStopLossPercent(e.target.value);
+                  if (scopeId) setScopeId("");
+                }}
+                placeholder="e.g. 2"
+                aria-describedby="backtest-risk-help"
+              />
+              <span className="input-suffix">%</span>
+            </div>
+          </div>
+          <div className="backtest-field-item backtest-risk-field">
+            <label className="backtest-label" htmlFor="backtest-take-profit">Take Profit</label>
+            <div className="backtest-input-with-suffix">
+              <input
+                id="backtest-take-profit"
+                type="number"
+                min="0.01"
+                max="99.99"
+                step="any"
+                value={takeProfitPercent}
+                onChange={(e) => {
+                  setTakeProfitPercent(e.target.value);
+                  if (scopeId) setScopeId("");
+                }}
+                placeholder="e.g. 4"
+                aria-describedby="backtest-risk-help"
+              />
+              <span className="input-suffix">%</span>
+            </div>
+          </div>
+          <span id="backtest-risk-help" className="backtest-risk-help">Levels are calculated from each trade’s market entry price.</span>
+        </div>
+
         {/* Sentiment Strategy Range Guidance Banner */}
         {requiresSentiment && (
           <div className="sentiment-guidance-banner">
@@ -1853,6 +1926,8 @@ export function BacktestLive({ definitions, composites, scopes }: { definitions:
                   setCapital(String(found.initialCapital));
                   setFeeRatePercent(String(found.feeRatePercent));
                   setSlippageBps(String(found.slippageBps));
+                  setStopLossPercent(found.riskPolicy?.stopLossPercent === undefined ? "" : String(found.riskPolicy.stopLossPercent));
+                  setTakeProfitPercent(found.riskPolicy?.takeProfitPercent === undefined ? "" : String(found.riskPolicy.takeProfitPercent));
                 }
               }}
             >
