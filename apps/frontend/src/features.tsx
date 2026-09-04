@@ -52,6 +52,16 @@ export function CandleChart({ candles, overlays = [], markers = [], highlightTra
 
 function profitFactor(metrics: ExperimentSummary["metrics"]): string { if (metrics.profitFactor !== null && metrics.profitFactor !== undefined && Number.isFinite(metrics.profitFactor)) return metrics.profitFactor.toFixed(2); if (metrics.profitFactorStatus === "NO_LOSSES") return "∞ (NO_LOSSES)"; return metrics.profitFactorStatus ? `Unavailable (${metrics.profitFactorStatus})` : "Unavailable"; }
 function displayTradeNumber(value: number | null | undefined): string { return value === null || value === undefined || !Number.isFinite(value) ? "Unavailable" : value.toLocaleString(); }
+function attemptDurationMs(attempt: { durationMs?: number; startedAt?: string; completedAt?: string }): number | undefined {
+  if (attempt.durationMs !== undefined && Number.isFinite(attempt.durationMs) && attempt.durationMs >= 0) return attempt.durationMs;
+  if (!attempt.startedAt || !attempt.completedAt) return undefined;
+  const durationMs = Date.parse(attempt.completedAt) - Date.parse(attempt.startedAt);
+  return Number.isFinite(durationMs) && durationMs >= 0 ? durationMs : undefined;
+}
+function formatBacktestDuration(value: number | undefined): string { return value === undefined ? "—" : `${Math.round(value)} ms`; }
+function candidateDurations(candidate?: Candidate): Array<{ attemptNumber: number; durationMs: number }> {
+  return (candidate?.attempts ?? []).flatMap((attempt) => { const durationMs = attemptDurationMs(attempt); return durationMs === undefined ? [] : [{ attemptNumber: attempt.attemptNumber, durationMs }]; });
+}
 
 export function ExperimentDetail({ id }: { id: string }) {
   const [highlightTradeId, setHighlightTradeId] = useState<string>(); const [tradeCursors, setTradeCursors] = useState<Array<string | undefined>>([undefined]); const [replayJobId, setReplayJobId] = useState<string>(); const currentCursor = tradeCursors[tradeCursors.length - 1];
@@ -759,9 +769,11 @@ function MiniTradesBarGraphic({ count }: { count: number }) {
 export function BacktestStatsGrid({
   summary,
   trades = [],
+  candidate,
 }: {
   summary?: ExperimentSummary;
   trades?: Trade[];
+  candidate?: Candidate;
 }) {
   const metrics = summary?.metrics;
   const winrate = metrics?.winRatePercent ?? 0;
@@ -772,6 +784,7 @@ export function BacktestStatsGrid({
   const totalReturn = metrics?.totalReturnPercent ?? 0;
   const maxDrawdownAmount = summary?.maxDrawdownAmount ?? 0;
   const maxDrawdownPercent = metrics?.maxDrawdownPercent ?? 0;
+  const latestDuration = candidateDurations(candidate).at(-1)?.durationMs;
 
   const isProfitPositive = totalProfit >= 0;
 
@@ -844,6 +857,15 @@ export function BacktestStatsGrid({
         <div className="stat-card-footer">
           <span className="stat-card-subtext">100% Executed</span>
           <MiniTradesBarGraphic count={totalTrades} />
+        </div>
+      </div>
+
+      {/* 7. Backtest duration */}
+      <div className="backtest-stat-card">
+        <span className="stat-card-title">Backtest Duration</span>
+        <span className="stat-card-value">{formatBacktestDuration(latestDuration)}</span>
+        <div className="stat-card-footer">
+          <span className="stat-card-subtext">Latest completed attempt</span>
         </div>
       </div>
     </div>
@@ -1976,6 +1998,7 @@ export function BacktestLive({ definitions, composites, scopes }: { definitions:
       <BacktestStatsGrid
         summary={experimentSummary.data}
         trades={allTrades}
+        candidate={currentCandidate}
       />
 
       {scopeToDelete && (
@@ -2417,6 +2440,7 @@ function CandidateTable({ candidates }: { candidates: Candidate[] }) {
             <th>Mode</th>
             <th>Status</th>
             <th>Attempts</th>
+            <th>Duration</th>
             <th>Reason / Outcome</th>
             <th style={{ width: "95px" }}>Action</th>
           </tr>
@@ -2426,6 +2450,7 @@ function CandidateTable({ candidates }: { candidates: Candidate[] }) {
             const defs = candidate.strategyDefinitions ?? [];
             const singleDefId = defs.length === 1 ? defs[0]?.id : undefined;
             const compositeId = candidate.compositeDefinition?.id;
+            const durations = candidateDurations(candidate);
 
             return (
               <tr key={candidate.candidateId}>
@@ -2529,6 +2554,11 @@ function CandidateTable({ candidates }: { candidates: Candidate[] }) {
                   <span style={{ fontWeight: 700, color: "#334155", fontSize: "13px" }}>
                     {candidate.attempts?.length ?? 1}
                   </span>
+                </td>
+                <td title={durations.map((item) => `Attempt ${item.attemptNumber}: ${formatBacktestDuration(item.durationMs)}`).join(" · ")}>
+                  {durations.length === 0
+                    ? "—"
+                    : durations.map((item) => `${item.attemptNumber > 1 ? `#${item.attemptNumber} ` : ""}${formatBacktestDuration(item.durationMs)}`).join(" · ")}
                 </td>
                 <td>
                   {candidate.lastError || candidate.failureCode ? (
