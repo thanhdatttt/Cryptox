@@ -66,6 +66,41 @@ describe("Search lifecycle projections", () => {
     expect({ generated, submitted, saves }).toEqual(beforeStatus);
   });
 
+  it("passes the Backtesting average duration through the Search status projection", async () => {
+    const dependencies = createInMemorySearchDependencies();
+    dependencies.generators.RANDOM = {
+      type: "RANDOM",
+      generate: (_space, context) => ({
+        generatedBy: "RANDOM",
+        strategyDefinitions: [],
+        compositeDefinition: {} as never,
+        executionPolicyIntent: { mode: "TWO_SIDED_ONE_X_V1" },
+        fingerprint: `duration-projection-${context?.iterationNumber ?? 0}`,
+      }),
+    };
+    dependencies.backtestCoordinator = {
+      ...dependencies.backtestCoordinator,
+      summarizeSearchCandidates: async (_auth, searchRunId) => ({
+        searchRunId,
+        active: [],
+        queuedCount: 0,
+        runningCount: 0,
+        candidatesTested: 1,
+        failedCandidateCount: 0,
+        retryExhaustedCandidateCount: 0,
+        infrastructureFailureCandidateCount: 0,
+        completionProcessingFailureCandidateCount: 0,
+        failedAttemptCount: 0,
+        averageBacktestDurationMs: 275,
+      }),
+    };
+    const runtime = createSearchModule(dependencies);
+    const started = await runtime.start(auth, config);
+    await runtime.fillAvailableSlots(started.searchRunId);
+
+    await expect(runtime.status(auth, started.searchRunId)).resolves.toMatchObject({ candidatesTested: 1, averageBacktestDurationMs: 275 });
+  });
+
   it("fills from the post-commit completion callback", async () => {
     const dependencies = createInMemorySearchDependencies();
     let active = 0;

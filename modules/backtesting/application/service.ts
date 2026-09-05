@@ -5,6 +5,7 @@ import { createStrategyModule } from "../../strategy/api/bootstrap";
 import type { BacktestQueueJob, BacktestQueuePayload, BacktestQueueReturn, BacktestQueueTerminalSignal } from "@cryptox/contracts/queue";
 import type { CompositeStrategyDefinition, Strategy, StrategyContext, StrategyDefinition } from "modules/strategy/api";
 import type { BacktestLogApi, ExperimentVisualizationPageRequest, LegacyReplayVerificationResult, SearchCandidatePage, SearchCandidatePageRequest, SearchCandidateSummary, TradePage, TradePageRequest } from "../api";
+import { backtestAttemptDurationMs } from "../domain/contracts";
 import type { BacktestAttemptAudit, BacktestSubmissionAccepted, BenchmarkScopeSummary, CandidateProgress, CandidateStatus, CompletedBacktestResult, CompletionUnitOfWork, CreateLeaderboardScopeCommand, ExecutionPolicyInput, ExecutionPolicySnapshot, ExperimentResultSummary, ExperimentVisualization, ReplayVerificationResult, StartManualBacktestCommand, SubmitSearchCandidateCommand, Trade } from "../domain/contracts";
 import type { SentimentDatasetSnapshotRef } from "modules/sentiment/api";
 import { simulateBacktest } from "../domain/simulator";
@@ -27,18 +28,15 @@ const invalid = (code: string): never => { throw new Error(code); };
 const terminal = (status: CandidateStatus): boolean => ["COMPLETED", "FAILED", "CANCELLED"].includes(status);
 const plusSeconds = (value: string, seconds: number): string => new Date(Date.parse(value) + seconds * 1000).toISOString();
 export const averageCompletedAttemptDurationMs = (attempts: import("../domain/contracts").BacktestAttemptProgress[]): number | null => {
-  const durations = attempts.flatMap((attempt) => {
-    if (attempt.status !== "COMPLETED" || !attempt.completedAt) return [];
-    const startedAt = Date.parse(attempt.startedAt);
-    const completedAt = Date.parse(attempt.completedAt);
-    const duration = completedAt - startedAt;
-    return Number.isFinite(duration) && duration >= 0 ? [duration] : [];
-  });
+  const durations = attempts
+    .filter((attempt) => attempt.status === "COMPLETED")
+    .map((attempt) => backtestAttemptDurationMs(attempt.startedAt, attempt.completedAt))
+    .filter((duration): duration is number => duration !== undefined);
   return durations.length === 0 ? null : durations.reduce((total, duration) => total + duration, 0) / durations.length;
 };
 const RECOVERY_RUNTIME_VERSION = "RECOVERY_SYNTHETIC_V1";
 const RECOVERY_RUNTIME_SHA256 = createHash("sha256").update(RECOVERY_RUNTIME_VERSION, "utf8").digest("hex");
-const attemptProgress = (attempt: BacktestAttemptAudit) => ({ attemptId: attempt.attemptId, attemptNumber: attempt.attemptNumber, status: attempt.status, startedAt: attempt.startedAt, completedAt: attempt.completedAt, deliveryAttemptCount: attempt.deliveryAttemptCount, failureCategory: attempt.failureCategory, failureCode: attempt.failureCode, errorMessage: attempt.errorMessage });
+const attemptProgress = (attempt: BacktestAttemptAudit) => ({ attemptId: attempt.attemptId, attemptNumber: attempt.attemptNumber, status: attempt.status, startedAt: attempt.startedAt, completedAt: attempt.completedAt, durationMs: backtestAttemptDurationMs(attempt.startedAt, attempt.completedAt), deliveryAttemptCount: attempt.deliveryAttemptCount, failureCategory: attempt.failureCategory, failureCode: attempt.failureCode, errorMessage: attempt.errorMessage });
 const TRADE_PAGE_DEFAULT = 10;
 const TRADE_PAGE_MAX = 100;
 const VISUALIZATION_CANDLE_DEFAULT = 500;
@@ -182,7 +180,7 @@ export class InMemoryBacktestingRepository implements BacktestingRepository {
   async listCandidatesBySearchRun(searchRunId: string, ownerUserId?: string) { return [...this.candidates.values()].filter((candidate) => candidate.searchRunId === searchRunId && (!ownerUserId || candidate.ownerUserId === ownerUserId)).map(clone); }
   async createAttempt(attempt: BacktestAttemptAudit): Promise<void> { this.attempts.set(attempt.attemptId, clone(attempt)); }
   async updateAttempt(attempt: BacktestAttemptAudit): Promise<void> { this.attempts.set(attempt.attemptId, clone(attempt)); }
-  async readAttempt(attemptId: string, ownerUserId?: string) { const value = this.attempts.get(attemptId); if (!value) return undefined; const candidate = this.candidates.get(value.candidateId); return candidate && (!ownerUserId || candidate.ownerUserId === ownerUserId) ? clone(value) : undefined; }
+  async readAttempt(attemptId: string, ownerUserId?: string) { const value = this.attempts.get(attemptId); if (!value) return undefined; const candidate = this.candidates.get(value.candidateId); return candidate && (!ownerUserId || candidate.ownerUserId === ownerUserId) ? clone({ ...value, durationMs: backtestAttemptDurationMs(value.startedAt, value.completedAt) }) : undefined; }
   async listAttempts(candidateId: string) { return [...this.attempts.values()].filter((attempt) => attempt.candidateId === candidateId).sort((left, right) => left.attemptNumber - right.attemptNumber).map(attemptProgress); }
   async claimWorkerAttempt(input: { candidateId: string; queueJobId: string; deliveryAttempt: number; attemptId: string; fenceToken: string; now: string; leaseExpiresAt: string; workerRuntimeVersion: string; workerRuntimeSha256: string }): Promise<WorkerAttemptClaim | undefined> {
     const candidate = this.candidates.get(input.candidateId);
@@ -239,7 +237,7 @@ export class InMemoryBacktestingRepository implements BacktestingRepository {
   }
   async readLatestCompletedAttempt(candidateId: string): Promise<BacktestAttemptAudit | undefined> {
     const attempts = [...this.attempts.values()].filter((attempt) => attempt.candidateId === candidateId && attempt.status === "COMPLETED").sort((left, right) => right.attemptNumber - left.attemptNumber);
-    return attempts[0] ? clone(attempts[0]) : undefined;
+    return attempts[0] ? clone({ ...attempts[0], durationMs: backtestAttemptDurationMs(attempts[0].startedAt, attempts[0].completedAt) }) : undefined;
   }
   async stageCompletionExperiment(experiment: StoredExperiment): Promise<StoredExperiment> {
     const existing = [...this.experiments.values()].find((value) => value.candidateId === experiment.candidateId);
@@ -428,10 +426,10 @@ export class BacktestingService implements BacktestLogApi {
       const input = await this.snapshot(scope.datasetSnapshotId);
       const strategy = await this.compositeStrategy(candidate.strategyDefinitions, candidate.compositeDefinition);
       const sentimentAt = await this.loadSentiment(scope, input.candles, this.strategyRequirements(candidate.strategyDefinitions).requiresSentiment);
-      const completedAt = this.now();
-      const result = simulateBacktest({ candidateId: candidate.candidateId, attemptId: attempt.attemptId, pair: scope.pair, settlementAsset: scope.datasetSnapshot.pairMetadata.settlementAsset || scope.datasetSnapshot.pairMetadata.quoteAsset || "USDT", timeframe: scope.timeframe, candles: input.candles, warmupCandles: candidate.warmupCandles, strategy, sentimentAt, initialCapital: scope.initialCapital, feeRatePercent: scope.feeRatePercent, slippageBps: scope.slippageBps, stopLossPercent: candidate.executionPolicy?.stopLossPercent ?? scope.riskPolicy?.stopLossPercent, takeProfitPercent: candidate.executionPolicy?.takeProfitPercent ?? scope.riskPolicy?.takeProfitPercent, workerRuntimeVersion: job.workerRuntimeVersion, workerRuntimeSha256: job.workerRuntimeSha256, startedAt: attempt.startedAt, completedAt });
+      const simulated = simulateBacktest({ candidateId: candidate.candidateId, attemptId: attempt.attemptId, pair: scope.pair, settlementAsset: scope.datasetSnapshot.pairMetadata.settlementAsset || scope.datasetSnapshot.pairMetadata.quoteAsset || "USDT", timeframe: scope.timeframe, candles: input.candles, warmupCandles: candidate.warmupCandles, strategy, sentimentAt, initialCapital: scope.initialCapital, feeRatePercent: scope.feeRatePercent, slippageBps: scope.slippageBps, stopLossPercent: candidate.executionPolicy?.stopLossPercent ?? scope.riskPolicy?.stopLossPercent, takeProfitPercent: candidate.executionPolicy?.takeProfitPercent ?? scope.riskPolicy?.takeProfitPercent, workerRuntimeVersion: job.workerRuntimeVersion, workerRuntimeSha256: job.workerRuntimeSha256, startedAt: attempt.startedAt, completedAt: attempt.startedAt });
+      const result: CompletedBacktestResult = { ...simulated, completedAt: this.now() };
       await this.deps.repository.persistWorkerSuccess({ candidate, attempt, result, fenceToken });
-      return { candidateId: candidate.candidateId, status: "COMPLETED", attemptId: attempt.attemptId, completedAt };
+      return { candidateId: candidate.candidateId, status: "COMPLETED", attemptId: attempt.attemptId, completedAt: result.completedAt };
     } catch (error) {
       const message = error instanceof Error ? error.message : "BACKTEST_EXECUTION_FAILED";
       const retrying = attempt.attemptNumber < job.maxAttempts;
@@ -505,7 +503,7 @@ export class BacktestingService implements BacktestLogApi {
   async cancelSearchCandidates(auth: AuthContext, searchRunId: string, unitOfWork: import("../domain/contracts").CancellationUnitOfWork): Promise<{ candidateIds: string[] }> { const candidates = await this.ownedSearchCandidates(auth, searchRunId); const cancelled: string[] = []; for (const candidate of candidates) if (!terminal(candidate.status)) { const activeFenceToken = candidate.status === "BACKTESTING" ? candidate.activeFenceToken : undefined; candidate.status = "CANCELLED"; candidate.activeFenceToken = activeFenceToken; candidate.activeLeaseExpiresAt = undefined; candidate.updatedAt = this.now(); await this.deps.repository.updateCandidate(candidate, unitOfWork); await this.deps.repository.markDispatchCancelled(candidate.queueJobId, candidate.updatedAt, unitOfWork); cancelled.push(candidate.candidateId); } return { candidateIds: cancelled }; }
   async cancelManualCandidate(auth: AuthContext, candidateId: string): Promise<void> { const candidate = await this.ownedCandidate(auth, candidateId); if (candidate.origin !== "MANUAL") invalid("BACKTEST_CANDIDATE_NOT_MANUAL"); if (!terminal(candidate.status)) { const activeFenceToken = candidate.status === "BACKTESTING" ? candidate.activeFenceToken : undefined; candidate.status = "CANCELLED"; candidate.activeFenceToken = activeFenceToken; candidate.activeLeaseExpiresAt = undefined; candidate.updatedAt = this.now(); await this.deps.repository.updateCandidate(candidate); await this.deps.repository.markDispatchCancelled(candidate.queueJobId, candidate.updatedAt); } }
   async removePendingJobs(candidateIds: string[]): Promise<void> { for (const candidateId of candidateIds) { const candidate = await this.deps.repository.readCandidate(candidateId); if (!candidate) continue; try { await this.deps.queue.remove(candidate.queueJobId); } finally { await this.deps.repository.markDispatchCancelled(candidate.queueJobId, this.now()); } } }
-  async readAttempt(auth: AuthContext, attemptId: string): Promise<BacktestAttemptAudit> { this.assertAuth(auth); const attempt = await this.deps.repository.readAttempt(attemptId, auth.userId); if (!attempt) throw new Error("BACKTEST_ATTEMPT_NOT_FOUND"); await this.ownedCandidate(auth, attempt.candidateId); return attempt; }
+  async readAttempt(auth: AuthContext, attemptId: string): Promise<BacktestAttemptAudit> { this.assertAuth(auth); const attempt = await this.deps.repository.readAttempt(attemptId, auth.userId); if (!attempt) throw new Error("BACKTEST_ATTEMPT_NOT_FOUND"); await this.ownedCandidate(auth, attempt.candidateId); return { ...attempt, durationMs: backtestAttemptDurationMs(attempt.startedAt, attempt.completedAt) }; }
   async listAttemptTrades(auth: AuthContext, attemptId: string, page: TradePageRequest): Promise<TradePage> { await this.readAttempt(auth, attemptId); return this.pageTrades(await this.deps.repository.listTrades(attemptId), page, auth.userId, `attempt:${attemptId}`); }
   async readExperimentSummary(auth: AuthContext, experimentId: string): Promise<ExperimentResultSummary> { this.assertAuth(auth); const experiment = await this.deps.repository.readExperiment(experimentId, auth.userId); if (!experiment) throw new Error("EXPERIMENT_NOT_FOUND"); return experiment; }
   async listSearchExperimentSummaries(auth: AuthContext, searchRunId: string): Promise<ExperimentResultSummary[]> { this.assertAuth(auth); const experiments = await this.deps.repository.listExperimentsBySearchRun(searchRunId, auth.userId); if (experiments.length > 0) return experiments; const anyOwnerExperiments = await this.deps.repository.listExperimentsBySearchRun(searchRunId); if (anyOwnerExperiments.length > 0) throw new Error("BACKTEST_SEARCH_RUN_NOT_FOUND"); return []; }

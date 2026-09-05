@@ -3,6 +3,8 @@ import { simulateBacktest } from "./index";
 import { createBacktestingService, InMemoryBacktestQueue, createInMemoryBacktestingDependencies } from "../application/service";
 import { createEvaluationModule } from "modules/evaluation/api/bootstrap";
 import type { Candle } from "modules/market-data/api";
+import type { BacktestAttemptAudit } from "../domain/contracts";
+import type { StoredCandidate } from "../application/ports";
 
 const candle = (timestamp: string, open: number, close: number): Candle => ({
   pair: "BTCUSDT",
@@ -407,6 +409,64 @@ describe("backtesting runtime", () => {
     const attempts = await repository.listAttempts(candidate.candidateId);
     expect(attempts).toHaveLength(1);
     await expect(repository.readAttempt(`${candidate.candidateId}:recovery:attempt:1`)).resolves.toMatchObject({ status: "FAILED", failureCategory: "INFRASTRUCTURE", failureCode: "BACKTEST_QUEUE_TERMINAL_FAILURE" });
+  });
+
+  it("records worker duration after simulation and exposes it in candidate progress", async () => {
+    const start = "2025-01-01T00:00:00.000Z";
+    const finish = "2025-01-01T00:00:00.250Z";
+    let simulationStarted = false;
+    const snapshot = { id: "snapshot-duration", pair: "BTCUSDT", pairMetadata: { pair: "BTCUSDT", baseAsset: "BTC", quoteAsset: "USDT", settlementAsset: "USDT" }, timeframe: "1h" as const, range: { from: start, to: "2025-01-01T03:00:00.000Z" }, candleCount: 3, sha256: "s".repeat(64), createdAt: start };
+    const candles = [candle("2025-01-01T00:00:00.000Z", 100, 101), candle("2025-01-01T01:00:00.000Z", 102, 105), candle("2025-01-01T02:00:00.000Z", 106, 110)];
+    const definition = { id: "duration-definition", userId: "user-1", logicalFamilyKey: "strategy:duration", strategyName: "DURATION_TEST", implementationVersion: "1", implementationSha256: "a".repeat(64), version: 1, parameters: {}, createdAt: start };
+    const composite = { id: "duration-composite", userId: "user-1", logicalFamilyKey: "composite:duration", version: 1, method: "MAJORITY_VOTE" as const, components: [{ strategyDefinitionId: definition.id, weight: 0 }], createdAt: start };
+    const dependencies = createInMemoryBacktestingDependencies();
+    const queue = dependencies.queue as InMemoryBacktestQueue;
+    const service = createBacktestingService({
+      ...dependencies,
+      queue,
+      marketData: { readDatasetSnapshot: async () => ({ snapshot, candles }) },
+      strategy: {
+        listStrategies: () => [{ name: definition.strategyName, category: "TREND", implementationVersion: definition.implementationVersion, implementationSha256: definition.implementationSha256, minimumHistoryCandles: 0 }],
+        readDefinitions: async () => [definition],
+        readComposite: async () => composite,
+        resolveStrategy: async () => ({ name: definition.strategyName, category: "TREND" as const, analyze: () => { simulationStarted = true; return "HOLD" as const; } }),
+        combineSignals: () => "HOLD" as const,
+      },
+      evaluation: createEvaluationModule(),
+      clock: { now: () => simulationStarted ? finish : start },
+    });
+    const scope = await service.createBenchmarkScope({ userId: "user-1" }, { name: "Duration fixture", datasetSnapshot: snapshot, initialCapital: 1000, feeRatePercent: 0, slippageBps: 0, scoreFormulaId: "MVP_MANUAL_V1", workerRuntimeVersion: "1", workerRuntimeSha256: "b".repeat(64), evaluationRuntimeVersion: "1", evaluationRuntimeSha256: "c".repeat(64) }, { scopeIdempotencyKey: "duration-scope" });
+    const accepted = await service.startManual({ userId: "user-1" }, { leaderboardScopeId: scope.id, strategyDefinitionIds: [definition.id], compositeDefinitionId: composite.id, maxAttempts: 1 });
+    const workerReturn = await service.processQueueJob(queue.jobs.get(accepted.jobId)!, { attemptNumber: 1, fenceToken: "duration-worker" });
+    const progress = await service.status({ userId: "user-1" }, accepted.candidateId);
+    const attempt = await service.readAttempt({ userId: "user-1" }, progress.attempts[0]!.attemptId);
+
+    expect(workerReturn).toMatchObject({ status: "COMPLETED", completedAt: finish });
+    expect(progress.attempts[0]).toMatchObject({ status: "COMPLETED", startedAt: start, completedAt: finish, durationMs: 250 });
+    expect(attempt).toMatchObject({ startedAt: start, completedAt: finish, durationMs: 250 });
+  });
+
+  it("averages completed non-cancelled attempts and preserves per-attempt durations", async () => {
+    const repository = createInMemoryBacktestingDependencies().repository;
+    const now = "2025-01-01T00:00:00.000Z";
+    const candidate = (candidateId: string, status: "COMPLETED" | "FAILED" | "CANCELLED"): StoredCandidate => ({
+      candidateId, ownerUserId: "user-1", origin: "SEARCH", selectionMode: "SINGLE", searchRunId: "search-duration", iterationNumber: Number(candidateId.slice(-1)), leaderboardScopeId: "scope-1", status, attempts: [], maxAttempts: 2, completionAttemptCount: 0, completionMaxAttempts: 5,
+      strategyDefinitions: [], compositeDefinition: { id: `${candidateId}-composite`, userId: "user-1", logicalFamilyKey: "test", version: 1, method: "WEIGHTED_SCORE", components: [], createdAt: now }, queueJobId: candidateId, createdAt: now, updatedAt: now,
+    });
+    const attempt = (attemptId: string, candidateId: string, attemptNumber: number, status: "FAILED" | "COMPLETED", completedAt: string): BacktestAttemptAudit => ({
+      attemptId, candidateId, queueJobId: candidateId, attemptNumber, workerRuntimeVersion: "worker-1", workerRuntimeSha256: "a".repeat(64), status, tradeCount: 0, auditOnly: false, deliveryAttemptCount: 1, startedAt: now, completedAt,
+    });
+    await repository.createCandidate(candidate("candidate-1", "COMPLETED"));
+    await repository.createCandidate(candidate("candidate-2", "COMPLETED"));
+    await repository.createCandidate(candidate("candidate-3", "CANCELLED"));
+    await repository.createAttempt(attempt("candidate-1:attempt:1", "candidate-1", 1, "COMPLETED", "2025-01-01T00:00:00.100Z"));
+    await repository.createAttempt(attempt("candidate-2:attempt:1", "candidate-2", 1, "FAILED", "2025-01-01T00:00:00.050Z"));
+    await repository.createAttempt(attempt("candidate-2:attempt:2", "candidate-2", 2, "COMPLETED", "2025-01-01T00:00:00.300Z"));
+    await repository.createAttempt(attempt("candidate-3:attempt:1", "candidate-3", 1, "COMPLETED", "2025-01-01T01:00:00.000Z"));
+    const service = createBacktestingService({ ...createInMemoryBacktestingDependencies(), repository });
+
+    await expect(service.summarizeSearchCandidates({ userId: "user-1" }, "search-duration")).resolves.toMatchObject({ candidatesTested: 2, failedAttemptCount: 1, averageBacktestDurationMs: 200 });
+    await expect(service.status({ userId: "user-1" }, "candidate-2")).resolves.toMatchObject({ attempts: [{ status: "FAILED", durationMs: 50 }, { status: "COMPLETED", durationMs: 300 }] });
   });
 
   it("returns the original in-memory Search candidate for a repeated iteration reservation", async () => {
