@@ -33,4 +33,4 @@ Backtesting is CPU-heavy, retryable, and the one workload that benefits from ind
 - [`packages/contracts/queue/backtesting.ts`](../../packages/contracts/queue/backtesting.ts) is the canonical job/terminal-signal contract.
 - [`modules/backtesting/infrastructure/queue/adapter.ts`](../../modules/backtesting/infrastructure/queue/adapter.ts) implements the BullMQ adapter/worker boundary.
 - Demo: complete one job, force one retry, and show a single terminal candidate/experiment outcome.
-- [Scale benchmark procedure](../evidence/backtest-scale-benchmark.md): run the sealed 100/500-candidate matrix, record `maxInFlight`, replicas, concurrency, timing, terminal counts and retries, and only then claim measured throughput.
+- [Scale benchmark procedure](../evidence/backtest-scale-benchmark.md): run the sealed 100/500-candidate matrix, record `maxInFlight`, replicas, concurrency, timing, terminal counts and retries, and only then claim measured throughput. The [reviewed result record](../evidence/backtest-scale-results.md) identifies the measured commit and preserves the no-linear-speedup interpretation.
