@@ -115,7 +115,7 @@ export function createInMemorySearchDependencies(): SearchModuleDependencies {
 }
 
 const createRun = (searchRunId: string, config: Parameters<SearchModuleRuntime["start"]>[1], ownerUserId: string, now: string): SearchRun => ({
-  searchRunId, ownerUserId, state: "RUNNING", activeCandidates: [], queuedCount: 0, runningCount: 0, candidatesTested: 0, failedCandidateCount: 0, retryExhaustedCandidateCount: 0, infrastructureFailureCandidateCount: 0, completionProcessingFailureCandidateCount: 0, failedAttemptCount: 0, averageBacktestDurationMs: 0, createdAt: now, startedAt: now, updatedAt: now, stopCondition: config.stopCondition, searchSpace: { ...config.searchSpace, generatedFingerprints: [...new Set(config.searchSpace.generatedFingerprints ?? [])] }, generatorType: config.generatorType, leaderboardScopeId: config.leaderboardScopeId, maxInFlight: config.maxInFlight, nextIteration: 1, activeDurationMs: 0, activeSince: now,
+  searchRunId, ownerUserId, state: "RUNNING", activeCandidates: [], queuedCount: 0, runningCount: 0, candidatesTested: 0, failedCandidateCount: 0, retryExhaustedCandidateCount: 0, infrastructureFailureCandidateCount: 0, completionProcessingFailureCandidateCount: 0, failedAttemptCount: 0, averageBacktestDurationMs: null, createdAt: now, startedAt: now, updatedAt: now, stopCondition: config.stopCondition, searchSpace: { ...config.searchSpace, generatedFingerprints: [...new Set(config.searchSpace.generatedFingerprints ?? [])] }, generatorType: config.generatorType, leaderboardScopeId: config.leaderboardScopeId, maxInFlight: config.maxInFlight, nextIteration: 1, activeDurationMs: 0, activeSince: now,
 });
 
 export function createSearchModule(dependencies: SearchModuleDependencies = createInMemorySearchDependencies()): SearchModuleRuntime {
@@ -133,7 +133,7 @@ export function createSearchModule(dependencies: SearchModuleDependencies = crea
     const auth = authFor(run);
     const summary = await dependencies.backtestCoordinator.summarizeSearchCandidates(auth, run.searchRunId);
     const ranking = await dependencies.leaderboardService.rankSearchRun(run.ownerUserId, run.searchRunId);
-    return { ...run, ...summary, activeCandidates: summary.active, averageBacktestDurationMs: summary.averageBacktestDurationMs ?? 0, currentTopEntry: ranking[0] };
+    return { ...run, ...summary, activeCandidates: summary.active, averageBacktestDurationMs: summary.averageBacktestDurationMs, currentTopEntry: ranking[0] };
   };
   const refresh = async (run: SearchRun): Promise<void> => {
     const projection = await project(run);
@@ -222,6 +222,7 @@ export function createSearchModule(dependencies: SearchModuleDependencies = crea
             if (attempts >= maxAttempts) throw error;
           }
         }
+        if (slots > 0 && submitted === 0) throw new Error("SEARCH_GENERATION_EXHAUSTED");
         await refresh(run);
         met = stopReason(run);
         if (met && inFlight(run) === 0) Object.assign(run, { state: "COMPLETED", stopReason: met, endedAt: dependencies.clock.now() });

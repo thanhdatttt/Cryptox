@@ -61,6 +61,15 @@ export const forwardTerminalSignal = async (runtime: BacktestQueueCompletionRunt
   await runtime.processQueueTerminalSignal(signal);
 };
 
+export const completedSignalFromStoredJob = (jobId: string, data: BacktestQueuePayload, returnValue: BacktestQueueReturn | ReplayQueueReturn | undefined): BacktestQueueTerminalSignal | undefined => {
+  const payload = validate(data);
+  if (isReplayVerificationJob(payload)) return undefined;
+  const normalizedReturnValue = returnValue && "candidateId" in returnValue
+    ? returnValue
+    : { candidateId: jobId, status: "IGNORED" as const, reason: "PENDING_COMPLETION" as const };
+  return { schemaVersion: 1, jobId, status: "COMPLETED", returnValue: normalizedReturnValue };
+};
+
 export class BullMqBacktestWorker {
   private readonly worker: Worker<BacktestQueuePayload, BacktestQueueReturn | ReplayQueueReturn, "execute">;
 
@@ -88,12 +97,7 @@ export class BullMqBacktestCompletionListener {
   constructor(redisUrl: string, private readonly runtime: BacktestQueueRecoveryRuntime) {
     this.queue = new Queue<BacktestQueuePayload, BacktestQueueReturn | ReplayQueueReturn, "execute">(BACKTEST_QUEUE_NAME, { connection: { url: redisUrl } });
     this.events = new QueueEvents(BACKTEST_QUEUE_NAME, { connection: { url: redisUrl } });
-    this.events.on("completed", ({ jobId, returnvalue }: { jobId: string; returnvalue: string }) => {
-      try {
-        const parsed = JSON.parse(returnvalue) as BacktestQueueReturn | ReplayQueueReturn;
-        if ("candidateId" in parsed) void forwardTerminalSignal(this.runtime, { schemaVersion: 1, jobId, status: "COMPLETED", returnValue: parsed }).catch(() => undefined);
-      } catch { /* malformed return values are ignored; durable reconciliation remains authoritative */ }
-    });
+    this.events.on("completed", ({ jobId }: { jobId: string }) => { void this.forwardCompleted(jobId); });
     this.events.on("failed", ({ jobId, failedReason }: { jobId: string; failedReason: string }) => { void this.forwardVerifiedFailure(jobId, failedReason); });
   }
 
@@ -104,6 +108,17 @@ export class BullMqBacktestCompletionListener {
     const attempts = typeof job.opts.attempts === "number" ? job.opts.attempts : 1;
     if (job.attemptsMade < attempts) return;
     await forwardTerminalSignal(this.runtime, { schemaVersion: 1, jobId, status: "VERIFIED_TERMINAL_FAILED", failedReason });
+  }
+
+  private async forwardCompleted(jobId: string): Promise<void> {
+    try {
+      const job = await this.queue.getJob(jobId);
+      if (!job) return;
+      const signal = completedSignalFromStoredJob(jobId, job.data, job.returnvalue);
+      if (signal) await forwardTerminalSignal(this.runtime, signal);
+    } catch {
+      // The periodic durable reconciliation recovers a missed QueueEvents wake-up.
+    }
   }
 
   async reconcileTerminalJobs(limit = 100): Promise<number> {

@@ -140,7 +140,7 @@ docs/adr/             accepted architectural decisions
 
 - The source implements module boundaries, provider ports, market WebSocket contracts, a BullMQ worker boundary, deterministic snapshots, strategy provenance, and the documented search/backtest lifecycle.
 - Live Binance stability, browser end-to-end behavior, and multi-worker throughput require current demo/benchmark evidence. Do not infer them from code or tests alone.
-- `averageBacktestDurationMs` is currently not populated by the application summary. It must not be presented as a completed performance measurement.
+- Search status reports `averageBacktestDurationMs` only from completed Attempts with valid start/completion timestamps; `—` means there is no valid sample, not zero milliseconds. Use the [scale benchmark procedure](docs/evidence/backtest-scale-benchmark.md) before making a throughput claim; the reviewed, commit-bound [Scenario 7 results](docs/evidence/backtest-scale-results.md) record the current measured boundary.
 
 ## Team
 
