@@ -118,7 +118,7 @@ Candidate state and PostgreSQL records are authoritative. Queue terminal signals
 
 - A Leaderboard scope pins candle/sentiment snapshots, cost assumptions, score formula, and runtime provenance before a candidate is dispatched.
 - PostgreSQL stores durable candidates, attempts, trades, experiments, and terminal outcomes. Redis/BullMQ supplies queue semantics, retry, and backpressure—not business truth.
-- Separate workers can be increased without changing the domain model. A throughput claim still requires an actual benchmark; the application currently does not populate `averageBacktestDurationMs`.
+- Separate workers can be increased without changing the domain model. Search `maxInFlight`, worker process replicas, and per-process BullMQ concurrency are independent controls. `averageBacktestDurationMs` is computed only from completed attempts with valid timestamps; a throughput claim still requires a current, reproducible benchmark result.
 - The core intentionally does not use a general Event Bus. WebSocket is scoped to market data and BullMQ to backtest work.
 
 ## 6. Evidence entry points

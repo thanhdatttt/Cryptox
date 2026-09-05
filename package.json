@@ -22,6 +22,7 @@
     "test": "npm run test:seed:dev && npm run test --workspaces --if-present",
     "test:workflow": "node --test scripts/start-backend.test.mjs",
     "arch:check": "dependency-cruise --config .dependency-cruiser.js --exclude dist --exclude d.ts modules apps packages",
+    "benchmark:backtest-scale": "node scripts/run-backtest-scale-benchmark.mjs",
     "check:generated": "node scripts/check-generated-artifacts.mjs",
     "db:migrate": "node-pg-migrate up -m infra/db/migrations",
     "seed:dev": "node scripts/seed-dev-market.mjs",

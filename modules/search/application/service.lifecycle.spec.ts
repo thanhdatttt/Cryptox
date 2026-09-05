@@ -131,4 +131,76 @@ describe("Search lifecycle projections", () => {
     expect(submissions).toBeGreaterThanOrEqual(2);
     await expect(runtime.status(auth, started.searchRunId)).resolves.toMatchObject({ state: "RUNNING", queuedCount: 1 });
   });
+
+  it("never submits more than maxInFlight candidates and refills one slot after completion", async () => {
+    const dependencies = createInMemorySearchDependencies();
+    let active = 0;
+    let submitted = 0;
+    let maximumObserved = 0;
+    dependencies.generators.RANDOM = {
+      type: "RANDOM",
+      generate: (_space, context) => ({
+        generatedBy: "RANDOM",
+        strategyDefinitions: [],
+        compositeDefinition: {} as never,
+        executionPolicyIntent: { mode: "TWO_SIDED_ONE_X_V1" },
+        fingerprint: `bounded-fingerprint-${context?.iterationNumber ?? 0}`,
+      }),
+    };
+    dependencies.backtestCoordinator = {
+      ...dependencies.backtestCoordinator,
+      submitSearchCandidate: async (_auth, _command) => {
+        submitted += 1;
+        active += 1;
+        maximumObserved = Math.max(maximumObserved, active);
+        return { candidateId: `candidate-${submitted}`, jobId: `candidate-${submitted}`, status: "QUEUED" };
+      },
+      summarizeSearchCandidates: async (_auth, searchRunId) => ({
+        searchRunId,
+        active: Array.from({ length: active }, (_, index) => ({ candidateId: `active-${index}`, origin: "SEARCH", selectionMode: "COMPOSITE" as const, leaderboardScopeId: "scope-1", status: "QUEUED", attempts: [], maxAttempts: 1, completionAttemptCount: 0, completionMaxAttempts: 5, createdAt: "2025-01-01T00:00:00.000Z", updatedAt: "2025-01-01T00:00:00.000Z" })),
+        queuedCount: active,
+        runningCount: 0,
+        candidatesTested: 0,
+        failedCandidateCount: 0,
+        retryExhaustedCandidateCount: 0,
+        infrastructureFailureCandidateCount: 0,
+        completionProcessingFailureCandidateCount: 0,
+        failedAttemptCount: 0,
+        averageBacktestDurationMs: null,
+      }),
+    };
+    const runtime = createSearchModule(dependencies);
+    const started = await runtime.start(auth, { ...config, maxInFlight: 2, stopCondition: { maxCandidates: 5 } });
+    await runtime.fillAvailableSlots(started.searchRunId);
+    expect({ submitted, maximumObserved }).toEqual({ submitted: 2, maximumObserved: 2 });
+
+    active = 1;
+    await runtime.onCandidateFinished(started.searchRunId);
+
+    expect({ submitted, maximumObserved }).toEqual({ submitted: 3, maximumObserved: 2 });
+  });
+
+  it("fails explicitly when every bounded generator attempt is a duplicate", async () => {
+    const dependencies = createInMemorySearchDependencies();
+    dependencies.generators.RANDOM = {
+      type: "RANDOM",
+      generate: () => ({
+        generatedBy: "RANDOM",
+        strategyDefinitions: [],
+        compositeDefinition: {} as never,
+        executionPolicyIntent: { mode: "TWO_SIDED_ONE_X_V1" },
+        fingerprint: "already-generated",
+      }),
+    };
+    const runtime = createSearchModule(dependencies);
+    const started = await runtime.start(auth, { ...config, searchSpace: { ...config.searchSpace, generatedFingerprints: ["already-generated"] } });
+
+    let status = await runtime.status(auth, started.searchRunId);
+    for (let attempt = 0; status.state !== "FAILED" && attempt < 20; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 1));
+      status = await runtime.status(auth, started.searchRunId);
+    }
+
+    expect(status).toMatchObject({ state: "FAILED", stopReason: "ERROR", lastError: "SEARCH_GENERATION_EXHAUSTED" });
+  });
 });
