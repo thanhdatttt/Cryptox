@@ -24,6 +24,27 @@ export class PostgresCandleRepository implements CandleRepository {
     return result.rows.map(candle);
   }
   async upsert(item: Candle): Promise<void> { await this.client.query("INSERT INTO market_candles (pair, timeframe, timestamp, open, high, low, close, volume, is_closed, source, updated_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) ON CONFLICT (pair, timeframe, timestamp) DO UPDATE SET open = EXCLUDED.open, high = EXCLUDED.high, low = EXCLUDED.low, close = EXCLUDED.close, volume = EXCLUDED.volume, is_closed = EXCLUDED.is_closed, source = EXCLUDED.source, updated_at = EXCLUDED.updated_at WHERE NOT market_candles.is_closed OR EXCLUDED.is_closed", [item.pair, item.timeframe, item.timestamp, item.open, item.high, item.low, item.close, item.volume, item.isClosed, item.source ?? "UNKNOWN", this.clock.now()]); }
+  async upsertBatch(items: Candle[]): Promise<void> {
+    if (items.length === 0) return;
+    const BATCH_SIZE = 500;
+    const COLS_PER_ROW = 11;
+    const now = this.clock.now();
+    for (let offset = 0; offset < items.length; offset += BATCH_SIZE) {
+      const batch = items.slice(offset, offset + BATCH_SIZE);
+      const values: unknown[] = [];
+      const placeholders: string[] = [];
+      for (let i = 0; i < batch.length; i++) {
+        const item = batch[i]!;
+        const base = i * COLS_PER_ROW;
+        placeholders.push(`($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6}, $${base + 7}, $${base + 8}, $${base + 9}, $${base + 10}, $${base + 11})`);
+        values.push(item.pair, item.timeframe, item.timestamp, item.open, item.high, item.low, item.close, item.volume, item.isClosed, item.source ?? "UNKNOWN", now);
+      }
+      await this.client.query(
+        `INSERT INTO market_candles (pair, timeframe, timestamp, open, high, low, close, volume, is_closed, source, updated_at) VALUES ${placeholders.join(", ")} ON CONFLICT (pair, timeframe, timestamp) DO UPDATE SET open = EXCLUDED.open, high = EXCLUDED.high, low = EXCLUDED.low, close = EXCLUDED.close, volume = EXCLUDED.volume, is_closed = EXCLUDED.is_closed, source = EXCLUDED.source, updated_at = EXCLUDED.updated_at WHERE NOT market_candles.is_closed OR EXCLUDED.is_closed`,
+        values
+      );
+    }
+  }
 }
 
 export class PostgresSnapshotRepository implements SnapshotRepository {
@@ -45,7 +66,20 @@ export class PostgresSnapshotRepository implements SnapshotRepository {
       const saved = existing.rows[0] ? snapshot(existing.rows[0]) : input.snapshot;
       if (!existing.rows[0]) {
         await client.query("INSERT INTO market_dataset_snapshots (id, pair, pair_metadata, timeframe, dataset_from, dataset_to, candle_count, sha256, created_at) VALUES ($1, $2, $3::jsonb, $4, $5, $6, $7, $8, $9)", [saved.id, saved.pair, JSON.stringify(saved.pairMetadata), saved.timeframe, saved.range.from, saved.range.to, saved.candleCount, saved.sha256, saved.createdAt]);
-        for (const item of input.candles) await client.query("INSERT INTO market_dataset_snapshot_candles (snapshot_id, timestamp, open, high, low, close, volume, is_closed) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)", [saved.id, item.timestamp, item.open, item.high, item.low, item.close, item.volume, item.isClosed]);
+        const SNAP_BATCH_SIZE = 500;
+        const SNAP_COLS = 8;
+        for (let offset = 0; offset < input.candles.length; offset += SNAP_BATCH_SIZE) {
+          const batch = input.candles.slice(offset, offset + SNAP_BATCH_SIZE);
+          const values: unknown[] = [];
+          const placeholders: string[] = [];
+          for (let i = 0; i < batch.length; i++) {
+            const item = batch[i]!;
+            const base = i * SNAP_COLS;
+            placeholders.push(`($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6}, $${base + 7}, $${base + 8})`);
+            values.push(saved.id, item.timestamp, item.open, item.high, item.low, item.close, item.volume, item.isClosed);
+          }
+          await client.query(`INSERT INTO market_dataset_snapshot_candles (snapshot_id, timestamp, open, high, low, close, volume, is_closed) VALUES ${placeholders.join(", ")}`, values);
+        }
         const count = await client.query<{ count: number | string }>("SELECT COUNT(*)::int AS count FROM market_dataset_snapshot_candles WHERE snapshot_id = $1", [saved.id]);
         if (count.rows[0] && Number(count.rows[0].count) !== saved.candleCount) throw new MarketDataException("DATASET_INTEGRITY_FAILURE", "Dataset snapshot child count does not match metadata.");
       }

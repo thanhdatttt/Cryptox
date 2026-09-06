@@ -13,7 +13,7 @@ export interface MarketDataProviderAdapter {
   readPairMetadata?(pair: Pair): Promise<MarketPairMetadata>;
 }
 export interface ProviderRegistry { getDefault?(): Promise<MarketDataProviderAdapter | undefined> | MarketDataProviderAdapter | undefined; get?(id: string): Promise<MarketDataProviderAdapter | undefined> | MarketDataProviderAdapter | undefined; defaultProvider?: MarketDataProviderAdapter; defaultProviderId?: string; }
-export interface CandleRepository { read(query: { pair: Pair; timeframe: Timeframe; includeForming?: boolean }): Promise<Candle[]>; upsert(candle: Candle): Promise<void>; }
+export interface CandleRepository { read(query: { pair: Pair; timeframe: Timeframe; includeForming?: boolean }): Promise<Candle[]>; upsert(candle: Candle): Promise<void>; upsertBatch?(candles: Candle[]): Promise<void>; }
 export interface SnapshotRepository { read(query: { snapshotId: string }): Promise<{ snapshot: DatasetSnapshotRef; candles: Candle[] } | undefined>; create(command: { snapshot: DatasetSnapshotRef; candles: Candle[] }): Promise<DatasetSnapshotRef>; }
 export interface LatestValueCache { get?(key: string): Promise<unknown>; set?(key: string, value: unknown): Promise<void>; delete?(key: string): Promise<void>; close?(): Promise<void>; }
 export interface Clock { now(): string; }

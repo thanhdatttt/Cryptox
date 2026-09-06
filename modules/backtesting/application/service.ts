@@ -344,7 +344,23 @@ export class BacktestingService implements BacktestLogApi {
     const requirements = this.strategyRequirements(strategyDefinitions);
     return { strategyDefinitions, compositeDefinition: clone(composite), ...requirements };
   }
-  private async snapshot(snapshotId: string): Promise<{ snapshot: import("modules/market-data/api").DatasetSnapshotRef; candles: import("modules/market-data/api").Candle[] }> { const snapshot = await this.deps.repository.readInputSnapshot(snapshotId); if (!snapshot) throw new Error("BACKTEST_DATASET_NOT_FOUND"); return snapshot; }
+  private snapshotCache = new Map<string, { snapshot: import("modules/market-data/api").DatasetSnapshotRef; candles: import("modules/market-data/api").Candle[]; sortedClosedCandles: import("modules/market-data/api").Candle[] }>();
+  private async snapshot(snapshotId: string): Promise<{ snapshot: import("modules/market-data/api").DatasetSnapshotRef; candles: import("modules/market-data/api").Candle[]; sortedClosedCandles: import("modules/market-data/api").Candle[] }> {
+    const cached = this.snapshotCache.get(snapshotId);
+    if (cached) return cached;
+    const snapshot = await this.deps.repository.readInputSnapshot(snapshotId);
+    if (!snapshot) throw new Error("BACKTEST_DATASET_NOT_FOUND");
+    const sortedClosedCandles = snapshot.candles
+      .filter((candle) => candle.isClosed)
+      .sort((left, right) => left.timestamp.localeCompare(right.timestamp));
+    const entry = { ...snapshot, sortedClosedCandles };
+    if (this.snapshotCache.size >= 5) {
+      const oldest = this.snapshotCache.keys().next().value;
+      if (oldest) this.snapshotCache.delete(oldest);
+    }
+    this.snapshotCache.set(snapshotId, entry);
+    return entry;
+  }
   private async loadSentiment(scope: StoredBenchmarkScope, candles: import("modules/market-data/api").Candle[], required: boolean): Promise<((candleCloseTime: string) => NonNullable<StrategyContext["sentiment"]> | undefined) | undefined> {
     if (!required) return undefined;
     const reference = scope.sentimentDatasetSnapshot;
@@ -375,7 +391,7 @@ export class BacktestingService implements BacktestLogApi {
     if (pointsFound < actual.pointCount) invalid("SNAPSHOT_INCOMPLETE");
     return readAt;
   }
-  private async captureSnapshot(snapshotId: string) { const first = await this.deps.marketData.readDatasetSnapshot({ snapshotId, limit: 1000 }); const candles = [...first.candles]; let cursor = first.nextCursor; while (cursor) { const page = await this.deps.marketData.readDatasetSnapshot({ snapshotId, cursor, limit: 1000 }); candles.push(...page.candles); cursor = page.nextCursor; } const snapshot = await this.deps.repository.createInputSnapshot(first.snapshot, candles); return { snapshot, candles }; }
+  private async captureSnapshot(snapshotId: string) { const first = await this.deps.marketData.readDatasetSnapshot({ snapshotId, limit: 10000 }); const candles = [...first.candles]; let cursor = first.nextCursor; while (cursor) { const page = await this.deps.marketData.readDatasetSnapshot({ snapshotId, cursor, limit: 10000 }); candles.push(...page.candles); cursor = page.nextCursor; } const snapshot = await this.deps.repository.createInputSnapshot(first.snapshot, candles); return { snapshot, candles }; }
   private validateScope(command: CreateLeaderboardScopeCommand): void { const warmupCapacityCandles = command.warmupCapacityCandles ?? DEFAULT_WARMUP_CAPACITY_CANDLES; if (!command.name.trim() || !command.scoreFormulaId.trim() || !Number.isFinite(command.initialCapital) || command.initialCapital <= 0 || !Number.isFinite(command.feeRatePercent) || command.feeRatePercent < 0 || !Number.isInteger(command.slippageBps) || command.slippageBps < 0 || !Number.isInteger(warmupCapacityCandles) || warmupCapacityCandles < 0 || warmupCapacityCandles > MAX_WARMUP_CANDLES) invalid("INVALID_BENCHMARK_SCOPE"); if (!/^[a-f0-9]{64}$/i.test(command.workerRuntimeSha256) || !/^[a-f0-9]{64}$/i.test(command.evaluationRuntimeSha256)) invalid("INVALID_BENCHMARK_SCOPE"); if (command.sentimentDatasetSnapshot && command.sentimentCreate) invalid("INVALID_SENTIMENT_SELECTION"); }
   private async verifySentimentReference(reference: SentimentDatasetSnapshotRef, snapshot: import("modules/market-data/api").DatasetSnapshotRef, candles: import("modules/market-data/api").Candle[]): Promise<SentimentDatasetSnapshotRef> {
     const sentiment = this.deps.sentiment;
@@ -418,7 +434,7 @@ export class BacktestingService implements BacktestLogApi {
   private async submit(command: StartManualBacktestCommand | SubmitSearchCandidateCommand, input: { ownerUserId: string; origin: "MANUAL" | "SEARCH"; submissionIdempotencyKey?: string }): Promise<BacktestSubmissionAccepted> { if (input.submissionIdempotencyKey) { const existing = await this.deps.repository.findCandidateBySubmission(input.ownerUserId, input.submissionIdempotencyKey); if (existing) return { candidateId: existing.candidateId, jobId: existing.queueJobId, status: existing.status }; } const scope = await this.deps.repository.readScope(command.leaderboardScopeId, input.ownerUserId); if (!scope) throw new Error("BACKTEST_SCOPE_NOT_FOUND"); const references = await this.validateStrategyReferences(input.ownerUserId, command); if (references.warmupCandles > scope.warmupCapacityCandles) invalid("SNAPSHOT_INCOMPLETE"); const inputSnapshot = await this.snapshot(scope.datasetSnapshotId); if (references.warmupCandles > inputSnapshot.candles.filter((candle) => candle.isClosed).length) invalid("SNAPSHOT_INCOMPLETE"); await this.loadSentiment(scope, inputSnapshot.candles, references.requiresSentiment); const executionPolicy = normalizeExecutionPolicy(command.executionPolicy, references.warmupCandles, scope.riskPolicy); const candidate = this.candidateRecord({ ownerUserId: input.ownerUserId, scope, command, strategyDefinitions: references.strategyDefinitions, compositeDefinition: references.compositeDefinition, executionPolicy, origin: input.origin, candidateId: this.id(), warmupCandles: references.warmupCandles }); const dispatch = this.dispatchRecord(candidate, scope); const saved = await this.deps.repository.createQueuedSubmission({ candidate, dispatch, submissionIdempotencyKey: input.submissionIdempotencyKey }); const persistedDispatch = saved.candidateId === candidate.candidateId ? dispatch : await this.deps.repository.readDispatch(saved.queueJobId); if (persistedDispatch) await this.dispatchOne(persistedDispatch); return { candidateId: saved.candidateId, jobId: saved.queueJobId, status: saved.status }; }
   async startManual(auth: AuthContext, command: StartManualBacktestCommand, options?: { submissionIdempotencyKey?: string }): Promise<BacktestSubmissionAccepted> { this.assertAuth(auth); return this.submit(command, { ownerUserId: auth.userId, origin: "MANUAL", submissionIdempotencyKey: options?.submissionIdempotencyKey }); }
   async submitSearchCandidate(auth: AuthContext, command: SubmitSearchCandidateCommand): Promise<BacktestSubmissionAccepted> { this.assertAuth(auth); return this.submit(command, { ownerUserId: auth.userId, origin: "SEARCH" }); }
-  async processQueueJob(job: BacktestQueueJob, delivery: { attemptNumber: number; fenceToken?: string }): Promise<BacktestQueueReturn> { if (job.schemaVersion !== 1 || job.jobId !== job.candidateId || !Number.isInteger(delivery.attemptNumber) || delivery.attemptNumber < 1 || delivery.attemptNumber > job.maxAttempts) throw new Error("INVALID_BACKTEST_QUEUE_JOB"); const startedAt = this.now(); const fenceToken = delivery.fenceToken ?? this.id(); const claim = await this.deps.repository.claimWorkerAttempt({ candidateId: job.candidateId, queueJobId: job.jobId, deliveryAttempt: delivery.attemptNumber, attemptId: `${job.candidateId}:attempt:${delivery.attemptNumber}`, fenceToken, now: startedAt, leaseExpiresAt: plusSeconds(startedAt, 60), workerRuntimeVersion: job.workerRuntimeVersion, workerRuntimeSha256: job.workerRuntimeSha256 }); if (!claim) { const candidate = await this.deps.repository.readCandidate(job.candidateId); return { candidateId: job.candidateId, status: "IGNORED", reason: candidate?.status === "CANCELLED" ? "CANCELLED" : terminal(candidate?.status ?? "FAILED") ? "ALREADY_TERMINAL" : "SUPERSEDED" }; } return this.runClaimedAttempt(claim, job); }
+  async processQueueJob(job: BacktestQueueJob, delivery: { attemptNumber: number; fenceToken?: string }): Promise<BacktestQueueReturn> { if (job.schemaVersion !== 1 || job.jobId !== job.candidateId || !Number.isInteger(delivery.attemptNumber) || delivery.attemptNumber < 1 || delivery.attemptNumber > job.maxAttempts) throw new Error("INVALID_BACKTEST_QUEUE_JOB"); const startedAt = this.now(); const fenceToken = delivery.fenceToken ?? this.id(); const claim = await this.deps.repository.claimWorkerAttempt({ candidateId: job.candidateId, queueJobId: job.jobId, deliveryAttempt: delivery.attemptNumber, attemptId: `${job.candidateId}:attempt:${delivery.attemptNumber}`, fenceToken, now: startedAt, leaseExpiresAt: plusSeconds(startedAt, 300), workerRuntimeVersion: job.workerRuntimeVersion, workerRuntimeSha256: job.workerRuntimeSha256 }); if (!claim) { const candidate = await this.deps.repository.readCandidate(job.candidateId); return { candidateId: job.candidateId, status: "IGNORED", reason: candidate?.status === "CANCELLED" ? "CANCELLED" : terminal(candidate?.status ?? "FAILED") ? "ALREADY_TERMINAL" : "SUPERSEDED" }; } return this.runClaimedAttempt(claim, job); }
   private async runClaimedAttempt(claim: WorkerAttemptClaim, job: BacktestQueueJob): Promise<BacktestQueueReturn> {
     const { candidate, attempt, fenceToken } = claim;
     try {
@@ -550,13 +566,24 @@ export class BacktestingService implements BacktestLogApi {
   }
 
   private visualizationContexts(candles: import("modules/market-data/api").Candle[]): StrategyContext[] {
-    return candles.map((candle, index) => ({ pair: candle.pair, timeframe: candle.timeframe, candles: candles.slice(0, index + 1).map(toStrategyCandle), currentPrice: candle.close, indicators: {} }));
+    const strategyCandles = candles.map(toStrategyCandle);
+    return candles.map((candle, index) => {
+      const windowStart = Math.max(0, index + 1 - 1000);
+      return {
+        pair: candle.pair,
+        timeframe: candle.timeframe,
+        candles: strategyCandles.slice(windowStart, index + 1),
+        currentPrice: candle.close,
+        indicators: {},
+      };
+    });
   }
 
   private async buildExperimentOverlays(definitions: StrategyDefinition[], candles: import("modules/market-data/api").Candle[], from: number, to: number): Promise<import("../domain/contracts").StrategyVisualizationOverlay[]> {
     const buildVisualization = this.deps.strategy.buildVisualization;
     if (!buildVisualization) return [];
-    const contexts = this.visualizationContexts(candles);
+    const targetCandles = candles.length > 6000 ? candles.slice(-6000) : candles;
+    const contexts = this.visualizationContexts(targetCandles);
     const overlays: import("../domain/contracts").StrategyVisualizationOverlay[] = [];
     for (const definition of definitions) {
       try {
@@ -597,8 +624,11 @@ export class BacktestingService implements BacktestLogApi {
     if (!Number.isFinite(fromTimestamp) || !Number.isFinite(toTimestamp) || fromTimestamp < snapshotFrom || toTimestamp > snapshotTo || fromTimestamp >= toTimestamp) invalid("INVALID_VISUALIZATION_PAGE");
     if (page.highlightTradeId && !experiment.trades.some((trade) => trade.id === page.highlightTradeId)) invalid("TRADE_NOT_FOUND");
     const offset = page.cursor ? Number(page.cursor) : 0; if (!Number.isInteger(offset) || offset < 0) invalid("INVALID_VISUALIZATION_PAGE");
-    const allClosedCandles = input.candles.filter((candle) => candle.isClosed).sort((left, right) => left.timestamp.localeCompare(right.timestamp));
-    const allCandles = allClosedCandles.filter((candle) => { const timestamp = Date.parse(candle.timestamp); return timestamp >= fromTimestamp && timestamp < toTimestamp; });
+    const allClosedCandles = input.sortedClosedCandles;
+    const isFullRange = fromTimestamp <= snapshotFrom && toTimestamp >= snapshotTo;
+    const allCandles = isFullRange
+      ? allClosedCandles
+      : allClosedCandles.filter((candle) => { const timestamp = Date.parse(candle.timestamp); return timestamp >= fromTimestamp && timestamp < toTimestamp; });
     if (offset > allCandles.length) invalid("INVALID_VISUALIZATION_PAGE");
     const candles = allCandles.slice(offset, offset + limit);
     const marker = (trade: Trade, kind: "ENTRY" | "STOP_LOSS" | "TAKE_PROFIT" | "EXIT", time: string, price: number): import("../domain/contracts").ExperimentVisualizationMarker => {
@@ -607,8 +637,12 @@ export class BacktestingService implements BacktestLogApi {
     };
     const order: Record<import("../domain/contracts").ExperimentVisualizationMarker["kind"], number> = { ENTRY: 0, STOP_LOSS: 1, TAKE_PROFIT: 2, EXIT: 3 };
     const markers = experiment.trades.flatMap((trade) => [marker(trade, "ENTRY", trade.entryTime, trade.entryPrice), ...(trade.stopLoss === null ? [] : [marker(trade, "STOP_LOSS", trade.entryTime, trade.stopLoss)]), ...(trade.takeProfit === null ? [] : [marker(trade, "TAKE_PROFIT", trade.entryTime, trade.takeProfit)]), marker(trade, "EXIT", trade.exitTime, trade.exitPrice)]).filter((item) => { const timestamp = Date.parse(item.time); return timestamp >= fromTimestamp && timestamp < toTimestamp; }).sort((left, right) => Date.parse(left.time) - Date.parse(right.time) || left.sequence - right.sequence || order[left.kind] - order[right.kind] || left.id.localeCompare(right.id));
-    const contextCandles = allClosedCandles.filter((candle) => Date.parse(candle.timestamp) < toTimestamp);
-    const overlays = await this.buildExperimentOverlays(experiment.strategyDefinitions, contextCandles, fromTimestamp, toTimestamp);
+    const targetCandles = (!page.to && candles.length > 0 && isFullRange)
+      ? allClosedCandles.slice(0, offset + candles.length)
+      : (!page.to && candles.length > 0)
+        ? allClosedCandles.filter((candle) => Date.parse(candle.timestamp) <= Date.parse(candles[candles.length - 1]!.timestamp))
+        : allClosedCandles.filter((candle) => Date.parse(candle.timestamp) < toTimestamp);
+    const overlays = await this.buildExperimentOverlays(experiment.strategyDefinitions, targetCandles, fromTimestamp, toTimestamp);
     return { experimentId, datasetSnapshot: input.snapshot, candles, overlays, markers, nextCursor: offset + limit < allCandles.length ? String(offset + limit) : undefined };
   }
   private pageTrades(trades: Trade[], page: TradePageRequest, ownerUserId: string, resource: string): TradePage { const limit = page.limit ?? TRADE_PAGE_DEFAULT; if (!Number.isInteger(limit) || limit < 1 || limit > TRADE_PAGE_MAX) invalid("INVALID_PAGE"); const ordered = [...trades].sort(compareTradeKey); let start = 0; if (page.cursor) { const cursor = decodeTradeCursor(page.cursor); if (cursor.ownerUserId !== ownerUserId || cursor.resource !== resource || cursor.limit !== limit || cursor.limit < 1 || cursor.limit > TRADE_PAGE_MAX) invalid("INVALID_CURSOR"); const index = ordered.findIndex((trade) => trade.entryTime === cursor.last.entryTime && trade.sequence === cursor.last.sequence && trade.id === cursor.last.id); if (index < 0) invalid("INVALID_CURSOR"); start = index + 1; } const items = ordered.slice(start, start + limit); const nextCursor = start + items.length < ordered.length && items.length > 0 ? encodeTradeCursor(ownerUserId, resource, limit, items[items.length - 1]) : undefined; return { items, totalCount: ordered.length, nextCursor }; }

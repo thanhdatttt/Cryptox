@@ -26,7 +26,7 @@ class MemoryCandleRepository {
 }
 
 class MarketDataService implements MarketDataModulePublicApi {
-  private readonly candles: { read(query: { pair: string; timeframe: Timeframe; includeForming?: boolean }): Promise<Candle[]>; upsert(candle: Candle): Promise<void> };
+  private readonly candles: { read(query: { pair: string; timeframe: Timeframe; includeForming?: boolean }): Promise<Candle[]>; upsert(candle: Candle): Promise<void>; upsertBatch?(candles: Candle[]): Promise<void> };
   private readonly snapshots = new Map<string, { snapshot: DatasetSnapshotRef; candles: Candle[] }>();
   private readonly subscribers = new Map<number, { subscriptions: Set<string>; sink: (update: MarketDataUpdate) => void }>();
   private sequence = 0;
@@ -128,6 +128,22 @@ class MarketDataService implements MarketDataModulePublicApi {
     await this.refreshCandleCache(candle.pair, candle.timeframe);
     return candle;
   }
+  private async persistBatch(observations: NormalizedProviderCandleObservation[]): Promise<void> {
+    if (observations.length === 0) return;
+    const provider = await this.resolveProvider();
+    const now = this.now();
+    const candles: Candle[] = [];
+    for (const observation of observations) {
+      const source = observation.source.includes(":") ? observation.source : `${provider?.id ?? "UNKNOWN"}:${observation.source}`;
+      const candle = validateCandle({ ...observation.candle, source }, now);
+      candles.push(candle);
+    }
+    if (this.candles.upsertBatch) {
+      await this.candles.upsertBatch(candles);
+    } else {
+      for (const candle of candles) await this.candles.upsert(candle);
+    }
+  }
   private latestClosedRange(now: string, timeframe: Timeframe, limit: number): { from: string; to: string } {
     const interval = TIMEFRAME_SECONDS[timeframe] * 1000;
     const end = Math.floor(Date.parse(now) / interval) * interval;
@@ -142,8 +158,9 @@ class MarketDataService implements MarketDataModulePublicApi {
       const missing = missingRanges(rows.filter((candle) => candle.timestamp >= range.from && candle.timestamp < range.to), range, timeframe);
       for (const missingRange of missing) {
         const observations = await provider.fetchHistorical({ pair, timeframe, range: missingRange });
-        for (const observation of observations) await this.persist(observation);
+        await this.persistBatch(observations);
       }
+      if (missing.length > 0) await this.refreshCandleCache(pair, timeframe);
     })();
     this.historySyncs.set(syncKey, operation);
     try { await operation; } finally { this.historySyncs.delete(syncKey); }
@@ -161,7 +178,7 @@ class MarketDataService implements MarketDataModulePublicApi {
       if (Date.parse(from) >= Date.parse(closedThrough)) continue;
       const range = { from, to: closedThrough };
       const observations = await provider.fetchHistorical({ pair: subscription.pair, timeframe: subscription.timeframe, range });
-      for (const observation of observations) await this.persist({ candle: observation.candle, orderKey: observation.orderKey, source: "HISTORICAL_SYNC" });
+      await this.persistBatch(observations.map((observation) => ({ candle: observation.candle, orderKey: observation.orderKey, source: "HISTORICAL_SYNC" as const })));
       const reconciled = await this.readRows(subscription.pair, subscription.timeframe);
       const missing = missingRanges(reconciled.filter((candle) => candle.timestamp >= range.from && candle.timestamp < range.to), range, subscription.timeframe);
       if (missing.length > 0) throw new MarketDataException("HISTORY_INCOMPLETE", "Provider reconciliation contains missing candles.", true, { missingRanges: missing });
@@ -210,19 +227,32 @@ class MarketDataService implements MarketDataModulePublicApi {
 
   async createDatasetSnapshot(command: DatasetSnapshotCreateCommand): Promise<DatasetSnapshotRef> {
     const pair = validatePair(command.pair); const timeframe = validateTimeframe(command.timeframe); const range = validateRange(command.range, timeframe, this.now());
-    const page = await this.readCandles({ pair, timeframe, range, completeness: "REQUIRE_COMPLETE", includeForming: false, limit: MAX_PAGE_LIMIT });
-    if (page.candles.length === 0) throw new MarketDataException("DATASET_EMPTY", "Cannot create an empty dataset snapshot.");
-    const serialization = snapshotSerialization(pair, timeframe, range, page.candles); const sha256 = createHash("sha256").update(serialization, "utf8").digest("hex");
+    const provider = await this.validateProvider(pair, timeframe);
+    if (provider) {
+      await this.syncMissing(provider, pair, timeframe, range);
+    }
+    const rows = await this.readRows(pair, timeframe);
+    const closed = rows.filter((candle) => candle.isClosed && candle.timestamp >= range.from && candle.timestamp < range.to).sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+    const gaps = missingRanges(closed, range, timeframe);
+    if (gaps.length > 0) throw new MarketDataException("HISTORY_INCOMPLETE", "Historical data contains missing candles.", true, { missingRanges: gaps });
+    if (closed.length === 0) throw new MarketDataException("DATASET_EMPTY", "Cannot create an empty dataset snapshot.");
+    const serialization = snapshotSerialization(pair, timeframe, range, closed); const sha256 = createHash("sha256").update(serialization, "utf8").digest("hex");
     const existing = [...this.snapshots.values()].find((entry) => entry.snapshot.sha256 === sha256); if (existing) return existing.snapshot;
-    const snapshot: DatasetSnapshotRef = { id: randomUUID(), pair, pairMetadata: await this.readPairMetadata(pair), timeframe, range, candleCount: page.candles.length, sha256, createdAt: this.now() };
-    if (this.deps.snapshotRepository) { const persisted = await this.deps.snapshotRepository.create({ snapshot, candles: page.candles }); this.snapshots.set(persisted.id, { snapshot: persisted, candles: page.candles.map((candle) => ({ ...candle })) }); return persisted; }
-    this.snapshots.set(snapshot.id, { snapshot, candles: page.candles.map((candle) => ({ ...candle })) });
+    const snapshot: DatasetSnapshotRef = { id: randomUUID(), pair, pairMetadata: await this.readPairMetadata(pair), timeframe, range, candleCount: closed.length, sha256, createdAt: this.now() };
+    if (this.deps.snapshotRepository) { const persisted = await this.deps.snapshotRepository.create({ snapshot, candles: closed }); this.snapshots.set(persisted.id, { snapshot: persisted, candles: closed.map((candle) => ({ ...candle })) }); return persisted; }
+    this.snapshots.set(snapshot.id, { snapshot, candles: closed.map((candle) => ({ ...candle })) });
     return snapshot;
   }
 
   async readDatasetSnapshot(query: DatasetSnapshotReadQuery): Promise<DatasetSnapshotPage> {
     const limit = validateLimit(query.limit); let entry = this.snapshots.get(query.snapshotId);
-    if (!entry && this.deps.snapshotRepository) { const result = await this.deps.snapshotRepository.read(query); if (result && typeof result === "object" && "snapshot" in result && "candles" in result) entry = result as { snapshot: DatasetSnapshotRef; candles: Candle[] }; }
+    if (!entry && this.deps.snapshotRepository) {
+      const result = await this.deps.snapshotRepository.read(query);
+      if (result && typeof result === "object" && "snapshot" in result && "candles" in result) {
+        entry = result as { snapshot: DatasetSnapshotRef; candles: Candle[] };
+        this.snapshots.set(query.snapshotId, entry);
+      }
+    }
     if (!entry) throw new MarketDataException("DATASET_NOT_FOUND", "Dataset snapshot was not found.");
     const synthetic: HistoricalCandleQuery = { pair: entry.snapshot.pair, timeframe: entry.snapshot.timeframe, limit }; const offset = this.decodeCursor(synthetic, query.cursor); const candles = entry.candles.slice(offset, offset + limit);
     return { snapshot: entry.snapshot, candles, nextCursor: offset + limit < entry.candles.length ? this.encodeCursor(synthetic, offset + limit) : undefined };

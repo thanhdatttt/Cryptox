@@ -58,7 +58,11 @@ function attemptDurationMs(attempt: { durationMs?: number; startedAt?: string; c
   const durationMs = Date.parse(attempt.completedAt) - Date.parse(attempt.startedAt);
   return Number.isFinite(durationMs) && durationMs >= 0 ? durationMs : undefined;
 }
-function formatBacktestDuration(value: number | undefined): string { return value === undefined ? "—" : `${Math.round(value)} ms`; }
+function formatBacktestDuration(value: number | undefined): string {
+  if (value === undefined) return "—";
+  if (value < 1000) return `${Math.round(value)} ms`;
+  return `${(value / 1000).toFixed(2)}s`;
+}
 function candidateDurations(candidate?: Candidate): Array<{ attemptNumber: number; durationMs: number }> {
   return (candidate?.attempts ?? []).flatMap((attempt) => { const durationMs = attemptDurationMs(attempt); return durationMs === undefined ? [] : [{ attemptNumber: attempt.attemptNumber, durationMs }]; });
 }
@@ -78,11 +82,16 @@ const chartTime = (timestamp: string): Time => Math.floor(Date.parse(timestamp) 
 function computeSMA(candles: ApiCandle[], period: number): Array<{ time: Time; value: number }> {
   const result: Array<{ time: Time; value: number }> = [];
   if (candles.length < period) return result;
-  for (let i = period - 1; i < candles.length; i++) {
-    let sum = 0;
-    for (let j = 0; j < period; j++) {
-      sum += candles[i - j]!.close;
-    }
+  let sum = 0;
+  for (let i = 0; i < period; i++) {
+    sum += candles[i]!.close;
+  }
+  result.push({
+    time: chartTime(candles[period - 1]!.timestamp),
+    value: Number((sum / period).toFixed(2)),
+  });
+  for (let i = period; i < candles.length; i++) {
+    sum += candles[i]!.close - candles[i - period]!.close;
     result.push({
       time: chartTime(candles[i]!.timestamp),
       value: Number((sum / period).toFixed(2)),
@@ -94,17 +103,20 @@ function computeSMA(candles: ApiCandle[], period: number): Array<{ time: Time; v
 function findNearestCandleTime(timeStr: string, candles: ApiCandle[]): Time {
   const targetSec = Math.floor(Date.parse(timeStr) / 1_000);
   if (!candles.length) return targetSec as Time;
-  let closest = candles[0]!;
-  let minDiff = Math.abs(Math.floor(Date.parse(closest.timestamp) / 1_000) - targetSec);
-  for (let i = 1; i < candles.length; i++) {
-    const cSec = Math.floor(Date.parse(candles[i]!.timestamp) / 1_000);
-    const diff = Math.abs(cSec - targetSec);
-    if (diff < minDiff) {
-      minDiff = diff;
-      closest = candles[i]!;
-    }
+  let low = 0;
+  let high = candles.length - 1;
+  while (low <= high) {
+    const mid = (low + high) >> 1;
+    const midSec = Math.floor(Date.parse(candles[mid]!.timestamp) / 1_000);
+    if (midSec === targetSec) return midSec as Time;
+    if (midSec < targetSec) low = mid + 1;
+    else high = mid - 1;
   }
-  return Math.floor(Date.parse(closest.timestamp) / 1_000) as Time;
+  const leftIdx = Math.max(0, Math.min(candles.length - 1, high));
+  const rightIdx = Math.max(0, Math.min(candles.length - 1, low));
+  const leftSec = Math.floor(Date.parse(candles[leftIdx]!.timestamp) / 1_000);
+  const rightSec = Math.floor(Date.parse(candles[rightIdx]!.timestamp) / 1_000);
+  return (Math.abs(leftSec - targetSec) <= Math.abs(rightSec - targetSec) ? leftSec : rightSec) as Time;
 }
 
 export function BacktestCandleChart({
@@ -134,8 +146,33 @@ export function BacktestCandleChart({
   const volumeSeriesRef = useRef<ReturnType<ReturnType<typeof createChart>["addHistogramSeries"]>>();
   const ma20SeriesRef = useRef<ReturnType<ReturnType<typeof createChart>["addLineSeries"]>>();
   const ma50SeriesRef = useRef<ReturnType<ReturnType<typeof createChart>["addLineSeries"]>>();
+  const overlaySeriesRef = useRef<any[]>([]);
   const priceLinesRef = useRef<any[]>([]);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [hiddenKeys, setHiddenKeys] = useState<Set<string>>(new Set());
+
+  const toggleKey = (key: string) => {
+    setHiddenKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  };
+
+  const OVERLAY_COLORS = [
+    "#6366f1", // Indigo
+    "#06b6d4", // Cyan
+    "#8b5cf6", // Purple
+    "#ec4899", // Pink
+    "#f59e0b", // Amber
+    "#10b981", // Emerald
+    "#3b82f6", // Blue
+    "#14b8a6", // Teal
+  ];
 
   // Indicators for badges
   const ma20Data = React.useMemo(() => computeSMA(candles, 20), [candles]);
@@ -150,6 +187,50 @@ export function BacktestCandleChart({
     const maxHigh = Math.max(...slice.map((c) => c.high));
     return { supportPrice: minLow, resistancePrice: maxHigh };
   }, [candles]);
+
+  const overlayBadges = React.useMemo(() => {
+    if (!overlays || !overlays.length) return [];
+    return overlays.flatMap((overlay, idx) => {
+      const color = OVERLAY_COLORS[idx % OVERLAY_COLORS.length]!;
+      if (overlay.kind === "LINE") {
+        const lastPoint = overlay.points.filter((p) => Number.isFinite(p.value)).at(-1);
+        if (!lastPoint) return [];
+        return [{
+          id: overlay.id,
+          label: overlay.label,
+          value: lastPoint.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+          color,
+        }];
+      }
+      if (overlay.kind === "ZONE") {
+        const lastPoint = overlay.points.at(-1);
+        if (!lastPoint) return [];
+        const valText = lastPoint.low === lastPoint.high
+          ? lastPoint.low.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+          : `${lastPoint.low.toLocaleString()} - ${lastPoint.high.toLocaleString()}`;
+        return [{
+          id: overlay.id,
+          label: overlay.label,
+          value: valText,
+          color: overlay.id === "support" ? "#10b981" : overlay.id === "resistance" ? "#dc2626" : color,
+        }];
+      }
+      if (overlay.kind === "SIGNAL") {
+        const validPoints = overlay.points.filter((p) => Number.isFinite(p.value));
+        const lastPoint = validPoints.at(-1);
+        if (!lastPoint) return [];
+        const badgeVal = lastPoint.value.toFixed(1);
+        const signalColor = lastPoint.signal === "BUY" ? "#10b981" : lastPoint.signal === "SELL" ? "#dc2626" : color;
+        return [{
+          id: overlay.id,
+          label: overlay.label,
+          value: `${badgeVal}${lastPoint.signal !== "HOLD" ? ` (${lastPoint.signal})` : ""}`,
+          color: signalColor,
+        }];
+      }
+      return [];
+    });
+  }, [overlays]);
 
   useEffect(() => {
     const container = containerRef.current;
@@ -242,6 +323,7 @@ export function BacktestCandleChart({
     ma20SeriesRef.current = ma20Series;
     ma50SeriesRef.current = ma50Series;
     priceLinesRef.current = [];
+    overlaySeriesRef.current = [];
 
     return () => {
       chart.remove();
@@ -251,6 +333,7 @@ export function BacktestCandleChart({
       ma20SeriesRef.current = undefined;
       ma50SeriesRef.current = undefined;
       priceLinesRef.current = [];
+      overlaySeriesRef.current = [];
     };
   }, []);
 
@@ -261,6 +344,16 @@ export function BacktestCandleChart({
     const ma50Series = ma50SeriesRef.current;
     const chart = chartRef.current;
     if (!candleSeries || !volumeSeries || !ma20Series || !ma50Series || !chart) return;
+
+    // Clean previous dynamic overlay series
+    overlaySeriesRef.current.forEach((series) => {
+      try {
+        chart.removeSeries(series);
+      } catch {
+        // Series already removed
+      }
+    });
+    overlaySeriesRef.current = [];
 
     if (!candles.length) {
       candleSeries.setData([]);
@@ -286,8 +379,99 @@ export function BacktestCandleChart({
 
     candleSeries.setData(candleData);
     volumeSeries.setData(volumeData);
-    ma20Series.setData(ma20Data);
-    ma50Series.setData(ma50Data);
+
+    const hasOverlays = overlays && overlays.length > 0;
+    if (hasOverlays) {
+      // Clear generic MA lines when custom strategy overlays exist
+      ma20Series.setData([]);
+      ma50Series.setData([]);
+
+      // Render strategy-defined overlays
+      overlays.forEach((overlay, idx) => {
+        if (hiddenKeys.has(overlay.id)) return;
+
+        const color = OVERLAY_COLORS[idx % OVERLAY_COLORS.length]!;
+        if (overlay.kind === "LINE") {
+          const isDashed = overlay.label.toLowerCase().includes("upper") || overlay.label.toLowerCase().includes("lower");
+          const lineSeries = chart.addLineSeries({
+            color,
+            lineWidth: isDashed ? 1 : 2,
+            lineStyle: isDashed ? LineStyle.Dashed : LineStyle.Solid,
+            priceLineVisible: false,
+            lastValueVisible: false,
+            title: overlay.label,
+          });
+          const timeMap = new Map<number, number>();
+          for (const p of overlay.points) {
+            if (p && p.time && Number.isFinite(p.value)) {
+              const sec = chartTime(p.time) as number;
+              if (!isNaN(sec)) {
+                timeMap.set(sec, p.value);
+              }
+            }
+          }
+          const sorted = Array.from(timeMap.entries())
+            .sort((a, b) => a[0] - b[0])
+            .map(([time, value]) => ({ time: time as Time, value }));
+          lineSeries.setData(sorted);
+          overlaySeriesRef.current.push(lineSeries);
+        } else if (overlay.kind === "ZONE") {
+          const zoneColor = overlay.id === "support" ? "#10b981" : overlay.id === "resistance" ? "#dc2626" : color;
+          const lowMap = new Map<number, number>();
+          const highMap = new Map<number, number>();
+          let hasDiff = false;
+          for (const p of overlay.points) {
+            if (p && p.time) {
+              const sec = chartTime(p.time) as number;
+              if (!isNaN(sec)) {
+                if (Number.isFinite(p.low)) lowMap.set(sec, p.low);
+                if (Number.isFinite(p.high)) highMap.set(sec, p.high);
+                if (p.low !== p.high) hasDiff = true;
+              }
+            }
+          }
+
+          if (hasDiff) {
+            const upperSeries = chart.addLineSeries({
+              color: zoneColor,
+              lineWidth: 1,
+              lineStyle: LineStyle.Dashed,
+              priceLineVisible: false,
+              lastValueVisible: false,
+              title: `${overlay.label} (High)`,
+            });
+            upperSeries.setData(Array.from(highMap.entries()).sort((a, b) => a[0] - b[0]).map(([time, value]) => ({ time: time as Time, value })));
+            overlaySeriesRef.current.push(upperSeries);
+
+            const lowerSeries = chart.addLineSeries({
+              color: zoneColor,
+              lineWidth: 1,
+              lineStyle: LineStyle.Dashed,
+              priceLineVisible: false,
+              lastValueVisible: false,
+              title: `${overlay.label} (Low)`,
+            });
+            lowerSeries.setData(Array.from(lowMap.entries()).sort((a, b) => a[0] - b[0]).map(([time, value]) => ({ time: time as Time, value })));
+            overlaySeriesRef.current.push(lowerSeries);
+          } else {
+            const singleSeries = chart.addLineSeries({
+              color: zoneColor,
+              lineWidth: 1,
+              lineStyle: LineStyle.Dotted,
+              priceLineVisible: false,
+              lastValueVisible: false,
+              title: overlay.label,
+            });
+            singleSeries.setData(Array.from(lowMap.entries()).sort((a, b) => a[0] - b[0]).map(([time, value]) => ({ time: time as Time, value })));
+            overlaySeriesRef.current.push(singleSeries);
+          }
+        }
+      });
+    } else {
+      // Fallback: draw generic MA(20) and MA(50) if not toggled off
+      ma20Series.setData(hiddenKeys.has("ma20") ? [] : ma20Data);
+      ma50Series.setData(hiddenKeys.has("ma50") ? [] : ma50Data);
+    }
 
     // Clean previous price lines
     priceLinesRef.current.forEach((line) => {
@@ -299,34 +483,78 @@ export function BacktestCandleChart({
     });
     priceLinesRef.current = [];
 
-    // Support and resistance lines
-    if (supportPrice !== null && resistancePrice !== null) {
-      try {
-        const sLine = candleSeries.createPriceLine({
-          price: supportPrice,
-          color: "#16a34a",
-          lineWidth: 1,
-          lineStyle: LineStyle.Dotted,
-          axisLabelVisible: true,
-          title: `Support: ${supportPrice.toLocaleString()}`,
-        });
-        const rLine = candleSeries.createPriceLine({
-          price: resistancePrice,
-          color: "#dc2626",
-          lineWidth: 1,
-          lineStyle: LineStyle.Dotted,
-          axisLabelVisible: true,
-          title: `Resistance: ${resistancePrice.toLocaleString()}`,
-        });
-        priceLinesRef.current.push(sLine, rLine);
-      } catch {
-        // Ignore price line creation error
+    // Support and resistance lines (only when no custom ZONE overlay is active and not hidden)
+    const hasZoneOverlays = overlays.some((o) => o.kind === "ZONE");
+    if (!hasZoneOverlays) {
+      if (!hiddenKeys.has("support") && supportPrice !== null) {
+        try {
+          const sLine = candleSeries.createPriceLine({
+            price: supportPrice,
+            color: "#16a34a",
+            lineWidth: 1,
+            lineStyle: LineStyle.Dotted,
+            axisLabelVisible: true,
+            title: `Support: ${supportPrice.toLocaleString()}`,
+          });
+          priceLinesRef.current.push(sLine);
+        } catch {}
+      }
+      if (!hiddenKeys.has("resistance") && resistancePrice !== null) {
+        try {
+          const rLine = candleSeries.createPriceLine({
+            price: resistancePrice,
+            color: "#dc2626",
+            lineWidth: 1,
+            lineStyle: LineStyle.Dotted,
+            axisLabelVisible: true,
+            title: `Resistance: ${resistancePrice.toLocaleString()}`,
+          });
+          priceLinesRef.current.push(rLine);
+        } catch {}
       }
     }
 
+    // Assemble markers (combine SIGNAL overlays + executed trade entries/exits)
+    const markers: SeriesMarker<Time>[] = [];
+
+    // Collect SIGNAL overlay markers (filtered to state transitions only to prevent swarm clutter)
+    overlays.forEach((overlay) => {
+      if (overlay.kind === "SIGNAL") {
+        if (hiddenKeys.has(overlay.id)) return; // Hidden via badge toggle
+
+        let lastSignal = "HOLD";
+        overlay.points.forEach((p) => {
+          const isTransition = p.signal !== lastSignal && p.signal !== "HOLD";
+          lastSignal = p.signal;
+
+          if (isTransition) {
+            const entryT = findNearestCandleTime(p.time, candles);
+            if (p.signal === "BUY") {
+              markers.push({
+                time: entryT,
+                position: "belowBar",
+                color: "#10b981",
+                shape: "arrowUp",
+                text: "", // Clean arrow icon with zero overlapping text clutter
+                size: 1,
+              });
+            } else if (p.signal === "SELL") {
+              markers.push({
+                time: entryT,
+                position: "aboveBar",
+                color: "#dc2626",
+                shape: "arrowDown",
+                text: "", // Clean arrow icon with zero overlapping text clutter
+                size: 1,
+              });
+            }
+          }
+        });
+      }
+    });
+
     // Trade markers (LONG entry, SHORT entry, Exit)
     if (trades.length > 0) {
-      const markers: SeriesMarker<Time>[] = [];
       trades.forEach((trade) => {
         if (!trade.entryTime) return;
         const entryT = findNearestCandleTime(trade.entryTime, candles);
@@ -374,7 +602,9 @@ export function BacktestCandleChart({
           }
         }
       });
+    }
 
+    if (markers.length > 0) {
       markers.sort((a, b) => Number(a.time) - Number(b.time));
       candleSeries.setMarkers(markers);
     } else {
@@ -410,8 +640,26 @@ export function BacktestCandleChart({
       }
     }
 
-    chart.timeScale().fitContent();
-  }, [candles, ma20Data, ma50Data, supportPrice, resistancePrice, trades, highlightTradeId]);
+    if (highlightTradeId) {
+      const targetTrade = trades.find((t) => t.id === highlightTradeId);
+      if (targetTrade && targetTrade.entryTime) {
+        const tradeSec = Math.floor(Date.parse(targetTrade.entryTime) / 1000);
+        const windowSec = 3600 * 6;
+        try {
+          chart.timeScale().setVisibleRange({
+            from: (tradeSec - windowSec) as Time,
+            to: (tradeSec + windowSec) as Time,
+          });
+        } catch {
+          chart.timeScale().fitContent();
+        }
+      } else {
+        chart.timeScale().fitContent();
+      }
+    } else {
+      chart.timeScale().fitContent();
+    }
+  }, [candles, ma20Data, ma50Data, supportPrice, resistancePrice, trades, highlightTradeId, overlays, hiddenKeys]);
 
   return (
     <article className={`backtest-chart-card ${isFullscreen ? "is-fullscreen" : ""}`}>
@@ -420,17 +668,85 @@ export function BacktestCandleChart({
           <h3>Backtest Chart{isBacktestResult ? ` (${pair || "Pair"} · ${timeframe || "Timeframe"})` : ""}</h3>
         </div>
         <div className="backtest-chart-badges">
-          {isBacktestResult && latestMa20 !== null && (
-            <span className="chart-badge ma20">MA(20) {latestMa20.toLocaleString()}</span>
+          {isBacktestResult && (overlays && overlays.length > 0) &&
+            overlayBadges.map((badge) => {
+              const isHidden = hiddenKeys.has(badge.id);
+              return (
+                <button
+                  key={badge.id}
+                  type="button"
+                  className={`chart-badge clickable ${isHidden ? "is-hidden" : ""}`}
+                  style={{
+                    color: isHidden ? "#94a3b8" : badge.color,
+                    borderColor: isHidden ? "#cbd5e1" : `${badge.color}50`,
+                    backgroundColor: isHidden ? "#f1f5f9" : `${badge.color}15`,
+                  }}
+                  onClick={() => toggleKey(badge.id)}
+                  title={`Click to ${isHidden ? "show" : "hide"} ${badge.label} indicator on chart`}
+                >
+                  <span
+                    style={{
+                      display: "inline-block",
+                      width: 6,
+                      height: 6,
+                      borderRadius: "50%",
+                      backgroundColor: isHidden ? "#94a3b8" : badge.color,
+                      marginRight: 2,
+                    }}
+                  />
+                  {badge.label} {badge.value}
+                </button>
+              );
+            })}
+
+          {isBacktestResult && (!overlays || overlays.length === 0) && (
+            <>
+              {latestMa20 !== null && (
+                <button
+                  type="button"
+                  className={`chart-badge ma20 clickable ${hiddenKeys.has("ma20") ? "is-hidden" : ""}`}
+                  onClick={() => toggleKey("ma20")}
+                  title={`Click to ${hiddenKeys.has("ma20") ? "show" : "hide"} MA(20) on chart`}
+                >
+                  MA(20) {latestMa20.toLocaleString()}
+                </button>
+              )}
+              {latestMa50 !== null && (
+                <button
+                  type="button"
+                  className={`chart-badge ma50 clickable ${hiddenKeys.has("ma50") ? "is-hidden" : ""}`}
+                  onClick={() => toggleKey("ma50")}
+                  title={`Click to ${hiddenKeys.has("ma50") ? "show" : "hide"} MA(50) on chart`}
+                >
+                  MA(50) {latestMa50.toLocaleString()}
+                </button>
+              )}
+            </>
           )}
-          {isBacktestResult && latestMa50 !== null && (
-            <span className="chart-badge ma50">MA(50) {latestMa50.toLocaleString()}</span>
-          )}
-          {isBacktestResult && supportPrice !== null && (
-            <span className="chart-badge support">Support {supportPrice.toLocaleString()}</span>
-          )}
-          {isBacktestResult && resistancePrice !== null && (
-            <span className="chart-badge resistance">Resistance {resistancePrice.toLocaleString()}</span>
+
+          {isBacktestResult && !overlays?.some((o) => o.kind === "ZONE") && (
+            <>
+              {supportPrice !== null && (
+                <button
+                  type="button"
+                  className={`chart-badge support clickable ${hiddenKeys.has("support") ? "is-hidden" : ""}`}
+                  onClick={() => toggleKey("support")}
+                  title={`Click to ${hiddenKeys.has("support") ? "show" : "hide"} Support on chart`}
+                >
+                  Support {supportPrice.toLocaleString()}
+                </button>
+              )}
+              {resistancePrice !== null && (
+                <button
+                  type="button"
+                  className={`chart-badge resistance clickable ${hiddenKeys.has("resistance") ? "is-hidden" : ""}`}
+                  onClick={() => toggleKey("resistance")}
+                  title={`Click to ${hiddenKeys.has("resistance") ? "show" : "hide"} Resistance on chart`}
+                >
+                  Resistance {resistancePrice.toLocaleString()}
+                </button>
+              )}
+            </>
           )}
           {isBacktestResult && onClear && (
             <button
@@ -859,15 +1175,6 @@ export function BacktestStatsGrid({
           <MiniTradesBarGraphic count={totalTrades} />
         </div>
       </div>
-
-      {/* 7. Backtest duration */}
-      <div className="backtest-stat-card">
-        <span className="stat-card-title">Backtest Duration</span>
-        <span className="stat-card-value">{formatBacktestDuration(latestDuration)}</span>
-        <div className="stat-card-footer">
-          <span className="stat-card-subtext">Latest completed attempt</span>
-        </div>
-      </div>
     </div>
   );
 }
@@ -1271,6 +1578,12 @@ export function BacktestLive({ definitions, composites, scopes }: { definitions:
     refetchInterval: (query) => terminalCandidate(query.state.data?.status) ? false : 1500,
   });
   const currentCandidate = candidate.data;
+  const isBacktestRunning = Boolean(
+    candidateId && currentCandidate && (currentCandidate.status === "QUEUED" || currentCandidate.status === "BACKTESTING")
+  );
+  const isBacktestDisabled = isProcessing || isBacktestRunning || (!definitionId && !compositeId);
+  const latestCandidateDuration = candidateDurations(currentCandidate).at(-1)?.durationMs;
+  const candidateDurationText = latestCandidateDuration !== undefined ? formatBacktestDuration(latestCandidateDuration) : undefined;
 
   // Automatically bind experimentResultId when candidate completes
   useEffect(() => {
@@ -1327,39 +1640,72 @@ export function BacktestLive({ definitions, composites, scopes }: { definitions:
 
   // Query experiment visualization across the full backtest scope range
   const experimentVisual = useQuery({
-    queryKey: ["experiments", activeExperimentId, "visualization", highlightTradeId],
+    queryKey: ["experiments", activeExperimentId, "visualization"],
     queryFn: async () => {
       let allCandles: ApiCandle[] = [];
       let allOverlays: StrategyVisualizationOverlay[] = [];
       let allMarkers: VisualizationMarker[] = [];
-      let cursor: string | undefined = undefined;
       let datasetSnapshot: DatasetSnapshotRef | undefined = undefined;
-      let pageCount = 0;
 
-      do {
-        pageCount++;
-        const res = await api.visualization(activeExperimentId!, {
-          limit: 2000,
-          cursor,
-          ...(highlightTradeId ? { highlightTradeId } : {}),
-        });
-        datasetSnapshot = res.datasetSnapshot || datasetSnapshot;
-        if (res.candles && res.candles.length > 0) {
-          allCandles = allCandles.concat(res.candles);
+      // 1. Fetch Page 1 to inspect snapshot metadata and first batch of candles
+      const p1 = await api.visualization(activeExperimentId!, { limit: 2000 });
+      datasetSnapshot = p1.datasetSnapshot;
+      if (p1.candles && p1.candles.length > 0) {
+        allCandles = allCandles.concat(p1.candles);
+      }
+      allOverlays = p1.overlays || [];
+      allMarkers = p1.markers || [];
+
+      // 2. If continuation exists, fetch remaining pages up to full scope
+      const totalCandles = p1.datasetSnapshot?.candleCount ?? 0;
+      if (p1.nextCursor) {
+        if (totalCandles > 2000) {
+          const cursors: string[] = [];
+          for (let offset = 2000; offset < totalCandles; offset += 2000) {
+            cursors.push(String(offset));
+          }
+
+          // Fetch concurrent batches of 6
+          const BATCH_SIZE = 6;
+          for (let i = 0; i < cursors.length; i += BATCH_SIZE) {
+            const chunk = cursors.slice(i, i + BATCH_SIZE);
+            const batchResults = await Promise.all(
+              chunk.map((cursor) => api.visualization(activeExperimentId!, { limit: 2000, cursor }))
+            );
+            for (const res of batchResults) {
+              if (res.candles && res.candles.length > 0) {
+                allCandles = allCandles.concat(res.candles);
+              }
+              if (res.overlays && res.overlays.length > 0) {
+                allOverlays = res.overlays;
+              }
+            }
+          }
+        } else {
+          // Fallback sequential paging if total count is unknown (up to 100 pages = 200,000 candles)
+          let cursor: string | undefined = p1.nextCursor;
+          let pageCount = 1;
+          while (cursor && pageCount < 100) {
+            pageCount++;
+            const res = await api.visualization(activeExperimentId!, { limit: 2000, cursor });
+            if (res.candles && res.candles.length > 0) {
+              allCandles = allCandles.concat(res.candles);
+            }
+            if (res.overlays && res.overlays.length > 0) {
+              allOverlays = res.overlays;
+            }
+            cursor = res.nextCursor;
+          }
         }
-        if (pageCount === 1) {
-          allOverlays = res.overlays || [];
-          allMarkers = res.markers || [];
-        }
-        cursor = res.nextCursor;
-      } while (cursor && pageCount < 10);
+      }
 
       // Sort and deduplicate candles by timestamp for lightweight-charts stability
-      allCandles.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
+      allCandles.sort((a, b) => (a.timestamp < b.timestamp ? -1 : a.timestamp > b.timestamp ? 1 : 0));
       const seenTimes = new Set<number>();
       const dedupedCandles: ApiCandle[] = [];
-      for (const c of allCandles) {
-        const sec = Math.floor(new Date(c.timestamp).getTime() / 1000);
+      for (let i = 0; i < allCandles.length; i++) {
+        const c = allCandles[i]!;
+        const sec = Math.floor(Date.parse(c.timestamp) / 1000);
         if (!seenTimes.has(sec)) {
           seenTimes.add(sec);
           dedupedCandles.push(c);
@@ -1729,26 +2075,8 @@ export function BacktestLive({ definitions, composites, scopes }: { definitions:
             />
           </div>
 
-          {/* 5. Capital (USD) */}
-          <div className="backtest-field-item field-capital">
-            <label className="backtest-label">Capital (USD)</label>
-            <div className="backtest-input-with-suffix">
-              <input
-                type="number"
-                min="1"
-                step="any"
-                value={capital}
-                onChange={(e) => {
-                  setCapital(e.target.value);
-                  if (scopeId) setScopeId("");
-                }}
-                placeholder="10000"
-              />
-              <span className="input-suffix">USD</span>
-            </div>
-          </div>
 
-          {/* 6. Strategy */}
+          {/* 5. Strategy */}
           <div className="backtest-field-item field-strategy">
             <label className="backtest-label">Strategy</label>
             <select
@@ -1788,8 +2116,30 @@ export function BacktestLive({ definitions, composites, scopes }: { definitions:
               )}
             </select>
           </div>
+        </div>
 
-          {/* 7. Transaction Cost */}
+        {/* Row 2: Capital, Execution & Risk Management (Stop Loss and Take Profit blend in seamlessly) */}
+        <div className="backtest-execution-row">
+          {/* Capital (USD) */}
+          <div className="backtest-field-item field-capital">
+            <label className="backtest-label">Capital (USD)</label>
+            <div className="backtest-input-with-suffix">
+              <input
+                type="number"
+                min="1"
+                step="any"
+                value={capital}
+                onChange={(e) => {
+                  setCapital(e.target.value);
+                  if (scopeId) setScopeId("");
+                }}
+                placeholder="10000"
+              />
+              <span className="input-suffix">USD</span>
+            </div>
+          </div>
+
+          {/* Transaction Cost */}
           <div className="backtest-field-item field-fee">
             <label className="backtest-label">Transaction Cost</label>
             <div className="backtest-input-with-suffix">
@@ -1808,7 +2158,7 @@ export function BacktestLive({ definitions, composites, scopes }: { definitions:
             </div>
           </div>
 
-          {/* 8. Slippage */}
+          {/* Slippage */}
           <div className="backtest-field-item field-slippage">
             <label className="backtest-label">Slippage</label>
             <div className="backtest-input-with-suffix">
@@ -1826,13 +2176,12 @@ export function BacktestLive({ definitions, composites, scopes }: { definitions:
               <span className="input-suffix">bps</span>
             </div>
           </div>
-        </div>
 
-        {/* Optional protective exits are part of the retained execution policy. */}
-        <div className="backtest-risk-row">
-          <span className="backtest-risk-label">Protective exits <small>(optional)</small></span>
-          <div className="backtest-field-item backtest-risk-field">
-            <label className="backtest-label" htmlFor="backtest-stop-loss">Stop Loss</label>
+          {/* Stop Loss (Protective Exit) */}
+          <div className="backtest-field-item field-risk-exit">
+            <label className="backtest-label" htmlFor="backtest-stop-loss" title="Protective stop loss calculated from entry price">
+              Stop Loss <span className="label-optional">(optional)</span>
+            </label>
             <div className="backtest-input-with-suffix">
               <input
                 id="backtest-stop-loss"
@@ -1846,13 +2195,16 @@ export function BacktestLive({ definitions, composites, scopes }: { definitions:
                   if (scopeId) setScopeId("");
                 }}
                 placeholder="e.g. 2"
-                aria-describedby="backtest-risk-help"
               />
               <span className="input-suffix">%</span>
             </div>
           </div>
-          <div className="backtest-field-item backtest-risk-field">
-            <label className="backtest-label" htmlFor="backtest-take-profit">Take Profit</label>
+
+          {/* Take Profit (Protective Exit) */}
+          <div className="backtest-field-item field-risk-exit">
+            <label className="backtest-label" htmlFor="backtest-take-profit" title="Protective take profit calculated from entry price">
+              Take Profit <span className="label-optional">(optional)</span>
+            </label>
             <div className="backtest-input-with-suffix">
               <input
                 id="backtest-take-profit"
@@ -1866,12 +2218,10 @@ export function BacktestLive({ definitions, composites, scopes }: { definitions:
                   if (scopeId) setScopeId("");
                 }}
                 placeholder="e.g. 4"
-                aria-describedby="backtest-risk-help"
               />
               <span className="input-suffix">%</span>
             </div>
           </div>
-          <span id="backtest-risk-help" className="backtest-risk-help">Levels are calculated from each trade’s market entry price.</span>
         </div>
 
         {/* Sentiment Strategy Range Guidance Banner */}
@@ -1973,11 +2323,28 @@ export function BacktestLive({ definitions, composites, scopes }: { definitions:
           <div className="backtest-actions-cluster">
             <button
               type="button"
-              className="btn-run-backtest-primary"
-              disabled={isProcessing || (!definitionId && !compositeId)}
+              className={`btn-run-backtest-primary ${isBacktestRunning ? "btn-backtest-busy" : ""}`}
+              disabled={isBacktestDisabled}
               onClick={() => void handleRunBacktest()}
+              title={
+                !definitionId && !compositeId
+                  ? "Please select a strategy or composite ensemble first"
+                  : isProcessing
+                  ? "Submitting backtest..."
+                  : currentCandidate?.status === "QUEUED"
+                  ? "A backtest is currently queued in Redis"
+                  : currentCandidate?.status === "BACKTESTING"
+                  ? "A backtest is currently running"
+                  : "Run backtest"
+              }
             >
-              {isProcessing ? "⏳ Running..." : "🚀 Run Backtest"}
+              {isProcessing
+                ? "⏳ Running..."
+                : currentCandidate?.status === "QUEUED"
+                ? "⏳ Queued in Redis..."
+                : currentCandidate?.status === "BACKTESTING"
+                ? "⚡ Simulating..."
+                : "🚀 Run Backtest"}
             </button>
           </div>
         </div>
@@ -2014,18 +2381,31 @@ export function BacktestLive({ definitions, composites, scopes }: { definitions:
               <div className="lifecycle">
                 <span className={currentCandidate.status === "QUEUED" ? "active" : ""}>Queued in Redis</span>
                 <span className={currentCandidate.status === "BACKTESTING" ? "active" : ""}>Worker Simulating</span>
-                <span className={currentCandidate.status === "COMPLETED" ? "active success-text" : ""}>Completed &amp; Sealed</span>
+                <span className={currentCandidate.status === "COMPLETED" ? "active success-text" : ""}>
+                  Completed &amp; Sealed{currentCandidate.status === "COMPLETED" && candidateDurationText ? ` (${candidateDurationText})` : ""}
+                </span>
                 {currentCandidate.status === "FAILED" && <span className="active error-text">Failed</span>}
                 {currentCandidate.status === "CANCELLED" && <span className="active error-text">Cancelled</span>}
               </div>
 
               {currentCandidate.status === "COMPLETED" && currentCandidate.experimentResultId ? (
-                <p className="success" style={{ margin: "10px 0 0", fontSize: "12.5px" }}>
-                  ✓ Candidate run complete and sealed as Experiment <b>{currentCandidate.experimentResultId}</b>
-                </p>
-              ) : !terminalCandidate(currentCandidate.status) ? (
+                <div className="lifecycle-completed-banner">
+                  <span className="completed-title">
+                    ✓ Candidate run complete and sealed as Experiment <b>{currentCandidate.experimentResultId}</b>
+                  </span>
+                  {candidateDurationText && (
+                    <span className="lifecycle-duration-pill">
+                      ⏱ Duration: <b>{candidateDurationText}</b>
+                    </span>
+                  )}
+                </div>
+              ) : currentCandidate.status === "QUEUED" ? (
                 <p className="muted" style={{ textAlign: "center", margin: "14px 0" }}>
-                  Backend worker is processing this candidate tick-by-tick...
+                  ⏳ Candidate is queued in Redis, waiting for an available worker...
+                </p>
+              ) : currentCandidate.status === "BACKTESTING" ? (
+                <p className="muted" style={{ textAlign: "center", margin: "14px 0" }}>
+                  ⚡ Backend worker is processing this candidate tick-by-tick...
                 </p>
               ) : (
                 <div style={{ marginTop: "12px" }}>

@@ -232,6 +232,8 @@ export function simulateBacktest(input: SimulationInput): CompletedBacktestResul
     position = { signal, entryIndex: index, marketEntryPrice, entryPrice, entryTime: candle.timestamp, quantity, equityBeforeTrade: equity, stopLoss, takeProfit };
   };
 
+  const strategyCandles = candles.map(toStrategyCandle);
+
   for (let index = 0; index < candles.length; index += 1) {
     const candle = candles[index];
     if (scheduled && index >= warmupCandles) {
@@ -258,10 +260,11 @@ export function simulateBacktest(input: SimulationInput): CompletedBacktestResul
 
     if (index < warmupCandles || index === candles.length - 1) continue;
     const sentiment = input.sentimentAt?.(candleCloseTime(candle.timestamp, input.timeframe));
+    const windowStart = Math.max(0, index + 1 - 1000);
     const context: StrategyContext = {
       pair: input.pair,
       timeframe: input.timeframe,
-      candles: candles.slice(0, index + 1).map(toStrategyCandle),
+      candles: strategyCandles.slice(windowStart, index + 1),
       currentPrice: candle.close,
       indicators: {},
       ...(sentiment ? { sentiment } : {}),
